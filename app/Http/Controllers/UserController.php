@@ -8,16 +8,30 @@ use Illuminate\Support\Facades\Hash;
 use Illuminate\Validation\Rules;
 use Inertia\Inertia;
 use Spatie\Permission\Models\Role;
+use Illuminate\Support\Str;
 
 class UserController extends Controller
 {
     /**
      * Display a listing of the resource.
      */
-    public function index()
+    public function index(Request $request)
     {
+        $users = User::query()
+            ->when($request->input('search'), function ($query, $search) {
+                $query->where('name', 'like', "%{$search}%")
+                    ->orWhere('email', 'like', "%{$search}%");
+            })
+            ->with('services')
+            ->paginate(10)
+            ->through(function ($user) {
+                $user->user_type = $user->idprod ? 'Productor' : ($user->services->isNotEmpty() ? 'Servicio' : 'Usuario');
+                return $user;
+            });
+
         return Inertia::render('Users/Index', [
-            'users' => User::all()
+            'users' => $users,
+            'filters' => $request->only(['search']),
         ]);
     }
 
@@ -109,5 +123,17 @@ class UserController extends Controller
         $user->syncRoles($request->roles);
 
         return redirect()->route('users.index');
+    }
+
+    public function resetPassword(Request $request, User $user)
+    {
+        $request->validate([
+            'password' => ['required', 'confirmed', Rules\Password::defaults()],
+        ]);
+
+        $user->password = Hash::make($request->password);
+        $user->save();
+
+        return redirect()->route('users.edit', $user->id)->with('success', 'Password updated successfully.');
     }
 }

@@ -24,6 +24,7 @@ Route::middleware('auth')->group(function () {
     Route::resource('users', UserController::class)->names('users');
     Route::get('users/{user}/assign-roles', [UserController::class, 'assignRoles'])->name('users.assignRoles');
     Route::post('users/{user}/sync-roles', [UserController::class, 'syncRoles'])->name('users.syncRoles');
+    Route::post('users/{user}/reset-password', [UserController::class, 'resetPassword'])->name('users.reset-password');
     Route::post('pass/{user}', [UserController::class,'password_rec'])->name('recuperar.contrasena');
     Route::get('createlogo/{user}', [UserController::class,'logo_create'])->name('create.logo');
     Route::post('updatelogo/{user}', [UserController::class,'logo_update'])->name('update.logo');
