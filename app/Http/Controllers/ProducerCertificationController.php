@@ -12,6 +12,7 @@ use App\Models\Market;
 use Illuminate\Http\Request;
 use Inertia\Inertia;
 use Illuminate\Support\Facades\Storage;
+use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Pagination\LengthAwarePaginator;
 
@@ -69,7 +70,7 @@ class ProducerCertificationController extends Controller
                     $producersExpired++;
                 } elseif ($hasExpiringSoon) {
                     $producersExpiringSoon++;
-                } elseif ($hasUpToDate && !$hasExpired && !$hasExpiringSoon) {
+                } elseif ($hasUpToDate) {
                     $producersUpToDate++;
                 }
             }
@@ -99,9 +100,9 @@ class ProducerCertificationController extends Controller
             $today = now();
             $expiry = \Carbon\Carbon::parse($expirationDate);
 
-            $diffDays = $expiry->diffInDays($today, false);
+            $diffDays=$today->diffInDays($expiry, false);
 
-            if ($diffDays <= 30 && $diffDays >= 0) {
+            if ($diffDays <= 30 && $diffDays > 0) {
                 return 'Por vencer';
             } elseif ($diffDays < 0) {
                 return 'Vencida';
