@@ -1,6 +1,7 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import AuthenticatedLayout from '@/Layouts/AuthenticatedLayout';
-import { Head, useForm } from '@inertiajs/react';
+import { Head, useForm, usePage } from '@inertiajs/react';
+import { Toaster, toast } from 'sonner';
 import { Card, CardContent, CardHeader, CardTitle } from '@/Components/ui/card';
 import { Button } from '@/Components/ui/button';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '@/Components/ui/dialog';
@@ -14,6 +15,14 @@ import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/Components/ui/tabs';
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/Components/ui/collapsible';
 
 export default function ProducerShow({ auth, producer, certifyingHouses, certificateTypes, especies, markets }) {
+    const { flash } = usePage().props;
+
+    useEffect(() => {
+        if (flash && flash.success) {
+            toast.success(flash.success);
+        }
+    }, [flash]);
+
     const { data, setData, post, put, delete: destroy, processing, errors, reset } = useForm({
         certifying_house_id: null,
         name: '',
@@ -140,7 +149,7 @@ export default function ProducerShow({ auth, producer, certifyingHouses, certifi
         const submitData = { ...data };
 
         if (editingCertification) {
-            put(route('producer-certifications.update', editingCertification.id), {
+            post(route('producer-certifications.update', editingCertification.id), {
                 ...submitData,
                 _method: 'put',
             }, {
@@ -167,6 +176,7 @@ export default function ProducerShow({ auth, producer, certifyingHouses, certifi
             header={<h2 className="font-semibold text-xl text-gray-800 leading-tight">Detalle del Productor: {producer.name}</h2>}
         >
             <Head title={`Detalle del Productor: ${producer.name}`} />
+            <Toaster richColors position="top-right" />
 
             <div className="py-12">
                 <div className="max-w-7xl mx-auto sm:px-6 lg:px-8">
@@ -326,14 +336,15 @@ export default function ProducerShow({ auth, producer, certifyingHouses, certifi
                                                             </CollapsibleTrigger>
                                                             <CollapsibleContent className="p-3 border-t bg-white rounded-b-md">
                                                                 {markets.map(market => {
-                                                                    const producerCertificateTypeIds = new Set(producer.certifications.map(c => c.certificate_type_id));
+                                                                    const producerCertificateTypeIds = new Set(vigentesCertifications.map(c => c.certificate_type_id));
                                                                     const requiredCertificateTypeIds = new Set(market.certificate_types.map(ct => ct.id));
                                                                     const hasAllCertificates = [...requiredCertificateTypeIds].every(id => producerCertificateTypeIds.has(id));
 
                                                                     const producerEspecieIds = new Set(producer.especies.map(e => e.id));
                                                                     const requiredEspecieIds = new Set(market.especies.map(e => e.id));
                                                                     const hasAllEspecies = [...requiredEspecieIds].every(id => producerEspecieIds.has(id));
-
+                                                                    console.log('hasAllEspecies', hasAllEspecies);
+                                                                    console.log('hasAllCertificates', hasAllCertificates);
                                                                     const hasAccess = hasAllCertificates && hasAllEspecies;
 
                                                                     return (
@@ -603,9 +614,9 @@ export default function ProducerShow({ auth, producer, certifyingHouses, certifi
                             )}
                             <div>
                                 <p className="font-semibold">Otros Documentos:</p>
-                                {viewingCertification.other_documents.length > 0 ? (
+                                {viewingCertification.other_documents?.length > 0 ? (
                                     <ul className="list-disc list-inside">
-                                        {viewingCertification.other_documents.map(doc => (
+                                        {viewingCertification.other_documents?.map(doc => (
                                             <li key={doc.id}>
                                                 <a href={route('producer-certifications.downloadOtherDocument', doc.id)} target="_blank" rel="noopener noreferrer" className="text-blue-600 hover:underline">{doc.description || 'Documento'}</a>
                                             </li>

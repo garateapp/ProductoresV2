@@ -109,7 +109,7 @@ class UserController extends Controller
     public function assignRoles(User $user)
     {
         $roles = Role::all();
-        $userRoles = $user->roles->pluck('id')->toArray();
+        $userRoles = $user->roles->pluck('id')->values()->all();
         return Inertia::render('Users/AssignRoles', compact('user', 'roles', 'userRoles'));
     }
 

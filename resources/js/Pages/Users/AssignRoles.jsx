@@ -1,26 +1,36 @@
-import React from 'react';
-import { useForm } from '@inertiajs/react';
+import React, { useState } from 'react';
+import { router } from '@inertiajs/react';
 import { Button } from '@/Components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/Components/ui/card';
 import { Label } from '@/Components/ui/label';
 import AuthenticatedLayout from '@/Layouts/AuthenticatedLayout';
 
 export default function AssignRoles({ user, roles, userRoles }) {
-  const { data, setData, post, errors } = useForm({
-    roles: userRoles || [],
-  });
+  const initialRoles = Array.isArray(userRoles) ? userRoles.map(id => Number(id)) : [];
+  const [selectedRoles, setSelectedRoles] = useState(initialRoles);
+
+  console.log('Initial selectedRoles:', selectedRoles);
+  console.log('typeof selectedRoles:', typeof selectedRoles);
+  console.log('Array.isArray(selectedRoles):', Array.isArray(selectedRoles));
 
   function handleCheckboxChange(roleId) {
-    setData('roles', (prevRoles) =>
-      prevRoles.includes(roleId)
-        ? prevRoles.filter((id) => id !== roleId)
-        : [...prevRoles, roleId]
-    );
+    const id = Number(roleId);
+    console.log('Before change - selectedRoles:', selectedRoles);
+    setSelectedRoles(prev => {
+      console.log('prev:', prev);
+      if (prev.includes(id)) {
+        return prev.filter(r => r !== id);
+      } else {
+        return [...prev, id];
+      }
+    });
   }
 
   function submit(e) {
     e.preventDefault();
-    post(route('users.syncRoles', user.id));
+    router.post(route('users.syncRoles', user.id), {
+      roles: selectedRoles,
+    });
   }
 
   return (
@@ -37,16 +47,13 @@ export default function AssignRoles({ user, roles, userRoles }) {
                   <input
                     type="checkbox"
                     id={`role-${role.id}`}
-                    checked={data.roles.includes(role.id)}
+                    checked={selectedRoles.includes(Number(role.id))}
                     onChange={() => handleCheckboxChange(role.id)}
                   />
-                  <Label htmlFor={`role-${role.id}`}>
-                    {role.name}
-                  </Label>
+                  <Label htmlFor={`role-${role.id}`}>{role.name}</Label>
                 </div>
               ))}
             </div>
-            {errors.roles && <div className="text-red-500 text-sm">{errors.roles}</div>}
             <Button type="submit">Assign Roles</Button>
           </form>
         </CardContent>

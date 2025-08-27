@@ -20,8 +20,12 @@ const navLinkClasses =
     "group inline-flex h-9 w-max items-center justify-center rounded-md bg-greenex-dark-green px-4 py-2 text-sm font-medium transition-colors hover:bg-greenex-vibrant-green hover:text-greenex-orange focus:bg-greenex-vibrant-green focus:text-greenex-orange focus:outline-none disabled:pointer-events-none disabled:opacity-50 text-greenex-white";
 
 export default function AuthenticatedLayout({ header, children }) {
-    const user = usePage().props.auth.user;
+    const { user } = usePage().props.auth;
     const [showingNavigationDropdown, setShowingNavigationDropdown] = useState(false);
+
+    const hasRole = (roleName) => user.roles?.some(role => role.name === roleName);
+
+    const hasAnyRole = (roles) => roles.some(role => hasRole(role));
 
     return (
         <div className="min-h-screen bg-greenex-white">
@@ -46,36 +50,43 @@ export default function AuthenticatedLayout({ header, children }) {
                                             </NavigationMenuLink>
                                         </NavigationMenuItem>
 
-                                        <NavigationMenuItem>
-                                            <NavigationMenuLink asChild className={navLinkClasses}>
-                                                <Link href={route('recepciones.index')}>Recepciones</Link>
-                                            </NavigationMenuLink>
-                                        </NavigationMenuItem>
+                                        {hasAnyRole(['Administrador', 'Productor', 'Gerencia']) && (
+                                            <NavigationMenuItem>
+                                                <NavigationMenuLink asChild className={navLinkClasses}>
+                                                    <Link href={route('recepciones.index')}>Recepciones</Link>
+                                                </NavigationMenuLink>
+                                            </NavigationMenuItem>
+                                        )}
 
-                                        <NavigationMenuItem>
-                                            <NavigationMenuLink asChild className={navLinkClasses}>
-                                                <Link href={route('procesos.index')}>Procesos</Link>
-                                            </NavigationMenuLink>
-                                        </NavigationMenuItem>
+                                        {hasAnyRole(['Administrador', 'Productor', 'Gerencia']) && (
+                                            <NavigationMenuItem>
+                                                <NavigationMenuLink asChild className={navLinkClasses}>
+                                                    <Link href={route('procesos.index')}>Procesos</Link>
+                                                </NavigationMenuLink>
+                                            </NavigationMenuItem>
+                                        )}
 
+                                        {hasAnyRole(['Administrador', 'Calidad']) && <ControlCalidadMenu />}
 
+                                        {hasAnyRole(['Administrador', 'Agronomo', 'Sag']) && (
+                                            <NavigationMenuItem>
+                                                <NavigationMenuLink asChild className={navLinkClasses}>
+                                                    <Link href={route('sag.index')}>Módulo SAG</Link>
+                                                </NavigationMenuLink>
+                                            </NavigationMenuItem>
+                                        )}
 
-                                       <ControlCalidadMenu />
-                                        <NavigationMenuItem>
-                                            <NavigationMenuLink asChild className={navLinkClasses}>
-                                                <Link href={route('sag.index')}>Módulo SAG</Link>
-                                            </NavigationMenuLink>
-                                        </NavigationMenuItem>
-
-                                        <NavigationMenuItem>
-                                            <NavigationMenuLink asChild className={navLinkClasses}>
-                                                <Link href={route('contracts.index')}>Contratos</Link>
-                                            </NavigationMenuLink>
-                                        </NavigationMenuItem>
+                                        {hasAnyRole(['Administrador', 'Productor', 'Gerencia']) && (
+                                            <NavigationMenuItem>
+                                                <NavigationMenuLink asChild className={navLinkClasses}>
+                                                    <Link href={route('contracts.index')}>Contratos</Link>
+                                                </NavigationMenuLink>
+                                            </NavigationMenuItem>
+                                        )}
 
                                         {/* Submenús extraídos */}
-                                        <DocumentationMenu />
-                                        {user.roles?.some(role => role.name === 'Administrador') && <AdminMenu />}
+                                        {hasAnyRole(['Administrador', 'Gerencia', 'Agronomo', 'Sag']) && <DocumentationMenu />}
+                                        {hasRole('Administrador') && <AdminMenu />}
                                         <UserMenu user={user} />
                                     </NavigationMenuList>
                                 </NavigationMenu>
