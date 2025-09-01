@@ -4,6 +4,9 @@ import {
   DropdownMenuTrigger,
   DropdownMenuContent,
   DropdownMenuItem,
+  DropdownMenuSub,
+  DropdownMenuSubContent,
+  DropdownMenuSubTrigger,
 } from "@/Components/ui/dropdown-menu";
 import { Link } from "@inertiajs/react";
 
@@ -18,13 +21,17 @@ export default function ControlCalidadMenu() {
         align="start" // 👈 puedes poner "end" si lo quieres pegado al lado derecho
         className="w-64 bg-greenex-dark-green border border-greenex-vibrant-green rounded-md shadow-lg"
       >
-
-
-        <DropdownMenuItem asChild>
-
-           <Link href={route('control-calidad.index')} className="w-full">Recepción</Link>
-
-        </DropdownMenuItem>
+        <DropdownMenuSub>
+          <DropdownMenuSubTrigger>Recepción</DropdownMenuSubTrigger>
+          <DropdownMenuSubContent>
+            <DropdownMenuItem asChild>
+              <Link href={route('control-calidad.index')} className="w-full">Gestión de Calidad</Link>
+            </DropdownMenuItem>
+            <DropdownMenuItem asChild>
+              <Link href={route('reporteria.calidad')} className="w-full">Reporteria</Link>
+            </DropdownMenuItem>
+          </DropdownMenuSubContent>
+        </DropdownMenuSub>
 
         <DropdownMenuItem asChild>
           <Link href={route('processed-fruit-quality.index')} className="w-full">Producto Terminado</Link>

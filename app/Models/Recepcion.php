@@ -5,6 +5,7 @@ namespace App\Models;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\HasOne;
+use Illuminate\Database\Eloquent\Relations\BelongsTo;
 
 class Recepcion extends Model
 {
@@ -36,5 +37,15 @@ class Recepcion extends Model
     public function calidad(): HasOne
     {
         return $this->hasOne(Calidad::class);
+    }
+
+    public function producer(): BelongsTo
+    {
+        return $this->belongsTo(User::class, 'id_emisor', 'idprod');
+    }
+
+    public function variedad(): BelongsTo
+    {
+        return $this->belongsTo(Variedad::class, 'n_variedad', 'name');
     }
 }

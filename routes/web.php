@@ -3,6 +3,7 @@
 use App\Http\Controllers\ProfileController;
 use App\Http\Controllers\PhotoTypeController;
 use App\Http\Controllers\QualityControlPhotoController;
+use App\Http\Controllers\ReporteriaController;
 use App\Http\Controllers\UserController;
 use Illuminate\Foundation\Application;
 use Illuminate\Support\Facades\Route;
@@ -106,6 +107,9 @@ Route::middleware('auth')->group(function () {
     Route::get('/api/csgs-by-rut/{rut}', [App\Http\Controllers\MrlSampleController::class, 'getCsgsByRut'])->name('api.csgs-by-rut');
 
     Route::resource('contracts', App\Http\Controllers\ContractController::class)->names('contracts');
+
+    Route::get('reporteria/calidad', [ReporteriaController::class, 'index'])->name('reporteria.calidad');
+    Route::get('reporteria/export-consolidated', [ReporteriaController::class, 'exportConsolidated'])->name('reporteria.export.consolidated');
 });
 
 require __DIR__.'/auth.php';
