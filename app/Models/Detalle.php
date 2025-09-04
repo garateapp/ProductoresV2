@@ -22,6 +22,8 @@ class Detalle extends Model
         'categoria',
         'tipo_detalle',
         'porcentaje_muestra',
+        'color',
+
     ];
 
     public function calidad(): BelongsTo

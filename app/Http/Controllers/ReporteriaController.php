@@ -12,6 +12,9 @@ use App\Models\Recepcion;
 use App\Models\Calidad;
 use Illuminate\Support\Facades\Log;
 use Carbon\Carbon;
+use Maatwebsite\Excel\Facades\Excel;
+use App\Exports\ConsolidatedExport;
+use App\Exports\CherriesConsolidatedExport;
 
 class ReporteriaController extends Controller
 {
@@ -402,5 +405,44 @@ class ReporteriaController extends Controller
         }
 
         return array_values($chartData);
+    }
+
+    public function exportConsolidated(Request $request)
+    {
+        $filters = $request->only(['especie_id', 'variedad_id', 'productor_id', 'lote']);
+        $nombre_especie="";
+        $query = Recepcion::query()
+            ->with(['calidad.detalles.parametro', 'calidad.detalles.valor', 'producer', 'variedad'])
+            ->when($request->filled('especie_id'), function ($query) use ($request) {
+                $especie = Especie::find($request->input('especie_id'));
+                $nombre_especie=$especie->name;
+                if($especie){
+                    $query->where('n_especie', $especie->name);
+                }
+            })
+            ->when($request->filled('variedad_id'), function ($query) use ($request) {
+                $variedad = \App\Models\Variedad::find($request->input('variedad_id'));
+                if($variedad){
+                    $query->where('n_variedad', $variedad->name);
+                }
+            })
+            ->when($request->filled('productor_id') && $request->input('productor_id') !== 'all', function ($query) use ($request) {
+                $query->where('id_emisor', $request->input('productor_id'));
+            })
+            ->when($request->filled('lote'), function ($query) use ($request) {
+                $query->where('numero_g_recepcion', $request->input('lote'));
+            });
+
+        $receptions = $query->get();
+
+        $firstReception = $receptions->first();
+        $speciesName = $firstReception ? $firstReception->n_especie : null;
+
+        if ($speciesName === 'Cherries') {
+            return Excel::download(new CherriesConsolidatedExport($receptions), 'consolidated-report-cherries.xlsx');
+        } else {
+            // For other species, use the existing ConsolidatedExport
+            return Excel::download(new ConsolidatedExport($receptions), 'consolidated-report.xlsx');
+        }
     }
 }
