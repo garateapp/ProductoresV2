@@ -1336,27 +1336,25 @@ class ControlCalidadController extends Controller
         Log::debug('Browsershot using temporary directory: ' . $tmpDir);
 
         // OJO: primero configurar el temp, luego html()
-        $browsershot = (new Browsershot())
-            ->setTemporaryDirectory($tmpDir)
-            ->setChromePath('/usr/bin/chromium-browser') // ← Tu Chromium del sistema
-        ->setOption('executablePath', '/usr/bin/chromium-browser') // ← Refuerza la ruta
-        ->setOption('headless', true) // ← Asegúrate de que esté en modo headless
-        ->noSandbox()
-        ->addChromiumArguments([
-            '--disable-dev-shm-usage',
-            '--disable-gpu',
-            '--no-zygote',
-            '--disable-setuid-sandbox',
-            '--font-render-hinting=none',
-        ])
-            ->setViewport(1920, 1080)
-            ->waitUntilNetworkIdle()
-            ->delay(15000)
-            ->setOption('landscape', false)
-            ->setOption('printBackground', true)
-            ->html($html)                // <- ahora sí
-            ->savePdf($pdfPath);
-
+       Browsershot::html($html)
+    ->setTemporaryDirectory(storage_path('app/browsershot-temp'))
+    ->setChromePath('/usr/bin/chromium-browser') // ← Usa el que ya tienes
+    ->setOption('executablePath', '/usr/bin/chromium-browser') // ← Clave para Puppeteer
+    ->setOption('headless', true)
+    ->noSandbox()
+    ->addChromiumArguments([
+        '--no-sandbox',              // ← Obligatorio con Snap
+        '--disable-dev-shm-usage',   // ← Evita problemas en Docker/servidores
+        '--disable-gpu',             // ← Recomendado en headless
+        '--font-render-hinting=none',
+        '--headless=new',            // ← Modo headless moderno
+    ])
+    ->waitUntilNetworkIdle()
+    ->wait(15) // segundos, no milisegundos
+    ->setViewport(1920, 1080)
+    ->landscape(false)
+    ->showBackground()
+    ->savePdf($pdfPath);
         return response()->file($pdfPath);
     } catch (\Exception $e) {
         Log::error('Browsershot error: ' . $e->getMessage());
