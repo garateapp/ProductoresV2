@@ -1326,11 +1326,14 @@ class ControlCalidadController extends Controller
         ))->render();
 
                 try {
-                                    $pdfPath = storage_path('app/public/reporte_recepcion_' . $recepcion->numero_g_recepcion . '.pdf');
+            $pdfPath = storage_path('app/public/reporte_recepcion_' . $recepcion->numero_g_recepcion . '.pdf');
             Browsershot::html($html)
+            //En caso de que sea local
                 // ->setNodeBinary('C:\Program Files\nodejs\node.exe') // VERIFY THIS PATH
                 // ->setNpmBinary('C:\Program Files\nodejs\npm.cmd')   // VERIFY THIS PATH
                 //->setChromePath('C:\Program Files\Google\Chrome\Application\chrome.exe') // VERIFY THIS PATH
+                //En caso de que sea local
+
                 ->setChromePath('/usr/bin/chromium-browser')
                 ->showBackground()
                 ->noSandbox()
