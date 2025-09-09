@@ -1310,7 +1310,7 @@ class ControlCalidadController extends Controller
         $firmnessDistribution = QualityChartsService::getDistribucionFirmezasData($receptions);
         $solubleSolids = QualityChartsService::getSolidosSolublesData($receptions);
         $coverageColor = QualityChartsService::getColorCubrimientoData($receptions);
-Log::debug('Browsershot version: ' . \Spatie\Browsershot\Browsershot::VERSION);
+
         $html = view('reports.reception_report', compact(
             'recepcion',
             'temperatura_pulpa',
@@ -1338,9 +1338,9 @@ Log::debug('Browsershot version: ' . \Spatie\Browsershot\Browsershot::VERSION);
 
     // Manually write the HTML to disk
     file_put_contents($htmlFilePath, $html);
-
+    Log::debug($htmlFilePath);
     // Use setUrl() instead of html() — this avoids the temp dir bug
-    $browsershot = Browsershot::url('file://' . $htmlFilePath);
+    $browsershot = Browsershot::url($htmlFilePath);
 
     $browsershot->setChromePath('/usr/bin/chromium-browser')
         ->showBackground()
