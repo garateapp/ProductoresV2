@@ -1327,20 +1327,21 @@ class ControlCalidadController extends Controller
 
     try {
     $pdfPath = storage_path('app/public/reporte_recepcion_' . $recepcion->numero_g_recepcion . '.pdf');
-    $tmpDir = storage_path('app/browsershot-temp');
+    $tmpDir = storage_path('app/public/browsershot-temp');
 
     if (!file_exists($tmpDir)) {
         mkdir($tmpDir, 0755, true);
     }
 
     // Generate a unique HTML file path
-    $htmlFilePath = $tmpDir . '/report_' . uniqid() . '.html';
+    $htmlfile='/report_' . uniqid() . '.html';
+    $htmlFilePath = $tmpDir . $htmlfile;
 
     // Manually write the HTML to disk
     file_put_contents($htmlFilePath, $html);
     Log::debug($htmlFilePath);
     // Use setUrl() instead of html() — this avoids the temp dir bug
-    $browsershot = Browsershot::url($htmlFilePath);
+    $browsershot = Browsershot::url(env('APP_URL') . '/public/browsershot-temp/' . $htmlfile . '#' . );
 
     $browsershot->setChromePath('/usr/bin/chromium-browser')
         ->showBackground()
