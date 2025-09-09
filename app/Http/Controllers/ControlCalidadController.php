@@ -1338,14 +1338,17 @@ class ControlCalidadController extends Controller
         // OJO: primero configurar el temp, luego html()
         $browsershot = (new Browsershot())
             ->setTemporaryDirectory($tmpDir)
-            ->setChromePath('/usr/bin/chromium-browser') // o quítalo si auto-detecta
-            ->showBackground()
-            ->noSandbox()
-            ->setOption('args', [
-                '--no-sandbox',
-                '--disable-dev-shm-usage',
-                '--disable-gpu',
-            ])
+            ->setChromePath('/usr/bin/chromium-browser') // ← Tu Chromium del sistema
+        ->setOption('executablePath', '/usr/bin/chromium-browser') // ← Refuerza la ruta
+        ->setOption('headless', true) // ← Asegúrate de que esté en modo headless
+        ->noSandbox()
+        ->addChromiumArguments([
+            '--disable-dev-shm-usage',
+            '--disable-gpu',
+            '--no-zygote',
+            '--disable-setuid-sandbox',
+            '--font-render-hinting=none',
+        ])
             ->setViewport(1920, 1080)
             ->waitUntilNetworkIdle()
             ->delay(15000)
