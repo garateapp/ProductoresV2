@@ -1365,6 +1365,7 @@ class ControlCalidadController extends Controller
     Log::error('Browsershot error: ' . $e->getMessage());
     throw $e;
 }
+Log::debug($pdfPath);
         return response()->file($pdfPath);
     }
 
