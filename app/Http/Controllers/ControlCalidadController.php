@@ -1326,8 +1326,8 @@ class ControlCalidadController extends Controller
         ))->render();
 
     try {
-    $pdfPath = storage_path('app/public/reporte_recepcion_' . $recepcion->numero_g_recepcion . '.pdf');
-    $tmpDir = storage_path('app/public/browsershot-temp');
+    $pdfPath = storage_path('/home/forge/storage/test.appgreenex.cl/public/storage/reporte_recepcion_' . $recepcion->numero_g_recepcion . '.pdf');
+    $tmpDir = storage_path('/home/forge/storage/test.appgreenex.cl/public/storage/browsershot-temp');
 
     if (!file_exists($tmpDir)) {
         mkdir($tmpDir, 0755, true);
@@ -1341,7 +1341,7 @@ class ControlCalidadController extends Controller
     file_put_contents($htmlFilePath, $html);
     Log::debug($htmlFilePath);
     // Use setUrl() instead of html() — this avoids the temp dir bug
-    $browsershot = Browsershot::url(env('APP_URL') . '/public/browsershot-temp/' . $htmlfile . '#');
+    $browsershot = Browsershot::url(env('APP_URL') . '/storage/browsershot-temp/' . $htmlfile . '#');
 
     $browsershot->setChromePath('/usr/bin/chromium-browser')
         ->showBackground()
