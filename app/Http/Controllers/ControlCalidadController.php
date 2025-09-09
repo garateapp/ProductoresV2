@@ -1325,23 +1325,22 @@ class ControlCalidadController extends Controller
             'solubleSolids'
         ))->render();
 
-    try {
-    $pdfPath = '/home/forge/storage/test.appgreenex.cl/public/storage/reporte_recepcion_' . $recepcion->numero_g_recepcion . '.pdf';
-    $tmpDir = '/home/forge/storage/test.appgreenex.cl/public/storage/browsershot-temp';
+            try {
+    $pdfPath = storage_path('app/public/reporte_recepcion_' . $recepcion->numero_g_recepcion . '.pdf');
+    $tmpDir = storage_path('app/browsershot-temp'); // Use a private storage path for security
 
+    // Check if the temporary directory exists and create it if not.
     if (!file_exists($tmpDir)) {
-        mkdir($tmpDir, 0755, true);
+        mkdir($tmpDir, 0755, true); // Create the directory with appropriate permissions
     }
 
-    // Generate a unique HTML file path
-    $htmlfile='/report_' . uniqid() . '.html';
-    $htmlFilePath = $tmpDir . $htmlfile;
+    // Now, call Browsershot with the validated temporary directory.
+    $browsershot = Browsershot::html($html);
 
-    // Manually write the HTML to disk
-    file_put_contents($htmlFilePath, $html);
-    Log::debug($htmlFilePath);
-    // Use setUrl() instead of html() — this avoids the temp dir bug
-    $browsershot = Browsershot::url(env('APP_URL') . '/storage/browsershot-temp/' . $htmlfile . '#');
+    $browsershot->setTemporaryDirectory($tmpDir);
+
+    // This is a new line for debugging. It logs the path being used.
+    Log::debug('Browsershot using temporary directory: ' . $tmpDir);
 
     $browsershot->setChromePath('/usr/bin/chromium-browser')
         ->showBackground()
@@ -1358,14 +1357,14 @@ class ControlCalidadController extends Controller
         ->setOption('printBackground', true)
         ->savePdf($pdfPath);
 
-    // Optional: Clean up the temp HTML file
-    unlink($htmlFilePath);
-
 } catch (\Exception $e) {
+    // You can log the error here to see the exact message
     Log::error('Browsershot error: ' . $e->getMessage());
+    // Rethrow or handle the exception as needed
     throw $e;
-}
-Log::debug($pdfPath);
+
+    }
+
         return response()->file($pdfPath);
     }
 
