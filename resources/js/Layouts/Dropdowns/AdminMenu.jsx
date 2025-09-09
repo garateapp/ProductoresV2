@@ -49,6 +49,16 @@ export default function AdminMenu() {
             Servicios
           </Link>
         </DropdownMenuItem>
+        <DropdownMenuItem asChild>
+          <Link href={route("weekly-harvest-estimates.index")} className="w-full">
+            Estimaciones Semanales
+          </Link>
+        </DropdownMenuItem>
+        <DropdownMenuItem asChild>
+          <Link href={route("producer-groups.index")} className="w-full">
+            Grupos de Productores
+          </Link>
+        </DropdownMenuItem>
          <DropdownMenuItem asChild>
           <Link href={route("continents.index")} className="w-full">
             Continentes

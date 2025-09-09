@@ -61,12 +61,15 @@ function getChartColors(species) {
     }
 }
 
-export default function Index({ auth, especies, producers, lotes, filters, sizeDistribution, averageFirmness, firmnessDistribution, solubleSolids, coverageColor, qualityDefects, conditionDefects, pestDamage, receptionDetails }) {
+export default function Index({ auth, especies, producers, lotes, filters, sizeDistribution, averageFirmness, firmnessDistribution, solubleSolids, coverageColor, qualityDefects, conditionDefects, pestDamage, receptionDetails, ready }) {
     const [selectedEspecie, setSelectedEspecie] = useState(filters.especie_id || '');
     const [variedades, setVariedades] = useState([]);
     const [selectedVariedad, setSelectedVariedad] = useState(filters.variedad_id || '');
     const [selectedProductor, setSelectedProductor] = useState(filters.productor_id || 'all');
     const [selectedLote, setSelectedLote] = useState(filters.lote || '');
+    const [selectedLotes, setSelectedLotes] = useState((filters.lotes || []).map(String));
+    const [fromDate, setFromDate] = useState(filters.from_date || '');
+    const [toDate, setToDate] = useState(filters.to_date || '');
 
     useEffect(() => {
         if (selectedEspecie) {
@@ -78,13 +81,22 @@ export default function Index({ auth, especies, producers, lotes, filters, sizeD
     }, [selectedEspecie, especies]);
 
     const handleFilter = () => {
-        router.get(route('reporteria.calidad'), {
+        const params = {
             especie_id: selectedEspecie,
             variedad_id: selectedVariedad,
             productor_id: selectedProductor,
             lote: selectedLote,
-        }, { preserveState: true, replace: true });
+            from_date: fromDate,
+            to_date: toDate,
+        };
+        if (selectedLotes && selectedLotes.length > 0) {
+            params.lotes = selectedLotes;
+        }
+        router.get(route('reporteria.calidad'), params, { preserveState: true, replace: true });
     };
+
+    const hasSelections = Boolean(selectedEspecie) && Boolean(selectedLote);
+    const canExport = Boolean(selectedEspecie);
 
     const currentEspecie = (especies || []).find(e => e.id === parseInt(selectedEspecie));
     const chartColors = getChartColors(currentEspecie ? currentEspecie.name : 'default');
@@ -107,53 +119,71 @@ export default function Index({ auth, especies, producers, lotes, filters, sizeD
     const isCherries = currentEspecie && currentEspecie.name === 'Cherries';
 
     // Chart options and series for Distribución de Calibres
-    const calibreOptions = {
-        chart: {
-            type: 'bar',
-            height: 350
-        },
-        plotOptions: {
-            bar: {
-                horizontal: false,
-                columnWidth: '55%',
-                endingShape: 'rounded'
-            },
-        },
-        dataLabels: {
-            enabled: false
-        },
-        stroke: {
-            show: true,
-            width: 2,
-            colors: ['transparent']
-        },
-        xaxis: {
-            categories: (sizeDistribution || []).map(d => d.calibre),
-        },
-        yaxis: {
-            title: {
-                text: 'Cantidad'
-            },
-            labels: {
-                formatter: function (val) {
-                    return val.toLocaleString('es-CL', { minimumFractionDigits: 0, maximumFractionDigits: 2 })
-                }
-            }
-        },
-        fill: {
-            opacity: 1,
-            colors: [chartColors.exportable]
-        },
-        tooltip: {
-            y: {
-                formatter: function (val) {
-                    return val.toLocaleString('es-CL', { minimumFractionDigits: 0, maximumFractionDigits: 2 }) + " unidades"
-                }
-            }
-        }
+    const getCherrySeriesColor = (name) => {
+        const key = (name || '').toUpperCase().replace('BLACK', 'NEGRO');
+        return cherryCoverageColorsMap[key] || chartColors.exportable;
     };
 
-    const calibreSeries = [{
+    const calibreOptions = isCherries ? {
+        chart: { type: 'bar', height: 350, stacked: true },
+        plotOptions: { bar: { horizontal: false, columnWidth: '75%', endingShape: 'rounded' } },
+        dataLabels: {
+            enabled: true,
+            formatter: function (val, { seriesIndex, dataPointIndex, w }) {
+                const pct = typeof val === 'number' ? val : (w?.config?.series?.[seriesIndex]?.data?.[dataPointIndex] ?? 0);
+                const countsSeries = w?.config?.countsSeries || [];
+                const abs = (countsSeries[seriesIndex] && countsSeries[seriesIndex].data)
+                  ? countsSeries[seriesIndex].data[dataPointIndex]
+                  : null;
+                return abs !== null ? `${pct}% (${abs})` : `${pct}%`;
+            }
+        },
+        stroke: { show: true, width: 1, colors: ['#fff'] },
+        xaxis: { categories: (sizeDistribution && sizeDistribution.categories) ? sizeDistribution.categories : [] },
+        yaxis: {
+            title: { text: 'Porcentaje' },
+            labels: { formatter: (val) => val.toLocaleString('es-CL', { minimumFractionDigits: 0, maximumFractionDigits: 2 }) }
+        },
+        fill: { opacity: 1 },
+        colors: (sizeDistribution && sizeDistribution.series) ? sizeDistribution.series.map(s => getCherrySeriesColor(s.name)) : [],
+        legend: { position: 'top', horizontalAlign: 'left', offsetX: 40 },
+        countsSeries: (sizeDistribution && sizeDistribution.countsSeries) ? sizeDistribution.countsSeries : [],
+        tooltip: {
+          custom: function({ series, seriesIndex, dataPointIndex, w }) {
+            const pct = series[seriesIndex][dataPointIndex] ?? 0;
+            const countsSeries = w.config.countsSeries || [];
+            const abs = (countsSeries[seriesIndex] && countsSeries[seriesIndex].data)
+              ? countsSeries[seriesIndex].data[dataPointIndex] : null;
+            const cat = (w.config.xaxis.categories || [])[dataPointIndex] || '';
+            const ser = (w.config.series || [])[seriesIndex]?.name || '';
+            return `<div class=\"px-2 py-1\"><strong>${ser}</strong> - ${cat}: ${pct}%` + (abs !== null ? ` (${abs})` : '') + `</div>`;
+          }
+        }
+    } : {
+        chart: { type: 'bar', height: 350 },
+        plotOptions: { bar: { horizontal: false, columnWidth: '55%', endingShape: 'rounded' } },
+        dataLabels: {
+            enabled: true,
+            formatter: function (val, { seriesIndex, dataPointIndex, w }) {
+                const pct = typeof val === 'number' ? val : (w?.config?.series?.[seriesIndex]?.data?.[dataPointIndex] ?? 0);
+                const countsSeries = w?.config?.countsSeries || [];
+                const abs = (countsSeries[seriesIndex] && countsSeries[seriesIndex].data)
+                  ? countsSeries[seriesIndex].data[dataPointIndex]
+                  : null;
+                return abs !== null ? `${pct}% (${abs})` : `${pct}%`;
+            }
+        },
+        stroke: { show: true, width: 2, colors: ['transparent'] },
+        xaxis: { categories: (sizeDistribution || []).map(d => d.calibre) },
+        yaxis: {
+            title: { text: 'Cantidad' },
+            labels: { formatter: (val) => val.toLocaleString('es-CL', { minimumFractionDigits: 0, maximumFractionDigits: 2 }) }
+        },
+        fill: { opacity: 1, colors: [chartColors.exportable] },
+        tooltip: { y: { formatter: (val) => val.toLocaleString('es-CL', { minimumFractionDigits: 0, maximumFractionDigits: 2 }) + " unidades" } }
+    };
+
+    const calibreSeries = isCherries ? (sizeDistribution && sizeDistribution.series ? sizeDistribution.series : []) : [{
         name: 'Cantidad',
         data: (sizeDistribution || []).map(d => d.count)
     }];
@@ -209,7 +239,7 @@ export default function Index({ auth, especies, producers, lotes, filters, sizeD
         tooltip: {
             y: {
                 formatter: function (val) {
-                    return val.toLocaleString('es-CL', { minimumFractionDigits: 0, maximumFractionDigits: 2 }) + " %"
+                    return val.toLocaleString('es-CL', { minimumFractionDigits: 0, maximumFractionDigits: 2 }) + " "
                 }
             }
         }
@@ -273,74 +303,54 @@ export default function Index({ auth, especies, producers, lotes, filters, sizeD
     }];
 
     // Chart options and series for Color de Cubrimiento
-    const coverageOptions = {
-        chart: {
-            type: isCherries ? 'radialBar' : 'bar',
-            height: 350
-        },
-        plotOptions: {
-            radialBar: {
-                dataLabels: {
-                    value: {
-                        formatter: function (val) {
-                            return val.toLocaleString('es-CL', { minimumFractionDigits: 0, maximumFractionDigits: 2 }) + "%"
-                        }
-                    }
-                }
-            },
-            bar: {
-                horizontal: false,
-                columnWidth: '55%',
-                endingShape: 'rounded'
-            },
-        },
+    const coverageOptions = isCherries ? {
+        chart: { type: 'bar', height: 350, stacked: true },
+        plotOptions: { bar: { horizontal: false, columnWidth: '75%', endingShape: 'rounded' } },
         dataLabels: {
-            enabled: false
-        },
-        stroke: {
-            show: true,
-            width: 2,
-            colors: ['transparent']
-        },
-        ...(isCherries ? {} : { // Conditionally include xaxis and yaxis for bar chart
-            xaxis: {
-                categories: (coverageColor || []).map(d => d.color),
-            },
-            yaxis: {
-                title: {
-                    text: 'Porcentaje'
-                },
-                labels: {
-                    formatter: function (val) {
-                        return val.toLocaleString('es-CL', { minimumFractionDigits: 0, maximumFractionDigits: 2 })
-                    }
-                }
-            },
-        }),
-        fill: {
-            opacity: 1,
-            // colors: (coverageColor || []).map(d => {
-            //     console.log("d:",d);
-            //     const colorMap = {
-            //         'LIGHT': '#800000',
-            //         'DARK': '#400000',
-            //         'BLACK': '#000000'
-            //     };
-            //     return colorMap[d.color.toUpperCase()] || chartColors.exportable;
-            // }),
-            colors: isCherries ? (coverageColor || []).map(d => cherryCoverageColorsMap[d.color]) : [chartColors.exportable]
-        },
-        labels: isCherries ? (coverageColor || []).map(d => d.color) : [],
-        tooltip: {
-            y: {
-                formatter: function (val) {
-                    return val.toLocaleString('es-CL', { minimumFractionDigits: 0, maximumFractionDigits: 2 }) + " %"
-                }
+            enabled: true,
+            formatter: function (val, { seriesIndex, dataPointIndex, w }) {
+                const pct = typeof val === 'number' ? val : (w?.config?.series?.[seriesIndex]?.data?.[dataPointIndex] ?? 0);
+                const countsSeries = w?.config?.countsSeries || [];
+                const abs = (countsSeries[seriesIndex] && countsSeries[seriesIndex].data)
+                  ? countsSeries[seriesIndex].data[dataPointIndex]
+                  : null;
+                return abs !== null ? `${pct}% (${abs})` : `${pct}%`;
             }
+        },
+        stroke: { show: true, width: 1, colors: ['#fff'] },
+        xaxis: { categories: (coverageColor && coverageColor.categories) ? coverageColor.categories : [] },
+        yaxis: {
+            title: { text: 'Porcentaje' },
+            labels: { formatter: (val) => val.toLocaleString('es-CL', { minimumFractionDigits: 0, maximumFractionDigits: 2 }) }
+        },
+        fill: { opacity: 1 },
+        legend: { position: 'top', horizontalAlign: 'left', offsetX: 40 },
+        countsSeries: (coverageColor && coverageColor.countsSeries) ? coverageColor.countsSeries : [],
+        tooltip: {
+          custom: function({ series, seriesIndex, dataPointIndex, w }) {
+            const pct = series[seriesIndex][dataPointIndex] ?? 0;
+            const countsSeries = w.config.countsSeries || [];
+            const abs = (countsSeries[seriesIndex] && countsSeries[seriesIndex].data)
+              ? countsSeries[seriesIndex].data[dataPointIndex] : null;
+            const cat = (w.config.xaxis.categories || [])[dataPointIndex] || '';
+            const ser = (w.config.series || [])[seriesIndex]?.name || '';
+            return `<div class="px-2 py-1"><strong>${ser}</strong> - ${cat}: ${pct}%` + (abs !== null ? ` (${abs})` : '') + `</div>`;
+          }
         }
+    } : {
+        chart: { type: 'bar', height: 350 },
+        plotOptions: { bar: { horizontal: false, columnWidth: '55%', endingShape: 'rounded' } },
+        dataLabels: { enabled: false },
+        stroke: { show: true, width: 2, colors: ['transparent'] },
+        xaxis: { categories: (coverageColor || []).map(d => d.color) },
+        yaxis: {
+            title: { text: 'Porcentaje' },
+            labels: { formatter: (val) => val.toLocaleString('es-CL', { minimumFractionDigits: 0, maximumFractionDigits: 2 }) }
+        },
+        fill: { opacity: 1, colors: [chartColors.exportable] },
     };
 
-    const coverageSeries = [{
+    const coverageSeries = isCherries ? (coverageColor && coverageColor.series ? coverageColor.series : []) : [{
         name: 'Porcentaje',
         data: (coverageColor || []).map(d => d.percentage)
     }];
@@ -502,13 +512,16 @@ export default function Index({ auth, especies, producers, lotes, filters, sizeD
     }];
 
     const handleExportConsolidated = () => {
-        const queryParams = new URLSearchParams({
+        const params = new URLSearchParams({
             especie_id: selectedEspecie,
             variedad_id: selectedVariedad,
             productor_id: selectedProductor,
             lote: selectedLote,
-        }).toString();
-        window.location.href = route('reporteria.export.consolidated') + '?' + queryParams;
+        });
+        if (fromDate) params.append('from_date', fromDate);
+        if (toDate) params.append('to_date', toDate);
+        (selectedLotes || []).forEach(l => params.append('lotes[]', l));
+        window.location.href = route('reporteria.export.consolidated') + '?' + params.toString();
     };
 
     return (
@@ -519,7 +532,7 @@ export default function Index({ auth, especies, producers, lotes, filters, sizeD
             <div className="py-12">
                 <div className="max-w-7xl mx-auto sm:px-6 lg:px-8">
                     <div className="bg-white overflow-hidden shadow-sm sm:rounded-lg p-6">
-                        <div className="flex items-end space-x-4 mb-6">
+                        <div className="flex items-end space-x-4 mb-2">
                             <div>
                                 <Label htmlFor="especie">Especie</Label>
                                 <Popover>
@@ -688,7 +701,7 @@ export default function Index({ auth, especies, producers, lotes, filters, sizeD
                                             <CommandInput placeholder="Buscar lote..." />
                                             <CommandEmpty>No se encontró lote.</CommandEmpty>
                                             <CommandGroup>
-                                                {console.log("lotes", lotes)}
+
                                                 {(lotes || []).map(lote => (
                                                     <CommandItem
                                                         key={lote.id}
@@ -713,28 +726,67 @@ export default function Index({ auth, especies, producers, lotes, filters, sizeD
                                     </PopoverContent>
                                 </Popover>
                             </div>
-                            <Button onClick={handleFilter}>Filtrar</Button>
-                            {selectedEspecie && (
-                                <Button onClick={handleExportConsolidated} className="ml-4">
-                                    Exportar Consolidado
-                                </Button>
-                            )}
+                            <Button onClick={handleFilter} disabled={!hasSelections}>Filtrar</Button>
+                            <Button onClick={handleExportConsolidated} className="ml-4" disabled={!canExport}>
+                                Exportar Consolidado
+                            </Button>
                         </div>
+                        {/*<div className="flex items-end space-x-4 mb-6">
+                            <div className="flex flex-col">
+                                <Label htmlFor="from_date">Desde</Label>
+                                <input id="from_date" type="date" className="border rounded px-2 py-2" value={fromDate} onChange={e=>setFromDate(e.target.value)} />
+                            </div>
+                            <div className="flex flex-col">
+                                <Label htmlFor="to_date">Hasta</Label>
+                                <input id="to_date" type="date" className="border rounded px-2 py-2" value={toDate} onChange={e=>setToDate(e.target.value)} />
+                            </div>
+                             <div className="flex flex-col">
+                                <Label htmlFor="lotesMulti">Lotes (multi)</Label>
+                                <select id="lotesMulti" multiple className="border rounded px-2 py-2 min-w-[12rem] h-24" value={selectedLotes} onChange={(e)=>{
+                                    const options = Array.from(e.target.selectedOptions).map(o=>o.value);
+                                    setSelectedLotes(options);
+                                }}>
+                                    {(lotes || []).map(l => (
+                                        <option key={l.id} value={String(l.numero_g_recepcion)}>{l.numero_g_recepcion}</option>
+                                    ))}
+                                </select>
+                            </div>
+                        </div>*/}
 
+                        {!ready ? (
+                            <div className="mt-8 p-10 border-2 border-dashed border-gray-300 rounded-lg text-center text-gray-600">
+                                Selecciona una especie y un lote y presiona "Filtrar" para ver los gráficos.
+                            </div>
+                        ) : (
                         <div className="grid grid-cols-1 lg:grid-cols-2 gap-8 mt-8">
                             <div>
                                 <h3 className="text-lg font-semibold mb-4">Distribución de Calibres</h3>
-                                {sizeDistribution && sizeDistribution.length > 0 ? (
-                                    <Chart
-                                        options={calibreOptions}
-                                        series={calibreSeries}
-                                        type="bar"
-                                        height={350}
-                                    />
+                                {isCherries ? (
+                                    (sizeDistribution && sizeDistribution.series && sizeDistribution.series.length > 0) ? (
+                                        <Chart
+                                            options={calibreOptions}
+                                            series={calibreSeries}
+                                            type="bar"
+                                            height={350}
+                                        />
+                                    ) : (
+                                        <div className="border-dashed border-2 border-gray-300 rounded-lg h-full flex items-center justify-center">
+                                            <p className='text-center text-gray-500'>No hay datos de calibres para la selección actual.</p>
+                                        </div>
+                                    )
                                 ) : (
-                                    <div className="border-dashed border-2 border-gray-300 rounded-lg h-full flex items-center justify-center">
-                                        <p className='text-center text-gray-500'>No hay datos de calibres para la selección actual.</p>
-                                    </div>
+                                    (sizeDistribution && sizeDistribution.length > 0) ? (
+                                        <Chart
+                                            options={calibreOptions}
+                                            series={calibreSeries}
+                                            type="bar"
+                                            height={350}
+                                        />
+                                    ) : (
+                                        <div className="border-dashed border-2 border-gray-300 rounded-lg h-full flex items-center justify-center">
+                                            <p className='text-center text-gray-500'>No hay datos de calibres para la selección actual.</p>
+                                        </div>
+                                    )
                                 )}
                             </div>
                             <div>
@@ -821,17 +873,22 @@ export default function Index({ auth, especies, producers, lotes, filters, sizeD
                             </div>
                             <div>
                                 <h3 className="text-lg font-semibold mb-4">Color de Cubrimiento</h3>
-                                {coverageColor && coverageColor.length > 0 ? (
-                                    <Chart
-                                        options={coverageOptions}
-                                        series={isCherries ? (coverageColor || []).map(d => d.percentage) : coverageSeries}
-                                        type={isCherries ? 'radialBar' : 'bar'}
-                                        height={350}
-                                    />
+                                {isCherries ? (
+                                    (coverageColor && coverageColor.series && coverageColor.series.length > 0) ? (
+                                        <Chart options={coverageOptions} series={coverageSeries} type="bar" height={350} />
+                                    ) : (
+                                        <div className="border-dashed border-2 border-gray-300 rounded-lg h-full flex items-center justify-center">
+                                            <p className='text-center text-gray-500'>No hay datos de color de cubrimiento para la selección actual.</p>
+                                        </div>
+                                    )
                                 ) : (
-                                    <div className="border-dashed border-2 border-gray-300 rounded-lg h-full flex items-center justify-center">
-                                        <p className='text-center text-gray-500'>No hay datos de color de cubrimiento para la selección actual.</p>
-                                    </div>
+                                    (coverageColor && coverageColor.length > 0) ? (
+                                        <Chart options={coverageOptions} series={coverageSeries} type="bar" height={350} />
+                                    ) : (
+                                        <div className="border-dashed border-2 border-gray-300 rounded-lg h-full flex items-center justify-center">
+                                            <p className='text-center text-gray-500'>No hay datos de color de cubrimiento para la selección actual.</p>
+                                        </div>
+                                    )
                                 )}
                             </div>
                             <div>
@@ -880,7 +937,9 @@ export default function Index({ auth, especies, producers, lotes, filters, sizeD
                                 )}
                             </div>
                         </div>
+                        )}
 
+                        {ready && (
                         <div className="mt-8">
                             <h3 className="text-lg font-semibold mb-4">Detalle de Recepciones</h3>
                             <Table>
@@ -907,6 +966,7 @@ export default function Index({ auth, especies, producers, lotes, filters, sizeD
                             </Table>
                             <Pagination links={receptionDetails && receptionDetails.links} />
                         </div>
+                        )}
                     </div>
                 </div>
             </div>

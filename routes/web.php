@@ -53,6 +53,7 @@ Route::middleware('auth')->group(function () {
     Route::get('control-calidad/{recepcion}/calidad', [App\Http\Controllers\ControlCalidadController::class, 'getCalidad'])->name('control-calidad.get-calidad');
     Route::post('control-calidad/{recepcion}/cargar-firmpro', [App\Http\Controllers\ControlCalidadController::class, 'cargarFirmpro'])->name('control-calidad.cargar-firmpro');
     Route::get('control-calidad/{recepcion}/report', [App\Http\Controllers\ControlCalidadController::class, 'generateReport'])->name('control-calidad.generate-report');
+    Route::get('control-calidad/{recepcion}/report/preview', [App\Http\Controllers\ControlCalidadController::class, 'previewReport'])->name('control-calidad.preview-report');
 
     // Processed Fruit Quality Control Routes
     Route::get('processed-fruit-quality', [App\Http\Controllers\ProcessedFruitQualityController::class, 'index'])->name('processed-fruit-quality.index');
@@ -110,6 +111,14 @@ Route::middleware('auth')->group(function () {
 
     Route::get('reporteria/calidad', [ReporteriaController::class, 'index'])->name('reporteria.calidad');
     Route::get('reporteria/export-consolidated', [ReporteriaController::class, 'exportConsolidated'])->name('reporteria.export.consolidated');
+
+    // Weekly Harvest Estimates
+    Route::resource('weekly-harvest-estimates', App\Http\Controllers\WeeklyHarvestEstimateController::class)->names('weekly-harvest-estimates');
+    Route::post('weekly-harvest-estimates/import', [App\Http\Controllers\WeeklyHarvestEstimateController::class, 'import'])->name('weekly-harvest-estimates.import');
+    Route::get('/api/producers/{producer}/agronomists', [App\Http\Controllers\WeeklyHarvestEstimateController::class, 'getProducerAgronomists'])->name('api.producer-agronomists');
+
+    // Producer Groups
+    Route::resource('producer-groups', App\Http\Controllers\ProducerGroupController::class)->except(['show', 'create'])->names('producer-groups');
 });
 
 require __DIR__.'/auth.php';

@@ -23,7 +23,7 @@
             top: 30px;
             text-align: center;
             margin-bottom: 30px;
-            font-size: 24px;
+            font-size: 20px;
             font-weight: 700;
             color: #2c3e50;
             text-transform: uppercase;
@@ -34,7 +34,7 @@
             display: flex;
             justify-content:flex-start; /* To push chart left and info columns right */
             align-items: center; /* Vertically align items */
-            margin-bottom: 15px;
+            margin-bottom: 10px;
             padding-left: 10px; /* To make space for the absolute logo */
         }
         .main-header-info-columns { /* New wrapper for info columns */
@@ -48,8 +48,8 @@
         }
         .header-logo { /* New style for logo, absolute positioning */
             position: absolute;
-            top: 20px; /* Adjust as needed */
-            left: 20px; /* Adjust as needed */
+            top: 10px; /* Adjust as needed */
+            left: 15px; /* Adjust as needed */
             width: 150px; /* Adjust as needed */
             height: auto;
             z-index: 1000; /* Ensure it's on top */
@@ -76,7 +76,7 @@
         .section-title {
             width: 100%;
             text-align: center;
-            font-size: 18px;
+            font-size: 14mm;
             font-weight: 700;
             margin-bottom: 20px;
             padding-bottom: 10px;
@@ -99,9 +99,9 @@
             display: flex;
             flex-direction: column;
             /* align-items: center; */
-            width: calc(40%); /* Two columns with gap */
+            width: calc(45%); /* Two columns with gap */
             background-color: #fff;
-            padding: 15px;
+            padding-right: 10px;
             border-radius: 8px;
             border-bottom: 2px solid #4CAF50;
             border-right: 2px solid #4CAF50;
@@ -120,12 +120,13 @@
             display: flex;
             flex-direction: column;
             gap: 8px;
-            font-size: 10px;
+            font-size: 8px;
         }
         .legend-item {
             display: flex;
             align-items: center;
             gap: 5px;
+            font-size: 8px;
         }
         .legend-color-box {
             width: 16px;
@@ -135,11 +136,11 @@
         }
         .stamp-image {
             position: absolute;
-            top: 200px;
+            top: 150px;
             left:45%;
             width: 150px;
             height: auto;
-            opacity: 0.5;
+            opacity: 0.3;
             transform: rotate({{ rand(0, 180) }}deg);
             z-index: 1000;
         }
@@ -197,7 +198,7 @@
         }
 
         .observations-section h3 {
-            font-size: 16px;
+            font-size: 12px;
             color: #2c3e50;
 
             border-bottom: 1px solid #eee;
@@ -205,13 +206,107 @@
         }
 
         .observations-section p {
-            font-size: 11px;
+            font-size: 10px;
             color: #555;
             line-height: 0.8;
         }
     </style>
-    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
-    <script src="https://cdn.jsdelivr.net/npm/chartjs-plugin-datalabels@2.0.0"></script>
+    <script>
+        {!! @file_get_contents(public_path('vendor/chart.js/chart.umd.min.js')) !!}
+    </script>
+    <script>
+        {!! @file_get_contents(public_path('vendor/chartjs-plugin-datalabels/chartjs-plugin-datalabels.min.js')) !!}
+    </script>
+@php
+    // Para Cherries: precomputar matrices desde FirmPro (color x calibre)
+    if ($recepcion->n_especie === 'Cherries') {
+        try {
+            $colors = ['Rojo', 'Rojo Caoba', 'Santina', 'Caoba Oscuro', 'Black'];
+            $grades = ['L','XL','J','2J','3J','4J','5J','6J','7J'];
+            $colores = \DB::raw("(VALUES ('Rojo'),('Rojo Caoba'),('Santina'),('Caoba Oscuro'),('Black')) AS c(nombre_color)");
+            $calibres = \DB::raw("(VALUES ('L'),('XL'),('J'),('2J'),('3J'),('4J'),('5J'),('6J'),('7J')) AS f(categoria_calibres)");
+            $caseCategoria = "CASE
+                    WHEN calibre < 22 THEN 'L'
+                    WHEN calibre BETWEEN 22 AND 23.9 THEN 'L'
+                    WHEN calibre BETWEEN 24 AND 25.9 THEN 'XL'
+                    WHEN calibre BETWEEN 26 AND 27.9 THEN 'J'
+                    WHEN calibre BETWEEN 28 AND 29.9 THEN '2J'
+                    WHEN calibre BETWEEN 30 AND 31.9 THEN '3J'
+                    WHEN calibre BETWEEN 32 AND 33.9 THEN '4J'
+                    WHEN calibre BETWEEN 34 AND 35.9 THEN '4J'
+                    WHEN calibre BETWEEN 36 AND 37.9 THEN '6J'
+                    WHEN calibre > 38  THEN '7J'
+                END";
+            $datoSub = \DB::connection('firmpro')->table('fpdatos as fpd')
+                ->selectRaw("fpd.nombre_color, {$caseCategoria} AS categoria_calibres, COUNT(*) AS cantidad")
+                ->where('fpd.numero_recepcion', (string) $recepcion->numero_g_recepcion)
+                ->groupBy('fpd.nombre_color', \DB::raw($caseCategoria));
+
+            $res = \DB::connection('firmpro')->query()
+                ->from($colores)
+                ->crossJoin($calibres)
+                ->leftJoinSub($datoSub, 'd', function ($join) {
+                    $join->on('d.nombre_color', '=', 'c.nombre_color')->on('d.categoria_calibres', '=', 'f.categoria_calibres');
+                })
+                ->selectRaw("c.nombre_color, f.categoria_calibres, COALESCE(d.cantidad,0) AS cantidad")
+                ->orderBy('f.categoria_calibres')
+                ->orderBy('c.nombre_color')
+                ->get();
+
+            $countsByGradeColor = [];
+            $totalsByGrade = [];
+            $countsByColorGrade = [];
+            $totalsByColor = [];
+            foreach ($res as $r) {
+                $countsByGradeColor[$r->categoria_calibres][$r->nombre_color] = ($countsByGradeColor[$r->categoria_calibres][$r->nombre_color] ?? 0) + (int)$r->cantidad;
+                $totalsByGrade[$r->categoria_calibres] = ($totalsByGrade[$r->categoria_calibres] ?? 0) + (int)$r->cantidad;
+                $countsByColorGrade[$r->nombre_color][$r->categoria_calibres] = ($countsByColorGrade[$r->nombre_color][$r->categoria_calibres] ?? 0) + (int)$r->cantidad;
+                $totalsByColor[$r->nombre_color] = ($totalsByColor[$r->nombre_color] ?? 0) + (int)$r->cantidad;
+            }
+
+            // Calibres: categories=grades; series por color (porcentaje y conteos)
+            $ch_calibre_categories = $grades;
+            $ch_calibre_series = [];
+            $ch_calibre_counts_series = [];
+            foreach ($colors as $c) {
+                $pctData = [];
+                $absData = [];
+                foreach ($grades as $g) {
+                    $val = $countsByGradeColor[$g][$c] ?? 0;
+                    $tot = $totalsByGrade[$g] ?? 0;
+                    $pctData[] = $tot > 0 ? round(($val / $tot) * 100, 2) : 0.0;
+                    $absData[] = $val;
+                }
+                $ch_calibre_series[] = ['name' => $c, 'data' => $pctData];
+                $ch_calibre_counts_series[] = ['name' => $c, 'data' => $absData];
+            }
+
+            // Colores: categories=colors; series por calibre (porcentaje y conteos)
+            $ch_color_categories = $colors;
+            $ch_color_series = [];
+            $ch_color_counts_series = [];
+            foreach ($grades as $g) {
+                $pctData = [];
+                $absData = [];
+                foreach ($colors as $c) {
+                    $val = $countsByColorGrade[$c][$g] ?? 0;
+                    $tot = $totalsByColor[$c] ?? 0;
+                    $pctData[] = $tot > 0 ? round(($val / $tot) * 100, 2) : 0.0;
+                    $absData[] = $val;
+                }
+                $ch_color_series[] = ['name' => $g, 'data' => $pctData];
+                $ch_color_counts_series[] = ['name' => $g, 'data' => $absData];
+            }
+        } catch (\Throwable $e) {
+            $ch_calibre_categories = [];
+            $ch_calibre_series = [];
+            $ch_calibre_counts_series = [];
+            $ch_color_categories = [];
+            $ch_color_series = [];
+            $ch_color_counts_series = [];
+        }
+    }
+@endphp
 </head>
 @php
  if ($recepcion->calidad->detalles->where('tipo_item', 'COLOR DE CUBRIMIENTO')) {
@@ -265,6 +360,15 @@
     <div class="title">Informe de Recepción de {{ $recepcion->n_especie }}</div>
 
     <script>
+        // Defaults to avoid undefined when controller doesn't pass datasets
+        @php
+            $sizeDistribution = $sizeDistribution ?? [];
+            $coverageColor = $coverageColor ?? [];
+            $averageFirmness = $averageFirmness ?? [];
+            $firmnessDistribution = $firmnessDistribution ?? [];
+            $solubleSolids = $solubleSolids ?? [];
+            //dd($coverageColor, $averageFirmness, $firmnessDistribution, $coverageColor,$sizeDistribution);
+        @endphp
         function getChartColors(species) {
             switch (species.toLowerCase()) {
                 case 'cherries':
@@ -302,6 +406,16 @@
             }
         }
 
+        // Color map for cherries series (used in stacked charts)
+        const cherryCoverageColorsMap = {
+            'ROJO': '#FF0000',
+            'ROJO CAOBA': '#7f1313ff',
+            'SANTINA': '#DE3163',
+            'CAOBA OSCURO': '#4a1006ff',
+            'NEGRO': '#000000',
+            'FUERA DE COLOR': '#808080'
+        };
+
         function getFirmezaBrixColors(label) {
             switch (label.toUpperCase()) {
                 case 'LIGHT':
@@ -313,6 +427,16 @@
                 default:
                     return 'rgba(54, 162, 235, 0.6)'; // Default blue
             }
+        }
+
+        // Colors for Distribución de Firmezas (ctxFirmDist) by label
+        function getFirmDistBarColor(label) {
+            const key = String(label || '').toUpperCase();
+            if (key === 'BLACK') return '#000000';
+            if (key === 'DARK') return '#71160e';
+            if (key === 'LIGHT') return '#dc0c15';
+            if (key === 'FRUTA BLANDA') return 'rgba(255, 99, 132, 0.6)';
+            return '#666666';
         }
 
         function generateHtmlLegend(chart, legendContainerId) {
@@ -359,6 +483,58 @@
             legendContainer.innerHTML = html;
         }
 
+        // Legend per dataset: shows dataset color and an aggregate value (average of data)
+        function generateSeriesLegend(chart, legendContainerId, postfix = '') {
+            const el = document.getElementById(legendContainerId);
+            if (!el) return;
+            const datasets = chart?.data?.datasets || [];
+            let html = '';
+            datasets.forEach(ds => {
+                const vals = (ds.data || []).map(v => Number(v) || 0);
+                const avg = vals.length ? (vals.reduce((a,b)=>a+b,0) / vals.length) : 0;
+                const color = Array.isArray(ds.backgroundColor) ? ds.backgroundColor[0] : ds.backgroundColor;
+                html += `
+                    <div class="legend-item">
+                        <div class="legend-color-box" style="background-color:${color}"></div>
+                        <span>${ds.label}: ${avg.toFixed(2)}${postfix}</span>
+                    </div>
+                `;
+            });
+            el.innerHTML = html;
+        }
+
+        // Legend for stacked charts (compute share from absolute counts)
+        function generateStackedLegendFromCounts(chart, legendContainerId) {
+            const legendContainer = document.getElementById(legendContainerId);
+            if (!legendContainer) return;
+
+            const datasets = chart.data.datasets || [];
+            const countsSeries = (chart.options && chart.options.countsSeries) ? chart.options.countsSeries : [];
+
+            const sums = datasets.map((ds, i) => {
+                const arr = (countsSeries[i] && countsSeries[i].data) ? countsSeries[i].data : [];
+                const total = arr.reduce((acc, v) => acc + (Number(v) || 0), 0);
+                const color = Array.isArray(ds.backgroundColor) ? ds.backgroundColor[0] : ds.backgroundColor;
+                console.log(color);
+                return { label: ds.label || `Serie ${i+1}`, total, color };
+
+            });
+            const grand = sums.reduce((acc, it) => acc + it.total, 0) || 0;
+
+            let html = '';
+            sums.forEach(it => {
+                const pct = grand > 0 ? (it.total / grand) * 100 : 0;
+                html += `
+                    <div class="legend-item">
+                        <div class="legend-color-box" style="background-color:${it.color}"></div>
+                        <span>${it.label}: ${pct.toFixed(2)}% (${it.total})</span>
+                    </div>
+                `;
+            });
+
+            legendContainer.innerHTML = html;
+        }
+
         document.addEventListener('DOMContentLoaded', function() {
             Chart.register(ChartDataLabels);
 
@@ -370,6 +546,7 @@
                 const defectosCondicion = {{ $defectos_condicion_sum }};
                 const danosPlaga = {{ $danos_plaga_sum }};
                 const species = "{{ $recepcion->n_especie }}";
+
                 const colors = getChartColors(species);
 
                 const exportableChart = new Chart(ctx, {
@@ -395,98 +572,153 @@
                 generateHtmlLegend(exportableChart, 'exportable-legend');
             }
 
-            // Calibre Distribution Bar Chart
+            // Calibre Distribution Chart
             const ctxCalibre = document.getElementById('calibre-bar-chart-canvas');
             if (ctxCalibre) {
-                const distribucionCalibres = @json($distribucion_calibres);
-                const labels = distribucionCalibres.map(item => item.detalle_item);
-                const data = distribucionCalibres.map(item => item.porcentaje_muestra);
                 const species = "{{ $recepcion->n_especie }}";
-                const colors = getChartColors(species);
+                const colors = (species=="Cherries") ? cherryCoverageColorsMap : getChartColors(species);
+                @if ($recepcion->n_especie === 'Cherries')
+                    const calibreCategories = @json($ch_calibre_categories ?? []);
+                    const calibreSeries = @json($ch_calibre_series ?? []);
+                    const calibreCountsSeries = @json($ch_calibre_counts_series ?? []);
 
-                const calibreChart = new Chart(ctxCalibre, {
-                    type: 'bar',
-                    data: {
-                        labels: labels,
-                        datasets: [{
-                            label: '% de Calibres',
-                            data: data,
-                            backgroundColor: colors.exportable,
-                        }]
-                    },
-                    options: {
-                        responsive: true,
-                        maintainAspectRatio: false,
-                        animation: false,
-                        plugins: {
-                            legend: { display: false },
-                            datalabels: { display: false },
-                            title: { display: true, text: '% de Distribución de Calibres' }
-                        },
-                        scales: {
-                            y: { beginAtZero: true, title: { display: true, text: 'Porcentaje (%)' } },
-                            x: { title: { display: true, text: 'Calibre' } }
+                    const calibreDatasets = (calibreCountsSeries || []).map((serie) => ({
+                        label: serie.name,
+                        data: serie.data,
+                        backgroundColor: cherryCoverageColorsMap[(serie.name || '').toUpperCase()],
+                    }));
+
+                    const calibreChart = new Chart(ctxCalibre, {
+                        type: 'bar',
+                        data: { labels: calibreCategories, datasets: calibreDatasets },
+                        plotOptions: { bar: { horizontal: false, columnWidth: '35%', endingShape: 'rounded' } },
+                        options: {
+                            responsive: true,
+                            maintainAspectRatio: false,
+                            animation: false,
+                            stacked: false,
+                            plugins: {
+                                legend: { display: false},
+                                datalabels: {
+                                    display: false,
+                                    color: '#FFF',
+                                    font:{size:8, weight: 'bold'},
+                                    align: 'end',
+                                    anchor: 'end',
+                                    formatter: (val, ctx) => {
+                                        const si = ctx.datasetIndex; const di = ctx.dataIndex;
+                                        const abs = (calibreSeries && calibreSeries[si] && calibreSeries[si].data)
+                                            ? calibreCountsSeries[si].data[di] : null;
+                                        const pct = Number(val).toFixed(2);
+                                        return abs !== null ? `${pct}% (${abs})` : `${pct}%`;
+                                    }
+                                },
+                                title: { display: true, text: '% de Distribución de Calibres (por color)' }
+                            },
+                            scales: { y: { beginAtZero: true, stacked: true, title: { display: true, text: 'Porcentaje (%)' } }, x: { stacked: true, title: { display: true, text: 'Calibre' } } }
                         }
-                    }
-                });
-                generateHtmlLegend(calibreChart, 'calibre-legend');
+                    });
+                    // Use absolute counts to compute overall legend percentages by series
+                    calibreChart.options.countsSeries = calibreCountsSeries;
+                    generateStackedLegendFromCounts(calibreChart, 'calibre-legend');
+                @else
+                    const sizeDistributionSimple = @json($sizeDistribution);
+                    const labels = (sizeDistributionSimple || []).map(item => item.calibre);
+                    const data = (sizeDistributionSimple || []).map(item => item.count);
+                    const calibreChart = new Chart(ctxCalibre, {
+                        type: 'bar',
+                        data: { labels: labels, datasets: [{ label: '% de Calibres', data: data, backgroundColor: colors.exportable }] },
+                        options: {
+                            responsive: true,
+                            maintainAspectRatio: false,
+                            animation: false,
+                            plugins: {
+                                legend: { display: false },
+                                datalabels: { display: false },
+                                title: { display: true, text: 'Distribución de Color por Color' }
+                            },
+                            scales: { y: { beginAtZero: true, title: { display: true, text: 'Cantidad' } },
+                            x: { title: { display: true, text: 'Calibre' } } }
+                        }
+                    });
+                    generateHtmlLegend(calibreChart, 'calibre-legend');
+                @endif
             }
 
-            // Color Distribution Pie Chart
+            // Color Distribution Chart
             const ctxColor = document.getElementById('color-pie-chart-canvas');
             if (ctxColor) {
-                const distribucionColor = @json($distribucion_color);
-                const labels = distribucionColor.map(item => item.detalle_item);
-                const data = distribucionColor.map(item => item.valor_ss);
-                const backgroundColors = [
-                    '#FF9999',
-                    '#FF0000',
-                    '#D60000',
-                    '#960000',
-                    '#640000',
-                    '#000000'
-                ];
+                const coverageColor = @json($coverageColor);
+                @if ($recepcion->n_especie === 'Cherries')
+                    const colorCategories = (coverageColor && coverageColor.categories) ? coverageColor.categories : [];
+                    const colorSeries = (coverageColor && coverageColor.series) ? coverageColor.series : [];
+                    const colorCountsSeries = (coverageColor && coverageColor.countsSeries) ? coverageColor.countsSeries : [];
+                    const colorDatasets = (colorCountsSeries || []).map((serie) => ({
+                        label: serie.name,
+                        data: serie.data,
+                        // backgroundColor: cherryCoverageColorsMap[(serie.name || '').toUpperCase()],
+                    }));
 
-                const colorChart = new Chart(ctxColor, {
-                    type: 'pie',
-                    data: {
-                        labels: labels,
-                        datasets: [{
-                            label: '% de Color',
-                            data: data,
-                            backgroundColor: backgroundColors,
-                        }]
-                    },
-                    options: {
-                        responsive: true,
-                        maintainAspectRatio: false,
-                        animation: false,
-                        plugins: {
-                            legend: { display: true, position: 'bottom' },
-                            datalabels: { display: false },
-                            title: { display: true, text: '% de Distribución de Color' }
+                    const colorChart = new Chart(ctxColor, {
+                        type: 'bar',
+                        data: { labels: colorCategories, datasets: colorDatasets },
+                        options: {
+                            responsive: true,
+                            maintainAspectRatio: false,
+                            animation: false,
+                            plugins: {
+                                legend: { display: false },
+                                datalabels: {
+                                    display: false,
+                                    color: '#000', align: 'end', anchor: 'end',
+                                    formatter: (val, ctx) => {
+                                        const si = ctx.datasetIndex; const di = ctx.dataIndex;
+                                        const abs = (colorSeries && colorSeries[si] && colorSeries[si].data)
+                                            ? colorSeries[si].data[di] : null;
+                                        const pct = Number(val).toFixed(2);
+                                        return abs !== null ? `${pct}% (${abs})` : `${pct}%`;
+                                    }
+                                },
+                                title: { display: true, text: 'Distribución de Calibre por Color' }
+                            },
+                            scales: { y: { beginAtZero: true, stacked: false, title: { display: true, text: 'Cantidad' } }, x: { stacked: true, title: { display: true, text: 'Color' } } }
                         }
-                    }
-                });
+                    });
+
+                    colorChart.options.countsSeries = colorCountsSeries;
+                    generateStackedLegendFromCounts(colorChart, 'color-legend');
+                @else
+                    const distribucionColor = (coverageColor || []);
+                    const labels = distribucionColor.map(item => item.color);
+                    const data = distribucionColor.map(item => item.percentage);
+                    const backgroundColors = ['#FF9999','#FF0000','#D60000','#960000','#640000','#000000'];
+
+                    const colorChart = new Chart(ctxColor, {
+                        type: 'pie',
+                        data: { labels: labels, datasets: [{ label: '% de Color', data: data, backgroundColor: backgroundColors }] },
+                        options: {
+                            responsive: true,
+                            maintainAspectRatio: false,
+                            animation: false,
+                            plugins: { legend: { display: true, position: 'bottom' }, datalabels: { display: false }, title: { display: true, text: '% de Distribución de Color' } }
+                        }
+                    });
+                    generateDatasetLegend(colorChart, 'color-legend');
+                @endif
             }
 
             // Promedio de Firmezas Bar Chart
             const ctxFirmezas = document.getElementById('firmezas-bar-chart-canvas');
             if (ctxFirmezas) {
-                const promedioFirmezas = @json($promedio_firmezas);
-                const labels = promedioFirmezas.map(item => item.detalle_item);
-                const data = promedioFirmezas.map(item => item.valor_ss);
-                const backgroundColors = labels.map(label => getFirmezaBrixColors(label));
+                const avgFirm = @json($averageFirmness);
+                const labels = (avgFirm && avgFirm.categories) ? avgFirm.categories : [];
+                const datasets = (avgFirm && avgFirm.series) ? avgFirm.series.map(s=>({ label: s.name, data: s.data, backgroundColor: getFirmezaBrixColors(s.name) })) : [];
 
                 const firmezasChart = new Chart(ctxFirmezas, {
                     type: 'bar',
                     data: {
                         labels: labels,
-                        datasets: [{
-                            label: 'Promedio de Firmeza',
-                            data: data,
-                            backgroundColor: backgroundColors,
-                        }]
+                        datasets: datasets
                     },
                     options: {
                         responsive: true,
@@ -494,8 +726,21 @@
                         animation: false,
                         plugins: {
                             legend: { display: false },
-                            datalabels: { display: false },
-                            title: { display: true, text: 'Promedio de Firmezas' }
+                            datalabels: {
+                display: true,
+                color: '#FFFFFF', // texto siempre blanco
+                align: 'center',
+                anchor: 'center',
+                font: { weight: 'bold' },
+                formatter: (val) => Number(val).toFixed(2),
+                backgroundColor: (ctx) => {
+                    // el mismo color de la barra
+                    return ctx.dataset.backgroundColor;
+                },
+                borderRadius: 4,
+                padding: 4
+            },
+                            title: { display: true, text: '% Distribución de Firmezas por Segregación de Color' }
                         },
                         scales: {
                             y: { beginAtZero: true, title: { display: true, text: 'Promedio' } },
@@ -503,15 +748,16 @@
                         }
                     }
                 });
-                generateHtmlLegend(firmezasChart, 'firmezas-legend');
+                // Show legend by dataset (Light/Dark/Black) with average values
+                generateSeriesLegend(firmezasChart, 'firmezas-legend', '');
             }
 
             // Promedio de Brix Bar Chart
             const ctxBrix = document.getElementById('brix-bar-chart-canvas');
             if (ctxBrix) {
-                const promedioBrix = @json($promedio_brix);
-                const labels = promedioBrix.map(item => item.detalle_item);
-                const data = promedioBrix.map(item => item.valor_ss);
+                const solubleSolids = @json($solubleSolids);
+                const labels = (solubleSolids || []).map(item => item.size);
+                const data = (solubleSolids || []).map(item => item.avg_brix);
                 const backgroundColors = labels.map(label => getFirmezaBrixColors(label));
 
                 const brixChart = new Chart(ctxBrix, {
@@ -578,7 +824,7 @@
 
     @if ($recepcion->n_especie == 'Cherries')
         @php
-            $colors = ['#dc0c15', '#71160e', '#2b1d16'];
+            $colors = ['#2b1d16','#71160e', '#dc0c15'];
         @endphp
     @elseif($recepcion->n_especie == 'Apples')
         @php
@@ -599,59 +845,25 @@
     @endif
 
 
-            // Distribucion de Firmezas por Color
+            // Distribución de Firmezas (simple)
             const ctxFirmDist = document.getElementById('firmeza-distribucion-chart-canvas');
             if (ctxFirmDist) {
-                const distribucionFirmezaColor = @json($distribucion_firmeza_color);
-                 var l = @json($l);
-                var d = @json($d);
-                var b = @json($b);
-                var col = @json($colors);
-                 var categories = [
-                    ['Muy Firme >280 - 1000', 'Durofel >75'],
-                    ['Firme 200 - 279', 'Durofel 72 - 74.9'],
-                    ['Sensible 180 - 199', 'Durofel 65 - 69.9'],
-                    ['Blando 0,1 - 179', 'Durofel <65,4']
-                ];
-
+                const firmDist = @json($firmnessDistribution);
+                const labels = (firmDist || []).map(x=>x.reading_name);
+                const data = (firmDist || []).map(x=>x.avg_firmness);
+                const barColors = labels.map(l => getFirmDistBarColor(l));
                 const firmezaDistChart = new Chart(ctxFirmDist, {
                     type: 'bar',
-                    data: {
-                        labels: categories,
-                        datasets: [
-                            {
-                                label: 'LIGHT',
-                                data: distribucionFirmezaColor.light,
-                                backgroundColor: getFirmezaBrixColors('LIGHT'),
-                            },
-                            {
-                                label: 'DARK',
-                                data: distribucionFirmezaColor.dark,
-                                backgroundColor: getFirmezaBrixColors('DARK'),
-                            },
-                            {
-                                label: 'BLACK',
-                                data: distribucionFirmezaColor.black,
-                                backgroundColor: getFirmezaBrixColors('BLACK'),
-                            }
-                        ]
-                    },
+                    data: { labels: labels, datasets: [{ label: 'Firmeza', data: data, backgroundColor: barColors }] },
                     options: {
                         responsive: true,
                         maintainAspectRatio: false,
                         animation: false,
-                        plugins: {
-                            legend: { display: false },
-                            title: { display: true, text: '% Distribución de Firmezas por Segregación de Color' },
-                            datalabels: { display: false }
-                        },
-                        scales: {
-                            y: { beginAtZero: true, stacked: true, title: { display: true, text: '%' } },
-                            x: { stacked: true, title: { display: true, text: 'Categoría Firmeza' } }
-                        }
+                        plugins: { legend: { display: false }, title: { display: true, text: 'Distribución de Firmezas' }, datalabels: { display: false } },
+                        scales: { y: { beginAtZero: true, title: { display: true, text: 'Valor' } }, x: { title: { display: true, text: 'Lectura' } } }
                     }
                 });
-                generateDatasetLegend(firmezaDistChart, 'firmeza-distribucion-legend');
+                generateHtmlLegend(firmezaDistChart, 'firmeza-distribucion-legend');
             }
         });
     </script>
@@ -690,7 +902,7 @@
     <div class="summary-section">
         <div class="chart-wrapper">
             <div class="chart-container">
-                <div style="position: relative; height:150px; width:210px;">
+                <div style="position: relative; height:150px; width:75%;">
                     <canvas id="calibre-bar-chart-canvas"></canvas>
                 </div>
                 <div id="calibre-legend" class="chart-legend"></div>
@@ -698,23 +910,24 @@
         </div>
         <div class="chart-wrapper">
             <div class="chart-container">
-                <div style="position: relative; height:150px; width:210px;">
+                <div id="color-legend" class="chart-legend" style="margin-left: 14px;" ></div>
+                <div style="position: relative; height:150px; width:75%;">
                     <canvas id="color-pie-chart-canvas"></canvas>
                 </div>
-                <div id="color-legend" class="chart-legend"></div>
+
             </div>
         </div>
         <div class="chart-wrapper">
             <div class="chart-container">
-                <div style="position: relative; height:180px; width:250px;">
-                    <canvas id="firmezas-bar-chart-canvas"></canvas>
+                <div style="position: relative; height:150px; width:75%;">
+                    <canvas id="firmeza-distribucion-chart-canvas"></canvas>
                 </div>
-                <div id="firmezas-legend" class="chart-legend"></div>
+                <div id="firmeza-distribucion-legend" class="chart-legend"></div>
             </div>
         </div>
         <div class="chart-wrapper">
             <div class="chart-container">
-                <div style="position: relative; height:180px; width:250px;">
+                <div style="position: relative; height:150px; width:75%;">
                     <canvas id="brix-bar-chart-canvas"></canvas>
                 </div>
                 <div id="brix-legend" class="chart-legend"></div>
@@ -722,10 +935,10 @@
         </div>
         <div class="chart-wrapper full-width-chart">
             <div class="chart-container">
-                <div style="position: relative; height:230px; width:90%;">
-                    <canvas id="firmeza-distribucion-chart-canvas"></canvas>
+                <div style="position: relative; height:140px; width:90%;">
+                    <canvas id="firmezas-bar-chart-canvas"></canvas>
                 </div>
-                <div id="firmeza-distribucion-legend" class="chart-legend"></div>
+                <div id="firmezas-legend" class="chart-legend"></div>
             </div>
         </div>
     </div>
@@ -824,11 +1037,35 @@
         </div>
         <div class="section-column">
             <span>FUERA DE COLOR:</span>
+             @php
+                 $col = 0;
+                 $detallesColor = optional(optional($recepcion->calidad)->detalles)->where('tipo_item', 'COLOR DE CUBRIMIENTO') ?? collect();
+                 if ($detallesColor->count() > 0) {
+                     if ($recepcion->n_especie == 'Cherries') {
+                         $col = (float) optional($detallesColor->firstWhere('detalle_item', 'Fuera de Color'))->valor_ss ?? 0;
+                     } elseif ($recepcion->n_especie == 'Apples') {
+                         // Pink Lady / Rossy Glo usan <40 además de <50
+                         if (in_array($recepcion->n_variedad, ['Pink Lady', 'Rossy Glo'])) {
+                             $col += (float) optional($detallesColor->firstWhere('detalle_item', '<40'))->porcentaje_muestra ?? 0;
+                         }
+                         $col += (float) optional($detallesColor->firstWhere('detalle_item', '<50'))->porcentaje_muestra ?? 0;
+                     } elseif ($recepcion->n_especie == 'Mandarinas') {
+                         $col = (float) optional($detallesColor->firstWhere('detalle_item', '<30'))->porcentaje_muestra ?? 0;
+                     } elseif ($recepcion->n_especie == 'Membrillos') {
+                         $col = ((float) optional($detallesColor->firstWhere('detalle_item', '<7'))->porcentaje_muestra ?? 0)
+                              + ((float) optional($detallesColor->firstWhere('detalle_item', '>9'))->porcentaje_muestra ?? 0);
+                     } elseif ($recepcion->n_especie == 'Orange') {
+                         $col = (float) optional($detallesColor->firstWhere('detalle_item', '<30'))->porcentaje_muestra ?? 0;
+                     } elseif ($recepcion->n_especie == 'Pears') {
+                         $col = (float) optional($detallesColor->firstWhere('detalle_item', '<40'))->porcentaje_muestra ?? 0;
+                     }
+                 }
+             @endphp
              @if ($col > 0)
-                                                    {{ $col }}%
-                                                @else
-                                                    -
-                                                @endif
+                {{ $col }}%
+            @else
+                -
+            @endif
         </div>
       </div>
     <div class="observations-section">

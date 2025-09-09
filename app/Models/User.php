@@ -107,4 +107,19 @@ class User extends Authenticatable
     {
         return $this->hasMany(CsgEspecieCountryStatus::class, 'user_id');
     }
+
+    public function weeklyHarvestEstimates()
+    {
+        return $this->hasMany(WeeklyHarvestEstimate::class, 'user_id');
+    }
+
+    public function agronomistWeeklyHarvestEstimates()
+    {
+        return $this->hasMany(WeeklyHarvestEstimate::class, 'agronomist_id');
+    }
+
+    public function producerGroups()
+    {
+        return $this->belongsToMany(ProducerGroup::class, 'producer_group_user', 'user_id', 'producer_group_id');
+    }
 }

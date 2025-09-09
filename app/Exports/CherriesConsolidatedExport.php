@@ -140,14 +140,15 @@ class CherriesConsolidatedExport implements FromCollection, WithHeadings, WithMa
 
         $row[] = array_sum($calibreValues); // Total
 
-        // GRUPO: DISTRIBUCIÓN DE COLOR (%)
-        $row[] = ''; // Fuera color (blank)
-        $row[] = ''; // Light (Rojo) (blank)
-        $row[] = ''; // Dark (Rojo Caoba) (blank)
-        $row[] = ''; // Dark (Santina) (blank)
-        $row[] = ''; // Black (Caoba Oscuro) (blank)
-        $row[] = ''; // Black (Negro) (blank)
-        $row[] = ''; // Total (blank)
+        // GRUPO: DISTRIBUCIÓN DE COLOR (%) – desde FirmPro (fpdatos)
+        $colorDist = $this->getColorDistributionPercentages($reception->numero_g_recepcion);
+        $row[] = $colorDist['fuera_color'];         // Fuera color
+        $row[] = $colorDist['light_rojo'];          // Light (Rojo)
+        $row[] = $colorDist['dark_rojo_caoba'];     // Dark (Rojo Caoba)
+        $row[] = $colorDist['dark_santina'];        // Dark (Santina)
+        $row[] = $colorDist['black_caoba_oscuro'];  // Black (Caoba Oscuro)
+        $row[] = $colorDist['black_negro'];         // Black (Negro)
+        $row[] = $colorDist['total'];               // Total
 
         // GRUPO: SOLIDOS SOLUBLES
         $solidosData = $reception->calidad->detalles
@@ -282,6 +283,67 @@ class CherriesConsolidatedExport implements FromCollection, WithHeadings, WithMa
         }
 
         return $row;
+    }
+
+    private function getColorDistributionPercentages($numeroRecepcion): array
+    {
+        // Obtiene conteos por nombre_color desde FirmPro
+        $counts = DB::connection('firmpro')
+            ->table('fpdatos as fpd')
+            ->select('fpd.nombre_color', DB::raw('COUNT(*) as cantidad'))
+            ->where('fpd.numero_recepcion', (string)$numeroRecepcion)
+            ->groupBy('fpd.nombre_color')
+            ->pluck('cantidad', 'nombre_color')
+            ->toArray();
+
+        // Normalizamos claves a mayúsculas para evitar problemas de casing
+        $norm = [];
+        foreach ($counts as $k => $v) {
+            $norm[mb_strtoupper(trim($k))] = (int) $v;
+        }
+
+        $rojo          = $norm['ROJO'] ?? 0;
+        $rojoCaoba     = $norm['ROJO CAOBA'] ?? 0;
+        $santina       = $norm['SANTINA'] ?? 0;
+        $caobaOscuro   = $norm['CAOBA OSCURO'] ?? 0;
+        $black         = $norm['BLACK'] ?? ($norm['NEGRO'] ?? 0);
+
+        $total = $rojo + $rojoCaoba + $santina + $caobaOscuro + $black;
+        if ($total <= 0) {
+            return [
+                'fuera_color' => 0.0,
+                'light_rojo' => 0.0,
+                'dark_rojo_caoba' => 0.0,
+                'dark_santina' => 0.0,
+                'black_caoba_oscuro' => 0.0,
+                'black_negro' => 0.0,
+                'total' => 0.0,
+            ];
+        }
+
+        $pct = function ($x) use ($total) {
+            return round(($x / $total) * 100, 2);
+        };
+
+        $pRojo = $pct($rojo);
+        $pRojoCaoba = $pct($rojoCaoba);
+        $pSantina = $pct($santina);
+        $pCaobaOscuro = $pct($caobaOscuro);
+        $pBlack = $pct($black);
+
+        // Si existe diferencia de redondeo o colores fuera de catálogo, ajustar "Fuera color" para cerrar a 100%
+        $suma = $pRojo + $pRojoCaoba + $pSantina + $pCaobaOscuro + $pBlack;
+        $fueraColor = round(max(0, 100 - $suma), 2);
+
+        return [
+            'fuera_color' => $fueraColor,
+            'light_rojo' => $pRojo,
+            'dark_rojo_caoba' => $pRojoCaoba,
+            'dark_santina' => $pSantina,
+            'black_caoba_oscuro' => $pCaobaOscuro,
+            'black_negro' => $pBlack,
+            'total' => round($fueraColor + $suma, 2),
+        ];
     }
 
     protected function generateHeadings()

@@ -19,6 +19,8 @@ use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Http;
 use Carbon\Carbon;
 use Knp\Snappy\Pdf;
+use App\Services\QualityChartsService;
+
 
 class ControlCalidadController extends Controller
 {
@@ -1259,7 +1261,7 @@ class ControlCalidadController extends Controller
         return response()->json(['message' => 'Firmpro data loaded successfully.']);
     }
 
-   public function generateReport(Recepcion $recepcion)
+    public function generateReport(Recepcion $recepcion)
     {
         $calidad = $recepcion->calidad;
 
@@ -1302,6 +1304,13 @@ class ControlCalidadController extends Controller
             $distribucion_firmeza_color = ['light' => collect(), 'dark' => collect(), 'black' => collect()];
         }
 
+        $receptions = collect([$recepcion]);
+        $sizeDistribution = QualityChartsService::getSizeDistributionData($receptions);
+        $averageFirmness = QualityChartsService::getPromedioFirmezasData($receptions);
+        $firmnessDistribution = QualityChartsService::getDistribucionFirmezasData($receptions);
+        $solubleSolids = QualityChartsService::getSolidosSolublesData($receptions);
+        $coverageColor = QualityChartsService::getColorCubrimientoData($receptions);
+
         $html = view('reports.reception_report', compact(
             'recepcion',
             'temperatura_pulpa',
@@ -1309,19 +1318,20 @@ class ControlCalidadController extends Controller
             'defectos_calidad_sum',
             'defectos_condicion_sum',
             'danos_plaga_sum',
-            'distribucion_calibres',
-            'distribucion_color',
-            'promedio_firmezas',
-            'promedio_brix',
-            'distribucion_firmeza_color'
+            'sizeDistribution',
+            'coverageColor',
+            'averageFirmness',
+            'firmnessDistribution',
+            'solubleSolids'
         ))->render();
 
                 try {
                                     $pdfPath = storage_path('app/public/reporte_recepcion_' . $recepcion->numero_g_recepcion . '.pdf');
             Browsershot::html($html)
-                ->setNodeBinary('C:\Program Files\nodejs\node.exe') // VERIFY THIS PATH
-                ->setNpmBinary('C:\Program Files\nodejs\npm.cmd')   // VERIFY THIS PATH
-                ->setChromePath('C:\Program Files\Google\Chrome\Application\chrome.exe') // VERIFY THIS PATH
+                // ->setNodeBinary('C:\Program Files\nodejs\node.exe') // VERIFY THIS PATH
+                // ->setNpmBinary('C:\Program Files\nodejs\npm.cmd')   // VERIFY THIS PATH
+                //->setChromePath('C:\Program Files\Google\Chrome\Application\chrome.exe') // VERIFY THIS PATH
+                ->setChromePath('/usr/bin/chromium-browser')
                 ->showBackground()
                 ->noSandbox()
                 ->waitUntilNetworkIdle()
@@ -1337,5 +1347,60 @@ class ControlCalidadController extends Controller
             // Optionally, return an error response to the user
             // return response('Error generating PDF: ' . $e->getMessage(), 500);
         }
+    }
+
+    public function previewReport(Recepcion $recepcion)
+    {
+        $calidad = $recepcion->calidad;
+
+        $temperatura_pulpa = null;
+        $porcentaje_exportable = 100;
+        $defectos_calidad_sum = 0;
+        $defectos_condicion_sum = 0;
+        $danos_plaga_sum = 0;
+
+        if ($calidad) {
+            $temperatura_pulpa_detalle = $calidad->detalles()->where('tipo_detalle', 'ss')->first();
+            if ($temperatura_pulpa_detalle) {
+                $temperatura_pulpa = $temperatura_pulpa_detalle->temperatura;
+            }
+
+            $defectos_calidad_sum = $calidad->detalles()
+                                            ->where('tipo_item', 'DEFECTOS DE CALIDAD')
+                                            ->sum('porcentaje_muestra');
+            $defectos_condicion_sum = $calidad->detalles()
+                                            ->where('tipo_item', 'DEFECTOS DE CONDICION')
+                                            ->sum('porcentaje_muestra');
+            $danos_plaga_sum = $calidad->detalles()
+                                            ->where('tipo_item', 'DAÑOS DE PLAGA')
+                                            ->sum('porcentaje_muestra');
+
+            $total_defectos_sum = $defectos_calidad_sum + $defectos_condicion_sum + $danos_plaga_sum;
+            $porcentaje_exportable = max(0, 100 - $total_defectos_sum);
+        }
+
+        // Build chart datasets using the same service as Reportería
+        $receptions = collect([$recepcion]);
+        $sizeDistribution = \App\Services\QualityChartsService::getSizeDistributionData($receptions);
+        $averageFirmness = \App\Services\QualityChartsService::getPromedioFirmezasData($receptions);
+        $firmnessDistribution = \App\Services\QualityChartsService::getDistribucionFirmezasData($receptions);
+        $solubleSolids = \App\Services\QualityChartsService::getSolidosSolublesData($receptions);
+        $coverageColor = \App\Services\QualityChartsService::getColorCubrimientoData($receptions);
+
+
+
+        return view('reports.reception_report', compact(
+            'recepcion',
+            'temperatura_pulpa',
+            'porcentaje_exportable',
+            'defectos_calidad_sum',
+            'defectos_condicion_sum',
+            'danos_plaga_sum',
+            'sizeDistribution',
+            'coverageColor',
+            'averageFirmness',
+            'firmnessDistribution',
+            'solubleSolids'
+        ));
     }
 }
