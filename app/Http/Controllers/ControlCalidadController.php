@@ -1325,40 +1325,36 @@ class ControlCalidadController extends Controller
             'solubleSolids'
         ))->render();
 
-         try {
-        $tmpDir = storage_path('app/browsershot-temp');
-        if (!file_exists($tmpDir)) {
+          try {
+        $pdfPath = storage_path('app/public/reporte_recepcion_' . $recepcion->numero_g_recepcion . '.pdf');
+        $tmpDir  = storage_path('app/browsershot-temp');
+
+        if (!is_dir($tmpDir)) {
             mkdir($tmpDir, 0755, true);
         }
 
-        // Create a temporary HTML file
-        $htmlFilePath = $tmpDir . '/report_' . uniqid() . '.html';
-        file_put_contents($htmlFilePath, $html);
+        Log::debug('Browsershot using temporary directory: ' . $tmpDir);
 
-        $pdfPath = storage_path('app/public/reporte_recepcion_' . $recepcion->numero_g_recepcion . '.pdf');
-
-        // Use Browsershot with the file:// protocol
-        Browsershot::file('file://' . $htmlFilePath)
+        // OJO: primero configurar el temp, luego html()
+        $browsershot = (new Browsershot())
             ->setTemporaryDirectory($tmpDir)
-            ->setChromePath('/usr/bin/chromium-browser')
+            ->setChromePath('/usr/bin/chromium-browser') // o quítalo si auto-detecta
             ->showBackground()
             ->noSandbox()
             ->setOption('args', [
                 '--no-sandbox',
                 '--disable-dev-shm-usage',
                 '--disable-gpu',
-                '--disable-software-rasterizer', // Additional stability flag
             ])
+            ->setViewport(1920, 1080)
             ->waitUntilNetworkIdle()
             ->delay(15000)
-            ->setViewport(1920, 1080)
-            ->landscape(false)
-            ->printBackground(true)
-            ->save($pdfPath); // Use save() instead of savePdf()
+            ->setOption('landscape', false)
+            ->setOption('printBackground', true)
+            ->html($html)                // <- ahora sí
+            ->savePdf($pdfPath);
 
-        // Clean up temporary HTML file
-        unlink($htmlFilePath);
-
+        return response()->file($pdfPath);
     } catch (\Exception $e) {
         Log::error('Browsershot error: ' . $e->getMessage());
         throw $e;
