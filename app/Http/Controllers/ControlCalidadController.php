@@ -1326,8 +1326,8 @@ class ControlCalidadController extends Controller
         ))->render();
 
     try {
-    $pdfPath = storage_path('/home/forge/storage/test.appgreenex.cl/public/storage/reporte_recepcion_' . $recepcion->numero_g_recepcion . '.pdf');
-    $tmpDir = storage_path('/home/forge/storage/test.appgreenex.cl/public/storage/browsershot-temp');
+    $pdfPath = '/home/forge/storage/test.appgreenex.cl/public/storage/reporte_recepcion_' . $recepcion->numero_g_recepcion . '.pdf';
+    $tmpDir = '/home/forge/storage/test.appgreenex.cl/public/storage/browsershot-temp';
 
     if (!file_exists($tmpDir)) {
         mkdir($tmpDir, 0755, true);
