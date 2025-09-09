@@ -1327,7 +1327,12 @@ class ControlCalidadController extends Controller
 
                 try {
             $pdfPath = storage_path('app/public/reporte_recepcion_' . $recepcion->numero_g_recepcion . '.pdf');
-            $tmp  = storage_path('app/public/browsershot-temp');
+            $tmp  = storage_path('app/browsershot-temp');
+
+             if (!file_exists($tmpDir)) {
+        mkdir($tmpDir, 0755, true); // Create the directory with appropriate permissions
+    }
+
             Browsershot::html($html)
             //En caso de que sea local
                 // ->setNodeBinary('C:\Program Files\nodejs\node.exe') // VERIFY THIS PATH
