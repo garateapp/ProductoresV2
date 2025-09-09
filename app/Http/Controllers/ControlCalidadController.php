@@ -1337,7 +1337,12 @@ class ControlCalidadController extends Controller
                 ->setTemporaryDirectory($tmp)
                 ->setChromePath('/usr/bin/chromium-browser')
                 ->showBackground()
-                ->noSandbox()
+                ->noSandbox() // equivalent to adding --no-sandbox
+    ->setOption('args', [
+        '--no-sandbox',
+        '--disable-dev-shm-usage',   // avoids small /dev/shm
+        '--disable-gpu',             // safe in many headless servers
+    ])
                 ->waitUntilNetworkIdle()
                 ->delay(10000) // Increased delay
                 ->setViewport(1920, 1080) // Set a specific viewport size
