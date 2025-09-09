@@ -1329,8 +1329,8 @@ class ControlCalidadController extends Controller
             $pdfPath = storage_path('app/public/reporte_recepcion_' . $recepcion->numero_g_recepcion . '.pdf');
             $tmp  = storage_path('app/browsershot-temp');
 
-             if (!file_exists($tmpDir)) {
-        mkdir($tmpDir, 0755, true); // Create the directory with appropriate permissions
+             if (!file_exists($tmp)) {
+        mkdir($tmp, 0755, true); // Create the directory with appropriate permissions
     }
 
             Browsershot::html($html)
