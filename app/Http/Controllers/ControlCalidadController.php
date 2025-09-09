@@ -1341,7 +1341,7 @@ class ControlCalidadController extends Controller
     file_put_contents($htmlFilePath, $html);
     Log::debug($htmlFilePath);
     // Use setUrl() instead of html() — this avoids the temp dir bug
-    $browsershot = Browsershot::url(env('APP_URL') . '/public/browsershot-temp/' . $htmlfile . '#' . );
+    $browsershot = Browsershot::url(env('APP_URL') . '/public/browsershot-temp/' . $htmlfile . '#');
 
     $browsershot->setChromePath('/usr/bin/chromium-browser')
         ->showBackground()
