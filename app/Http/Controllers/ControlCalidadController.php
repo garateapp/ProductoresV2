@@ -1310,7 +1310,7 @@ class ControlCalidadController extends Controller
         $firmnessDistribution = QualityChartsService::getDistribucionFirmezasData($receptions);
         $solubleSolids = QualityChartsService::getSolidosSolublesData($receptions);
         $coverageColor = QualityChartsService::getColorCubrimientoData($receptions);
-
+Log::debug('Browsershot version: ' . \Spatie\Browsershot\Browsershot::VERSION);
         $html = view('reports.reception_report', compact(
             'recepcion',
             'temperatura_pulpa',
