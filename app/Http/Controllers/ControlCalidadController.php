@@ -1325,49 +1325,47 @@ class ControlCalidadController extends Controller
             'solubleSolids'
         ))->render();
 
-            try {
-    $pdfPath = storage_path('app/public/reporte_recepcion_' . $recepcion->numero_g_recepcion . '.pdf');
-    $tmpDir = storage_path('app/browsershot-temp'); // Use a private storage path for security
+         try {
+        $tmpDir = storage_path('app/browsershot-temp');
+        if (!file_exists($tmpDir)) {
+            mkdir($tmpDir, 0755, true);
+        }
 
-    // Check if the temporary directory exists and create it if not.
-    if (!file_exists($tmpDir)) {
-        mkdir($tmpDir, 0755, true); // Create the directory with appropriate permissions
+        // Create a temporary HTML file
+        $htmlFilePath = $tmpDir . '/report_' . uniqid() . '.html';
+        file_put_contents($htmlFilePath, $html);
+
+        $pdfPath = storage_path('app/public/reporte_recepcion_' . $recepcion->numero_g_recepcion . '.pdf');
+
+        // Use Browsershot with the file:// protocol
+        Browsershot::file('file://' . $htmlFilePath)
+            ->setTemporaryDirectory($tmpDir)
+            ->setChromePath('/usr/bin/chromium-browser')
+            ->showBackground()
+            ->noSandbox()
+            ->setOption('args', [
+                '--no-sandbox',
+                '--disable-dev-shm-usage',
+                '--disable-gpu',
+                '--disable-software-rasterizer', // Additional stability flag
+            ])
+            ->waitUntilNetworkIdle()
+            ->delay(15000)
+            ->setViewport(1920, 1080)
+            ->landscape(false)
+            ->printBackground(true)
+            ->save($pdfPath); // Use save() instead of savePdf()
+
+        // Clean up temporary HTML file
+        unlink($htmlFilePath);
+
+    } catch (\Exception $e) {
+        Log::error('Browsershot error: ' . $e->getMessage());
+        throw $e;
     }
 
-    // Now, call Browsershot with the validated temporary directory.
-    $browsershot = Browsershot::html($html);
-
-    $browsershot->setTemporaryDirectory($tmpDir);
-
-    // This is a new line for debugging. It logs the path being used.
-    Log::debug('Browsershot using temporary directory: ' . $tmpDir);
-
-    $browsershot->setChromePath('/usr/bin/chromium-browser')
-        ->showBackground()
-        ->noSandbox()
-        ->setOption('args', [
-            '--no-sandbox',
-            '--disable-dev-shm-usage',
-            '--disable-gpu',
-        ])
-        ->waitUntilNetworkIdle()
-        ->delay(15000)
-        ->setViewport(1920, 1080)
-        ->setOption('landscape', false)
-        ->setOption('printBackground', true)
-        ->savePdf($pdfPath);
-
-} catch (\Exception $e) {
-    // You can log the error here to see the exact message
-    Log::error('Browsershot error: ' . $e->getMessage());
-    // Rethrow or handle the exception as needed
-    throw $e;
-
+    return response()->file($pdfPath);
     }
-
-        return response()->file($pdfPath);
-    }
-
     public function previewReport(Recepcion $recepcion)
     {
         $calidad = $recepcion->calidad;
