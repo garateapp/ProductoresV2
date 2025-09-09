@@ -1325,42 +1325,47 @@ class ControlCalidadController extends Controller
             'solubleSolids'
         ))->render();
 
-                try {
-            $pdfPath = storage_path('app/public/reporte_recepcion_' . $recepcion->numero_g_recepcion . '.pdf');
-            $tmp  = storage_path('app/browsershot-temp');
+            try {
+    $pdfPath = storage_path('app/public/reporte_recepcion_' . $recepcion->numero_g_recepcion . '.pdf');
+    $tmpDir = storage_path('app/browsershot-temp'); // Use a private storage path for security
 
-             if (!file_exists($tmp)) {
-        mkdir($tmp, 0755, true); // Create the directory with appropriate permissions
+    // Check if the temporary directory exists and create it if not.
+    if (!file_exists($tmpDir)) {
+        mkdir($tmpDir, 0755, true); // Create the directory with appropriate permissions
     }
 
-            Browsershot::html($html)
-            //En caso de que sea local
-                // ->setNodeBinary('C:\Program Files\nodejs\node.exe') // VERIFY THIS PATH
-                // ->setNpmBinary('C:\Program Files\nodejs\npm.cmd')   // VERIFY THIS PATH
-                //->setChromePath('C:\Program Files\Google\Chrome\Application\chrome.exe') // VERIFY THIS PATH
-                //En caso de que sea local
-                ->setTemporaryDirectory($tmp)
-                ->setChromePath('/usr/bin/chromium-browser')
-                ->showBackground()
-                ->noSandbox() // equivalent to adding --no-sandbox
-    ->setOption('args', [
-        '--no-sandbox',
-        '--disable-dev-shm-usage',   // avoids small /dev/shm
-        '--disable-gpu',             // safe in many headless servers
-    ])
-                ->waitUntilNetworkIdle()
-                ->delay(15000) // Increased delay
-                ->setViewport(1920, 1080) // Set a specific viewport size
-                ->setOption('landscape', false)
-                ->setOption('printBackground', true)
-                ->savePdf($pdfPath); // Save to file instead of downloading
+    // Now, call Browsershot with the validated temporary directory.
+    $browsershot = Browsershot::html($html);
 
-            return response('PDF generated and saved to: ' . $pdfPath, 200); // Return a success message
-        } catch (Exception $e) {
-            Log::error('Browsershot PDF generation failed: ' . $e->getMessage());
-            // Optionally, return an error response to the user
-            // return response('Error generating PDF: ' . $e->getMessage(), 500);
-        }
+    $browsershot->setTemporaryDirectory($tmpDir);
+
+    // This is a new line for debugging. It logs the path being used.
+    Log::debug('Browsershot using temporary directory: ' . $tmpDir);
+
+    $browsershot->setChromePath('/usr/bin/chromium-browser')
+        ->showBackground()
+        ->noSandbox()
+        ->setOption('args', [
+            '--no-sandbox',
+            '--disable-dev-shm-usage',
+            '--disable-gpu',
+        ])
+        ->waitUntilNetworkIdle()
+        ->delay(15000)
+        ->setViewport(1920, 1080)
+        ->setOption('landscape', false)
+        ->setOption('printBackground', true)
+        ->savePdf($pdfPath);
+
+} catch (\Exception $e) {
+    // You can log the error here to see the exact message
+    Log::error('Browsershot error: ' . $e->getMessage());
+    // Rethrow or handle the exception as needed
+    throw $e;
+
+    }
+
+        return response()->file($pdfPath);
     }
 
     public function previewReport(Recepcion $recepcion)
