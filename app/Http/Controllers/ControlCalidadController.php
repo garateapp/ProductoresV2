@@ -1344,7 +1344,7 @@ class ControlCalidadController extends Controller
         '--disable-gpu',             // safe in many headless servers
     ])
                 ->waitUntilNetworkIdle()
-                ->delay(10000) // Increased delay
+                ->delay(15000) // Increased delay
                 ->setViewport(1920, 1080) // Set a specific viewport size
                 ->setOption('landscape', false)
                 ->setOption('printBackground', true)
