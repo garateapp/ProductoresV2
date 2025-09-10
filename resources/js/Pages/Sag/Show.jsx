@@ -30,18 +30,14 @@ import {
   DialogFooter,
   DialogDescription,
 } from '@/Components/ui/dialog';
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from '@/Components/ui/select';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/Components/ui/select';
+import { Popover, PopoverContent, PopoverTrigger } from '@/Components/ui/popover';
 import { Input } from '@/Components/ui/input';
 import { Label } from '@/Components/ui/label';
 import InputError from '@/Components/InputError';
+import { Switch } from '@/Components/ui/switch';
 
-export default function SagShow({ auth, producerRut, producerName, csgRecords, producerSagCertifications }) {
+export default function SagShow({ auth, producerRut, producerName, csgRecords, producerSagCertifications, especies = [], countries = [] }) {
   const [isCountriesModalOpen, setIsCountriesModalOpen] = useState(false);
   const [selectedCsgRecord, setSelectedCsgRecord] = useState(null);
   const [selectedEspecie, setSelectedEspecie] = useState(null);
@@ -49,6 +45,12 @@ export default function SagShow({ auth, producerRut, producerName, csgRecords, p
   const [countryStatuses, setCountryStatuses] = useState({});
 
   const [isUploadModalOpen, setIsUploadModalOpen] = useState(false);
+  const [filterStatus, setFilterStatus] = useState('all');
+  const [isSdpCreateOpen, setIsSdpCreateOpen] = useState(false);
+  const [isSdpEditOpen, setIsSdpEditOpen] = useState(false);
+  const [sdpTargetCsgId, setSdpTargetCsgId] = useState(null);
+  const [sdpEditing, setSdpEditing] = useState(null);
+  const [openSdpCertId, setOpenSdpCertId] = useState(null);
 
   const producerEmail = csgRecords.length > 0 && csgRecords[0].user ? csgRecords[0].user.email : 'N/A';
 
@@ -59,7 +61,20 @@ export default function SagShow({ auth, producerRut, producerName, csgRecords, p
     expiration_date: '',
     certification_type: 'Certificacion SAG',
     file: null,
-    producer_rut: producerRut,
+    csg_user_id: null,
+    sdp_site_ids: [],
+    especie_id: '',
+    country_id: '',
+    is_active: true,
+  });
+
+  // SDP inline forms
+  const { data: sdpData, setData: setSdpData, post: postSdp, put: putSdp, delete: deleteSdp, processing: sdpProcessing, errors: sdpErrors, reset: resetSdp } = useForm({
+    csg_user_id: null,
+    code: '',
+    name: '',
+    address: '',
+    is_active: true,
   });
 
   useEffect(() => {
@@ -148,6 +163,25 @@ export default function SagShow({ auth, producerRut, producerName, csgRecords, p
     }
   };
 
+  const filteredCerts = (producerSagCertifications || []).filter(cert => {
+    if (filterStatus === 'all') return true;
+    return cert.status === filterStatus;
+  });
+
+  const handleDeleteCertification = (id) => {
+    if (!confirm('¿Eliminar esta certificación? Esto eliminará también el archivo.')) return;
+    router.delete(route('sag.certifications.destroy', id), {
+      onSuccess: () => router.reload({ only: ['producerSagCertifications'] })
+    });
+  };
+
+  const removeSdp = (sdpId) => {
+    if (!confirm('¿Eliminar este SDP?')) return;
+    deleteSdp(route('sdp-sites.destroy', sdpId), {
+      onSuccess: () => router.reload({ only: ['csgRecords'] })
+    });
+  };
+
   return (
     <AuthenticatedLayout
       user={auth.user}
@@ -175,12 +209,28 @@ export default function SagShow({ auth, producerRut, producerName, csgRecords, p
                       <FileText className="h-5 w-5" />
                       Certificaciones y Aplicaciones
                     </div>
-                    <Button onClick={() => setIsUploadModalOpen(true)}>
+                    <Button onClick={() => {
+                      if (csgRecords.length === 1) {
+                        setData('csg_user_id', csgRecords[0].id);
+                        setIsUploadModalOpen(true);
+                      } else {
+                        alert('Seleccione el CSG específico desde el bloque para subir el documento.');
+                      }
+                    }}>
                       <Upload className="h-4 w-4 mr-2" /> Subir Archivo
                     </Button>
                   </CardTitle>
                 </CardHeader>
                 <CardContent>
+                  <div className="flex items-center gap-3 mb-4">
+                    <Label>Filtrar por estado</Label>
+                    <select className="border rounded px-2 py-1" value={filterStatus} onChange={(e) => setFilterStatus(e.target.value)}>
+                      <option value="all">Todos</option>
+                      <option value="Vigente">Vigente</option>
+                      <option value="Por vencer">Por vencer</option>
+                      <option value="Vencida">Vencida</option>
+                    </select>
+                  </div>
                   <Table>
                     <TableHeader>
                       <TableRow>
@@ -188,25 +238,88 @@ export default function SagShow({ auth, producerRut, producerName, csgRecords, p
                         <TableHead>Tipo</TableHead>
                         <TableHead>Fecha Emisión</TableHead>
                         <TableHead>Fecha Vencimiento</TableHead>
+                        <TableHead>Especie</TableHead>
+                        <TableHead>País</TableHead>
+                        <TableHead>Vigente</TableHead>
+                        <TableHead>Estado</TableHead>
+                        <TableHead>CSG</TableHead>
+                        <TableHead>SDP</TableHead>
                         <TableHead>Acciones</TableHead>
                       </TableRow>
                     </TableHeader>
                     <TableBody>
-                      {producerSagCertifications && producerSagCertifications.length > 0 ? (
-                        producerSagCertifications.map((cert) => (
+                      {filteredCerts && filteredCerts.length > 0 ? (
+                        filteredCerts.map((cert) => (
                           <TableRow key={cert.id}>
                             <TableCell>{cert.name}</TableCell>
                             <TableCell><Badge variant={cert.certification_type === 'Application' ? 'secondary' : 'default'}>{cert.certification_type}</Badge></TableCell>
                             <TableCell>{cert.issue_date}</TableCell>
                             <TableCell>{cert.expiration_date || 'N/A'}</TableCell>
+                            <TableCell>{(especies || []).find(e => e.id === cert.especie_id)?.name || '-'}</TableCell>
+                            <TableCell>{(countries || []).find(c => c.id === cert.country_id)?.name || '-'}</TableCell>
+                            <TableCell>
+                              <Switch
+                                checked={!!cert.is_active}
+                                onCheckedChange={(checked) => {
+                                  router.post(route('sag.certifications.setActive', cert.id), { is_active: checked }, { preserveScroll: true });
+                                }}
+                              />
+                            </TableCell>
+                            <TableCell>
+                              {cert.status && cert.status !== 'N/A' ? (
+                                <Badge className={
+                                  cert.status === 'Vencida' ? 'bg-red-600 text-white' :
+                                  cert.status === 'Por vencer' ? 'bg-yellow-500 text-black' :
+                                  'bg-green-600 text-white'
+                                }>
+                                  {cert.status}
+                                </Badge>
+                              ) : 'N/A'}
+                            </TableCell>
+                            <TableCell>
+                              {cert.csg_code || '-'}
+                            </TableCell>
+                            <TableCell>
+                              <Popover open={openSdpCertId === cert.id} onOpenChange={(o) => setOpenSdpCertId(o ? cert.id : null)}>
+                                <PopoverTrigger asChild>
+                                  <Button
+                                    variant="ghost"
+                                    size="icon"
+                                    onMouseEnter={() => setOpenSdpCertId(cert.id)}
+                                    onMouseLeave={() => setOpenSdpCertId(null)}
+                                    title="Ver SDPs asociados"
+                                  >
+                                    <MapPin className="h-4 w-4" />
+                                  </Button>
+                                </PopoverTrigger>
+                                <PopoverContent
+                                  className="w-64"
+                                  onMouseEnter={() => setOpenSdpCertId(cert.id)}
+                                  onMouseLeave={() => setOpenSdpCertId(null)}
+                                >
+                                  {cert.sdps && cert.sdps.length > 0 ? (
+                                    <div className="space-y-1">
+                                      {cert.sdps.map((s) => (
+                                        <div key={s.id} className="text-sm">
+                                          {s.code ? `${s.code} - ` : ''}{s.name}
+                                        </div>
+                                      ))}
+                                    </div>
+                                  ) : (
+                                    <div className="text-sm text-gray-500">Sin SDP asociados</div>
+                                  )}
+                                </PopoverContent>
+                              </Popover>
+                            </TableCell>
                             <TableCell>
                               <Button variant="outline" size="sm" onClick={() => handleViewFile(cert.file_path)} className="mr-2"><Eye className="h-4 w-4" /></Button>
-                              <Button variant="outline" size="sm" onClick={() => handleDownloadFile(cert.file_path, cert.name)}><Download className="h-4 w-4" /></Button>
+                              <Button variant="outline" size="sm" onClick={() => handleDownloadFile(cert.file_path, cert.name)} className="mr-2"><Download className="h-4 w-4" /></Button>
+                              <Button variant="destructive" size="sm" onClick={() => handleDeleteCertification(cert.id)}>Eliminar</Button>
                             </TableCell>
                           </TableRow>
                         ))
                       ) : (
-                        <TableRow><TableCell colSpan="5" className="text-center">No hay certificaciones o aplicaciones para este productor.</TableCell></TableRow>
+                        <TableRow><TableCell colSpan="6" className="text-center">No hay certificaciones o aplicaciones para este productor.</TableCell></TableRow>
                       )}
                     </TableBody>
                   </Table>
@@ -229,6 +342,27 @@ export default function SagShow({ auth, producerRut, producerName, csgRecords, p
                           <ChevronDown className="h-5 w-5 shrink-0 transition-transform duration-200" />
                         </AccordionTrigger>
                         <AccordionContent className="p-4 border-t bg-white rounded-b-lg shadow-inner">
+                          <div className="flex items-center justify-between mb-3">
+                            <div className="flex gap-2">
+                              <Button size="sm" onClick={() => { setData('csg_user_id', csgRecord.id); setData('sdp_site_ids', []); setIsUploadModalOpen(true); }}>
+                                <Upload className="h-4 w-4 mr-1" /> Subir Doc CSG
+                              </Button>
+                              <Button size="sm" variant="outline" onClick={() => { setSdpTargetCsgId(csgRecord.id); setSdpData('csg_user_id', csgRecord.id); setIsSdpCreateOpen(true); }}>Agregar SDP</Button>
+                            </div>
+                            <div className="text-sm text-gray-600">CSG: {csgRecord.csg_code}</div>
+                          </div>
+                          {csgRecord.sdp_sites && csgRecord.sdp_sites.length > 0 && (
+                            <div className="mb-3 text-sm">
+                              <span className="font-medium">SDPs:</span>{' '}
+                              {csgRecord.sdp_sites.map((sdp) => (
+                                <span key={sdp.id} className="inline-flex items-center gap-2 border rounded px-2 py-1 mr-2">
+                                  {sdp.code ? `${sdp.code} - ` : ''}{sdp.name}
+                                  <Button size="sm" variant="outline" onClick={() => { setSdpTargetCsgId(csgRecord.id); setSdpEditing(sdp); setSdpData({ csg_user_id: csgRecord.id, code: sdp.code || '', name: sdp.name || '', address: sdp.address || '', is_active: sdp.is_active ?? true }); setIsSdpEditOpen(true); }}>Editar</Button>
+                                  <Button size="sm" variant="destructive" onClick={() => removeSdp(sdp.id)}>Eliminar</Button>
+                                </span>
+                              ))}
+                            </div>
+                          )}
                           <h4 className="font-semibold text-md mb-2">Autorización por Especie y País:</h4>
                           {csgRecord.especies && csgRecord.especies.length > 0 ? (
                             <div className="space-y-3">
@@ -273,6 +407,18 @@ export default function SagShow({ auth, producerRut, producerName, csgRecords, p
           </DialogHeader>
           <form onSubmit={handleUploadSubmit} className="space-y-4 py-4">
             <div>
+              <Label>CSG</Label>
+              <Select value={data.csg_user_id ? String(data.csg_user_id) : ''} onValueChange={(value) => setData('csg_user_id', Number(value))}>
+                <SelectTrigger><SelectValue placeholder="Seleccione CSG" /></SelectTrigger>
+                <SelectContent>
+                  {csgRecords.map(csg => (
+                    <SelectItem key={csg.id} value={String(csg.id)}>{csg.csg_code}</SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+              <InputError message={errors.csg_user_id} className="mt-2" />
+            </div>
+            <div>
               <Label htmlFor="name">Nombre del Documento</Label>
               <Input id="name" value={data.name} onChange={(e) => setData('name', e.target.value)} required />
               <InputError message={errors.name} className="mt-2" />
@@ -287,6 +433,55 @@ export default function SagShow({ auth, producerRut, producerName, csgRecords, p
                 </SelectContent>
               </Select>
               <InputError message={errors.certification_type} className="mt-2" />
+            </div>
+            <div>
+              <Label>SDP (opcional)</Label>
+              <div className="flex flex-wrap gap-2">
+                {(csgRecords.find(c => c.id === data.csg_user_id)?.sdp_sites || []).map(sdp => {
+                  const checked = (data.sdp_site_ids || []).includes(sdp.id);
+                  return (
+                    <label key={sdp.id} className="flex items-center gap-1 border rounded px-2 py-1">
+                      <input
+                        type="checkbox"
+                        checked={checked}
+                        onChange={(e) => {
+                          const current = new Set(data.sdp_site_ids || []);
+                          if (e.target.checked) current.add(sdp.id); else current.delete(sdp.id);
+                          setData('sdp_site_ids', Array.from(current));
+                        }}
+                      />
+                      <span>{sdp.code ? `${sdp.code} - ` : ''}{sdp.name}</span>
+                    </label>
+                  );
+                })}
+              </div>
+              <InputError message={errors.sdp_site_ids} className="mt-2" />
+            </div>
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <div>
+                <Label>Especie (opcional)</Label>
+                <select className="w-full border rounded px-2 py-2" value={data.especie_id} onChange={(e) => setData('especie_id', e.target.value ? Number(e.target.value) : '')}>
+                  <option value="">Seleccione...</option>
+                  {(especies || []).map(e => (
+                    <option key={e.id} value={e.id}>{e.name}</option>
+                  ))}
+                </select>
+                <InputError message={errors.especie_id} className="mt-2" />
+              </div>
+              <div>
+                <Label>País (opcional)</Label>
+                <select className="w-full border rounded px-2 py-2" value={data.country_id} onChange={(e) => setData('country_id', e.target.value ? Number(e.target.value) : '')}>
+                  <option value="">Seleccione...</option>
+                  {(countries || []).map(c => (
+                    <option key={c.id} value={c.id}>{c.name}</option>
+                  ))}
+                </select>
+                <InputError message={errors.country_id} className="mt-2" />
+              </div>
+            </div>
+            <div className="flex items-center gap-2">
+              <Switch id="is_active" checked={data.is_active} onCheckedChange={(v) => setData('is_active', v)} />
+              <Label htmlFor="is_active">Documento Vigente</Label>
             </div>
             <div>
               <Label htmlFor="issue_date">Fecha de Emisión</Label>
@@ -311,6 +506,75 @@ export default function SagShow({ auth, producerRut, producerName, csgRecords, p
         </DialogContent>
       </Dialog>
 
+      {/* Modal Crear SDP */}
+      <Dialog open={isSdpCreateOpen} onOpenChange={setIsSdpCreateOpen}>
+        <DialogContent className="sm:max-w-[500px]">
+          <DialogHeader>
+            <DialogTitle>Agregar SDP</DialogTitle>
+          </DialogHeader>
+          <form onSubmit={(e) => { e.preventDefault(); postSdp(route('sdp-sites.store'), { onSuccess: () => { setIsSdpCreateOpen(false); router.reload({ only: ['csgRecords'] }); } }); }} className="space-y-4 py-2">
+            <div>
+              <Label>CSG</Label>
+              <Input value={csgRecords.find(c => c.id === (sdpData.csg_user_id || sdpTargetCsgId))?.csg_code || ''} readOnly />
+            </div>
+            <div>
+              <Label>Código</Label>
+              <Input value={sdpData.code} onChange={e => setSdpData('code', e.target.value)} />
+            </div>
+            <div>
+              <Label>Nombre</Label>
+              <Input value={sdpData.name} onChange={e => setSdpData('name', e.target.value)} required />
+            </div>
+            <div>
+              <Label>Dirección</Label>
+              <Input value={sdpData.address} onChange={e => setSdpData('address', e.target.value)} />
+            </div>
+            <div className="flex items-center gap-2">
+              <input type="checkbox" id="sdp_is_active" checked={sdpData.is_active} onChange={e => setSdpData('is_active', e.target.checked)} />
+              <Label htmlFor="sdp_is_active">Activo</Label>
+            </div>
+            <DialogFooter>
+              <Button type="button" variant="secondary" onClick={() => setIsSdpCreateOpen(false)}>Cancelar</Button>
+              <Button type="submit" disabled={sdpProcessing}>Guardar</Button>
+            </DialogFooter>
+          </form>
+        </DialogContent>
+      </Dialog>
+
+      {/* Modal Editar SDP */}
+      <Dialog open={isSdpEditOpen} onOpenChange={setIsSdpEditOpen}>
+        <DialogContent className="sm:max-w-[500px]">
+          <DialogHeader>
+            <DialogTitle>Editar SDP</DialogTitle>
+          </DialogHeader>
+          <form onSubmit={(e) => { e.preventDefault(); if (!sdpEditing) return; putSdp(route('sdp-sites.update', sdpEditing.id), { onSuccess: () => { setIsSdpEditOpen(false); setSdpEditing(null); router.reload({ only: ['csgRecords'] }); } }); }} className="space-y-4 py-2">
+            <div>
+              <Label>CSG</Label>
+              <Input value={csgRecords.find(c => c.id === (sdpData.csg_user_id || sdpTargetCsgId))?.csg_code || ''} readOnly />
+            </div>
+            <div>
+              <Label>Código</Label>
+              <Input value={sdpData.code} onChange={e => setSdpData('code', e.target.value)} />
+            </div>
+            <div>
+              <Label>Nombre</Label>
+              <Input value={sdpData.name} onChange={e => setSdpData('name', e.target.value)} required />
+            </div>
+            <div>
+              <Label>Dirección</Label>
+              <Input value={sdpData.address} onChange={e => setSdpData('address', e.target.value)} />
+            </div>
+            <div className="flex items-center gap-2">
+              <input type="checkbox" id="sdp_is_active_edit" checked={sdpData.is_active} onChange={e => setSdpData('is_active', e.target.checked)} />
+              <Label htmlFor="sdp_is_active_edit">Activo</Label>
+            </div>
+            <DialogFooter>
+              <Button type="button" variant="secondary" onClick={() => setIsSdpEditOpen(false)}>Cancelar</Button>
+              <Button type="submit" disabled={sdpProcessing}>Guardar</Button>
+            </DialogFooter>
+          </form>
+        </DialogContent>
+      </Dialog>
       <Dialog open={isCountriesModalOpen} onOpenChange={handleCloseCountriesModal}>
         <DialogContent className="max-w-3xl max-h-[90vh] overflow-y-auto">
           <DialogHeader>

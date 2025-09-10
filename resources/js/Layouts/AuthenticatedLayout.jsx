@@ -15,6 +15,7 @@ import DocumentationMenu from './Dropdowns/DocumentacionMenu.jsx';
 import AdminMenu from './Dropdowns/AdminMenu.jsx';
 import UserMenu from './Dropdowns/UserMenu.jsx';  // sin llaves
 import ControlCalidadMenu from './Dropdowns/ControlCalidadMenu.jsx';
+import SagMenu from './Dropdowns/SagMenu.jsx';
 
 const navLinkClasses =
     "group inline-flex h-9 w-max items-center justify-center rounded-md bg-greenex-dark-green px-4 py-2 text-sm font-medium transition-colors hover:bg-greenex-vibrant-green hover:text-greenex-orange focus:bg-greenex-vibrant-green focus:text-greenex-orange focus:outline-none disabled:pointer-events-none disabled:opacity-50 text-greenex-white";
@@ -68,13 +69,7 @@ export default function AuthenticatedLayout({ header, children }) {
 
                                         {hasAnyRole(['Administrador', 'Calidad']) && <ControlCalidadMenu />}
 
-                                        {hasAnyRole(['Administrador', 'Agronomo', 'Sag']) && (
-                                            <NavigationMenuItem>
-                                                <NavigationMenuLink asChild className={navLinkClasses}>
-                                                    <Link href={route('sag.index')}>Módulo SAG</Link>
-                                                </NavigationMenuLink>
-                                            </NavigationMenuItem>
-                                        )}
+                                        {hasAnyRole(['Administrador', 'Agronomo', 'Sag']) && <SagMenu/>}
 
                                         {hasAnyRole(['Administrador', 'Productor', 'Gerencia']) && (
                                             <NavigationMenuItem>

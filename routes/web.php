@@ -95,10 +95,16 @@ Route::middleware('auth')->group(function () {
 
     // SAG Module Routes
     Route::get('sag', [App\Http\Controllers\SagController::class, 'index'])->name('sag.index');
+    Route::get('sag/export', [App\Http\Controllers\SagController::class, 'export'])->name('sag.export');
     Route::get('sag/{rut}', [App\Http\Controllers\SagController::class, 'show'])->name('sag.show');
     Route::post('sag/update-country-status', [App\Http\Controllers\SagController::class, 'updateCountryAuthorizationStatus'])->name('sag.updateCountryStatus'); // New route
     Route::post('sag/certifications/upload', [App\Http\Controllers\SagController::class, 'uploadCertification'])->name('sag.certifications.upload'); // New route
     Route::get('sag/certifications/{certification}/download', [App\Http\Controllers\SagController::class, 'downloadCertification'])->name('sag.certifications.download'); // New route
+    Route::delete('sag/certifications/{certification}', [App\Http\Controllers\SagController::class, 'destroyCertification'])->name('sag.certifications.destroy');
+    Route::post('sag/certifications/{certification}/active', [App\Http\Controllers\SagController::class, 'setCertificationActive'])->name('sag.certifications.setActive');
+
+    // SDP Sites (Sitios de Plantación) Maintainer
+    Route::resource('sdp-sites', App\Http\Controllers\SdpSiteController::class)->names('sdp-sites');
 
     Route::get('/mrl-samples', [App\Http\Controllers\MrlSampleController::class, 'index'])->name('mrl-samples.index');
     Route::get('/mrl-samples/create', [App\Http\Controllers\MrlSampleController::class, 'create'])->name('mrl-samples.create');

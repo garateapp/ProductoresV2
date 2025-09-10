@@ -38,9 +38,6 @@ export default function MarketsIndex({ auth, markets, countries, certificateType
   const searchRef = useRef(null);
   const [loading, setLoading] = useState(false);
 
-  const [selectedEspecieId, setSelectedEspecieId] = useState(null);
-  const [availableVariedades, setAvailableVariedades] = useState([]);
-
   useEffect(() => {
     const handleStart = () => setLoading(true);
     const handleFinish = () => setLoading(false);
@@ -54,28 +51,13 @@ export default function MarketsIndex({ auth, markets, countries, certificateType
     };
   }, []);
 
-  useEffect(() => {
-    if (selectedEspecieId) {
-      fetch(route('especies.variedades', selectedEspecieId))
-        .then(response => response.json())
-        .then(data => setAvailableVariedades(data))
-        .catch(error => console.error('Error fetching variedades:', error));
-    } else {
-      setAvailableVariedades([]);
-    }
-  }, [selectedEspecieId]);
-
   const { data, setData, post, put, delete: destroy, processing, errors, reset } = useForm({
     country_id: '',
-    treatment_requirements: '',
     other_requirements: '',
-    sampling_level: '',
-    quarantine_pests: '',
     is_active: true,
     certificate_type_ids: [],
     authorization_type_id: '',
     especie_ids: [],
-    variedad_ids: [], // Added variedad_ids
   });
 
   const handleSearch = useCallback((value) => {
@@ -97,8 +79,7 @@ export default function MarketsIndex({ auth, markets, countries, certificateType
   const handleOpenCreateModal = () => {
     setEditingMarket(null);
     reset();
-    setData({ ...data, certificate_type_ids: [], authorization_type_id: '', especie_ids: [], variedad_ids: [] }); // Clear all relevant fields
-    setSelectedEspecieId(null); // Clear selected especie for new market
+    setData({ ...data, certificate_type_ids: [], authorization_type_id: '', especie_ids: [] });
     setIsModalOpen(true);
   };
 
@@ -106,22 +87,12 @@ export default function MarketsIndex({ auth, markets, countries, certificateType
     setEditingMarket(market);
     setData({
       country_id: String(market.country_id),
-      treatment_requirements: market.treatment_requirements,
       other_requirements: market.other_requirements,
-      sampling_level: market.sampling_level,
-      quarantine_pests: market.quarantine_pests,
       is_active: market.is_active,
       certificate_type_ids: market.certificate_types.map(type => type.id), // Set existing certificate types
       authorization_type_id: market.authorization_type_id ? String(market.authorization_type_id) : '',
       especie_ids: market.especies.map(especie => especie.id), // Set existing especies
-      variedad_ids: market.variedads ? market.variedads.map(variedad => variedad.id) : [], // Set existing variedades
     });
-    // Assuming a market will only have varieties for one especie, or we pick the first one
-    if (market.especies && market.especies.length > 0) {
-      setSelectedEspecieId(market.especies[0].id); // Trigger fetch for varieties
-    } else {
-      setSelectedEspecieId(null);
-    }
     setIsModalOpen(true);
   };
 
@@ -187,12 +158,9 @@ export default function MarketsIndex({ auth, markets, countries, certificateType
                     <TableHead>País</TableHead>
                     <TableHead>Tipo Autorización</TableHead>
                     <TableHead>Especies</TableHead>
-                    <TableHead>Variedades</TableHead> {/* Added Variedades column */}
+                    {/* Variedades removed */}
                     <TableHead>Certificaciones Exigidas</TableHead>
-                    <TableHead>Requisitos Tratamiento</TableHead>
-                    <TableHead>Otros Requisitos</TableHead>
-                    <TableHead>Nivel Muestreo</TableHead>
-                    <TableHead>Plagas Cuarentenarias</TableHead>
+                    <TableHead>Observaciones</TableHead>
                     <TableHead>Activo</TableHead>
                     <TableHead>Acciones</TableHead>
                   </TableRow>
@@ -206,12 +174,9 @@ export default function MarketsIndex({ auth, markets, countries, certificateType
                         <TableCell><Skeleton className="h-4 w-24" /></TableCell>
                         <TableCell><Skeleton className="h-4 w-20" /></TableCell>
                         <TableCell><Skeleton className="h-4 w-32" /></TableCell>
-                        <TableCell><Skeleton className="h-4 w-32" /></TableCell> {/* Added Variedades skeleton */}
+                        {/* Variedades removed skeleton */}
                         <TableCell><Skeleton className="h-4 w-48" /></TableCell>
                         <TableCell><Skeleton className="h-4 w-32" /></TableCell>
-                        <TableCell><Skeleton className="h-4 w-32" /></TableCell>
-                        <TableCell><Skeleton className="h-4 w-20" /></TableCell>
-                        <TableCell><Skeleton className="h-4 w-20" /></TableCell>
                         <TableCell><Skeleton className="h-4 w-16" /></TableCell>
                         <TableCell><Skeleton className="h-4 w-24" /></TableCell>
                       </TableRow>
@@ -232,24 +197,12 @@ export default function MarketsIndex({ auth, markets, countries, certificateType
                             </div>
                           ) : '-'}
                         </TableCell>
-                        <TableCell> {/* Variedades column content */}
-                          {market.variedads && market.variedads.length > 0 ? (
-                            <div className="flex flex-wrap gap-1">
-                              {market.variedads.map(variedad => (
-                                <Badge key={variedad.id} variant="secondary">{variedad.name}</Badge>
-                              ))}
-                            </div>
-                          ) : '-'}
-                        </TableCell>
                         <TableCell>
                           {market.certificate_types && market.certificate_types.length > 0 ? (
                             market.certificate_types.map(type => type.name).join(', ')
                           ) : '-'}
                         </TableCell>
-                        <TableCell className="max-w-[150px] truncate">{market.treatment_requirements}</TableCell>
-                        <TableCell className="max-w-[150px] truncate">{market.other_requirements}</TableCell>
-                        <TableCell>{market.sampling_level}</TableCell>
-                        <TableCell className="max-w-[150px] truncate">{market.quarantine_pests}</TableCell>
+                        <TableCell className="max-w-[220px] truncate">{market.other_requirements}</TableCell>
                         <TableCell>{market.is_active ? 'Sí' : 'No'}</TableCell>
                         <TableCell>
                           <Button variant="outline" size="sm" onClick={() => handleOpenEditModal(market)} className="mr-2">Editar</Button>
@@ -381,57 +334,7 @@ export default function MarketsIndex({ auth, markets, countries, certificateType
               {errors.especie_ids && <div className="text-red-600 text-sm mt-1">{errors.especie_ids}</div>}
             </div>
 
-            {/* Variedades Select - Only show if an especie is selected */}
-            {selectedEspecieId && availableVariedades.length > 0 && (
-              <div>
-                <Label htmlFor="variedad_ids">Variedades</Label>
-                <Select
-                  onValueChange={(value) => {
-                    const id = parseInt(value);
-                    setData(prevData => {
-                      const currentIds = prevData.variedad_ids;
-                      if (!currentIds.includes(id)) {
-                        return { ...prevData, variedad_ids: [...currentIds, id] };
-                      }
-                      return prevData;
-                    });
-                  }}
-                  value="" // Important for re-selection
-                >
-                  <SelectTrigger className="w-full">
-                    <SelectValue placeholder="Seleccionar Variedades" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {availableVariedades.map((variedad) => (
-                      <SelectItem key={variedad.id} value={variedad.id.toString()}>
-                        {variedad.name}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-                <div className="mt-2 flex flex-wrap gap-2">
-                  {data.variedad_ids.map(selectedId => {
-                    const selectedVariedad = availableVariedades.find(variedad => variedad.id === selectedId);
-                    return selectedVariedad ? (
-                      <Badge key={selectedId} variant="secondary" className="flex items-center gap-1">
-                        {selectedVariedad.name}
-                        <button
-                          type="button"
-                          onClick={() => setData(prevData => ({
-                            ...prevData,
-                            variedad_ids: prevData.variedad_ids.filter(item => item !== selectedId)
-                          }))}
-                          className="ml-1 text-xs text-gray-500 hover:text-gray-700 focus:outline-none"
-                        >
-                          x
-                        </button>
-                      </Badge>
-                    ) : null;
-                  })}
-                </div>
-                {errors.variedad_ids && <div className="text-red-600 text-sm mt-1">{errors.variedad_ids}</div>}
-              </div>
-            )}
+            {/* Variedades removed */}
 
             <div>
               <Label htmlFor="certificate_type_ids">Certificaciones Exigidas</Label>
@@ -483,18 +386,7 @@ export default function MarketsIndex({ auth, markets, countries, certificateType
             </div>
 
             <div>
-              <Label htmlFor="treatment_requirements">Requisitos de Tratamientos</Label>
-              <textarea
-                id="treatment_requirements"
-                value={data.treatment_requirements}
-                onChange={(e) => setData('treatment_requirements', e.target.value)}
-                className="mt-1 block w-full rounded-md border-gray-300 shadow-sm"
-              ></textarea>
-              {errors.treatment_requirements && <div className="text-red-600 text-sm mt-1">{errors.treatment_requirements}</div>}
-            </div>
-
-            <div>
-              <Label htmlFor="other_requirements">Otros Requisitos</Label>
+              <Label htmlFor="other_requirements">Observaciones</Label>
               <textarea
                 id="other_requirements"
                 value={data.other_requirements}
@@ -502,29 +394,6 @@ export default function MarketsIndex({ auth, markets, countries, certificateType
                 className="mt-1 block w-full rounded-md border-gray-300 shadow-sm"
               ></textarea>
               {errors.other_requirements && <div className="text-red-600 text-sm mt-1">{errors.other_requirements}</div>}
-            </div>
-
-            <div>
-              <Label htmlFor="sampling_level">Nivel de Muestreo</Label>
-              <Input
-                id="sampling_level"
-                type="text"
-                value={data.sampling_level}
-                onChange={(e) => setData('sampling_level', e.target.value)}
-                className="mt-1 block w-full"
-              />
-              {errors.sampling_level && <div className="text-red-600 text-sm mt-1">{errors.sampling_level}</div>}
-            </div>
-
-            <div>
-              <Label htmlFor="quarantine_pests">Plagas Cuarentenarias</Label>
-              <textarea
-                id="quarantine_pests"
-                value={data.quarantine_pests}
-                onChange={(e) => setData('quarantine_pests', e.target.value)}
-                className="mt-1 block w-full rounded-md border-gray-300 shadow-sm"
-              ></textarea>
-              {errors.quarantine_pests && <div className="text-red-600 text-sm mt-1">{errors.quarantine_pests}</div>}
             </div>
 
             <div className="flex items-center space-x-2">

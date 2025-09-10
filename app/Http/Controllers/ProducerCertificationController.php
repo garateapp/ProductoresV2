@@ -102,7 +102,7 @@ class ProducerCertificationController extends Controller
 
             $diffDays=$today->diffInDays($expiry, false);
 
-            if ($diffDays <= 30 && $diffDays > 0) {
+            if ($diffDays <= 90 && $diffDays > 0) {
                 return 'Por vencer';
             } elseif ($diffDays < 0) {
                 return 'Vencida';

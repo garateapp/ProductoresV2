@@ -25,9 +25,7 @@ export default function ProducerShow({ auth, producer, certifyingHouses, certifi
 
     const { data, setData, post, put, delete: destroy, processing, errors, reset } = useForm({
         certifying_house_id: null,
-        name: '',
         certificate_type_id: null,
-        certificate_code: '',
         especie_id: null,
         audit_date: '',
         expiration_date: '',
@@ -46,9 +44,7 @@ export default function ProducerShow({ auth, producer, certifyingHouses, certifi
         setEditingCertification(certification);
         setData({
             certifying_house_id: String(certification.certifying_house_id),
-            name: certification.name,
             certificate_type_id: String(certification.certificate_type_id),
-            certificate_code: certification.certificate_code,
             especie_id: String(certification.especie_id),
             audit_date: certification.audit_date ? new Date(certification.audit_date).toISOString().split('T')[0] : '',
             expiration_date: certification.expiration_date ? new Date(certification.expiration_date).toISOString().split('T')[0] : '',
@@ -228,12 +224,14 @@ export default function ProducerShow({ auth, producer, certifyingHouses, certifi
                                                     {vigentesCertifications.map(certification => (
                                                         <Card key={certification.id}>
                                                             <CardHeader>
-                                                                <CardTitle>{certification.name}</CardTitle>
+                                                                <CardTitle>
+                                                                    {certification.certifying_house?.name} - {certification.certificate_type?.name}
+                                                                </CardTitle>
                                                             </CardHeader>
                                                             <CardContent>
                                                                 <p><strong>Casa Certificadora:</strong> {certification.certifying_house?.name}</p>
                                                                 <p><strong>Tipo Certificado:</strong> {certification.certificate_type?.name}</p>
-                                                                <p><strong>Código:</strong> {certification.certificate_code}</p>
+                                                                {/* Código de certificado eliminado */}
                                                                 <p><strong>Fecha Auditoría:</strong> {formatDate(certification.audit_date)}</p>
                                                                 <p><strong>Fecha Vencimiento:</strong> {formatDate(certification.expiration_date)}</p>
                                                                 <div className="mt-4 space-x-2">
@@ -254,12 +252,14 @@ export default function ProducerShow({ auth, producer, certifyingHouses, certifi
                                                     {porVencerCertifications.map(certification => (
                                                         <Card key={certification.id}>
                                                             <CardHeader>
-                                                                <CardTitle>{certification.name}</CardTitle>
+                                                                <CardTitle>
+                                                                    {certification.certifying_house?.name} - {certification.certificate_type?.name}
+                                                                </CardTitle>
                                                             </CardHeader>
                                                             <CardContent>
                                                                 <p><strong>Casa Certificadora:</strong> {certification.certifying_house?.name}</p>
                                                                 <p><strong>Tipo Certificado:</strong> {certification.certificate_type?.name}</p>
-                                                                <p><strong>Código:</strong> {certification.certificate_code}</p>
+                                                                {/* Código de certificado eliminado */}
                                                                 <p><strong>Fecha Auditoría:</strong> {formatDate(certification.audit_date)}</p>
                                                                 <p><strong>Fecha Vencimiento:</strong> {formatDate(certification.expiration_date)}</p>
                                                                 <div className="mt-4 space-x-2">
@@ -441,18 +441,7 @@ export default function ProducerShow({ auth, producer, certifyingHouses, certifi
                                 {errors.certifying_house_id && <div className="text-red-600 text-sm mt-1">{errors.certifying_house_id}</div>}
                             </div>
 
-                            <div>
-                                <Label htmlFor="name">Nombre</Label>
-                                <Input
-                                    id="name"
-                                    type="text"
-                                    value={data.name}
-                                    onChange={(e) => setData('name', e.target.value)}
-                                    className="mt-1 block w-full"
-                                    required
-                                />
-                                {errors.name && <div className="text-red-600 text-sm mt-1">{errors.name}</div>}
-                            </div>
+                            {/* Campo Nombre eliminado */}
 
                             <div>
                                 <Label htmlFor="certificate_type_id">Tipo de Certificado</Label>
@@ -474,18 +463,7 @@ export default function ProducerShow({ auth, producer, certifyingHouses, certifi
                                 {errors.certificate_type_id && <div className="text-red-600 text-sm mt-1">{errors.certificate_type_id}</div>}
                             </div>
 
-                            <div>
-                                <Label htmlFor="certificate_code">Código Certificado</Label>
-                                <Input
-                                    id="certificate_code"
-                                    type="text"
-                                    value={data.certificate_code}
-                                    onChange={(e) => setData('certificate_code', e.target.value)}
-                                    className="mt-1 block w-full"
-                                    required
-                                />
-                                {errors.certificate_code && <div className="text-red-600 text-sm mt-1">{errors.certificate_code}</div>}
-                            </div>
+                            {/* Campo Código Certificado eliminado */}
 
                             <div>
                                 <Label htmlFor="especie_id">Especie</Label>
@@ -595,17 +573,19 @@ export default function ProducerShow({ auth, producer, certifyingHouses, certifi
             </Dialog>
 
             <Dialog open={!!viewingCertification} onOpenChange={handleCloseViewModal}>
-                <DialogContent className="max-w-2xl">
-                    <DialogHeader>
-                        <DialogTitle>{viewingCertification?.name}</DialogTitle>
-                    </DialogHeader>
-                    {viewingCertification && (
-                        <div className="space-y-4">
-                            <p><strong>Casa Certificadora:</strong> {viewingCertification.certifying_house?.name}</p>
-                            <p><strong>Tipo Certificado:</strong> {viewingCertification.certificate_type?.name}</p>
-                            <p><strong>Código:</strong> {viewingCertification.certificate_code}</p>
-                            <p><strong>Fecha Auditoría:</strong> {formatDate(viewingCertification.audit_date)}</p>
-                            <p><strong>Fecha Vencimiento:</strong> {formatDate(viewingCertification.expiration_date)}</p>
+                        <DialogContent className="max-w-2xl">
+                            <DialogHeader>
+                        <DialogTitle>
+                            {viewingCertification?.certifying_house?.name} - {viewingCertification?.certificate_type?.name}
+                        </DialogTitle>
+                            </DialogHeader>
+                            {viewingCertification && (
+                                <div className="space-y-4">
+                                    <p><strong>Casa Certificadora:</strong> {viewingCertification.certifying_house?.name}</p>
+                                    <p><strong>Tipo Certificado:</strong> {viewingCertification.certificate_type?.name}</p>
+                                    {/* Código eliminado */}
+                                    <p><strong>Fecha Auditoría:</strong> {formatDate(viewingCertification.audit_date)}</p>
+                                    <p><strong>Fecha Vencimiento:</strong> {formatDate(viewingCertification.expiration_date)}</p>
                             {viewingCertification.certificate_pdf_path && (
                                 <div className="mt-2 flex items-center space-x-2">
                                     <FileText className="h-5 w-5 text-blue-600" />

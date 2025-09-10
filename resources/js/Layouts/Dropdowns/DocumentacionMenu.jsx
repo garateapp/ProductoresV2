@@ -37,19 +37,11 @@ export default function DocumentationMenu() {
             Tipos de Certificado
           </Link>
         </DropdownMenuItem>
-
-        <DropdownMenuItem asChild>
-          <Link href={route("producer-certifications.index")} className="w-full">
-            Certificaciones
-          </Link>
-        </DropdownMenuItem>
-
-        <DropdownMenuItem asChild>
+         <DropdownMenuItem asChild>
           <Link href={route("markets.index")} className="w-full">
             Mercados
           </Link>
         </DropdownMenuItem>
-
       </DropdownMenuContent>
     </DropdownMenu>
   );

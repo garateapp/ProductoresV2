@@ -224,7 +224,7 @@
             $colors = ['Rojo', 'Rojo Caoba', 'Santina', 'Caoba Oscuro', 'Black'];
             $grades = ['L','XL','J','2J','3J','4J','5J','6J','7J'];
             $colores = \DB::raw("(VALUES ('Rojo'),('Rojo Caoba'),('Santina'),('Caoba Oscuro'),('Black')) AS c(nombre_color)");
-            $calibres = \DB::raw("(VALUES ('L'),('XL'),('J'),('2J'),('3J'),('4J'),('5J'),('6J'),('7J')) AS f(categoria_calibres)");
+            $calibres = \DB::raw("(VALUES ('L'),('XL'),('J'),('2J'),('3J'),('4J'),('5J')) AS f(categoria_calibres)");
             $caseCategoria = "CASE
                     WHEN calibre < 22 THEN 'L'
                     WHEN calibre BETWEEN 22 AND 23.9 THEN 'L'
@@ -233,9 +233,7 @@
                     WHEN calibre BETWEEN 28 AND 29.9 THEN '2J'
                     WHEN calibre BETWEEN 30 AND 31.9 THEN '3J'
                     WHEN calibre BETWEEN 32 AND 33.9 THEN '4J'
-                    WHEN calibre BETWEEN 34 AND 35.9 THEN '4J'
-                    WHEN calibre BETWEEN 36 AND 37.9 THEN '6J'
-                    WHEN calibre > 38  THEN '7J'
+                    WHEN calibre >34 THEN '5J'
                 END";
             $datoSub = \DB::connection('firmpro')->table('fpdatos as fpd')
                 ->selectRaw("fpd.nombre_color, {$caseCategoria} AS categoria_calibres, COUNT(*) AS cantidad")
@@ -615,7 +613,14 @@
                                 },
                                 title: { display: true, text: '% de Distribución de Calibres (por color)' }
                             },
-                            scales: { y: { beginAtZero: true, stacked: true, title: { display: true, text: 'Porcentaje (%)' } }, x: { stacked: true, title: { display: true, text: 'Calibre' } } }
+                            scales:
+                            {
+                                y: { beginAtZero: true, stacked: true,
+                                title: { display: true, text: 'Porcentaje (%)' }
+                            },
+                            x: {
+                                stacked: true, title: { display: true, text: 'Calibre'
+                                } } }
                         }
                     });
                     // Use absolute counts to compute overall legend percentages by series
@@ -635,7 +640,7 @@
                             plugins: {
                                 legend: { display: false },
                                 datalabels: { display: false },
-                                title: { display: true, text: 'Distribución de Color por Color' }
+                                title: { display: true, text: 'Distribución de Calibres por Color' }
                             },
                             scales: { y: { beginAtZero: true, title: { display: true, text: 'Cantidad' } },
                             x: { title: { display: true, text: 'Calibre' } } }
