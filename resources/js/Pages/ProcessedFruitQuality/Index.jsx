@@ -70,6 +70,14 @@ export default function Index({
     const qualityFormState = useForm({
         proceso_id: null,
         numero_de_caja: "",
+        numero_embaladora_mano: "",
+        peso_exacto_caja: "",
+        codigo_embalaje: "",
+        categoria: "",
+        destino: "",
+        calibre: "",
+        color_cubrimiento: "",
+        color_fondo: "",
         t_muestra: 100,
         observaciones: "",
         responsable: "",
@@ -679,30 +687,171 @@ export default function Index({
                                         onSubmit={submitQuality}
                                         className="space-y-4 mt-4"
                                     >
-                                        <div>
-                                            <Label htmlFor="numero_de_caja">
-                                                Número de Caja
-                                            </Label>
-                                            <Input
-                                                id="numero_de_caja"
-                                                type="text"
-                                                value={
-                                                    qualityData.numero_de_caja
-                                                }
-                                                onChange={(e) =>
-                                                    setQualityData(
-                                                        "numero_de_caja",
-                                                        e.target.value
-                                                    )
-                                                }
-                                            />
-                                            {errorsQuality.numero_de_caja && (
-                                                <p className="mt-1 text-sm text-red-600">
-                                                    {
-                                                        errorsQuality.numero_de_caja
+                                        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                                            <div>
+                                                <Label htmlFor="numero_de_caja">
+                                                    Número de Caja
+                                                </Label>
+                                                <Input
+                                                    id="numero_de_caja"
+                                                    type="text"
+                                                    value={
+                                                        qualityData.numero_de_caja
                                                     }
-                                                </p>
-                                            )}
+                                                    onChange={(e) =>
+                                                        setQualityData(
+                                                            "numero_de_caja",
+                                                            e.target.value
+                                                        )
+                                                    }
+                                                />
+                                                {errorsQuality.numero_de_caja && (
+                                                    <p className="mt-1 text-sm text-red-600">
+                                                        {
+                                                            errorsQuality.numero_de_caja
+                                                        }
+                                                    </p>
+                                                )}
+                                            </div>
+                                            <div>
+                                                <Label htmlFor="numero_embaladora_mano">
+                                                    Número de Embaladora a Mano
+                                                </Label>
+                                                <Input
+                                                    id="numero_embaladora_mano"
+                                                    type="text"
+                                                    value={
+                                                        qualityData.numero_embaladora_mano
+                                                    }
+                                                    onChange={(e) =>
+                                                        setQualityData(
+                                                            "numero_embaladora_mano",
+                                                            e.target.value
+                                                        )
+                                                    }
+                                                />
+                                            </div>
+                                            <div>
+                                                <Label htmlFor="peso_exacto_caja">
+                                                    Peso Exacto Caja (kg)
+                                                </Label>
+                                                <Input
+                                                    id="peso_exacto_caja"
+                                                    type="number"
+                                                    step="0.01"
+                                                    value={
+                                                        qualityData.peso_exacto_caja
+                                                    }
+                                                    onChange={(e) =>
+                                                        setQualityData(
+                                                            "peso_exacto_caja",
+                                                            e.target.value
+                                                        )
+                                                    }
+                                                />
+                                            </div>
+                                            <div>
+                                                <Label htmlFor="codigo_embalaje">
+                                                    Código Embalaje
+                                                </Label>
+                                                <Input
+                                                    id="codigo_embalaje"
+                                                    type="text"
+                                                    value={
+                                                        qualityData.codigo_embalaje
+                                                    }
+                                                    onChange={(e) =>
+                                                        setQualityData(
+                                                            "codigo_embalaje",
+                                                            e.target.value
+                                                        )
+                                                    }
+                                                />
+                                            </div>
+                                            <div>
+                                                <Label htmlFor="categoria">
+                                                    Categoría
+                                                </Label>
+                                                <Input
+                                                    id="categoria"
+                                                    type="text"
+                                                    value={qualityData.categoria}
+                                                    onChange={(e) =>
+                                                        setQualityData(
+                                                            "categoria",
+                                                            e.target.value
+                                                        )
+                                                    }
+                                                />
+                                            </div>
+                                            <div>
+                                                <Label htmlFor="destino">
+                                                    Destino
+                                                </Label>
+                                                <Input
+                                                    id="destino"
+                                                    type="text"
+                                                    value={qualityData.destino}
+                                                    onChange={(e) =>
+                                                        setQualityData(
+                                                            "destino",
+                                                            e.target.value
+                                                        )
+                                                    }
+                                                />
+                                            </div>
+                                            <div>
+                                                <Label htmlFor="calibre">
+                                                    Calibre
+                                                </Label>
+                                                <Input
+                                                    id="calibre"
+                                                    type="text"
+                                                    value={qualityData.calibre}
+                                                    onChange={(e) =>
+                                                        setQualityData(
+                                                            "calibre",
+                                                            e.target.value
+                                                        )
+                                                    }
+                                                />
+                                            </div>
+                                            <div>
+                                                <Label htmlFor="color_cubrimiento">
+                                                    Color de Cubrimiento
+                                                </Label>
+                                                <Input
+                                                    id="color_cubrimiento"
+                                                    type="text"
+                                                    value={
+                                                        qualityData.color_cubrimiento
+                                                    }
+                                                    onChange={(e) =>
+                                                        setQualityData(
+                                                            "color_cubrimiento",
+                                                            e.target.value
+                                                        )
+                                                    }
+                                                />
+                                            </div>
+                                            <div>
+                                                <Label htmlFor="color_fondo">
+                                                    Color de Fondo
+                                                </Label>
+                                                <Input
+                                                    id="color_fondo"
+                                                    type="text"
+                                                    value={
+                                                        qualityData.color_fondo
+                                                    }
+                                                    onChange={(e) =>
+                                                        setQualityData(
+                                                            "color_fondo",
+                                                            e.target.value
+                                                        )
+                                                    }
+                                                />
+                                            </div>
                                         </div>
                                         <div>
                                             <Label htmlFor="t_muestra">

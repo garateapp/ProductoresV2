@@ -400,12 +400,12 @@ export default function SagShow({ auth, producerRut, producerName, csgRecords, p
       </div>
 
       <Dialog open={isUploadModalOpen} onOpenChange={setIsUploadModalOpen}>
-        <DialogContent className="sm:max-w-[425px]">
+        <DialogContent className="sm:max-w-[700px] max-h-[90vh] overflow-y-auto">
           <DialogHeader>
             <DialogTitle>Subir Certificación o Aplicación</DialogTitle>
             <DialogDescription>Complete los detalles y seleccione el archivo para subir.</DialogDescription>
           </DialogHeader>
-          <form onSubmit={handleUploadSubmit} className="space-y-4 py-4">
+          <form onSubmit={handleUploadSubmit} className="grid grid-cols-1 md:grid-cols-2 gap-4 py-4">
             <div>
               <Label>CSG</Label>
               <Select value={data.csg_user_id ? String(data.csg_user_id) : ''} onValueChange={(value) => setData('csg_user_id', Number(value))}>
@@ -434,7 +434,7 @@ export default function SagShow({ auth, producerRut, producerName, csgRecords, p
               </Select>
               <InputError message={errors.certification_type} className="mt-2" />
             </div>
-            <div>
+            <div className="md:col-span-2">
               <Label>SDP (opcional)</Label>
               <div className="flex flex-wrap gap-2">
                 {(csgRecords.find(c => c.id === data.csg_user_id)?.sdp_sites || []).map(sdp => {
@@ -457,9 +457,8 @@ export default function SagShow({ auth, producerRut, producerName, csgRecords, p
               </div>
               <InputError message={errors.sdp_site_ids} className="mt-2" />
             </div>
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-              <div>
-                <Label>Especie (opcional)</Label>
+            <div>
+              <Label>Especie (opcional)</Label>
                 <select className="w-full border rounded px-2 py-2" value={data.especie_id} onChange={(e) => setData('especie_id', e.target.value ? Number(e.target.value) : '')}>
                   <option value="">Seleccione...</option>
                   {(especies || []).map(e => (
@@ -469,7 +468,7 @@ export default function SagShow({ auth, producerRut, producerName, csgRecords, p
                 <InputError message={errors.especie_id} className="mt-2" />
               </div>
               <div>
-                <Label>País (opcional)</Label>
+              <Label>País (opcional)</Label>
                 <select className="w-full border rounded px-2 py-2" value={data.country_id} onChange={(e) => setData('country_id', e.target.value ? Number(e.target.value) : '')}>
                   <option value="">Seleccione...</option>
                   {(countries || []).map(c => (
@@ -478,7 +477,6 @@ export default function SagShow({ auth, producerRut, producerName, csgRecords, p
                 </select>
                 <InputError message={errors.country_id} className="mt-2" />
               </div>
-            </div>
             <div className="flex items-center gap-2">
               <Switch id="is_active" checked={data.is_active} onCheckedChange={(v) => setData('is_active', v)} />
               <Label htmlFor="is_active">Documento Vigente</Label>
@@ -493,12 +491,12 @@ export default function SagShow({ auth, producerRut, producerName, csgRecords, p
               <Input id="expiration_date" type="date" value={data.expiration_date} onChange={(e) => setData('expiration_date', e.target.value)} />
               <InputError message={errors.expiration_date} className="mt-2" />
             </div>
-            <div>
+            <div className="md:col-span-2">
               <Label htmlFor="file">Archivo</Label>
               <Input id="file" type="file" onChange={(e) => setData('file', e.target.files[0])} required />
               <InputError message={errors.file} className="mt-2" />
             </div>
-            <DialogFooter>
+            <DialogFooter className="md:col-span-2">
               <Button type="button" variant="secondary" onClick={() => setIsUploadModalOpen(false)}>Cancelar</Button>
               <Button type="submit" disabled={processing}>{processing ? 'Subiendo...' : 'Subir'}</Button>
             </DialogFooter>
