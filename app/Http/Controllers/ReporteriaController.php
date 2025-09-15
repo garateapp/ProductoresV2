@@ -2,27 +2,23 @@
 
 namespace App\Http\Controllers;
 
+use App\Exports\CherriesConsolidatedExport;
+use App\Exports\ConsolidatedExport;
+use App\Models\Calidad;
+use App\Models\Especie;
+use App\Models\Recepcion;
+use App\Models\User;
+use App\Services\QualityChartsService;
+use Carbon\Carbon;
 use Illuminate\Http\Request;
 use Inertia\Inertia;
-use App\Models\Valor;
-use App\Models\Detalle;
-use App\Models\Especie;
-use App\Models\User;
-use App\Models\Recepcion;
-use App\Models\Calidad;
-use Illuminate\Support\Facades\Log;
-use Carbon\Carbon;
-use App\Services\QualityChartsService;
 use Maatwebsite\Excel\Facades\Excel;
-use App\Exports\ConsolidatedExport;
-use App\Exports\CherriesConsolidatedExport;
 
 class ReporteriaController extends Controller
 {
     /**
      * Displays the reporting page with filtered data.
      *
-     * @param Request $request
      * @return \Inertia\Response
      */
     public function index(Request $request)
@@ -36,7 +32,7 @@ class ReporteriaController extends Controller
         $lotesQuery = Recepcion::query();
         if ($request->filled('especie_id')) {
             $especie = Especie::find($request->input('especie_id'));
-            if($especie){
+            if ($especie) {
                 $lotesQuery->where('n_especie', $especie->name);
             }
         }
@@ -49,13 +45,13 @@ class ReporteriaController extends Controller
                 ->with(['calidad.detalles.parametro', 'calidad.detalles.valor', 'producer', 'variedad'])
                 ->when($request->filled('especie_id'), function ($query) use ($request) {
                     $especie = Especie::find($request->input('especie_id'));
-                    if($especie){
+                    if ($especie) {
                         $query->where('n_especie', $especie->name);
                     }
                 })
                 ->when($request->filled('variedad_id'), function ($query) use ($request) {
                     $variedad = Variedad::find($request->input('variedad_id'));
-                    if($variedad){
+                    if ($variedad) {
                         $query->where('n_variedad', $variedad->name);
                     }
                 })
@@ -87,8 +83,6 @@ class ReporteriaController extends Controller
         $qualityDefects = $ready ? $this->getDefectosCalidadData($receptions) : [];
         $conditionDefects = $ready ? $this->getDefectosCondicionData($receptions) : [];
         $pestDamage = $ready ? $this->getDanoPlagaData($receptions) : [];
-
-
 
         // For receptionDetails, we can reuse the same query
         $receptionDetails = null;
@@ -125,21 +119,20 @@ class ReporteriaController extends Controller
     /**
      * Generates data for Calibre Distribution chart.
      *
-     * @param \Illuminate\Support\Collection $receptions
-     * @return array
+     * @param  \Illuminate\Support\Collection  $receptions
      */
     private function getSizeDistributionData($receptions): array
     {
         $first = $receptions->first();
         if ($first && ($first->n_especie === 'Cherries')) {
             $reception_numbers = $receptions->pluck('numero_g_recepcion')
-                ->filter()->unique()->map(fn($n) => (string)$n)->values()->all();
+                ->filter()->unique()->map(fn ($n) => (string) $n)->values()->all();
             if (empty($reception_numbers)) {
-                return [ 'categories' => [], 'series' => [] ];
+                return ['categories' => [], 'series' => []];
             }
 
             $colors = ['Rojo', 'Rojo Caoba', 'Santina', 'Caoba Oscuro', 'Black'];
-            $grades = ['L','XL','J','2J','3J','4J'];
+            $grades = ['L', 'XL', 'J', '2J', '3J', '4J'];
 
             $colores = \DB::raw("(VALUES
                 ('Rojo'),
@@ -179,9 +172,9 @@ class ReporteriaController extends Controller
                 ->crossJoin($calibres)
                 ->leftJoinSub($datosSub, 'd', function ($join) {
                     $join->on('d.nombre_color', '=', 'c.nombre_color')
-                         ->on('d.categoria_calibres', '=', 'f.categoria_calibres');
+                        ->on('d.categoria_calibres', '=', 'f.categoria_calibres');
                 })
-                ->selectRaw("c.nombre_color, f.categoria_calibres, COALESCE(d.cantidad, 0) AS cantidad")
+                ->selectRaw('c.nombre_color, f.categoria_calibres, COALESCE(d.cantidad, 0) AS cantidad')
                 ->orderBy('f.categoria_calibres')
                 ->orderBy('c.nombre_color')
                 ->get();
@@ -209,11 +202,11 @@ class ReporteriaController extends Controller
                     $data[] = $pct;
                     $countRow[] = $val;
                 }
-                $series[] = [ 'name' => $c, 'data' => $data ];
-                $countsSeries[] = [ 'name' => $c, 'data' => $countRow ];
+                $series[] = ['name' => $c, 'data' => $data];
+                $countsSeries[] = ['name' => $c, 'data' => $countRow];
             }
 
-            return [ 'categories' => $grades, 'series' => $series, 'countsSeries' => $countsSeries ];
+            return ['categories' => $grades, 'series' => $series, 'countsSeries' => $countsSeries];
         }
 
         // Genérico (no Cherries): sumar % por calibre desde calidad.detalles
@@ -230,16 +223,16 @@ class ReporteriaController extends Controller
             }
         }
         foreach ($calibreCounts as $calibre => $count) {
-            $chartData[] = [ 'calibre' => $calibre, 'count' => $count ];
+            $chartData[] = ['calibre' => $calibre, 'count' => $count];
         }
+
         return array_values($chartData);
     }
 
     /**
      * Generates data for PROMEDIO FIRMEZAS chart.
      *
-     * @param \Illuminate\Support\Collection $receptions
-     * @return array
+     * @param  \Illuminate\Support\Collection  $receptions
      */
     private function getPromedioFirmezasData($receptions): array
     {
@@ -307,8 +300,7 @@ class ReporteriaController extends Controller
     /**
      * Generates data for DISTRIBUCIÓN DE FIRMEZAS chart.
      *
-     * @param \Illuminate\Support\Collection $receptions
-     * @return array
+     * @param  \Illuminate\Support\Collection  $receptions
      */
     private function getDistribucionFirmezasData($receptions): array
     {
@@ -320,7 +312,7 @@ class ReporteriaController extends Controller
                 foreach ($reception->calidad->detalles as $detail) {
                     if ($detail->tipo_item === 'FIRMEZAS') {
                         $readingName = $detail->detalle_item ?? 'N/A';
-                        $firmnessDistributionData[$readingName] =  $detail->valor_ss ?? 0;
+                        $firmnessDistributionData[$readingName] = $detail->valor_ss ?? 0;
 
                     }
                 }
@@ -340,8 +332,7 @@ class ReporteriaController extends Controller
     /**
      * Generates data for SÓLIDOS SOLUBLES (°BRIX) chart.
      *
-     * @param \Illuminate\Support\Collection $receptions
-     * @return array
+     * @param  \Illuminate\Support\Collection  $receptions
      */
     private function getSolidosSolublesData($receptions): array
     {
@@ -351,18 +342,17 @@ class ReporteriaController extends Controller
         foreach ($receptions as $reception) {
             if ($reception->calidad) {
                 foreach ($reception->calidad->detalles as $detail) {
-                    if (in_array($detail->detalle_item, ["LIGHT", "DARK", "BLACK"])) {
-                        if($detail->tipo_item === 'SOLIDOS SOLUBLES'){
+                    if (in_array($detail->detalle_item, ['LIGHT', 'DARK', 'BLACK'])) {
+                        if ($detail->tipo_item === 'SOLIDOS SOLUBLES') {
 
-                        $size = $detail->detalle_item ?? 'N/A';
-                        $brixData[$size] = ($detail->valor_ss ?? 0);
+                            $size = $detail->detalle_item ?? 'N/A';
+                            $brixData[$size] = ($detail->valor_ss ?? 0);
 
                         }
                     }
                 }
             }
         }
-
 
         foreach ($brixData as $size => $data) {
             $chartData[] = [
@@ -377,21 +367,20 @@ class ReporteriaController extends Controller
     /**
      * Generates data for COLOR DE CUBRIMIENTO chart.
      *
-     * @param \Illuminate\Support\Collection $receptions
-     * @return array
+     * @param  \Illuminate\Support\Collection  $receptions
      */
     private function getColorCubrimientoData($receptions): array
     {
         $first = $receptions->first();
         if ($first && ($first->n_especie === 'Cherries')) {
             $reception_numbers = $receptions->pluck('numero_g_recepcion')
-                ->filter()->unique()->map(fn($n) => (string)$n)->values()->all();
+                ->filter()->unique()->map(fn ($n) => (string) $n)->values()->all();
             if (empty($reception_numbers)) {
-                return [ 'categories' => [], 'series' => [] ];
+                return ['categories' => [], 'series' => []];
             }
 
             $colors = ['Rojo', 'Rojo Caoba', 'Santina', 'Caoba Oscuro', 'Black'];
-            $grades = ['L','XL','J','2J','3J','4J'];
+            $grades = ['L', 'XL', 'J', '2J', '3J', '4J'];
 
             $colores = \DB::raw("(VALUES
                 ('Rojo'),
@@ -437,9 +426,9 @@ class ReporteriaController extends Controller
                 ->crossJoin($calibres)
                 ->leftJoinSub($datosSub, 'd', function ($join) {
                     $join->on('d.nombre_color', '=', 'c.nombre_color')
-                         ->on('d.categoria_calibres', '=', 'f.categoria_calibres');
+                        ->on('d.categoria_calibres', '=', 'f.categoria_calibres');
                 })
-                ->selectRaw("c.nombre_color, f.categoria_calibres, COALESCE(d.cantidad, 0) AS cantidad")
+                ->selectRaw('c.nombre_color, f.categoria_calibres, COALESCE(d.cantidad, 0) AS cantidad')
                 ->orderBy('c.nombre_color')
                 ->orderBy('f.categoria_calibres')
                 ->get();
@@ -466,11 +455,11 @@ class ReporteriaController extends Controller
                     $data[] = $pct;
                     $countRow[] = $val;
                 }
-                $series[] = [ 'name' => $g, 'data' => $data ];
-                $countsSeries[] = [ 'name' => $g, 'data' => $countRow ];
+                $series[] = ['name' => $g, 'data' => $data];
+                $countsSeries[] = ['name' => $g, 'data' => $countRow];
             }
 
-            return [ 'categories' => $colors, 'series' => $series, 'countsSeries' => $countsSeries ];
+            return ['categories' => $colors, 'series' => $series, 'countsSeries' => $countsSeries];
         }
 
         $chartData = [];
@@ -487,16 +476,16 @@ class ReporteriaController extends Controller
             }
         }
         foreach ($coverageData as $color => $percentageSum) {
-            $chartData[] = [ 'color' => $color, 'percentage' => $percentageSum ];
+            $chartData[] = ['color' => $color, 'percentage' => $percentageSum];
         }
+
         return array_values($chartData);
     }
 
     /**
      * Generates data for DEFECTOS CALIDAD chart.
      *
-     * @param \Illuminate\Support\Collection $receptions
-     * @return array
+     * @param  \Illuminate\Support\Collection  $receptions
      */
     private function getDefectosCalidadData($receptions): array
     {
@@ -527,8 +516,7 @@ class ReporteriaController extends Controller
     /**
      * Generates data for DEFECTOS CONDICION chart.
      *
-     * @param \Illuminate\Support\Collection $receptions
-     * @return array
+     * @param  \Illuminate\Support\Collection  $receptions
      */
     private function getDefectosCondicionData($receptions): array
     {
@@ -559,8 +547,7 @@ class ReporteriaController extends Controller
     /**
      * Generates data for DAÑO PLAGA chart.
      *
-     * @param \Illuminate\Support\Collection $receptions
-     * @return array
+     * @param  \Illuminate\Support\Collection  $receptions
      */
     private function getDanoPlagaData($receptions): array
     {
@@ -591,19 +578,19 @@ class ReporteriaController extends Controller
     public function exportConsolidated(Request $request)
     {
         $filters = $request->only(['especie_id', 'variedad_id', 'productor_id', 'lote', 'lotes', 'from_date', 'to_date']);
-        $nombre_especie="";
+        $nombre_especie = '';
         $query = Recepcion::query()
             ->with(['calidad.detalles.parametro', 'calidad.detalles.valor', 'producer', 'variedad'])
             ->when($request->filled('especie_id'), function ($query) use ($request) {
                 $especie = Especie::find($request->input('especie_id'));
-                $nombre_especie=$especie->name;
-                if($especie){
+                $nombre_especie = $especie->name;
+                if ($especie) {
                     $query->where('n_especie', $especie->name);
                 }
             })
             ->when($request->filled('variedad_id'), function ($query) use ($request) {
                 $variedad = \App\Models\Variedad::find($request->input('variedad_id'));
-                if($variedad){
+                if ($variedad) {
                     $query->where('n_variedad', $variedad->name);
                 }
             })

@@ -2,8 +2,8 @@
 
 namespace App\Http\Controllers;
 
-use App\Models\Proceso;
 use App\Models\Especie;
+use App\Models\Proceso;
 use App\Models\Variedad;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
@@ -16,7 +16,7 @@ class ProcesoController extends Controller
         $user = Auth::user();
         $isProducer = false;
 
-        if (!empty($user->idprod)) {
+        if (! empty($user->idprod)) {
             $isProducer = true;
         }
 
@@ -31,8 +31,8 @@ class ProcesoController extends Controller
         if ($request->has('search')) {
             $searchTerm = $request->input('search');
             $query->where(function ($q) use ($searchTerm) {
-                $q->where('especie', 'like', '%' . $searchTerm . '%')
-                  ->orWhere('variedad', 'like', '%' . $searchTerm . '%');
+                $q->where('especie', 'like', '%'.$searchTerm.'%')
+                    ->orWhere('variedad', 'like', '%'.$searchTerm.'%');
             });
         }
 
@@ -64,8 +64,8 @@ class ProcesoController extends Controller
         // Calculate totals for the chart
         $chartDataQuery = clone $query; // Clone the query
         $chartData = $chartDataQuery->selectRaw('especie, SUM(exp) as exportacion, SUM(comercial) as comercial, SUM(desecho) as desecho, SUM(merma) as merma')
-                           ->groupBy('especie')
-                           ->get();
+            ->groupBy('especie')
+            ->get();
 
         $procesos = $query->paginate(10); // Use the original query for pagination
 

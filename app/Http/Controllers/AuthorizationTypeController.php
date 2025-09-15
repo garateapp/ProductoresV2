@@ -11,6 +11,7 @@ class AuthorizationTypeController extends Controller
     public function index()
     {
         $authorizationTypes = AuthorizationType::all();
+
         return Inertia::render('Documentation/AuthorizationTypes/Index', [
             'authorizationTypes' => $authorizationTypes,
         ]);
@@ -30,7 +31,7 @@ class AuthorizationTypeController extends Controller
     public function update(Request $request, AuthorizationType $authorizationType)
     {
         $validated = $request->validate([
-            'name' => 'required|string|max:255|unique:authorization_types,name,' . $authorizationType->id,
+            'name' => 'required|string|max:255|unique:authorization_types,name,'.$authorizationType->id,
         ]);
 
         $authorizationType->update($validated);

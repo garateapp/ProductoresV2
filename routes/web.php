@@ -1,11 +1,8 @@
 <?php
 
 use App\Http\Controllers\ProfileController;
-use App\Http\Controllers\PhotoTypeController;
-use App\Http\Controllers\QualityControlPhotoController;
 use App\Http\Controllers\ReporteriaController;
 use App\Http\Controllers\UserController;
-use Illuminate\Foundation\Application;
 use Illuminate\Support\Facades\Route;
 use Inertia\Inertia;
 
@@ -21,15 +18,15 @@ Route::middleware('auth')->group(function () {
     Route::get('/profile', [ProfileController::class, 'edit'])->name('profile.edit');
     Route::patch('/profile', [ProfileController::class, 'update'])->name('profile.update');
     Route::delete('/profile', [ProfileController::class, 'destroy'])->name('profile.destroy');
-    
+
     Route::resource('users', UserController::class)->names('users');
     Route::get('users/{user}/assign-roles', [UserController::class, 'assignRoles'])->name('users.assignRoles');
     Route::post('users/{user}/sync-roles', [UserController::class, 'syncRoles'])->name('users.syncRoles');
     Route::post('users/{user}/reset-password', [UserController::class, 'resetPassword'])->name('users.reset-password');
-    Route::post('pass/{user}', [UserController::class,'password_rec'])->name('recuperar.contrasena');
-    Route::get('createlogo/{user}', [UserController::class,'logo_create'])->name('create.logo');
-    Route::post('updatelogo/{user}', [UserController::class,'logo_update'])->name('update.logo');
-    Route::post('deletelogo/{user}', [UserController::class,'logo_delete'])->name('delete.logo');
+    Route::post('pass/{user}', [UserController::class, 'password_rec'])->name('recuperar.contrasena');
+    Route::get('createlogo/{user}', [UserController::class, 'logo_create'])->name('create.logo');
+    Route::post('updatelogo/{user}', [UserController::class, 'logo_update'])->name('update.logo');
+    Route::post('deletelogo/{user}', [UserController::class, 'logo_delete'])->name('delete.logo');
 
     Route::resource('roles', App\Http\Controllers\RoleController::class)->names('roles');
     Route::get('roles/{role}/assign-permissions', [App\Http\Controllers\RoleController::class, 'assignPermissions'])->name('roles.assignPermissions');
@@ -61,6 +58,7 @@ Route::middleware('auth')->group(function () {
     Route::post('processed-fruit-quality/detail', [App\Http\Controllers\ProcessedFruitQualityController::class, 'storeDetail'])->name('processed-fruit-quality.storeDetail');
     Route::get('processed-fruit-quality/{proceso}/quality', [App\Http\Controllers\ProcessedFruitQualityController::class, 'getQuality'])->name('processed-fruit-quality.getQuality');
     Route::get('processed-fruit-quality/{proceso}/details', [App\Http\Controllers\ProcessedFruitQualityController::class, 'getDetails'])->name('processed-fruit-quality.getDetails');
+    Route::get('processed-fruit-quality/export', [App\Http\Controllers\ProcessedFruitQualityController::class, 'export'])->name('processed-fruit-quality.export');
 
     Route::post('producers/{producer}/agronomists', [App\Http\Controllers\ProducerAgronomistController::class, 'store'])->name('producers.agronomists.store');
     Route::delete('producers/{producer}/agronomists', [App\Http\Controllers\ProducerAgronomistController::class, 'destroy'])->name('producers.agronomists.destroy');

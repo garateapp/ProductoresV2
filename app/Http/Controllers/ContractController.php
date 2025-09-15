@@ -5,7 +5,6 @@ namespace App\Http\Controllers;
 use App\Models\Contract;
 use App\Models\User;
 use Illuminate\Http\Request;
-use Illuminate\Support\Facades\Storage;
 use Inertia\Inertia;
 
 class ContractController extends Controller
@@ -13,6 +12,7 @@ class ContractController extends Controller
     public function index()
     {
         $contracts = Contract::with('user')->get();
+
         return Inertia::render('Contracts/Index', [
             'contracts' => $contracts,
         ]);
@@ -21,6 +21,7 @@ class ContractController extends Controller
     public function create()
     {
         $producers = User::whereNotNull('idprod')->get();
+
         return Inertia::render('Contracts/Create', [
             'producers' => $producers,
         ]);

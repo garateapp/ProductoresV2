@@ -2,10 +2,10 @@
 
 namespace App\Console\Commands;
 
-use Illuminate\Console\Command;
 use App\Models\SagCertification;
 use App\Models\User;
 use Carbon\Carbon;
+use Illuminate\Console\Command;
 use Illuminate\Support\Facades\Log;
 
 class NotifySagCertifications extends Command
@@ -43,7 +43,9 @@ class NotifySagCertifications extends Command
 
         // Example: group by CSG and output a simple table
         foreach (['expired', 'expiring_soon'] as $key) {
-            if ($grouped[$key]->isEmpty()) continue;
+            if ($grouped[$key]->isEmpty()) {
+                continue;
+            }
             $this->line(strtoupper($key));
             $byCsg = $grouped[$key]->groupBy('csg_user_id');
             foreach ($byCsg as $csgId => $items) {
@@ -58,4 +60,3 @@ class NotifySagCertifications extends Command
         return self::SUCCESS;
     }
 }
-

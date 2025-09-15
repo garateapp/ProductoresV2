@@ -2,114 +2,113 @@
 
 namespace App\Http\Controllers;
 
-use App\Models\ProducerCertification;
-use App\Models\CertifyingHouse;
 use App\Models\CertificateType;
-use App\Models\Especie;
 use App\Models\CertificationOtherDocument;
-use App\Models\User; // Import User model
+use App\Models\CertifyingHouse;
+use App\Models\Especie;
 use App\Models\Market;
+use App\Models\ProducerCertification; // Import User model
+use App\Models\User;
 use Illuminate\Http\Request;
-use Inertia\Inertia;
-use Illuminate\Support\Facades\Storage;
-use Illuminate\Support\Facades\Log;
-use Illuminate\Support\Facades\DB;
 use Illuminate\Pagination\LengthAwarePaginator;
+use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Storage;
+use Inertia\Inertia;
 
 class ProducerCertificationController extends Controller
 {
-        public function index(Request $request)
-        {
-            $search = $request->input('search');
+    public function index(Request $request)
+    {
+        $search = $request->input('search');
 
-            $query = User::whereNotNull('idprod');
+        $query = User::whereNotNull('idprod');
 
-            if ($search) {
-                $query->where(function ($q) use ($search) {
-                    $q->where('name', 'like', '%' . $search . '%')
-                      ->orWhere('email', 'like', '%' . $search . '%')
-                      ->orWhere('rut', 'like', '%' . $search . '%');
-                });
-            }
+        if ($search) {
+            $query->where(function ($q) use ($search) {
+                $q->where('name', 'like', '%'.$search.'%')
+                    ->orWhere('email', 'like', '%'.$search.'%')
+                    ->orWhere('rut', 'like', '%'.$search.'%');
+            });
+        }
 
-            // Eager load certifications to avoid N+1 problem during KPI calculation
-            $allProducers = $query->with('certifications')->get();
+        // Eager load certifications to avoid N+1 problem during KPI calculation
+        $allProducers = $query->with('certifications')->get();
 
-            $producersByRut = $allProducers->groupBy('rut');
+        $producersByRut = $allProducers->groupBy('rut');
 
-            // KPI Calculations
-            $totalProducers = $producersByRut->count();
-            $producersUpToDate = 0;
-            $producersExpiringSoon = 0;
-            $producersExpired = 0;
+        // KPI Calculations
+        $totalProducers = $producersByRut->count();
+        $producersUpToDate = 0;
+        $producersExpiringSoon = 0;
+        $producersExpired = 0;
 
-            foreach ($producersByRut as $rut => $producerGroup) {
-                $hasExpired = false;
-                $hasExpiringSoon = false;
-                $hasUpToDate = false;
+        foreach ($producersByRut as $rut => $producerGroup) {
+            $hasExpired = false;
+            $hasExpiringSoon = false;
+            $hasUpToDate = false;
 
-                foreach ($producerGroup as $producer) {
-                    if ($producer->certifications->isEmpty()) {
-                        continue;
-                    }
-
-                    foreach ($producer->certifications as $certification) {
-                        $status = $this->getCertificationStatus($certification->expiration_date);
-
-                        if ($status === 'Vencida') {
-                            $hasExpired = true;
-                        } elseif ($status === 'Por vencer') {
-                            $hasExpiringSoon = true;
-                        } elseif ($status === 'Vigente') {
-                            $hasUpToDate = true;
-                        }
-                    }
+            foreach ($producerGroup as $producer) {
+                if ($producer->certifications->isEmpty()) {
+                    continue;
                 }
 
-                if ($hasExpired) {
-                    $producersExpired++;
-                } elseif ($hasExpiringSoon) {
-                    $producersExpiringSoon++;
-                } elseif ($hasUpToDate) {
-                    $producersUpToDate++;
+                foreach ($producer->certifications as $certification) {
+                    $status = $this->getCertificationStatus($certification->expiration_date);
+
+                    if ($status === 'Vencida') {
+                        $hasExpired = true;
+                    } elseif ($status === 'Por vencer') {
+                        $hasExpiringSoon = true;
+                    } elseif ($status === 'Vigente') {
+                        $hasUpToDate = true;
+                    }
                 }
             }
 
-            $currentPage = LengthAwarePaginator::resolveCurrentPage();
-            $perPage = 25;
-            $currentPageItems = $producersByRut->slice(($currentPage - 1) * $perPage, $perPage)->all();
-
-            $paginatedProducers = new LengthAwarePaginator($currentPageItems, $producersByRut->count(), $perPage, $currentPage, [
-                'path' => LengthAwarePaginator::resolveCurrentPath(),
-            ]);
-
-            return Inertia::render('Documentation/ProducerCertifications/Index', [
-                'producers' => $paginatedProducers,
-                'filters' => $request->only(['search']),
-                'kpis' => [
-                    'totalProducers' => $totalProducers,
-                    'producersUpToDate' => $producersUpToDate,
-                    'producersExpiringSoon' => $producersExpiringSoon,
-                    'producersExpired' => $producersExpired,
-                ],
-            ]);
-        }
-
-        private function getCertificationStatus($expirationDate)
-        {
-            $today = now();
-            $expiry = \Carbon\Carbon::parse($expirationDate);
-
-            $diffDays=$today->diffInDays($expiry, false);
-
-            if ($diffDays <= 90 && $diffDays > 0) {
-                return 'Por vencer';
-            } elseif ($diffDays < 0) {
-                return 'Vencida';
-            } else {
-                return 'Vigente';
+            if ($hasExpired) {
+                $producersExpired++;
+            } elseif ($hasExpiringSoon) {
+                $producersExpiringSoon++;
+            } elseif ($hasUpToDate) {
+                $producersUpToDate++;
             }
         }
+
+        $currentPage = LengthAwarePaginator::resolveCurrentPage();
+        $perPage = 25;
+        $currentPageItems = $producersByRut->slice(($currentPage - 1) * $perPage, $perPage)->all();
+
+        $paginatedProducers = new LengthAwarePaginator($currentPageItems, $producersByRut->count(), $perPage, $currentPage, [
+            'path' => LengthAwarePaginator::resolveCurrentPath(),
+        ]);
+
+        return Inertia::render('Documentation/ProducerCertifications/Index', [
+            'producers' => $paginatedProducers,
+            'filters' => $request->only(['search']),
+            'kpis' => [
+                'totalProducers' => $totalProducers,
+                'producersUpToDate' => $producersUpToDate,
+                'producersExpiringSoon' => $producersExpiringSoon,
+                'producersExpired' => $producersExpired,
+            ],
+        ]);
+    }
+
+    private function getCertificationStatus($expirationDate)
+    {
+        $today = now();
+        $expiry = \Carbon\Carbon::parse($expirationDate);
+
+        $diffDays = $today->diffInDays($expiry, false);
+
+        if ($diffDays <= 90 && $diffDays > 0) {
+            return 'Por vencer';
+        } elseif ($diffDays < 0) {
+            return 'Vencida';
+        } else {
+            return 'Vigente';
+        }
+    }
 
     public function create()
     {
@@ -144,7 +143,7 @@ class ProducerCertificationController extends Controller
         ]);
 
         // Ensure the user_id belongs to a producer
-        if (isset($validated['user_id']) && !User::where('id', $validated['user_id'])->whereNotNull('idprod')->exists()) {
+        if (isset($validated['user_id']) && ! User::where('id', $validated['user_id'])->whereNotNull('idprod')->exists()) {
             return redirect()->back()->withErrors(['user_id' => 'El usuario seleccionado no es un productor válido.']);
         }
 
@@ -195,7 +194,7 @@ class ProducerCertificationController extends Controller
             'certifying_house_id' => 'required|exists:certifying_houses,id',
             'name' => 'required|string|max:255',
             'certificate_type_id' => 'required|exists:certificate_types,id',
-            'certificate_code' => 'required|string|max:255|unique:producer_certifications,certificate_code,' . $certification->id,
+            'certificate_code' => 'required|string|max:255|unique:producer_certifications,certificate_code,'.$certification->id,
             'especie_id' => 'required|exists:especies,id',
             'audit_date' => 'required|date',
             'expiration_date' => 'required|date|after:audit_date',
@@ -210,7 +209,7 @@ class ProducerCertificationController extends Controller
         ]);
 
         // Ensure the user_id belongs to a producer
-        if (isset($validated['user_id']) && !User::where('id', $validated['user_id'])->whereNotNull('idprod')->exists()) {
+        if (isset($validated['user_id']) && ! User::where('id', $validated['user_id'])->whereNotNull('idprod')->exists()) {
             return redirect()->back()->withErrors(['user_id' => 'El usuario seleccionado no es un productor válido.']);
         }
 
@@ -223,7 +222,7 @@ class ProducerCertificationController extends Controller
                     Storage::disk('public')->delete($certification->certificate_pdf_path);
                 }
                 $certificationData['certificate_pdf_path'] = $request->file('certificate_pdf')->store('certifications/pdfs', 'public');
-            } else if ($request->boolean('remove_certificate_pdf')) { // Assuming a checkbox to remove PDF
+            } elseif ($request->boolean('remove_certificate_pdf')) { // Assuming a checkbox to remove PDF
                 if ($certification->certificate_pdf_path) {
                     Storage::disk('public')->delete($certification->certificate_pdf_path);
                 }

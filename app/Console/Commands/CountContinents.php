@@ -2,8 +2,8 @@
 
 namespace App\Console\Commands;
 
-use Illuminate\Console\Command;
-use App\Models\Continent; // Added
+use App\Models\Continent;
+use Illuminate\Console\Command; // Added
 
 class CountContinents extends Command
 {
@@ -27,6 +27,6 @@ class CountContinents extends Command
     public function handle()
     {
         $count = Continent::count(); // Modified
-        $this->info("Number of continents: " . $count); // Modified
+        $this->info('Number of continents: '.$count); // Modified
     }
 }

@@ -2,12 +2,11 @@
 
 namespace App\Http\Controllers;
 
+use App\Models\Especie;
 use App\Models\MrlSample;
 use App\Models\User;
-use App\Models\Especie;
 use App\Models\Variedad;
 use Illuminate\Http\Request;
-use Illuminate\Support\Facades\Storage;
 use Inertia\Inertia;
 
 class MrlSampleController extends Controller
@@ -59,16 +58,17 @@ class MrlSampleController extends Controller
     public function getVariedadesByEspecie($especieId)
     {
         $variedades = Variedad::where('especie_id', $especieId)->get();
+
         return response()->json($variedades);
     }
 
     public function getCsgsByRut($rut)
     {
         $csgs = User::where('rut', $rut)
-                    ->whereNotNull('csg')
-                    ->pluck('csg')
-                    ->unique()
-                    ->values();
+            ->whereNotNull('csg')
+            ->pluck('csg')
+            ->unique()
+            ->values();
 
         return response()->json($csgs);
     }

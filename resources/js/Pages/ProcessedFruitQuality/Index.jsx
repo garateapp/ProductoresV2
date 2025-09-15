@@ -128,6 +128,7 @@ export default function Index({
     } = useForm({
         photo: null,
         photo_type_id: "",
+        observations: "",
     });
 
     const [isModalOpen, setIsModalOpen] = useState(false);
@@ -137,9 +138,7 @@ export default function Index({
     const [qualityId, setQualityId] = useState(null);
     const [detallesAgregados, setDetallesAgregados] = useState([]);
     const [defectosAgregados, setDefectosAgregados] = useState([]);
-    const [desordenFisiologicoAgregados, setDesordenFisiologicoAgregados] =
-        useState([]);
-    const [curvaCalibreAgregados, setCurvaCalibreAgregados] = useState([]);
+    // Removed Desorden Fisiológico and Curva de Calibre states
     const [indiceMadurezAgregados, setIndiceMadurezAgregados] = useState([]);
     const [photos, setPhotos] = useState([]);
 
@@ -200,8 +199,7 @@ export default function Index({
                 const data = await detailsResponse.json();
                 setDetallesAgregados(data.detalles || []);
                 setDefectosAgregados(data.defectos || []);
-                setDesordenFisiologicoAgregados(data.desordenFisiologico || []);
-                setCurvaCalibreAgregados(data.curvaCalibre || []);
+                // removed: desorden fisiologico and curva calibre aggregations
                 setIndiceMadurezAgregados(data.indiceMadurez || []);
             } catch (error) {
                 console.error("Error fetching existing quality data:", error);
@@ -218,8 +216,7 @@ export default function Index({
         setPhotos([]);
         setDetallesAgregados([]);
         setDefectosAgregados([]);
-        setDesordenFisiologicoAgregados([]);
-        setCurvaCalibreAgregados([]);
+        // removed: desorden fisiologico and curva calibre resets
         setIndiceMadurezAgregados([]);
 
         // ✅ Establece el ID
@@ -315,6 +312,9 @@ export default function Index({
         formData.append("photo", photoData.photo);
         formData.append("photo_type_id", photoData.photo_type_id);
         formData.append("processed_fruit_quality_id", qualityId);
+        if (photoData.observations) {
+            formData.append("observations", photoData.observations);
+        }
 
         const csrfToken = document
             .querySelector('meta[name="csrf-token"]')
@@ -551,6 +551,9 @@ export default function Index({
                                                                 Fecha Evaluación
                                                             </TableHead>
                                                             <TableHead className="w-1/4">
+                                                                Estado
+                                                            </TableHead>
+                                                            <TableHead className="w-1/4">
                                                                 Responsable
                                                             </TableHead>
                                                             <TableHead className="w-1/4">
@@ -576,6 +579,13 @@ export default function Index({
                                                                         ).toLocaleDateString(
                                                                             "es-CL"
                                                                         )}
+                                                                    </TableCell>
+                                                                    <TableCell>
+                                                                        {quality.estado ? (
+                                                                            <Badge className={quality.estado === 'Aprobada' ? 'bg-green-600 text-white' : 'bg-orange-500 text-white'}>
+                                                                                {quality.estado}
+                                                                            </Badge>
+                                                                        ) : 'N/A'}
                                                                     </TableCell>
                                                                     <TableCell>
                                                                         {quality.responsable ||
@@ -661,19 +671,14 @@ export default function Index({
                                 defaultValue="general"
                                 onValueChange={setActiveTab}
                             >
-                                <TabsList className="grid w-full grid-cols-6">
+                                <TabsList className="grid w-full grid-cols-4">
                                     <TabsTrigger value="general">
                                         Info General
                                     </TabsTrigger>
                                     <TabsTrigger value="defectos">
                                         Defectos
                                     </TabsTrigger>
-                                    <TabsTrigger value="desorden-fisiologico">
-                                        Desorden Fisiológico
-                                    </TabsTrigger>
-                                    <TabsTrigger value="curva-calibre">
-                                        Curva de Calibre
-                                    </TabsTrigger>
+                                    
                                     <TabsTrigger value="indice-madurez">
                                         Indice de Madurez
                                     </TabsTrigger>
@@ -687,6 +692,19 @@ export default function Index({
                                         onSubmit={submitQuality}
                                         className="space-y-4 mt-4"
                                     >
+                                        <div className="flex items-center justify-between">
+                                            <div className="text-sm text-gray-600">
+                                                Estado de Evaluación
+                                            </div>
+                                            <div className="flex items-center gap-2">
+                                                <Label htmlFor="estado_switch">{qualityData.estado === 'Aprobada' ? 'Aprobada' : 'Rechazada'}</Label>
+                                                <Switch
+                                                    id="estado_switch"
+                                                    checked={qualityData.estado === 'Aprobada'}
+                                                    onCheckedChange={(val) => setQualityData('estado', val ? 'Aprobada' : 'Rechazada')}
+                                                />
+                                            </div>
+                                        </div>
                                         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                                             <div>
                                                 <Label htmlFor="numero_de_caja">
@@ -1134,217 +1152,10 @@ export default function Index({
                                     </form>
                                 </TabsContent>
 
-                                <TabsContent value="desorden-fisiologico">
-                                    <form
-                                        onSubmit={submitDetail}
-                                        className="space-y-4 mt-4"
-                                    >
-                                        <div className="grid grid-cols-2 gap-4">
-                                            <div>
-                                                <Label htmlFor="parametro_id_df">
-                                                    Parámetro
-                                                </Label>
-                                                <Select
-                                                    onValueChange={(value) => {
-                                                        setDetailData(
-                                                            "parametro_id",
-                                                            value
-                                                        );
-                                                        setDetailData(
-                                                            "valor_id",
-                                                            ""
-                                                        );
-                                                    }}
-                                                    value={
-                                                        detailData.parametro_id
-                                                    }
-                                                >
-                                                    <SelectTrigger className="w-full">
-                                                        <SelectValue placeholder="Seleccionar Parámetro" />
-                                                    </SelectTrigger>
-                                                    <SelectContent>
-                                                        {parametros
-                                                            .filter((p) =>
-                                                                [
-                                                                    11, 12,
-                                                                ].includes(p.id)
-                                                            )
-                                                            .map(
-                                                                (parametro) => (
-                                                                    <SelectItem
-                                                                        key={
-                                                                            parametro.id
-                                                                        }
-                                                                        value={String(
-                                                                            parametro.id
-                                                                        )}
-                                                                    >
-                                                                        {parametro?.nombre ||
-                                                                            "N/A"}
-                                                                    </SelectItem>
-                                                                )
-                                                            )}
-                                                    </SelectContent>
-                                                </Select>
-                                            </div>
-                                            <div>
-                                                <Label htmlFor="valor_id_df">
-                                                    Valor
-                                                </Label>
-                                                <Select
-                                                    onValueChange={(value) =>
-                                                        setDetailData(
-                                                            "valor_id",
-                                                            value
-                                                        )
-                                                    }
-                                                    value={detailData.valor_id}
-                                                >
-                                                    <SelectTrigger className="w-full">
-                                                        <SelectValue placeholder="Seleccionar Valor" />
-                                                    </SelectTrigger>
-                                                    <SelectContent>
-                                                        {parametros
-                                                            .find(
-                                                                (p) =>
-                                                                    p.id ===
-                                                                    parseInt(
-                                                                        detailData.parametro_id
-                                                                    )
-                                                            )
-                                                            ?.valors.map(
-                                                                (valor) => (
-                                                                    <SelectItem
-                                                                        key={
-                                                                            valor.id
-                                                                        }
-                                                                        value={String(
-                                                                            valor.id
-                                                                        )}
-                                                                    >
-                                                                        {
-                                                                            valor.nombre
-                                                                        }
-                                                                    </SelectItem>
-                                                                )
-                                                            )}
-                                                    </SelectContent>
-                                                </Select>
-                                            </div>
-                                        </div>
-                                        <div className="grid grid-cols-2 gap-4 mt-4">
-                                            <div>
-                                                <Label htmlFor="temperatura">
-                                                    Temperatura
-                                                </Label>
-                                                <Input
-                                                    id="temperatura"
-                                                    type="number"
-                                                    value={
-                                                        detailData.temperatura
-                                                    }
-                                                    onChange={(e) =>
-                                                        setDetailData(
-                                                            "temperatura",
-                                                            e.target.value
-                                                        )
-                                                    }
-                                                />
-                                            </div>
-                                            <div>
-                                                <Label htmlFor="valor_presion">
-                                                    Valor Presión
-                                                </Label>
-                                                <Input
-                                                    id="valor_presion"
-                                                    type="number"
-                                                    value={
-                                                        detailData.valor_presion
-                                                    }
-                                                    onChange={(e) =>
-                                                        setDetailData(
-                                                            "valor_presion",
-                                                            e.target.value
-                                                        )
-                                                    }
-                                                />
-                                            </div>
-                                        </div>
-                                        <Button
-                                            type="submit"
-                                            disabled={
-                                                processingDetail || !qualityId
-                                            }
-                                        >
-                                            Agregar Desorden Fisiológico
-                                        </Button>
-                                        {desordenFisiologicoAgregados.length >
-                                            0 && (
-                                            <div className="mt-4 overflow-x-auto max-h-[200px] overflow-y-auto">
-                                                <h4 className="text-md font-medium mb-2">
-                                                    Desorden Fisiológico
-                                                    Agregados:
-                                                </h4>
-                                                <Table>
-                                                    <TableHeader>
-                                                        <TableRow>
-                                                            <TableHead>
-                                                                Temperatura
-                                                            </TableHead>
-                                                            <TableHead>
-                                                                Cantidad
-                                                            </TableHead>
-                                                            <TableHead>
-                                                                Tipo Item
-                                                            </TableHead>
-                                                            <TableHead>
-                                                                Detalle Item
-                                                            </TableHead>
-                                                            <TableHead>
-                                                                Valor SS
-                                                            </TableHead>
-                                                        </TableRow>
-                                                    </TableHeader>
-                                                    <TableBody>
-                                                        {desordenFisiologicoAgregados.map(
-                                                            (
-                                                                detalle,
-                                                                index
-                                                            ) => (
-                                                                <TableRow
-                                                                    key={index}
-                                                                >
-                                                                    <TableCell className="text-sm">
-                                                                        {detalle.temperatura ||
-                                                                            "N/A"}
-                                                                    </TableCell>
-                                                                    <TableCell className="text-sm">
-                                                                        {detalle.cantidad_muestra ||
-                                                                            "N/A"}
-                                                                    </TableCell>
-                                                                    <TableCell className="text-sm">
-                                                                        {detalle.tipo_item ||
-                                                                            "N/A"}
-                                                                    </TableCell>
-                                                                    <TableCell className="text-sm">
-                                                                        {detalle.detalle_item ||
-                                                                            "N/A"}
-                                                                    </TableCell>
-                                                                    <TableCell className="text-sm">
-                                                                        {detalle.valor_ss ||
-                                                                            "N/A"}
-                                                                    </TableCell>
-                                                                </TableRow>
-                                                            )
-                                                        )}
-                                                    </TableBody>
-                                                </Table>
-                                            </div>
-                                        )}
-                                    </form>
-                                </TabsContent>
+                                
 
-                                <TabsContent value="curva-calibre">
+                                {/* Curva de Calibre tab removed */}
+                                {/* <TabsContent value="curva-calibre">
                                     <form
                                         onSubmit={submitDetail}
                                         className="space-y-4 mt-4"
@@ -1565,7 +1376,7 @@ export default function Index({
                                             </div>
                                         )}
                                     </form>
-                                </TabsContent>
+                                </TabsContent> */}
 
                                 <TabsContent value="indice-madurez">
                                     <form
@@ -1598,27 +1409,18 @@ export default function Index({
                                                     <SelectContent>
                                                         {parametros
                                                             .filter((p) =>
-                                                                [
-                                                                    7, 8, 9, 10,
-                                                                    13, 14, 15,
-                                                                    16, 17, 18,
-                                                                ].includes(p.id)
+                                                                (p.nombre || '')
+                                                                    .toLowerCase()
+                                                                    .includes('solidos')
                                                             )
-                                                            .map(
-                                                                (parametro) => (
-                                                                    <SelectItem
-                                                                        key={
-                                                                            parametro.id
-                                                                        }
-                                                                        value={String(
-                                                                            parametro.id
-                                                                        )}
-                                                                    >
-                                                                        {parametro?.nombre ||
-                                                                            "N/A"}
-                                                                    </SelectItem>
-                                                                )
-                                                            )}
+                                                            .map((parametro) => (
+                                                                <SelectItem
+                                                                    key={parametro.id}
+                                                                    value={String(parametro.id)}
+                                                                >
+                                                                    {parametro?.nombre || 'N/A'}
+                                                                </SelectItem>
+                                                            ))}
                                                     </SelectContent>
                                                 </Select>
                                             </div>
@@ -1687,9 +1489,7 @@ export default function Index({
                                                 />
                                             </div>
                                             <div>
-                                                <Label htmlFor="valor_presion_im">
-                                                    Valor Presión
-                                                </Label>
+                                                <Label htmlFor="valor_presion_im">°Brix</Label>
                                                 <Input
                                                     id="valor_presion_im"
                                                     type="number"
@@ -1832,24 +1632,24 @@ export default function Index({
                                                     )}
                                                 </div>
                                                 <div>
-                                                    <Label htmlFor="photo">
-                                                        Archivo de Imagen
-                                                    </Label>
+                                                    <Label htmlFor="photo_observations">Observaciones</Label>
+                                                    <textarea
+                                                        id="photo_observations"
+                                                        value={photoData.observations || ''}
+                                                        onChange={(e) => setPhotoData('observations', e.target.value)}
+                                                        className="mt-1 block w-full rounded-md border-gray-300 shadow-sm"
+                                                        rows={3}
+                                                    />
+                                                </div>
+                                                <div>
+                                                    <Label htmlFor="photo">Archivo de Imagen</Label>
                                                     <Input
                                                         id="photo"
                                                         type="file"
-                                                        onChange={(e) =>
-                                                            setPhotoData(
-                                                                "photo",
-                                                                e.target
-                                                                    .files[0]
-                                                            )
-                                                        }
+                                                        onChange={(e) => setPhotoData('photo', e.target.files[0])}
                                                     />
                                                     {errorsPhoto.photo && (
-                                                        <p className="mt-1 text-sm text-red-600">
-                                                            {errorsPhoto.photo}
-                                                        </p>
+                                                        <p className="mt-1 text-sm text-red-600">{errorsPhoto.photo}</p>
                                                     )}
                                                 </div>
                                                 <Button
@@ -1887,12 +1687,11 @@ export default function Index({
                                                                     }
                                                                     className="rounded-lg object-cover w-full h-32"
                                                                 />
-                                                                <div className="absolute bottom-0 left-0 right-0 bg-black bg-opacity-50 text-white text-xs p-1 rounded-b-lg">
-                                                                    {
-                                                                        photo
-                                                                            .photo_type
-                                                                            .name
-                                                                    }
+                                                                <div className="absolute bottom-0 left-0 right-0 bg-black bg-opacity-60 text-white text-[10px] p-1 rounded-b-lg space-y-0.5">
+                                                                    <div className="font-medium">{photo.photo_type.name}</div>
+                                                                    {photo.observations && (
+                                                                        <div className="opacity-90">{photo.observations}</div>
+                                                                    )}
                                                                 </div>
                                                                 <Button
                                                                     variant="destructive"

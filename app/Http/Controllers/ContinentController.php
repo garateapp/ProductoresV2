@@ -11,6 +11,7 @@ class ContinentController extends Controller
     public function index()
     {
         $continents = Continent::all();
+
         return Inertia::render('Documentation/Continents/Index', [
             'continents' => $continents,
         ]);
@@ -30,7 +31,7 @@ class ContinentController extends Controller
     public function update(Request $request, Continent $continent)
     {
         $validated = $request->validate([
-            'name' => 'required|string|max:255|unique:continents,name,' . $continent->id,
+            'name' => 'required|string|max:255|unique:continents,name,'.$continent->id,
         ]);
 
         $continent->update($validated);

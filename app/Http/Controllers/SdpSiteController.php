@@ -21,12 +21,12 @@ class SdpSiteController extends Controller
             $search = $request->string('search');
             $query->where(function ($q) use ($search) {
                 $q->where('name', 'like', "%{$search}%")
-                  ->orWhere('code', 'like', "%{$search}%")
-                  ->orWhereHas('csgUser', function ($q2) use ($search) {
-                      $q2->where('csg', 'like', "%{$search}%")
-                         ->orWhere('rut', 'like', "%{$search}%")
-                         ->orWhere('name', 'like', "%{$search}%");
-                  });
+                    ->orWhere('code', 'like', "%{$search}%")
+                    ->orWhereHas('csgUser', function ($q2) use ($search) {
+                        $q2->where('csg', 'like', "%{$search}%")
+                            ->orWhere('rut', 'like', "%{$search}%")
+                            ->orWhere('name', 'like', "%{$search}%");
+                    });
             });
         }
 
@@ -95,7 +95,7 @@ class SdpSiteController extends Controller
     public function destroy(SdpSite $sdp_site)
     {
         $sdp_site->delete();
+
         return redirect()->route('sdp-sites.index')->with('success', 'SDP eliminado.');
     }
 }
-

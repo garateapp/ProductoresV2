@@ -6,28 +6,38 @@ use App\Models\Recepcion;
 use App\Models\Valor;
 use Illuminate\Support\Collection;
 use Maatwebsite\Excel\Concerns\FromCollection;
-use Maatwebsite\Excel\Concerns\WithHeadings;
-use Maatwebsite\Excel\Concerns\WithMapping;
 use Maatwebsite\Excel\Concerns\ShouldAutoSize;
 use Maatwebsite\Excel\Concerns\WithEvents;
+use Maatwebsite\Excel\Concerns\WithHeadings;
+use Maatwebsite\Excel\Concerns\WithMapping;
 use Maatwebsite\Excel\Events\AfterSheet;
 use PhpOffice\PhpSpreadsheet\Cell\Coordinate;
-use PhpOffice\PhpSpreadsheet\Style\Fill;
-use PhpOffice\PhpSpreadsheet\Style\Border;
 use PhpOffice\PhpSpreadsheet\Style\Alignment;
+use PhpOffice\PhpSpreadsheet\Style\Border;
+use PhpOffice\PhpSpreadsheet\Style\Fill;
 
-class ConsolidatedExport implements FromCollection, WithHeadings, WithMapping, ShouldAutoSize, WithEvents
+class ConsolidatedExport implements FromCollection, ShouldAutoSize, WithEvents, WithHeadings, WithMapping
 {
     protected $receptions;
+
     protected $headings;
+
     protected $calibreHeadings = [];
+
     protected $firmezasHeadings = [];
+
     protected $distFirmezasHeadings = [];
+
     protected $solidosSolublesHeadings = [];
+
     protected $colorCubrimientoHeadings = [];
+
     protected $colorFondoHeadings = [];
+
     protected $defectosCondicionHeadings = [];
+
     protected $defectosCalidadHeadings = [];
+
     protected $danoPlagaHeadings = [];
 
     public function __construct(Collection $receptions)
@@ -47,7 +57,7 @@ class ConsolidatedExport implements FromCollection, WithHeadings, WithMapping, S
     }
 
     /**
-     * @var Recepcion $reception
+     * @var Recepcion
      */
     public function map($reception): array
     {
@@ -183,9 +193,9 @@ class ConsolidatedExport implements FromCollection, WithHeadings, WithMapping, S
 
             // GRUPO: DISTRIBUCION DE CALIBRE
             $calibreNames = Valor::where('parametro_id', 6)
-                                  ->where('especie', $speciesName)
-                                  ->pluck('name')
-                                  ->toArray();
+                ->where('especie', $speciesName)
+                ->pluck('name')
+                ->toArray();
             sort($calibreNames, SORT_NATURAL | SORT_FLAG_CASE);
             $this->calibreHeadings = $calibreNames;
             $headings = array_merge($headings, $this->calibreHeadings);
@@ -200,10 +210,10 @@ class ConsolidatedExport implements FromCollection, WithHeadings, WithMapping, S
 
             // GRUPO: DISTRIBUCIÓN DE FIRMEZAS
             $this->distFirmezasHeadings = Valor::where('parametro_id', 16)
-                                                 ->where('especie', $speciesName)
-                                                 ->orderBy('name')
-                                                 ->pluck('name')
-                                                 ->toArray();
+                ->where('especie', $speciesName)
+                ->orderBy('name')
+                ->pluck('name')
+                ->toArray();
             $headings = array_merge($headings, $this->distFirmezasHeadings);
 
             // GRUPO: SÓLIDOS SOLUBLES (°BRIX)
@@ -212,45 +222,45 @@ class ConsolidatedExport implements FromCollection, WithHeadings, WithMapping, S
 
             // GRUPO: COLOR DE CUBRIMIENTO
             $this->colorCubrimientoHeadings = Valor::whereIn('parametro_id', [1])
-                                                     ->where('especie', $speciesName)
-                                                     ->orderBy('name')
-                                                     ->pluck('name')
-                                                     ->toArray();
+                ->where('especie', $speciesName)
+                ->orderBy('name')
+                ->pluck('name')
+                ->toArray();
             $headings = array_merge($headings, $this->colorCubrimientoHeadings);
 
             // GRUPO: COLOR DE FONDO
             $this->colorFondoHeadings = $this->receptions->pluck('calidad.detalles')
-                                                          ->flatten()
-                                                          ->where('tipo_item', 'COLOR DE FONDO')
-                                                          ->pluck('detalle_item')
-                                                          ->unique()
-                                                          ->sort()
-                                                          ->values()
-                                                          ->toArray();
+                ->flatten()
+                ->where('tipo_item', 'COLOR DE FONDO')
+                ->pluck('detalle_item')
+                ->unique()
+                ->sort()
+                ->values()
+                ->toArray();
             $headings = array_merge($headings, $this->colorFondoHeadings);
 
             // GRUPO: DEFECTOS CONDICION
             $this->defectosCondicionHeadings = Valor::where('parametro_id', 5)
-                                                      ->where('especie', $speciesName)
-                                                      ->orderBy('name')
-                                                      ->pluck('name')
-                                                      ->toArray();
+                ->where('especie', $speciesName)
+                ->orderBy('name')
+                ->pluck('name')
+                ->toArray();
             $headings = array_merge($headings, $this->defectosCondicionHeadings);
 
             // GRUPO: DEFECTOS CALIDAD
             $this->defectosCalidadHeadings = Valor::where('parametro_id', 4)
-                                                    ->where('especie', $speciesName)
-                                                    ->orderBy('name')
-                                                    ->pluck('name')
-                                                    ->toArray();
+                ->where('especie', $speciesName)
+                ->orderBy('name')
+                ->pluck('name')
+                ->toArray();
             $headings = array_merge($headings, $this->defectosCalidadHeadings);
 
             // GRUPO: DAÑO PLAGA
             $this->danoPlagaHeadings = Valor::where('parametro_id', 3)
-                                              ->where('especie', $speciesName)
-                                              ->orderBy('name')
-                                              ->pluck('name')
-                                              ->toArray();
+                ->where('especie', $speciesName)
+                ->orderBy('name')
+                ->pluck('name')
+                ->toArray();
             $headings = array_merge($headings, $this->danoPlagaHeadings);
         }
 
@@ -260,7 +270,7 @@ class ConsolidatedExport implements FromCollection, WithHeadings, WithMapping, S
     public function registerEvents(): array
     {
         return [
-            AfterSheet::class => function(AfterSheet $event) {
+            AfterSheet::class => function (AfterSheet $event) {
                 // Insert a new row for the group headers
                 $event->sheet->insertNewRowBefore(1, 1);
 
@@ -324,7 +334,7 @@ class ConsolidatedExport implements FromCollection, WithHeadings, WithMapping, S
                 }
 
                 // Style the main header row (row 2)
-                $event->sheet->getStyle('A2:' . $event->sheet->getHighestColumn() . '2')->applyFromArray([
+                $event->sheet->getStyle('A2:'.$event->sheet->getHighestColumn().'2')->applyFromArray([
                     'font' => ['bold' => true],
                     'borders' => [
                         'allBorders' => [
@@ -357,7 +367,7 @@ class ConsolidatedExport implements FromCollection, WithHeadings, WithMapping, S
                 // Apply borders to data (from row 3 onwards)
                 $highestRow = $event->sheet->getHighestRow();
                 $highestColumn = $event->sheet->getHighestColumn();
-                $event->sheet->getStyle('A3:' . $highestColumn . $highestRow)->applyFromArray([
+                $event->sheet->getStyle('A3:'.$highestColumn.$highestRow)->applyFromArray([
                     'borders' => [
                         'allBorders' => [
                             'borderStyle' => Border::BORDER_THIN,
@@ -369,7 +379,7 @@ class ConsolidatedExport implements FromCollection, WithHeadings, WithMapping, S
                 // Apply stripe styling to data rows (from row 3 onwards)
                 for ($row = 3; $row <= $highestRow; $row++) {
                     if ($row % 2 == 0) { // Even rows
-                        $event->sheet->getStyle('A' . $row . ':' . $highestColumn . $row)->applyFromArray([
+                        $event->sheet->getStyle('A'.$row.':'.$highestColumn.$row)->applyFromArray([
                             'fill' => [
                                 'fillType' => Fill::FILL_SOLID,
                                 'startColor' => ['argb' => 'FFE0E0E0'], // Light grey
@@ -388,10 +398,10 @@ class ConsolidatedExport implements FromCollection, WithHeadings, WithMapping, S
                 // Add formula to Diferencia column (Column I, 9th column)
                 $diferenciaColumn = Coordinate::stringFromColumnIndex(9);
                 for ($row = 3; $row <= $highestRow; $row++) {
-                    $estimacionExportacionCell = Coordinate::stringFromColumnIndex(7) . $row; // Column G
-                    $exportableProcesoCell = Coordinate::stringFromColumnIndex(8) . $row; // Column H
+                    $estimacionExportacionCell = Coordinate::stringFromColumnIndex(7).$row; // Column G
+                    $exportableProcesoCell = Coordinate::stringFromColumnIndex(8).$row; // Column H
                     $formula = "={$estimacionExportacionCell}-{$exportableProcesoCell}";
-                    $event->sheet->setCellValue($diferenciaColumn . $row, $formula);
+                    $event->sheet->setCellValue($diferenciaColumn.$row, $formula);
                 }
             },
         ];

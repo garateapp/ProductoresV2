@@ -7,7 +7,6 @@ use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Hash;
 use Illuminate\Validation\Rules;
 use Inertia\Inertia;
-use Spatie\Permission\Models\Role;
 
 class ProducerController extends Controller
 {
@@ -21,9 +20,9 @@ class ProducerController extends Controller
         // Filtering
         if ($request->has('search')) {
             $query->where(function ($q) use ($request) {
-                $q->where('name', 'like', '%' . $request->search . '%')
-                  ->orWhere('email', 'like', '%' . $request->search . '%')
-                  ->orWhere('rut', 'like', '%' . $request->search . '%');
+                $q->where('name', 'like', '%'.$request->search.'%')
+                    ->orWhere('email', 'like', '%'.$request->search.'%')
+                    ->orWhere('rut', 'like', '%'.$request->search.'%');
             });
         }
 
@@ -150,6 +149,7 @@ class ProducerController extends Controller
     public function edit(User $producer)
     {
         $producer->load('agronomists');
+
         return Inertia::render('Producers/Edit', [
             'producer' => [
                 'id' => $producer->id,

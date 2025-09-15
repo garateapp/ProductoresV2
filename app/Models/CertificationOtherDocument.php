@@ -20,4 +20,3 @@ class CertificationOtherDocument extends Model
         return $this->belongsTo(ProducerCertification::class);
     }
 }
-

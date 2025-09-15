@@ -14,6 +14,7 @@ class QualityControlPhoto extends Model
         'calidad_id',
         'photo_type_id',
         'path',
+        'observations',
     ];
 
     protected $appends = ['url'];

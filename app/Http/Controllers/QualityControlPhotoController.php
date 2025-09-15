@@ -5,9 +5,9 @@ namespace App\Http\Controllers;
 use App\Models\Calidad;
 use App\Models\QualityControlPhoto;
 use Illuminate\Http\Request;
-use Illuminate\Support\Facades\Storage;
-use Illuminate\Support\Facades\Redirect;
 use Illuminate\Support\Facades\Log;
+use Illuminate\Support\Facades\Redirect;
+use Illuminate\Support\Facades\Storage;
 
 class QualityControlPhotoController extends Controller
 {
@@ -19,18 +19,19 @@ class QualityControlPhotoController extends Controller
         $validated = $request->validate([
             'photo' => 'required|image|max:22048', // 2MB Max
             'photo_type_id' => 'required|exists:photo_types,id',
+            'observations' => 'nullable|string|max:255',
         ]);
 
         Log::info('Validation passed.');
 
         // ADD THIS DIAGNOSTIC LOGGING
-        Log::info('Absolute storage path for public disk:' . storage_path('app/public'));
+        Log::info('Absolute storage path for public disk:'.storage_path('app/public'));
         // END DIAGNOSTIC LOGGING
 
         if ($request->hasFile('photo')) {
             Log::info('Request has file.');
             $path = $request->file('photo')->store('public/quality_photos');
-            Log::info('File stored at path: ' . $path);
+            Log::info('File stored at path: '.$path);
 
             // ADDED DIAGNOSTIC PUT METHOD
             $file = $request->file('photo');
@@ -38,28 +39,30 @@ class QualityControlPhotoController extends Controller
             $directory = 'quality_photos';
 
             try {
-                Storage::disk('public')->put($directory . '/' . $filename, file_get_contents($file->getRealPath()));
+                Storage::disk('public')->put($directory.'/'.$filename, file_get_contents($file->getRealPath()));
                 Log::info('Manual put successful.');
-                $path = 'public/' . $directory . '/' . $filename; // Use this path if put is successful
+                $path = 'public/'.$directory.'/'.$filename; // Use this path if put is successful
             } catch (\Exception $e) {
-                Log::error('Manual put failed: ' . $e->getMessage());
-                return response()->json(['message' => 'Failed to save photo: ' . $e->getMessage()], 500);
+                Log::error('Manual put failed: '.$e->getMessage());
+
+                return response()->json(['message' => 'Failed to save photo: '.$e->getMessage()], 500);
             }
             // END DIAGNOSTIC PUT METHOD
 
             // Original check for file existence (still useful)
             if (Storage::disk('public')->exists(str_replace('public/', '', $path))) {
-                Log::info('File confirmed to exist on disk: ' . $path);
+                Log::info('File confirmed to exist on disk: '.$path);
             } else {
-                Log::error('File NOT found on disk after store(): ' . $path);
+                Log::error('File NOT found on disk after store(): '.$path);
             }
 
             $photo = $calidad->photos()->create([
                 'photo_type_id' => $validated['photo_type_id'],
                 'path' => $path,
+                'observations' => $validated['observations'] ?? null,
             ]);
 
-            Log::info('Photo record created with ID: ' . $photo->id);
+            Log::info('Photo record created with ID: '.$photo->id);
 
             // Return JSON response instead of redirect
             return response()->json([
@@ -68,6 +71,7 @@ class QualityControlPhotoController extends Controller
             ]);
         } else {
             Log::error('Request does not have a file.');
+
             return response()->json(['message' => 'No se encontró el archivo de la foto.'], 400);
         }
     }

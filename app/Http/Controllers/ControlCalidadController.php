@@ -2,25 +2,22 @@
 
 namespace App\Http\Controllers;
 
-use App\Models\Recepcion;
-use App\Models\Especie;
-use App\Models\User;
-use App\Models\Variedad;
-use App\Models\Parametro;
-use App\Models\Valor;
 use App\Models\Calidad;
 use App\Models\Detalle;
+use App\Models\Especie;
+use App\Models\Parametro;
 use App\Models\PhotoType;
+use App\Models\Recepcion;
+use App\Models\Valor;
+use App\Models\Variedad;
+use App\Services\QualityChartsService;
+use Carbon\Carbon;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
+use Illuminate\Support\Facades\Http;
+use Illuminate\Support\Facades\Log;
 use Inertia\Inertia;
 use Spatie\Browsershot\Browsershot;
-use Illuminate\Support\Facades\Log;
-use Illuminate\Support\Facades\Http;
-use Carbon\Carbon;
-use Knp\Snappy\Pdf;
-use App\Services\QualityChartsService;
-
 
 class ControlCalidadController extends Controller
 {
@@ -29,7 +26,7 @@ class ControlCalidadController extends Controller
         $user = Auth::user();
         $isProducer = false;
 
-        if (!empty($user->idprod)) {
+        if (! empty($user->idprod)) {
             $isProducer = true;
         }
 
@@ -44,8 +41,8 @@ class ControlCalidadController extends Controller
         if ($request->has('search')) {
             $searchTerm = $request->input('search');
             $query->where(function ($q) use ($searchTerm) {
-                $q->where('n_variedad', 'like', '%' . $searchTerm . '%')
-                  ->orWhere('n_especie', 'like', '%' . $searchTerm . '%');
+                $q->where('n_variedad', 'like', '%'.$searchTerm.'%')
+                    ->orWhere('n_especie', 'like', '%'.$searchTerm.'%');
             });
         }
 
@@ -98,8 +95,8 @@ class ControlCalidadController extends Controller
     public function getValores(Request $request)
     {
         $valores = Valor::where('parametro_id', $request->parametro_id)
-                        ->where('especie', $request->especie)
-                        ->get();
+            ->where('especie', $request->especie)
+            ->get();
 
         return response()->json($valores);
     }
@@ -122,27 +119,27 @@ class ControlCalidadController extends Controller
             'obs_ext' => 'nullable|string',
         ]);
 
-        if($validated['materia_vegetal']==true){
-            $validated['materia_vegetal']='SI';
+        if ($validated['materia_vegetal'] == true) {
+            $validated['materia_vegetal'] = 'SI';
         }
-        if($validated['piedras']==true){
+        if ($validated['piedras'] == true) {
 
-            $validated['piedras']='SI';
+            $validated['piedras'] = 'SI';
         }
-        if($validated['barro']==true){
-            $validated['barro']='SI';
+        if ($validated['barro'] == true) {
+            $validated['barro'] = 'SI';
         }
-        if($validated['pedicelo_largo']==true){
-            $validated['pedicelo_largo']='SI';
+        if ($validated['pedicelo_largo'] == true) {
+            $validated['pedicelo_largo'] = 'SI';
         }
-        if($validated['racimo']==true){
-            $validated['racimo']='SI';
+        if ($validated['racimo'] == true) {
+            $validated['racimo'] = 'SI';
         }
-        if($validated['esponjas']==true){
-            $validated['esponjas']='SI';
+        if ($validated['esponjas'] == true) {
+            $validated['esponjas'] = 'SI';
         }
-        if($validated['llenado_tottes']==true){
-            $validated['llenado_tottes']='SI';
+        if ($validated['llenado_tottes'] == true) {
+            $validated['llenado_tottes'] = 'SI';
         }
 
         $t_muestra = $validated['t_muestra'] ?? 100;
@@ -180,28 +177,26 @@ class ControlCalidadController extends Controller
         $parametro = Parametro::find($validated['parametro_id']);
         $valor = Valor::find($validated['valor_id']);
 
-        if(in_array($validated["parametro_id"],["1","2","3","4","5","6"])){
-            $tipo_detalle="cc";
+        if (in_array($validated['parametro_id'], ['1', '2', '3', '4', '5', '6'])) {
+            $tipo_detalle = 'cc';
+        } else {
+            $tipo_detalle = 'ss';
         }
-        else{
-            $tipo_detalle="ss";
-        }
-        $calidad=Calidad::find($validated['calidad_id']);
-        if($calidad->t_muestra==null){
-            $t_muestra=100;
-        }
-        else{
-            $t_muestra=$calidad->t_muestra;
+        $calidad = Calidad::find($validated['calidad_id']);
+        if ($calidad->t_muestra == null) {
+            $t_muestra = 100;
+        } else {
+            $t_muestra = $calidad->t_muestra;
         }
 
-        $porcMuestra=$validated['cantidad_muestra']/$t_muestra*100;
+        $porcMuestra = $validated['cantidad_muestra'] / $t_muestra * 100;
 
         $categoria = $validated['exportable'] ? 'Exportable' : null;
 
         $detalleData = [
             'calidad_id' => $validated['calidad_id'],
-            'porcentaje_muestra'=>$porcMuestra,
-            'valor_ss'=>$validated['valor_presion'],
+            'porcentaje_muestra' => $porcMuestra,
+            'valor_ss' => $validated['valor_presion'],
             'cantidad' => $validated['cantidad_muestra'],
             'tipo_detalle' => $tipo_detalle,
             'temperatura' => $validated['temperatura'],
@@ -214,25 +209,24 @@ class ControlCalidadController extends Controller
                 'tipo_item' => $parametro->name,
                 'detalle_item' => $valor->name,
                 'tipo_detalle' => $tipo_detalle,
-                'porcentaje_muestra'=>$porcMuestra,
-                'valor_ss'=>$validated['valor_presion'],
+                'porcentaje_muestra' => $porcMuestra,
+                'valor_ss' => $validated['valor_presion'],
                 'categoria' => $categoria,
 
             ],
             $detalleData
         );
 
-        $detalles = Detalle::where('calidad_id',$validated['calidad_id'])->with(['parametro', 'valor'])->get();
+        $detalles = Detalle::where('calidad_id', $validated['calidad_id'])->with(['parametro', 'valor'])->get();
         $defecto_param_names = Parametro::whereIn('id', [3, 4, 5])->pluck('name')->toArray();
         $desorden_param_names = Parametro::whereIn('id', [11, 12])->pluck('name')->toArray();
-        $curva_param_names = Parametro::whereIn('id', [1,2,6])->pluck('name')->toArray();
+        $curva_param_names = Parametro::whereIn('id', [1, 2, 6])->pluck('name')->toArray();
         $madurez_param_names = Parametro::whereIn('id', [7, 8, 9, 10, 13, 14, 15, 16, 17, 18])->pluck('name')->toArray();
 
         $defectos = $detalles->whereIn('tipo_item', $defecto_param_names);
         $desordenFisiologico = $detalles->whereIn('tipo_item', $desorden_param_names);
         $curvaCalibre = $detalles->whereIn('tipo_item', $curva_param_names);
         $indiceMadurez = $detalles->whereIn('tipo_item', $madurez_param_names);
-
 
         return redirect()->back()->with('success', 'Detalle guardado exitosamente.');
     }
@@ -241,7 +235,7 @@ class ControlCalidadController extends Controller
     {
         $calidad = $recepcion->calidad;
 
-        if (!$calidad) {
+        if (! $calidad) {
             return response()->json(['defectos' => [], 'desordenFisiologico' => []]);
         }
 
@@ -249,7 +243,7 @@ class ControlCalidadController extends Controller
 
         $defecto_param_names = Parametro::whereIn('id', [3, 4, 5])->pluck('name')->toArray();
         $desorden_param_names = Parametro::whereIn('id', [11, 12])->pluck('name')->toArray();
-        $curva_param_names = Parametro::whereIn('id', [1,2,6])->pluck('name')->toArray();
+        $curva_param_names = Parametro::whereIn('id', [1, 2, 6])->pluck('name')->toArray();
         $madurez_param_names = Parametro::whereIn('id', [7, 8, 9, 10, 13, 14, 15, 16, 17, 18])->pluck('name')->toArray();
 
         $defectos = $detalles->whereIn('tipo_item', $defecto_param_names);
@@ -270,7 +264,7 @@ class ControlCalidadController extends Controller
 
     public function getCalidad(Recepcion $recepcion)
     {
-        if (!$recepcion->calidad) {
+        if (! $recepcion->calidad) {
             return response()->json(null);
         }
 
@@ -279,985 +273,977 @@ class ControlCalidadController extends Controller
         return response()->json($calidad);
     }
 
-
-        public function cargarFirmpro(Recepcion $recepcion)
+    public function cargarFirmpro(Recepcion $recepcion)
     {
         $calidad = $recepcion->calidad;
 
-        if (!$calidad) {
+        if (! $calidad) {
             return response()->json(['message' => 'No se encontró registro de calidad para esta recepción.'], 404);
         }
 
-        $firmpro1=Http::post('https://api.greenexweb.cl/api/BuscarRecepcionCloud?filter[numero_recepcion][eq]='.$recepcion->numero_g_recepcion);
+        $firmpro1 = Http::post('https://api.greenexweb.cl/api/BuscarRecepcionCloud?filter[numero_recepcion][eq]='.$recepcion->numero_g_recepcion);
 
         $firmpro1 = $firmpro1->json();
 
-        $categories=[];
-        $series=[];
-        if ($recepcion->n_variedad=='Dagen') {
-            $rangos=[279,219,179,1,11,12];
-        }else{
-            $rangos=[279,219,179,1];
+        $categories = [];
+        $series = [];
+        if ($recepcion->n_variedad == 'Dagen') {
+            $rangos = [279, 219, 179, 1, 11, 12];
+        } else {
+            $rangos = [279, 219, 179, 1];
         }
 
-        $l=[];
-        $d=[];
-        $b=[];
+        $l = [];
+        $d = [];
+        $b = [];
 
-        foreach ($rangos as $rango){
-            $nfrutos=0;
-            $nfrutostot=0;
-            $nfirmeza=0;
-            $sumt=0;
-            $light=0;
-            $dark=0;
-            $black=0;
-            $tlight=0;
-            $tdark=0;
-            $tblack=0;
+        foreach ($rangos as $rango) {
+            $nfrutos = 0;
+            $nfrutostot = 0;
+            $nfirmeza = 0;
+            $sumt = 0;
+            $light = 0;
+            $dark = 0;
+            $black = 0;
+            $tlight = 0;
+            $tdark = 0;
+            $tblack = 0;
 
-            foreach ($firmpro1 as $items){
-                $n=1;
+            foreach ($firmpro1 as $items) {
+                $n = 1;
 
-                foreach ($items as $item){
+                foreach ($items as $item) {
 
-                    if ($n==4) {
-                        $firmeza=$item;
+                    if ($n == 4) {
+                        $firmeza = $item;
                     }
-                    if ($n==5) {
-                        $calibre=$item;
+                    if ($n == 5) {
+                        $calibre = $item;
                     }
-                    if ($n==13) {
-                        $color=$item;
+                    if ($n == 13) {
+                        $color = $item;
                     }
-                    if ($n==14) {
+                    if ($n == 14) {
 
-                        if($color=='Rojo'){
-                            $tlight+=1;
+                        if ($color == 'Rojo') {
+                            $tlight += 1;
                         }
-                        if($color=='Rojo caoba'){
-                            $tdark+=1;
+                        if ($color == 'Rojo caoba') {
+                            $tdark += 1;
                         }
-                        if($color=='Santina'){
-                            $tdark+=1;
+                        if ($color == 'Santina') {
+                            $tdark += 1;
                         }
-                        if($color=='Caoba oscuro' || $color=='Caoba Oscuro'){
-                            $tblack+=1;
+                        if ($color == 'Caoba oscuro' || $color == 'Caoba Oscuro') {
+                            $tblack += 1;
                         }
-                        if($color=='Negro'){
-                            $tblack+=1;
+                        if ($color == 'Negro') {
+                            $tblack += 1;
                         }
 
-
-                        if ($rango==279) {
-                            if ($recepcion->n_variedad=='Dagen') {
-                                if ($calibre<28) {
-                                    $sumt+=$firmeza;
-                                    $nfrutos+=1;
+                        if ($rango == 279) {
+                            if ($recepcion->n_variedad == 'Dagen') {
+                                if ($calibre < 28) {
+                                    $sumt += $firmeza;
+                                    $nfrutos += 1;
                                 }
                             } else {
-                                if ($firmeza>=280) {
-                                    if($color=='Rojo'){
-                                        $light+=1;
+                                if ($firmeza >= 280) {
+                                    if ($color == 'Rojo') {
+                                        $light += 1;
                                     }
-                                    if($color=='Rojo caoba'){
-                                        $dark+=1;
+                                    if ($color == 'Rojo caoba') {
+                                        $dark += 1;
                                     }
-                                    if($color=='Santina'){
-                                        $dark+=1;
+                                    if ($color == 'Santina') {
+                                        $dark += 1;
                                     }
-                                    if($color=='Caoba oscuro' || $color=='Caoba Oscuro'){
-                                        $black+=1;
+                                    if ($color == 'Caoba oscuro' || $color == 'Caoba Oscuro') {
+                                        $black += 1;
                                     }
-                                    if($color=='Negro'){
-                                        $black+=1;
+                                    if ($color == 'Negro') {
+                                        $black += 1;
                                     }
                                 }
 
                             }
 
                         }
-                        if ($rango==219) {
-                            if ($recepcion->n_variedad=='Dagen') {
-                                if ($calibre>=28 && $calibre<30) {
-                                    $sumt+=$firmeza;
-                                    $nfrutos+=1;
+                        if ($rango == 219) {
+                            if ($recepcion->n_variedad == 'Dagen') {
+                                if ($calibre >= 28 && $calibre < 30) {
+                                    $sumt += $firmeza;
+                                    $nfrutos += 1;
                                 }
                             } else {
-                                if ($firmeza>=200 && $firmeza<280) {
-                                    if($color=='Rojo'){
-                                        $light+=1;
+                                if ($firmeza >= 200 && $firmeza < 280) {
+                                    if ($color == 'Rojo') {
+                                        $light += 1;
                                     }
-                                    if($color=='Rojo caoba'){
-                                        $dark+=1;
+                                    if ($color == 'Rojo caoba') {
+                                        $dark += 1;
                                     }
-                                    if($color=='Santina'){
-                                        $dark+=1;
+                                    if ($color == 'Santina') {
+                                        $dark += 1;
                                     }
-                                    if($color=='Caoba oscuro' || $color=='Caoba Oscuro'){
-                                        $black+=1;
+                                    if ($color == 'Caoba oscuro' || $color == 'Caoba Oscuro') {
+                                        $black += 1;
                                     }
-                                    if($color=='Negro'){
-                                        $black+=1;
+                                    if ($color == 'Negro') {
+                                        $black += 1;
                                     }
                                 }
                             }
                         }
-                        if ($rango==179) {
-                            if ($recepcion->n_variedad=='Dagen') {
-                                if ($calibre>=30 && $calibre<33) {
-                                    $sumt+=$firmeza;
-                                    $nfrutos+=1;
+                        if ($rango == 179) {
+                            if ($recepcion->n_variedad == 'Dagen') {
+                                if ($calibre >= 30 && $calibre < 33) {
+                                    $sumt += $firmeza;
+                                    $nfrutos += 1;
                                 }
                             } else {
-                                if ($firmeza>=180 && $firmeza<200) {
-                                    if($color=='Rojo'){
-                                        $light+=1;
+                                if ($firmeza >= 180 && $firmeza < 200) {
+                                    if ($color == 'Rojo') {
+                                        $light += 1;
                                     }
-                                    if($color=='Rojo caoba'){
-                                        $dark+=1;
+                                    if ($color == 'Rojo caoba') {
+                                        $dark += 1;
                                     }
-                                    if($color=='Santina'){
-                                        $dark+=1;
+                                    if ($color == 'Santina') {
+                                        $dark += 1;
                                     }
-                                    if($color=='Caoba oscuro'|| $color=='Caoba Oscuro'){
-                                        $black+=1;
+                                    if ($color == 'Caoba oscuro' || $color == 'Caoba Oscuro') {
+                                        $black += 1;
                                     }
-                                    if($color=='Negro'){
-                                        $black+=1;
+                                    if ($color == 'Negro') {
+                                        $black += 1;
                                     }
                                 }
                             }
                         }
-                        if ($rango==1) {
-                            if ($recepcion->n_variedad=='Dagen') {
-                                if ($calibre>=33 && $calibre<36) {
-                                    $sumt+=$firmeza;
-                                    $nfrutos+=1;
+                        if ($rango == 1) {
+                            if ($recepcion->n_variedad == 'Dagen') {
+                                if ($calibre >= 33 && $calibre < 36) {
+                                    $sumt += $firmeza;
+                                    $nfrutos += 1;
                                 }
                             } else {
-                                if ($firmeza>=1 && $firmeza<180) {
-                                    if($color=='Rojo'){
-                                        $light+=1;
+                                if ($firmeza >= 1 && $firmeza < 180) {
+                                    if ($color == 'Rojo') {
+                                        $light += 1;
                                     }
-                                    if($color=='Rojo caoba'){
-                                        $dark+=1;
+                                    if ($color == 'Rojo caoba') {
+                                        $dark += 1;
                                     }
-                                    if($color=='Santina'){
-                                        $dark+=1;
+                                    if ($color == 'Santina') {
+                                        $dark += 1;
                                     }
-                                    if($color=='Caoba oscuro' || $color=='Caoba Oscuro'){
-                                        $black+=1;
+                                    if ($color == 'Caoba oscuro' || $color == 'Caoba Oscuro') {
+                                        $black += 1;
                                     }
-                                    if($color=='Negro'){
-                                        $black+=1;
+                                    if ($color == 'Negro') {
+                                        $black += 1;
                                     }
                                 }
                             }
                         }
-                        if ($rango==11) {
-                            if ($recepcion->n_variedad=='Dagen') {
-                                if ($calibre>=36 && $calibre<39) {
-                                    $sumt+=$firmeza;
-                                    $nfrutos+=1;
+                        if ($rango == 11) {
+                            if ($recepcion->n_variedad == 'Dagen') {
+                                if ($calibre >= 36 && $calibre < 39) {
+                                    $sumt += $firmeza;
+                                    $nfrutos += 1;
                                 }
                             } else {
 
                             }
                         }
-                        if ($rango==12) {
-                            if ($recepcion->n_variedad=='Dagen') {
-                                if ($calibre>=39) {
-                                    $sumt+=$firmeza;
-                                    $nfrutos+=1;
+                        if ($rango == 12) {
+                            if ($recepcion->n_variedad == 'Dagen') {
+                                if ($calibre >= 39) {
+                                    $sumt += $firmeza;
+                                    $nfrutos += 1;
                                 }
                             } else {
 
                             }
                         }
                     }
-                    $n+=1;
+                    $n += 1;
                 }
-                $nfrutostot+=1;
+                $nfrutostot += 1;
             }
-            if ($recepcion->n_variedad=='Dagen') {
-                if($sumt>0 && $nfrutos>0){
+            if ($recepcion->n_variedad == 'Dagen') {
+                if ($sumt > 0 && $nfrutos > 0) {
 
-                    if ($rango==279) {
+                    if ($rango == 279) {
                         Detalle::create([
-                            'calidad_id'=>$calidad->id,
-                            'embalaje'=>$calidad->embalaje ?? 1,
-                            'valor_ss'=>$sumt/$nfrutos,
-                            'porcentaje_muestra'=>$sumt/$nfrutos,
-                            'tipo_item'=>'FIRMEZAS',
-                            'tipo_detalle'=>'ss',
-                            'detalle_item'=>'PRECALIBRE',
-                            'fecha'=>Carbon::now()
+                            'calidad_id' => $calidad->id,
+                            'embalaje' => $calidad->embalaje ?? 1,
+                            'valor_ss' => $sumt / $nfrutos,
+                            'porcentaje_muestra' => $sumt / $nfrutos,
+                            'tipo_item' => 'FIRMEZAS',
+                            'tipo_detalle' => 'ss',
+                            'detalle_item' => 'PRECALIBRE',
+                            'fecha' => Carbon::now(),
                         ]);
                     }
-                    if ($rango==219) {
+                    if ($rango == 219) {
                         Detalle::create([
-                            'calidad_id'=>$calidad->id,
-                            'embalaje'=>$calidad->embalaje ?? 1,
-                            'valor_ss'=>$sumt/$nfrutos,
-                            'porcentaje_muestra'=>$sumt/$nfrutos,
-                            'tipo_item'=>'FIRMEZAS',
-                            'tipo_detalle'=>'ss',
-                            'detalle_item'=>'L',
-                            'fecha'=>Carbon::now()
+                            'calidad_id' => $calidad->id,
+                            'embalaje' => $calidad->embalaje ?? 1,
+                            'valor_ss' => $sumt / $nfrutos,
+                            'porcentaje_muestra' => $sumt / $nfrutos,
+                            'tipo_item' => 'FIRMEZAS',
+                            'tipo_detalle' => 'ss',
+                            'detalle_item' => 'L',
+                            'fecha' => Carbon::now(),
                         ]);
 
                     }
-                    if ($rango==179) {
+                    if ($rango == 179) {
                         Detalle::create([
-                            'calidad_id'=>$calidad->id,
-                            'embalaje'=>$calidad->embalaje ?? 1,
-                            'valor_ss'=>$sumt/$nfrutos,
-                            'porcentaje_muestra'=>$sumt/$nfrutos,
-                            'tipo_item'=>'FIRMEZAS',
-                            'tipo_detalle'=>'ss',
-                            'detalle_item'=>'XL',
-                            'fecha'=>Carbon::now()
+                            'calidad_id' => $calidad->id,
+                            'embalaje' => $calidad->embalaje ?? 1,
+                            'valor_ss' => $sumt / $nfrutos,
+                            'porcentaje_muestra' => $sumt / $nfrutos,
+                            'tipo_item' => 'FIRMEZAS',
+                            'tipo_detalle' => 'ss',
+                            'detalle_item' => 'XL',
+                            'fecha' => Carbon::now(),
                         ]);
                     }
-                    if ($rango==1) {
+                    if ($rango == 1) {
                         Detalle::create([
-                            'calidad_id'=>$calidad->id,
-                            'embalaje'=>$calidad->embalaje ?? 1,
-                            'valor_ss'=>$sumt/$nfrutos,
-                            'porcentaje_muestra'=>$sumt/$nfrutos,
-                            'tipo_item'=>'FIRMEZAS',
-                            'tipo_detalle'=>'ss',
-                            'detalle_item'=>'J',
-                            'fecha'=>Carbon::now()
+                            'calidad_id' => $calidad->id,
+                            'embalaje' => $calidad->embalaje ?? 1,
+                            'valor_ss' => $sumt / $nfrutos,
+                            'porcentaje_muestra' => $sumt / $nfrutos,
+                            'tipo_item' => 'FIRMEZAS',
+                            'tipo_detalle' => 'ss',
+                            'detalle_item' => 'J',
+                            'fecha' => Carbon::now(),
                         ]);
                     }
-                    if ($rango==11) {
+                    if ($rango == 11) {
                         Detalle::create([
-                            'calidad_id'=>$calidad->id,
-                            'embalaje'=>$calidad->embalaje ?? 1,
-                            'valor_ss'=>$sumt/$nfrutos,
-                            'porcentaje_muestra'=>$sumt/$nfrutos,
-                            'tipo_item'=>'FIRMEZAS',
-                            'tipo_detalle'=>'ss',
-                            'detalle_item'=>'2J',
-                            'fecha'=>Carbon::now()
+                            'calidad_id' => $calidad->id,
+                            'embalaje' => $calidad->embalaje ?? 1,
+                            'valor_ss' => $sumt / $nfrutos,
+                            'porcentaje_muestra' => $sumt / $nfrutos,
+                            'tipo_item' => 'FIRMEZAS',
+                            'tipo_detalle' => 'ss',
+                            'detalle_item' => '2J',
+                            'fecha' => Carbon::now(),
                         ]);
                     }
-                    if ($rango==12) {
+                    if ($rango == 12) {
                         Detalle::create([
-                            'calidad_id'=>$calidad->id,
-                            'embalaje'=>$calidad->embalaje ?? 1,
-                            'valor_ss'=>$sumt/$nfrutos,
-                            'porcentaje_muestra'=>$sumt/$nfrutos,
-                            'tipo_item'=>'FIRMEZAS',
-                            'tipo_detalle'=>'ss',
-                            'detalle_item'=>'3J',
-                            'fecha'=>Carbon::now()
+                            'calidad_id' => $calidad->id,
+                            'embalaje' => $calidad->embalaje ?? 1,
+                            'valor_ss' => $sumt / $nfrutos,
+                            'porcentaje_muestra' => $sumt / $nfrutos,
+                            'tipo_item' => 'FIRMEZAS',
+                            'tipo_detalle' => 'ss',
+                            'detalle_item' => '3J',
+                            'fecha' => Carbon::now(),
                         ]);
                     }
                 }
 
-            }else{
+            } else {
 
-                if ($tlight>0) {
+                if ($tlight > 0) {
                     Detalle::create([
-                        'calidad_id'=>$calidad->id,
-                        'embalaje'=>$calidad->embalaje ?? 1,
-                        'valor_ss'=>$light*100/$tlight,
-                        'porcentaje_muestra'=>$light*100/$tlight,
-                        'tipo_item'=>'DISTRIBUCIÓN DE FIRMEZA',
-                        'tipo_detalle'=>'cc',
-                        'detalle_item'=>'LIGHT',
-                        'fecha'=>Carbon::now()
+                        'calidad_id' => $calidad->id,
+                        'embalaje' => $calidad->embalaje ?? 1,
+                        'valor_ss' => $light * 100 / $tlight,
+                        'porcentaje_muestra' => $light * 100 / $tlight,
+                        'tipo_item' => 'DISTRIBUCIÓN DE FIRMEZA',
+                        'tipo_detalle' => 'cc',
+                        'detalle_item' => 'LIGHT',
+                        'fecha' => Carbon::now(),
                     ]);
-                    //$l[]=$light*100/$tlight;
-                }else{
+                    // $l[]=$light*100/$tlight;
+                } else {
                     Detalle::create([
-                        'calidad_id'=>$calidad->id,
-                        'embalaje'=>$calidad->embalaje ?? 1,
-                        'valor_ss'=>0,
-                        'porcentaje_muestra'=>0,
-                        'tipo_item'=>'DISTRIBUCIÓN DE FIRMEZA',
-                        'tipo_detalle'=>'cc',
-                        'detalle_item'=>'LIGHT',
-                        'fecha'=>Carbon::now()
+                        'calidad_id' => $calidad->id,
+                        'embalaje' => $calidad->embalaje ?? 1,
+                        'valor_ss' => 0,
+                        'porcentaje_muestra' => 0,
+                        'tipo_item' => 'DISTRIBUCIÓN DE FIRMEZA',
+                        'tipo_detalle' => 'cc',
+                        'detalle_item' => 'LIGHT',
+                        'fecha' => Carbon::now(),
                     ]);
                 }
 
-                if ($tdark>0) {
+                if ($tdark > 0) {
                     Detalle::create([
-                        'calidad_id'=>$calidad->id,
-                        'embalaje'=>$calidad->embalaje ?? 1,
-                        'valor_ss'=>$dark*100/$tdark,
-                        'porcentaje_muestra'=>$dark*100/$tdark,
-                        'tipo_item'=>'DISTRIBUCIÓN DE FIRMEZA',
-                        'tipo_detalle'=>'cc',
-                        'detalle_item'=>'DARK',
-                        'fecha'=>Carbon::now()
+                        'calidad_id' => $calidad->id,
+                        'embalaje' => $calidad->embalaje ?? 1,
+                        'valor_ss' => $dark * 100 / $tdark,
+                        'porcentaje_muestra' => $dark * 100 / $tdark,
+                        'tipo_item' => 'DISTRIBUCIÓN DE FIRMEZA',
+                        'tipo_detalle' => 'cc',
+                        'detalle_item' => 'DARK',
+                        'fecha' => Carbon::now(),
                     ]);
-                    //$d[]=$dark*100/$tdark;
-                }else{
+                    // $d[]=$dark*100/$tdark;
+                } else {
                     Detalle::create([
-                        'calidad_id'=>$calidad->id,
-                        'embalaje'=>$calidad->embalaje ?? 1,
-                        'valor_ss'=>0,
-                        'porcentaje_muestra'=>0,
-                        'tipo_item'=>'DISTRIBUCIÓN DE FIRMEZA',
-                        'tipo_detalle'=>'cc',
-                        'detalle_item'=>'DARK',
-                        'fecha'=>Carbon::now()
+                        'calidad_id' => $calidad->id,
+                        'embalaje' => $calidad->embalaje ?? 1,
+                        'valor_ss' => 0,
+                        'porcentaje_muestra' => 0,
+                        'tipo_item' => 'DISTRIBUCIÓN DE FIRMEZA',
+                        'tipo_detalle' => 'cc',
+                        'detalle_item' => 'DARK',
+                        'fecha' => Carbon::now(),
                     ]);
                 }
 
-                if ($tblack>0) {
+                if ($tblack > 0) {
                     Detalle::create([
-                        'calidad_id'=>$calidad->id,
-                        'embalaje'=>$calidad->embalaje ?? 1,
-                        'valor_ss'=>$black*100/$tblack,
-                        'porcentaje_muestra'=>$black*100/$tblack,
-                        'tipo_item'=>'DISTRIBUCIÓN DE FIRMEZA',
-                        'tipo_detalle'=>'cc',
-                        'detalle_item'=>'BLACK',
-                        'fecha'=>Carbon::now()
+                        'calidad_id' => $calidad->id,
+                        'embalaje' => $calidad->embalaje ?? 1,
+                        'valor_ss' => $black * 100 / $tblack,
+                        'porcentaje_muestra' => $black * 100 / $tblack,
+                        'tipo_item' => 'DISTRIBUCIÓN DE FIRMEZA',
+                        'tipo_detalle' => 'cc',
+                        'detalle_item' => 'BLACK',
+                        'fecha' => Carbon::now(),
                     ]);
-                    //$b[]=$black*100/$tblack;
-                }else{
+                    // $b[]=$black*100/$tblack;
+                } else {
                     Detalle::create([
-                        'calidad_id'=>$calidad->id,
-                        'embalaje'=>$calidad->embalaje ?? 1,
-                        'valor_ss'=>0,
-                        'porcentaje_muestra'=>0,
-                        'tipo_item'=>'DISTRIBUCIÓN DE FIRMEZA',
-                        'tipo_detalle'=>'cc',
-                        'detalle_item'=>'BLACK',
-                        'fecha'=>Carbon::now()
+                        'calidad_id' => $calidad->id,
+                        'embalaje' => $calidad->embalaje ?? 1,
+                        'valor_ss' => 0,
+                        'porcentaje_muestra' => 0,
+                        'tipo_item' => 'DISTRIBUCIÓN DE FIRMEZA',
+                        'tipo_detalle' => 'cc',
+                        'detalle_item' => 'BLACK',
+                        'fecha' => Carbon::now(),
                     ]);
                 }
             }
         }
-        //consulta para distribución de calibres
-        $this->calibres=Http::post('https://api.greenexweb.cl/api/BuscarRecepcionCloudConsolidado?filter[numero_recepcion][eq]='.$recepcion->numero_g_recepcion);
+        // consulta para distribución de calibres
+        $this->calibres = Http::post('https://api.greenexweb.cl/api/BuscarRecepcionCloudConsolidado?filter[numero_recepcion][eq]='.$recepcion->numero_g_recepcion);
         $this->calibres = $this->calibres->json();
 
+        foreach ($this->calibres as $items) {
+            $n = 1;
+            foreach ($items as $item) {
+                if ($n == 5) {
+                    $cantidad_frutos = $item;
+                }
 
-        foreach ($this->calibres as $items){
-            $n=1;
-                foreach ($items as $item){
-                    if($n==5){
-                        $cantidad_frutos=$item;
+                if ($recepcion->n_variedad == 'Dagen') {
+                    if ($n == 24) {
+                        if ($item > 0) {
+                            Detalle::create([
+                                'calidad_id' => $this->recep->calidad->id,
+                                'embalaje' => $this->embalaje,
+                                'valor_ss' => floatval($item) * 100,
+                                'porcentaje_muestra' => floatval($item) * 100,
+                                'tipo_item' => 'DISTRIBUCIÓN DE CALIBRES',
+                                'tipo_detalle' => 'cc',
+                                'detalle_item' => 'PRECALIBRE',
+                                'fecha' => $this->fecha,
+                            ]);
+                        }
                     }
-
-
-                    if ($recepcion->n_variedad=='Dagen') {
-                        if ($n==24) {
-                            if($item>0){
-                                Detalle::create([
-                                    'calidad_id'=>$this->recep->calidad->id,
-                                    'embalaje'=>$this->embalaje,
-                                    'valor_ss'=>floatval($item)*100,
-                                    'porcentaje_muestra'=>floatval($item)*100,
-                                    'tipo_item'=>'DISTRIBUCIÓN DE CALIBRES',
-                                    'tipo_detalle'=>'cc',
-                                    'detalle_item'=>'PRECALIBRE',
-                                    'fecha'=>$this->fecha
-                                ]);
-                            }
-                        }
-                        if ($n==25) {
-                            if($item>0){
-                                Detalle::create([
-                                    'calidad_id'=>$this->recep->calidad->id,
-                                    'embalaje'=>$this->embalaje,
-                                    'valor_ss'=>floatval($item)*100,
-                                    'porcentaje_muestra'=>floatval($item)*100,
-                                    'tipo_item'=>'DISTRIBUCIÓN DE CALIBRES',
-                                    'tipo_detalle'=>'cc',
-                                    'detalle_item'=>'L',
-                                    'fecha'=>$this->fecha
-                                ]);
-                            }
-                        }
-                        if ($n==26) {
-                            if($item>0){
-                                Detalle::create([
-                                    'calidad_id'=>$this->recep->calidad->id,
-                                    'embalaje'=>$this->embalaje,
-                                    'valor_ss'=>floatval($item)*100,
-                                    'porcentaje_muestra'=>floatval($item)*100,
-                                    'tipo_item'=>'DISTRIBUCIÓN DE CALIBRES',
-                                    'tipo_detalle'=>'cc',
-                                    'detalle_item'=>'XL',
-                                    'fecha'=>$this->fecha
-                                ]);
-                            }
-                        }
-                        if ($n==27) {
-                            if($item>0){
-                                Detalle::create([
-                                    'calidad_id'=>$this->recep->calidad->id,
-                                    'embalaje'=>$this->embalaje,
-                                    'valor_ss'=>floatval($item)*100,
-                                    'porcentaje_muestra'=>floatval($item)*100,
-                                    'tipo_item'=>'DISTRIBUCIÓN DE CALIBRES',
-                                    'tipo_detalle'=>'cc',
-                                    'detalle_item'=>'J',
-                                    'fecha'=>$this->fecha
-                                ]);
-                            }
-                        }
-                        if ($n==28) {
-                            if($item>0){
+                    if ($n == 25) {
+                        if ($item > 0) {
                             Detalle::create([
-                                    'calidad_id'=>$this->recep->calidad->id,
-                                    'embalaje'=>$this->embalaje,
-                                    'valor_ss'=>floatval($item)*100,
-                                    'porcentaje_muestra'=>floatval($item)*100,
-                                    'tipo_item'=>'DISTRIBUCIÓN DE CALIBRES',
-                                    'tipo_detalle'=>'cc',
-                                    'detalle_item'=>'2J',
-                                    'fecha'=>$this->fecha
-                                ]);
-                            }
+                                'calidad_id' => $this->recep->calidad->id,
+                                'embalaje' => $this->embalaje,
+                                'valor_ss' => floatval($item) * 100,
+                                'porcentaje_muestra' => floatval($item) * 100,
+                                'tipo_item' => 'DISTRIBUCIÓN DE CALIBRES',
+                                'tipo_detalle' => 'cc',
+                                'detalle_item' => 'L',
+                                'fecha' => $this->fecha,
+                            ]);
                         }
-                        if ($n==29) {
-                            if($item>0){
-                            Detalle::create([
-                                    'calidad_id'=>$this->recep->calidad->id,
-                                    'embalaje'=>$this->embalaje,
-                                    'valor_ss'=>floatval($item)*100,
-                                    'porcentaje_muestra'=>floatval($item)*100,
-                                    'tipo_item'=>'DISTRIBUCIÓN DE CALIBRES',
-                                    'tipo_detalle'=>'cc',
-                                    'detalle_item'=>'3J',
-                                    'fecha'=>$this->fecha
-                                ]);
-                            }
-                        }
-                        if ($n==30) {
-                            if($item>0){
-
-                                Detalle::create([
-                                        'calidad_id'=>$this->recep->calidad->id,
-                                        'embalaje'=>$this->embalaje,
-                                        'valor_ss'=>floatval($item)*100,
-                                        'porcentaje_muestra'=>floatval($item)*100,
-                                        'tipo_item'=>'DISTRIBUCIÓN DE CALIBRES',
-                                        'tipo_detalle'=>'cc',
-                                        'detalle_item'=>'SOBRECALIBRE',
-                                        'fecha'=>$this->fecha
-                                    ]);
-                            }
-                        }
-                    }else {
-                        if ($n==14) {
-                            if($item==0){
-
-                            }else{
-
-                                Detalle::create([
-                                    'calidad_id'=>$this->recep->calidad->id,
-                                    'embalaje'=>$this->embalaje,
-                                    'valor_ss'=>floatval($item)*100,
-                                    'porcentaje_muestra'=>floatval($item)*100,
-                                    'tipo_item'=>'FIRMEZAS',
-                                    'tipo_detalle'=>'ss',
-                                    'detalle_item'=>'FRUTA BLANDA',
-                                    'fecha'=>$this->fecha
-                                ]);
-                            }
-                        }
-                        if ($n==24) {
-                            if($item==0){
-
-                            }else{
-                                Detalle::create([
-                                    'calidad_id'=>$this->recep->calidad->id,
-                                    'embalaje'=>$this->embalaje,
-                                    'valor_ss'=>floatval($item)*100,
-                                    'porcentaje_muestra'=>floatval($item)*100,
-                                    'tipo_item'=>'DISTRIBUCIÓN DE CALIBRES',
-                                    'tipo_detalle'=>'cc',
-                                    'detalle_item'=>'PRECALIBRE',
-                                    'fecha'=>$this->fecha
-                                ]);
-                            }
-                        }
-                        if ($n==25) {
-                            if($item==0){
-
-                            }else{
-                                Detalle::create([
-                                    'calidad_id'=>$this->recep->calidad->id,
-                                    'embalaje'=>$this->embalaje,
-                                    'valor_ss'=>floatval($item)*100,
-                                    'porcentaje_muestra'=>floatval($item)*100,
-                                    'tipo_item'=>'DISTRIBUCIÓN DE CALIBRES',
-                                    'tipo_detalle'=>'cc',
-                                    'detalle_item'=>'L',
-                                    'fecha'=>$this->fecha
-                                ]);
-                            }
-                        }
-                        if ($n==26) {
-                            if($item==0){
-
-                            }else{
-                                Detalle::create([
-                                    'calidad_id'=>$this->recep->calidad->id,
-                                    'embalaje'=>$this->embalaje,
-                                    'valor_ss'=>floatval($item)*100,
-                                    'porcentaje_muestra'=>floatval($item)*100,
-                                    'tipo_item'=>'DISTRIBUCIÓN DE CALIBRES',
-                                    'tipo_detalle'=>'cc',
-                                    'detalle_item'=>'XL',
-                                    'fecha'=>$this->fecha
-                                ]);
-                            }
-                        }
-                        if ($n==27) {
-                            if($item==0){
-
-                            }else{
-                                Detalle::create([
-                                    'calidad_id'=>$this->recep->calidad->id,
-                                    'embalaje'=>$this->embalaje,
-                                    'valor_ss'=>floatval($item)*100,
-                                    'porcentaje_muestra'=>floatval($item)*100,
-                                    'tipo_item'=>'DISTRIBUCIÓN DE CALIBRES',
-                                    'tipo_detalle'=>'cc',
-                                    'detalle_item'=>'J',
-                                    'fecha'=>$this->fecha
-                                ]);
-                            }
-                        }
-                        if ($n==28) {
-                            if($item==0){
-
-                            }else{
-                            Detalle::create([
-                                    'calidad_id'=>$this->recep->calidad->id,
-                                    'embalaje'=>$this->embalaje,
-                                    'valor_ss'=>floatval($item)*100,
-                                    'porcentaje_muestra'=>floatval($item)*100,
-                                    'tipo_item'=>'DISTRIBUCIÓN DE CALIBRES',
-                                    'tipo_detalle'=>'cc',
-                                    'detalle_item'=>'2J',
-                                    'fecha'=>$this->fecha
-                                ]);
-                            }
-                        }
-                        if ($n==29) {
-                            if($item==0){
-
-                            }else{
-                            Detalle::create([
-                                    'calidad_id'=>$this->recep->calidad->id,
-                                    'embalaje'=>$this->embalaje,
-                                    'valor_ss'=>floatval($item)*100,
-                                    'porcentaje_muestra'=>floatval($item)*100,
-                                    'tipo_item'=>'DISTRIBUCIÓN DE CALIBRES',
-                                    'tipo_detalle'=>'cc',
-                                    'detalle_item'=>'3J',
-                                    'fecha'=>$this->fecha
-                                ]);
-                            }
-                        }
-                        if ($n==30) {
-                            if($item==0){
-
-                            }else{
-                            Detalle::create([
-                                    'calidad_id'=>$this->recep->calidad->id,
-                                    'embalaje'=>$this->embalaje,
-                                    'valor_ss'=>floatval($item)*100,
-                                    'porcentaje_muestra'=>floatval($item)*100,
-                                    'tipo_item'=>'DISTRIBUCIÓN DE CALIBRES',
-                                    'tipo_detalle'=>'cc',
-                                    'detalle_item'=>'4J',
-                                    'fecha'=>$this->fecha
-                                ]);
-                            }
-                        }
-                        if ($n==31) {
-                            if($item==0){
-
-                            }else{
-                            Detalle::create([
-                                    'calidad_id'=>$this->recep->calidad->id,
-                                    'embalaje'=>$this->embalaje,
-                                    'valor_ss'=>floatval($item)*100,
-                                    'porcentaje_muestra'=>floatval($item)*100,
-                                    'tipo_item'=>'DISTRIBUCIÓN DE CALIBRES',
-                                    'tipo_detalle'=>'cc',
-                                    'detalle_item'=>'5J',
-                                    'fecha'=>$this->fecha
-                                ]);
-                            }
-                        }
-
                     }
+                    if ($n == 26) {
+                        if ($item > 0) {
+                            Detalle::create([
+                                'calidad_id' => $this->recep->calidad->id,
+                                'embalaje' => $this->embalaje,
+                                'valor_ss' => floatval($item) * 100,
+                                'porcentaje_muestra' => floatval($item) * 100,
+                                'tipo_item' => 'DISTRIBUCIÓN DE CALIBRES',
+                                'tipo_detalle' => 'cc',
+                                'detalle_item' => 'XL',
+                                'fecha' => $this->fecha,
+                            ]);
+                        }
+                    }
+                    if ($n == 27) {
+                        if ($item > 0) {
+                            Detalle::create([
+                                'calidad_id' => $this->recep->calidad->id,
+                                'embalaje' => $this->embalaje,
+                                'valor_ss' => floatval($item) * 100,
+                                'porcentaje_muestra' => floatval($item) * 100,
+                                'tipo_item' => 'DISTRIBUCIÓN DE CALIBRES',
+                                'tipo_detalle' => 'cc',
+                                'detalle_item' => 'J',
+                                'fecha' => $this->fecha,
+                            ]);
+                        }
+                    }
+                    if ($n == 28) {
+                        if ($item > 0) {
+                            Detalle::create([
+                                'calidad_id' => $this->recep->calidad->id,
+                                'embalaje' => $this->embalaje,
+                                'valor_ss' => floatval($item) * 100,
+                                'porcentaje_muestra' => floatval($item) * 100,
+                                'tipo_item' => 'DISTRIBUCIÓN DE CALIBRES',
+                                'tipo_detalle' => 'cc',
+                                'detalle_item' => '2J',
+                                'fecha' => $this->fecha,
+                            ]);
+                        }
+                    }
+                    if ($n == 29) {
+                        if ($item > 0) {
+                            Detalle::create([
+                                'calidad_id' => $this->recep->calidad->id,
+                                'embalaje' => $this->embalaje,
+                                'valor_ss' => floatval($item) * 100,
+                                'porcentaje_muestra' => floatval($item) * 100,
+                                'tipo_item' => 'DISTRIBUCIÓN DE CALIBRES',
+                                'tipo_detalle' => 'cc',
+                                'detalle_item' => '3J',
+                                'fecha' => $this->fecha,
+                            ]);
+                        }
+                    }
+                    if ($n == 30) {
+                        if ($item > 0) {
 
+                            Detalle::create([
+                                'calidad_id' => $this->recep->calidad->id,
+                                'embalaje' => $this->embalaje,
+                                'valor_ss' => floatval($item) * 100,
+                                'porcentaje_muestra' => floatval($item) * 100,
+                                'tipo_item' => 'DISTRIBUCIÓN DE CALIBRES',
+                                'tipo_detalle' => 'cc',
+                                'detalle_item' => 'SOBRECALIBRE',
+                                'fecha' => $this->fecha,
+                            ]);
+                        }
+                    }
+                } else {
+                    if ($n == 14) {
+                        if ($item == 0) {
 
+                        } else {
 
-                        $n+=1;
+                            Detalle::create([
+                                'calidad_id' => $this->recep->calidad->id,
+                                'embalaje' => $this->embalaje,
+                                'valor_ss' => floatval($item) * 100,
+                                'porcentaje_muestra' => floatval($item) * 100,
+                                'tipo_item' => 'FIRMEZAS',
+                                'tipo_detalle' => 'ss',
+                                'detalle_item' => 'FRUTA BLANDA',
+                                'fecha' => $this->fecha,
+                            ]);
+                        }
+                    }
+                    if ($n == 24) {
+                        if ($item == 0) {
+
+                        } else {
+                            Detalle::create([
+                                'calidad_id' => $this->recep->calidad->id,
+                                'embalaje' => $this->embalaje,
+                                'valor_ss' => floatval($item) * 100,
+                                'porcentaje_muestra' => floatval($item) * 100,
+                                'tipo_item' => 'DISTRIBUCIÓN DE CALIBRES',
+                                'tipo_detalle' => 'cc',
+                                'detalle_item' => 'PRECALIBRE',
+                                'fecha' => $this->fecha,
+                            ]);
+                        }
+                    }
+                    if ($n == 25) {
+                        if ($item == 0) {
+
+                        } else {
+                            Detalle::create([
+                                'calidad_id' => $this->recep->calidad->id,
+                                'embalaje' => $this->embalaje,
+                                'valor_ss' => floatval($item) * 100,
+                                'porcentaje_muestra' => floatval($item) * 100,
+                                'tipo_item' => 'DISTRIBUCIÓN DE CALIBRES',
+                                'tipo_detalle' => 'cc',
+                                'detalle_item' => 'L',
+                                'fecha' => $this->fecha,
+                            ]);
+                        }
+                    }
+                    if ($n == 26) {
+                        if ($item == 0) {
+
+                        } else {
+                            Detalle::create([
+                                'calidad_id' => $this->recep->calidad->id,
+                                'embalaje' => $this->embalaje,
+                                'valor_ss' => floatval($item) * 100,
+                                'porcentaje_muestra' => floatval($item) * 100,
+                                'tipo_item' => 'DISTRIBUCIÓN DE CALIBRES',
+                                'tipo_detalle' => 'cc',
+                                'detalle_item' => 'XL',
+                                'fecha' => $this->fecha,
+                            ]);
+                        }
+                    }
+                    if ($n == 27) {
+                        if ($item == 0) {
+
+                        } else {
+                            Detalle::create([
+                                'calidad_id' => $this->recep->calidad->id,
+                                'embalaje' => $this->embalaje,
+                                'valor_ss' => floatval($item) * 100,
+                                'porcentaje_muestra' => floatval($item) * 100,
+                                'tipo_item' => 'DISTRIBUCIÓN DE CALIBRES',
+                                'tipo_detalle' => 'cc',
+                                'detalle_item' => 'J',
+                                'fecha' => $this->fecha,
+                            ]);
+                        }
+                    }
+                    if ($n == 28) {
+                        if ($item == 0) {
+
+                        } else {
+                            Detalle::create([
+                                'calidad_id' => $this->recep->calidad->id,
+                                'embalaje' => $this->embalaje,
+                                'valor_ss' => floatval($item) * 100,
+                                'porcentaje_muestra' => floatval($item) * 100,
+                                'tipo_item' => 'DISTRIBUCIÓN DE CALIBRES',
+                                'tipo_detalle' => 'cc',
+                                'detalle_item' => '2J',
+                                'fecha' => $this->fecha,
+                            ]);
+                        }
+                    }
+                    if ($n == 29) {
+                        if ($item == 0) {
+
+                        } else {
+                            Detalle::create([
+                                'calidad_id' => $this->recep->calidad->id,
+                                'embalaje' => $this->embalaje,
+                                'valor_ss' => floatval($item) * 100,
+                                'porcentaje_muestra' => floatval($item) * 100,
+                                'tipo_item' => 'DISTRIBUCIÓN DE CALIBRES',
+                                'tipo_detalle' => 'cc',
+                                'detalle_item' => '3J',
+                                'fecha' => $this->fecha,
+                            ]);
+                        }
+                    }
+                    if ($n == 30) {
+                        if ($item == 0) {
+
+                        } else {
+                            Detalle::create([
+                                'calidad_id' => $this->recep->calidad->id,
+                                'embalaje' => $this->embalaje,
+                                'valor_ss' => floatval($item) * 100,
+                                'porcentaje_muestra' => floatval($item) * 100,
+                                'tipo_item' => 'DISTRIBUCIÓN DE CALIBRES',
+                                'tipo_detalle' => 'cc',
+                                'detalle_item' => '4J',
+                                'fecha' => $this->fecha,
+                            ]);
+                        }
+                    }
+                    if ($n == 31) {
+                        if ($item == 0) {
+
+                        } else {
+                            Detalle::create([
+                                'calidad_id' => $this->recep->calidad->id,
+                                'embalaje' => $this->embalaje,
+                                'valor_ss' => floatval($item) * 100,
+                                'porcentaje_muestra' => floatval($item) * 100,
+                                'tipo_item' => 'DISTRIBUCIÓN DE CALIBRES',
+                                'tipo_detalle' => 'cc',
+                                'detalle_item' => '5J',
+                                'fecha' => $this->fecha,
+                            ]);
+                        }
+                    }
 
                 }
-                break;
+
+                $n += 1;
+
+            }
+            break;
 
         }
 
-        //consulta para distribución de color
-        $this->firmpro=Http::post('https://api.greenexweb.cl/api/BuscarRecepcionCloud?filter[numero_recepcion][eq]='.$recepcion->numero_g_recepcion);
+        // consulta para distribución de color
+        $this->firmpro = Http::post('https://api.greenexweb.cl/api/BuscarRecepcionCloud?filter[numero_recepcion][eq]='.$recepcion->numero_g_recepcion);
         $this->firmpro = $this->firmpro->json();
-        $subpromedio_light=0;
-        $subpromedio_dark=0;
-        $subpromedio_black=0;
-        $subpromedio_light2=0;
-        $subpromedio_dark2=0;
-        $subpromedio_black2=0;
-        $rojo=0;
-        $rojocaoba=0;
-        $santina=0;
-        $caobaoscuro=0;
-        $negro=0;
-        $fueradecolor=0;
-        $totalfrutos=0;
-        //dagen
-        $mblando=0;
-        $blando=0;
-        $sensitivo=0;
-        $firme=0;
-        $mfirme=0;
-        foreach ($this->firmpro as $items){
-            $totalfrutos+=1;
-            $n=1;
+        $subpromedio_light = 0;
+        $subpromedio_dark = 0;
+        $subpromedio_black = 0;
+        $subpromedio_light2 = 0;
+        $subpromedio_dark2 = 0;
+        $subpromedio_black2 = 0;
+        $rojo = 0;
+        $rojocaoba = 0;
+        $santina = 0;
+        $caobaoscuro = 0;
+        $negro = 0;
+        $fueradecolor = 0;
+        $totalfrutos = 0;
+        // dagen
+        $mblando = 0;
+        $blando = 0;
+        $sensitivo = 0;
+        $firme = 0;
+        $mfirme = 0;
+        foreach ($this->firmpro as $items) {
+            $totalfrutos += 1;
+            $n = 1;
 
-                //CADA REGISTRO:
-                foreach ($items as $item){
-                    if($n==4){
-                        $firmeza=$item;
+            // CADA REGISTRO:
+            foreach ($items as $item) {
+                if ($n == 4) {
+                    $firmeza = $item;
 
-                    }
-                    if($n==5){
-                        $calibre=$item;
-                    }
-                    if($n==13){
-                        $color=$item;
-                        if($color=='Fuera color'){
-                            $fueradecolor+=1;
-                        }
-                        if($color=='Rojo'){
-                            $rojo+=1;
-                            $subpromedio_light+=$firmeza;
-                            $subpromedio_light2+=$calibre;
-                        }
-                        if($color=='Rojo caoba'){
-                            $rojocaoba+=1;
-                            $subpromedio_dark+=$firmeza;
-                            $subpromedio_dark2+=$calibre;
-                        }
-                        if($color=='Santina'){
-                            $santina+=1;
-                            $subpromedio_dark+=$firmeza;
-                            $subpromedio_dark2+=$calibre;
-                        }
-                        if($color=='Caoba oscuro'|| $color=='Caoba Oscuro'){
-                            $caobaoscuro+=1;
-                            $subpromedio_black+=$firmeza;
-                            $subpromedio_black2+=$calibre;
-                        }
-                        if($color=='Negro'){
-                            $negro+=1;
-                            $subpromedio_black+=$firmeza;
-                            $subpromedio_black2+=$calibre;
-                        }
-                        if ($firmeza<250) {
-                            $mblando+=1;
-                        }
-                        if ($firmeza>=250 && $firmeza<400) {
-                            $blando+=1;
-                        }
-                        if ($firmeza>=400 && $firmeza<600) {
-                            $sensitivo+=1;
-                        }
-                        if ($firmeza>=600 && $firmeza<950) {
-                            $firme+=1;
-                        }
-                        if ($firmeza>=950) {
-                            $mfirme+=1;
-                        }
-
-
-                    }
-                    $n+=1;
                 }
-            if ($totalfrutos>=$cantidad_frutos) {
+                if ($n == 5) {
+                    $calibre = $item;
+                }
+                if ($n == 13) {
+                    $color = $item;
+                    if ($color == 'Fuera color') {
+                        $fueradecolor += 1;
+                    }
+                    if ($color == 'Rojo') {
+                        $rojo += 1;
+                        $subpromedio_light += $firmeza;
+                        $subpromedio_light2 += $calibre;
+                    }
+                    if ($color == 'Rojo caoba') {
+                        $rojocaoba += 1;
+                        $subpromedio_dark += $firmeza;
+                        $subpromedio_dark2 += $calibre;
+                    }
+                    if ($color == 'Santina') {
+                        $santina += 1;
+                        $subpromedio_dark += $firmeza;
+                        $subpromedio_dark2 += $calibre;
+                    }
+                    if ($color == 'Caoba oscuro' || $color == 'Caoba Oscuro') {
+                        $caobaoscuro += 1;
+                        $subpromedio_black += $firmeza;
+                        $subpromedio_black2 += $calibre;
+                    }
+                    if ($color == 'Negro') {
+                        $negro += 1;
+                        $subpromedio_black += $firmeza;
+                        $subpromedio_black2 += $calibre;
+                    }
+                    if ($firmeza < 250) {
+                        $mblando += 1;
+                    }
+                    if ($firmeza >= 250 && $firmeza < 400) {
+                        $blando += 1;
+                    }
+                    if ($firmeza >= 400 && $firmeza < 600) {
+                        $sensitivo += 1;
+                    }
+                    if ($firmeza >= 600 && $firmeza < 950) {
+                        $firme += 1;
+                    }
+                    if ($firmeza >= 950) {
+                        $mfirme += 1;
+                    }
+
+                }
+                $n += 1;
+            }
+            if ($totalfrutos >= $cantidad_frutos) {
                 break;
             }
 
         }
 
-            if($fueradecolor>0){
+        if ($fueradecolor > 0) {
+            Detalle::create([
+                'calidad_id' => $this->recep->calidad->id,
+                'embalaje' => $this->embalaje,
+                'valor_ss' => $fueradecolor * 100 / $totalfrutos,
+                'tipo_item' => 'COLOR DE CUBRIMIENTO',
+                'tipo_detalle' => 'cc',
+                'detalle_item' => 'Fuera de Color',
+                'fecha' => $this->fecha,
+            ]);
+        }
+        if ($rojo > 0) {
+            Detalle::create([
+                'calidad_id' => $this->recep->calidad->id,
+                'embalaje' => $this->embalaje,
+                'valor_ss' => $rojo * 100 / $totalfrutos,
+                'tipo_item' => 'COLOR DE CUBRIMIENTO',
+                'tipo_detalle' => 'cc',
+                'detalle_item' => 'ROJO',
+                'fecha' => $this->fecha,
+            ]);
+        }
+        if ($rojocaoba > 0) {
+            Detalle::create([
+                'calidad_id' => $this->recep->calidad->id,
+                'embalaje' => $this->embalaje,
+                'valor_ss' => $rojocaoba * 100 / $totalfrutos,
+                'tipo_item' => 'COLOR DE CUBRIMIENTO',
+                'tipo_detalle' => 'cc',
+                'detalle_item' => 'ROJO CAOBA',
+                'fecha' => $this->fecha,
+            ]);
+        }
+        if ($santina > 0) {
+            Detalle::create([
+                'calidad_id' => $this->recep->calidad->id,
+                'embalaje' => $this->embalaje,
+                'valor_ss' => $santina * 100 / $totalfrutos,
+                'tipo_item' => 'COLOR DE CUBRIMIENTO',
+                'tipo_detalle' => 'cc',
+                'detalle_item' => 'SANTINA',
+                'fecha' => $this->fecha,
+            ]);
+        }
+        if ($caobaoscuro > 0) {
+            Detalle::create([
+                'calidad_id' => $this->recep->calidad->id,
+                'embalaje' => $this->embalaje,
+                'valor_ss' => $caobaoscuro * 100 / $totalfrutos,
+                'tipo_item' => 'COLOR DE CUBRIMIENTO',
+                'tipo_detalle' => 'cc',
+                'detalle_item' => 'CAOBA OSCURO',
+                'fecha' => $this->fecha,
+            ]);
+        }
+        if ($negro > 0) {
+            Detalle::create([
+                'calidad_id' => $this->recep->calidad->id,
+                'embalaje' => $this->embalaje,
+                'valor_ss' => $negro * 100 / $totalfrutos,
+                'tipo_item' => 'COLOR DE CUBRIMIENTO',
+                'tipo_detalle' => 'cc',
+                'detalle_item' => 'NEGRO',
+                'fecha' => $this->fecha,
+            ]);
+        }
+
+        if ($recepcion->n_variedad == 'Dagen') {
+            if ($mblando > 0) {
                 Detalle::create([
-                    'calidad_id'=>$this->recep->calidad->id,
-                    'embalaje'=>$this->embalaje,
-                    'valor_ss'=>$fueradecolor*100/$totalfrutos,
-                    'tipo_item'=>'COLOR DE CUBRIMIENTO',
-                    'tipo_detalle'=>'cc',
-                    'detalle_item'=>'Fuera de Color',
-                    'fecha'=>$this->fecha
+                    'calidad_id' => $this->recep->calidad->id,
+                    'embalaje' => $this->embalaje,
+                    'valor_ss' => $mblando * 100 / $cantidad_frutos,
+                    'porcentaje_muestra' => $mblando * 100 / $cantidad_frutos,
+                    'tipo_item' => 'DISTRIBUCIÓN DE FIRMEZA',
+                    'tipo_detalle' => 'cc',
+                    'detalle_item' => 'MUY BLANDO',
+                    'fecha' => $this->fecha,
+                ]);
+            } else {
+                Detalle::create([
+                    'calidad_id' => $this->recep->calidad->id,
+                    'embalaje' => $this->embalaje,
+                    'valor_ss' => 0,
+                    'porcentaje_muestra' => 0,
+                    'tipo_item' => 'DISTRIBUCIÓN DE FIRMEZA',
+                    'tipo_detalle' => 'cc',
+                    'detalle_item' => 'MUY BLANDO',
+                    'fecha' => $this->fecha,
                 ]);
             }
-            if($rojo>0){
+            if ($blando > 0) {
                 Detalle::create([
-                    'calidad_id'=>$this->recep->calidad->id,
-                    'embalaje'=>$this->embalaje,
-                    'valor_ss'=>$rojo*100/$totalfrutos,
-                    'tipo_item'=>'COLOR DE CUBRIMIENTO',
-                    'tipo_detalle'=>'cc',
-                    'detalle_item'=>'ROJO',
-                    'fecha'=>$this->fecha
+                    'calidad_id' => $this->recep->calidad->id,
+                    'embalaje' => $this->embalaje,
+                    'valor_ss' => $blando * 100 / $cantidad_frutos,
+                    'porcentaje_muestra' => $blando * 100 / $cantidad_frutos,
+                    'tipo_item' => 'DISTRIBUCIÓN DE FIRMEZA',
+                    'tipo_detalle' => 'cc',
+                    'detalle_item' => 'BLANDO',
+                    'fecha' => $this->fecha,
                 ]);
-            }
-            if($rojocaoba>0){
+            } else {
                 Detalle::create([
-                    'calidad_id'=>$this->recep->calidad->id,
-                    'embalaje'=>$this->embalaje,
-                    'valor_ss'=>$rojocaoba*100/$totalfrutos,
-                    'tipo_item'=>'COLOR DE CUBRIMIENTO',
-                    'tipo_detalle'=>'cc',
-                    'detalle_item'=>'ROJO CAOBA',
-                    'fecha'=>$this->fecha
-                ]);
-            }
-            if($santina>0){
-                Detalle::create([
-                    'calidad_id'=>$this->recep->calidad->id,
-                    'embalaje'=>$this->embalaje,
-                    'valor_ss'=>$santina*100/$totalfrutos,
-                    'tipo_item'=>'COLOR DE CUBRIMIENTO',
-                    'tipo_detalle'=>'cc',
-                    'detalle_item'=>'SANTINA',
-                    'fecha'=>$this->fecha
-                ]);
-            }
-            if($caobaoscuro>0){
-                Detalle::create([
-                    'calidad_id'=>$this->recep->calidad->id,
-                    'embalaje'=>$this->embalaje,
-                    'valor_ss'=>$caobaoscuro*100/$totalfrutos,
-                    'tipo_item'=>'COLOR DE CUBRIMIENTO',
-                    'tipo_detalle'=>'cc',
-                    'detalle_item'=>'CAOBA OSCURO',
-                    'fecha'=>$this->fecha
-                ]);
-            }
-             if($negro>0){
-                Detalle::create([
-                    'calidad_id'=>$this->recep->calidad->id,
-                    'embalaje'=>$this->embalaje,
-                    'valor_ss'=>$negro*100/$totalfrutos,
-                    'tipo_item'=>'COLOR DE CUBRIMIENTO',
-                    'tipo_detalle'=>'cc',
-                    'detalle_item'=>'NEGRO',
-                    'fecha'=>$this->fecha
+                    'calidad_id' => $this->recep->calidad->id,
+                    'embalaje' => $this->embalaje,
+                    'valor_ss' => 0,
+                    'porcentaje_muestra' => 0,
+                    'tipo_item' => 'DISTRIBUCIÓN DE FIRMEZA',
+                    'tipo_detalle' => 'cc',
+                    'detalle_item' => 'BLANDO',
+                    'fecha' => $this->fecha,
                 ]);
             }
 
-            if ($recepcion->n_variedad=='Dagen') {
-                if ($mblando>0) {
-                    Detalle::create([
-                        'calidad_id'=>$this->recep->calidad->id,
-                        'embalaje'=>$this->embalaje,
-                        'valor_ss'=>$mblando*100/$cantidad_frutos,
-                        'porcentaje_muestra'=>$mblando*100/$cantidad_frutos,
-                        'tipo_item'=>'DISTRIBUCIÓN DE FIRMEZA',
-                        'tipo_detalle'=>'cc',
-                        'detalle_item'=>'MUY BLANDO',
-                        'fecha'=>$this->fecha
-                    ]);
-                }else{
-                    Detalle::create([
-                        'calidad_id'=>$this->recep->calidad->id,
-                        'embalaje'=>$this->embalaje,
-                        'valor_ss'=>0,
-                        'porcentaje_muestra'=>0,
-                        'tipo_item'=>'DISTRIBUCIÓN DE FIRMEZA',
-                        'tipo_detalle'=>'cc',
-                        'detalle_item'=>'MUY BLANDO',
-                        'fecha'=>$this->fecha
-                    ]);
-                }
-                if ($blando>0) {
-                    Detalle::create([
-                        'calidad_id'=>$this->recep->calidad->id,
-                        'embalaje'=>$this->embalaje,
-                        'valor_ss'=>$blando*100/$cantidad_frutos,
-                        'porcentaje_muestra'=>$blando*100/$cantidad_frutos,
-                        'tipo_item'=>'DISTRIBUCIÓN DE FIRMEZA',
-                        'tipo_detalle'=>'cc',
-                        'detalle_item'=>'BLANDO',
-                        'fecha'=>$this->fecha
-                    ]);
-                }else{
-                    Detalle::create([
-                        'calidad_id'=>$this->recep->calidad->id,
-                        'embalaje'=>$this->embalaje,
-                        'valor_ss'=>0,
-                        'porcentaje_muestra'=>0,
-                        'tipo_item'=>'DISTRIBUCIÓN DE FIRMEZA',
-                        'tipo_detalle'=>'cc',
-                        'detalle_item'=>'BLANDO',
-                        'fecha'=>$this->fecha
-                    ]);
-                }
-
-                if ($sensitivo>0) {
-                    Detalle::create([
-                        'calidad_id'=>$this->recep->calidad->id,
-                        'embalaje'=>$this->embalaje,
-                        'valor_ss'=>$sensitivo*100/$cantidad_frutos,
-                        'porcentaje_muestra'=>$sensitivo*100/$cantidad_frutos,
-                        'tipo_item'=>'DISTRIBUCIÓN DE FIRMEZA',
-                        'tipo_detalle'=>'cc',
-                        'detalle_item'=>'SENSIBLE',
-                        'fecha'=>$this->fecha
-                    ]);
-                }else{
-                    Detalle::create([
-                        'calidad_id'=>$this->recep->calidad->id,
-                        'embalaje'=>$this->embalaje,
-                        'valor_ss'=>0,
-                        'porcentaje_muestra'=>0,
-                        'tipo_item'=>'DISTRIBUCIÓN DE FIRMEZA',
-                        'tipo_detalle'=>'cc',
-                        'detalle_item'=>'SENSITIVO',
-                        'fecha'=>$this->fecha
-                    ]);
-                }
-
-                if ($firme>0) {
-                    Detalle::create([
-                        'calidad_id'=>$this->recep->calidad->id,
-                        'embalaje'=>$this->embalaje,
-                        'valor_ss'=>$firme*100/$cantidad_frutos,
-                        'porcentaje_muestra'=>$firme*100/$cantidad_frutos,
-                        'tipo_item'=>'DISTRIBUCIÓN DE FIRMEZA',
-                        'tipo_detalle'=>'cc',
-                        'detalle_item'=>'FIRME',
-                        'fecha'=>$this->fecha
-                    ]);
-                }else{
-                    Detalle::create([
-                        'calidad_id'=>$this->recep->calidad->id,
-                        'embalaje'=>$this->embalaje,
-                        'valor_ss'=>0,
-                        'porcentaje_muestra'=>0,
-                        'tipo_item'=>'DISTRIBUCIÓN DE FIRMEZA',
-                        'tipo_detalle'=>'cc',
-                        'detalle_item'=>'FIRME',
-                        'fecha'=>$this->fecha
-                    ]);
-                }
-
-                if ($mfirme>0) {
-                    Detalle::create([
-                        'calidad_id'=>$this->recep->calidad->id,
-                        'embalaje'=>$this->embalaje,
-                        'valor_ss'=>$mfirme*100/$cantidad_frutos,
-                        'porcentaje_muestra'=>$mfirme*100/$cantidad_frutos,
-                        'tipo_item'=>'DISTRIBUCIÓN DE FIRMEZA',
-                        'tipo_detalle'=>'cc',
-                        'detalle_item'=>'MUY FIRME',
-                        'fecha'=>$this->fecha
-                    ]);
-                }else{
-                    Detalle::create([
-                        'calidad_id'=>$this->recep->calidad->id,
-                        'embalaje'=>$this->embalaje,
-                        'valor_ss'=>0,
-                        'porcentaje_muestra'=>0,
-                        'tipo_item'=>'DISTRIBUCIÓN DE FIRMEZA',
-                        'tipo_detalle'=>'cc',
-                        'detalle_item'=>'MUY FIRME',
-                        'fecha'=>$this->fecha
-                    ]);
-                }
-
-
-
-            }else{
-
-                if($rojo>0){
-                    Detalle::create([
-                        'calidad_id'=>$this->recep->calidad->id,
-                        'embalaje'=>$this->embalaje,
-                        'valor_ss'=>$subpromedio_light/$rojo,
-                        'tipo_item'=>'FIRMEZAS',
-                        'tipo_detalle'=>'ss',
-                        'detalle_item'=>'LIGHT',
-                        'fecha'=>$this->fecha
-                    ]);
-
-                }else{
-                    Detalle::create([
-                        'calidad_id'=>$this->recep->calidad->id,
-                        'embalaje'=>$this->embalaje,
-                        'valor_ss'=>0,
-                        'tipo_item'=>'FIRMEZAS',
-                        'tipo_detalle'=>'ss',
-                        'detalle_item'=>'LIGHT',
-                        'fecha'=>$this->fecha   ]);
-                }
-
-                if (($rojocaoba+$santina)>0) {
-                    Detalle::create([
-                        'calidad_id'=>$this->recep->calidad->id,
-                        'embalaje'=>$this->embalaje,
-                        'valor_ss'=>$subpromedio_dark/($rojocaoba+$santina),
-                        'tipo_item'=>'FIRMEZAS',
-                        'tipo_detalle'=>'ss',
-                        'detalle_item'=>'DARK',
-                        'fecha'=>$this->fecha
-                    ]);
-
-                } else {
-                    Detalle::create([
-                        'calidad_id'=>$this->recep->calidad->id,
-                        'embalaje'=>$this->embalaje,
-                        'valor_ss'=>0,
-                        'tipo_item'=>'FIRMEZAS',
-                        'tipo_detalle'=>'ss',
-                        'detalle_item'=>'DARK',
-                        'fecha'=>$this->fecha
-                    ]);
-                }
-
-                if (($negro+$caobaoscuro)>0) {
-                    Detalle::create([
-                        'calidad_id'=>$this->recep->calidad->id,
-                        'embalaje'=>$this->embalaje,
-                        'valor_ss'=>$subpromedio_black/($negro+$caobaoscuro),
-                        'tipo_item'=>'FIRMEZAS',
-                        'tipo_detalle'=>'ss',
-                        'detalle_item'=>'BLACK',
-                        'fecha'=>$this->fecha
-                    ]);
-
-                } else {
-                    Detalle::create([
-                        'calidad_id'=>$this->recep->calidad->id,
-                        'embalaje'=>$this->embalaje,
-                        'valor_ss'=>0,
-                        'tipo_item'=>'FIRMEZAS',
-                        'tipo_detalle'=>'ss',
-                        'detalle_item'=>'BLACK',
-                        'fecha'=>$this->fecha
-                    ]);
-
-                }
+            if ($sensitivo > 0) {
+                Detalle::create([
+                    'calidad_id' => $this->recep->calidad->id,
+                    'embalaje' => $this->embalaje,
+                    'valor_ss' => $sensitivo * 100 / $cantidad_frutos,
+                    'porcentaje_muestra' => $sensitivo * 100 / $cantidad_frutos,
+                    'tipo_item' => 'DISTRIBUCIÓN DE FIRMEZA',
+                    'tipo_detalle' => 'cc',
+                    'detalle_item' => 'SENSIBLE',
+                    'fecha' => $this->fecha,
+                ]);
+            } else {
+                Detalle::create([
+                    'calidad_id' => $this->recep->calidad->id,
+                    'embalaje' => $this->embalaje,
+                    'valor_ss' => 0,
+                    'porcentaje_muestra' => 0,
+                    'tipo_item' => 'DISTRIBUCIÓN DE FIRMEZA',
+                    'tipo_detalle' => 'cc',
+                    'detalle_item' => 'SENSITIVO',
+                    'fecha' => $this->fecha,
+                ]);
             }
+
+            if ($firme > 0) {
+                Detalle::create([
+                    'calidad_id' => $this->recep->calidad->id,
+                    'embalaje' => $this->embalaje,
+                    'valor_ss' => $firme * 100 / $cantidad_frutos,
+                    'porcentaje_muestra' => $firme * 100 / $cantidad_frutos,
+                    'tipo_item' => 'DISTRIBUCIÓN DE FIRMEZA',
+                    'tipo_detalle' => 'cc',
+                    'detalle_item' => 'FIRME',
+                    'fecha' => $this->fecha,
+                ]);
+            } else {
+                Detalle::create([
+                    'calidad_id' => $this->recep->calidad->id,
+                    'embalaje' => $this->embalaje,
+                    'valor_ss' => 0,
+                    'porcentaje_muestra' => 0,
+                    'tipo_item' => 'DISTRIBUCIÓN DE FIRMEZA',
+                    'tipo_detalle' => 'cc',
+                    'detalle_item' => 'FIRME',
+                    'fecha' => $this->fecha,
+                ]);
+            }
+
+            if ($mfirme > 0) {
+                Detalle::create([
+                    'calidad_id' => $this->recep->calidad->id,
+                    'embalaje' => $this->embalaje,
+                    'valor_ss' => $mfirme * 100 / $cantidad_frutos,
+                    'porcentaje_muestra' => $mfirme * 100 / $cantidad_frutos,
+                    'tipo_item' => 'DISTRIBUCIÓN DE FIRMEZA',
+                    'tipo_detalle' => 'cc',
+                    'detalle_item' => 'MUY FIRME',
+                    'fecha' => $this->fecha,
+                ]);
+            } else {
+                Detalle::create([
+                    'calidad_id' => $this->recep->calidad->id,
+                    'embalaje' => $this->embalaje,
+                    'valor_ss' => 0,
+                    'porcentaje_muestra' => 0,
+                    'tipo_item' => 'DISTRIBUCIÓN DE FIRMEZA',
+                    'tipo_detalle' => 'cc',
+                    'detalle_item' => 'MUY FIRME',
+                    'fecha' => $this->fecha,
+                ]);
+            }
+
+        } else {
+
+            if ($rojo > 0) {
+                Detalle::create([
+                    'calidad_id' => $this->recep->calidad->id,
+                    'embalaje' => $this->embalaje,
+                    'valor_ss' => $subpromedio_light / $rojo,
+                    'tipo_item' => 'FIRMEZAS',
+                    'tipo_detalle' => 'ss',
+                    'detalle_item' => 'LIGHT',
+                    'fecha' => $this->fecha,
+                ]);
+
+            } else {
+                Detalle::create([
+                    'calidad_id' => $this->recep->calidad->id,
+                    'embalaje' => $this->embalaje,
+                    'valor_ss' => 0,
+                    'tipo_item' => 'FIRMEZAS',
+                    'tipo_detalle' => 'ss',
+                    'detalle_item' => 'LIGHT',
+                    'fecha' => $this->fecha]);
+            }
+
+            if (($rojocaoba + $santina) > 0) {
+                Detalle::create([
+                    'calidad_id' => $this->recep->calidad->id,
+                    'embalaje' => $this->embalaje,
+                    'valor_ss' => $subpromedio_dark / ($rojocaoba + $santina),
+                    'tipo_item' => 'FIRMEZAS',
+                    'tipo_detalle' => 'ss',
+                    'detalle_item' => 'DARK',
+                    'fecha' => $this->fecha,
+                ]);
+
+            } else {
+                Detalle::create([
+                    'calidad_id' => $this->recep->calidad->id,
+                    'embalaje' => $this->embalaje,
+                    'valor_ss' => 0,
+                    'tipo_item' => 'FIRMEZAS',
+                    'tipo_detalle' => 'ss',
+                    'detalle_item' => 'DARK',
+                    'fecha' => $this->fecha,
+                ]);
+            }
+
+            if (($negro + $caobaoscuro) > 0) {
+                Detalle::create([
+                    'calidad_id' => $this->recep->calidad->id,
+                    'embalaje' => $this->embalaje,
+                    'valor_ss' => $subpromedio_black / ($negro + $caobaoscuro),
+                    'tipo_item' => 'FIRMEZAS',
+                    'tipo_detalle' => 'ss',
+                    'detalle_item' => 'BLACK',
+                    'fecha' => $this->fecha,
+                ]);
+
+            } else {
+                Detalle::create([
+                    'calidad_id' => $this->recep->calidad->id,
+                    'embalaje' => $this->embalaje,
+                    'valor_ss' => 0,
+                    'tipo_item' => 'FIRMEZAS',
+                    'tipo_detalle' => 'ss',
+                    'detalle_item' => 'BLACK',
+                    'fecha' => $this->fecha,
+                ]);
+
+            }
+        }
+
         return response()->json(['message' => 'Firmpro data loaded successfully.']);
     }
 
@@ -1282,19 +1268,21 @@ class ControlCalidadController extends Controller
             }
 
             $defectos_calidad_sum = $calidad->detalles()
-                                            ->where('tipo_item', 'DEFECTOS DE CALIDAD')
-                                            ->sum('porcentaje_muestra');
+                ->where('tipo_item', 'DEFECTOS DE CALIDAD')
+                ->sum('porcentaje_muestra');
             $defectos_condicion_sum = $calidad->detalles()
-                                            ->where('tipo_item', 'DEFECTOS DE CONDICION')
-                                            ->sum('porcentaje_muestra');
+                ->where('tipo_item', 'DEFECTOS DE CONDICION')
+                ->sum('porcentaje_muestra');
             $danos_plaga_sum = $calidad->detalles()
-                                            ->where('tipo_item', 'DAÑOS DE PLAGA')
-                                            ->sum('porcentaje_muestra');
+                ->where('tipo_item', 'DAÑOS DE PLAGA')
+                ->sum('porcentaje_muestra');
 
             $total_defectos_sum = $defectos_calidad_sum + $defectos_condicion_sum + $danos_plaga_sum;
 
             $porcentaje_exportable = 100 - $total_defectos_sum;
-            if ($porcentaje_exportable < 0) $porcentaje_exportable = 0;
+            if ($porcentaje_exportable < 0) {
+                $porcentaje_exportable = 0;
+            }
 
             $distribucion_calibres = $calidad->detalles()->where('tipo_item', 'DISTRIBUCIÓN DE CALIBRES')->get();
             $distribucion_color = $calidad->detalles()->where('tipo_item', 'COLOR DE CUBRIMIENTO')->get();
@@ -1325,44 +1313,46 @@ class ControlCalidadController extends Controller
             'solubleSolids'
         ))->render();
 
-          try {
-        $pdfPath = storage_path('app/public/reporte_recepcion_' . $recepcion->numero_g_recepcion . '.pdf');
-        $tmpDir  = storage_path('app/browsershot-temp');
+        try {
+            $pdfPath = storage_path('app/public/reporte_recepcion_'.$recepcion->numero_g_recepcion.'.pdf');
+            $tmpDir = storage_path('app/browsershot-temp');
 
-        if (!is_dir($tmpDir)) {
-            mkdir($tmpDir, 0755, true);
+            if (! is_dir($tmpDir)) {
+                mkdir($tmpDir, 0755, true);
+            }
+
+            Log::debug('Browsershot using temporary directory: '.$tmpDir);
+
+            // OJO: primero configurar el temp, luego html()
+            Browsershot::html($html)
+                ->setTemporaryDirectory(storage_path('app/browsershot-temp'))
+    // ->setChromePath('/usr/bin/chromium-browser') // ← Usa el que ya tienes
+    // ->setOption('executablePath', '/usr/bin/chromium-browser') // ← Clave para Puppeteer
+                ->setOption('headless', true)
+                ->noSandbox()
+                ->addChromiumArguments([
+                    '--no-sandbox',              // ← Obligatorio con Snap
+                    '--disable-dev-shm-usage',   // ← Evita problemas en Docker/servidores
+                    '--disable-gpu',             // ← Recomendado en headless
+                    '--font-render-hinting=none',
+                    '--headless=new',            // ← Modo headless moderno
+                ])
+                ->waitUntilNetworkIdle()
+                ->wait(15) // segundos, no milisegundos
+                ->setViewport(1920, 1080)
+                ->landscape(false)
+                ->showBackground()
+                ->savePdf($pdfPath);
+
+            return response()->file($pdfPath);
+        } catch (\Exception $e) {
+            Log::error('Browsershot error: '.$e->getMessage());
+            throw $e;
         }
 
-        Log::debug('Browsershot using temporary directory: ' . $tmpDir);
-
-        // OJO: primero configurar el temp, luego html()
-       Browsershot::html($html)
-    ->setTemporaryDirectory(storage_path('app/browsershot-temp'))
-    ->setChromePath('/usr/bin/chromium-browser') // ← Usa el que ya tienes
-    ->setOption('executablePath', '/usr/bin/chromium-browser') // ← Clave para Puppeteer
-    ->setOption('headless', true)
-    ->noSandbox()
-    ->addChromiumArguments([
-        '--no-sandbox',              // ← Obligatorio con Snap
-        '--disable-dev-shm-usage',   // ← Evita problemas en Docker/servidores
-        '--disable-gpu',             // ← Recomendado en headless
-        '--font-render-hinting=none',
-        '--headless=new',            // ← Modo headless moderno
-    ])
-    ->waitUntilNetworkIdle()
-    ->wait(15) // segundos, no milisegundos
-    ->setViewport(1920, 1080)
-    ->landscape(false)
-    ->showBackground()
-    ->savePdf($pdfPath);
         return response()->file($pdfPath);
-    } catch (\Exception $e) {
-        Log::error('Browsershot error: ' . $e->getMessage());
-        throw $e;
     }
 
-    return response()->file($pdfPath);
-    }
     public function previewReport(Recepcion $recepcion)
     {
         $calidad = $recepcion->calidad;
@@ -1380,14 +1370,14 @@ class ControlCalidadController extends Controller
             }
 
             $defectos_calidad_sum = $calidad->detalles()
-                                            ->where('tipo_item', 'DEFECTOS DE CALIDAD')
-                                            ->sum('porcentaje_muestra');
+                ->where('tipo_item', 'DEFECTOS DE CALIDAD')
+                ->sum('porcentaje_muestra');
             $defectos_condicion_sum = $calidad->detalles()
-                                            ->where('tipo_item', 'DEFECTOS DE CONDICION')
-                                            ->sum('porcentaje_muestra');
+                ->where('tipo_item', 'DEFECTOS DE CONDICION')
+                ->sum('porcentaje_muestra');
             $danos_plaga_sum = $calidad->detalles()
-                                            ->where('tipo_item', 'DAÑOS DE PLAGA')
-                                            ->sum('porcentaje_muestra');
+                ->where('tipo_item', 'DAÑOS DE PLAGA')
+                ->sum('porcentaje_muestra');
 
             $total_defectos_sum = $defectos_calidad_sum + $defectos_condicion_sum + $danos_plaga_sum;
             $porcentaje_exportable = max(0, 100 - $total_defectos_sum);
@@ -1400,8 +1390,6 @@ class ControlCalidadController extends Controller
         $firmnessDistribution = \App\Services\QualityChartsService::getDistribucionFirmezasData($receptions);
         $solubleSolids = \App\Services\QualityChartsService::getSolidosSolublesData($receptions);
         $coverageColor = \App\Services\QualityChartsService::getColorCubrimientoData($receptions);
-
-
 
         return view('reports.reception_report', compact(
             'recepcion',

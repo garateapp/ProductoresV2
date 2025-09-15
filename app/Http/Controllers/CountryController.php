@@ -2,8 +2,8 @@
 
 namespace App\Http\Controllers;
 
-use App\Models\Country;
 use App\Models\Continent;
+use App\Models\Country;
 use Illuminate\Http\Request;
 use Inertia\Inertia;
 
@@ -13,6 +13,7 @@ class CountryController extends Controller
     {
         $countries = Country::with('continent')->get();
         $continents = Continent::all();
+
         return Inertia::render('Documentation/Countries/Index', [
             'countries' => $countries,
             'continents' => $continents,
@@ -22,6 +23,7 @@ class CountryController extends Controller
     public function create()
     {
         $continents = Continent::all();
+
         return Inertia::render('Documentation/Countries/Create', [
             'continents' => $continents,
         ]);
@@ -42,7 +44,7 @@ class CountryController extends Controller
     public function update(Request $request, Country $country)
     {
         $validated = $request->validate([
-            'name' => 'required|string|max:255|unique:countries,name,' . $country->id,
+            'name' => 'required|string|max:255|unique:countries,name,'.$country->id,
             'continent_id' => 'required|exists:continents,id',
         ]);
 

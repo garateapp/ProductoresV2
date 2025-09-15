@@ -24,4 +24,3 @@ class ProducerGroup extends Model
         return $this->belongsToMany(User::class, 'producer_group_user', 'producer_group_id', 'user_id');
     }
 }
-

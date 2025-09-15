@@ -40,9 +40,9 @@ class UpdateUserPasswordCommand extends Command
                 $user->password = Hash::make($newPassword);
             }
             $user->save();
-            $this->info('Password for ' . $email . ' updated successfully to "' . $newPassword . '' . ($rounds ? ' with ' . $rounds . ' rounds.' : '.'));
+            $this->info('Password for '.$email.' updated successfully to "'.$newPassword.''.($rounds ? ' with '.$rounds.' rounds.' : '.'));
         } else {
-            $this->error('User with email ' . $email . ' not found.');
+            $this->error('User with email '.$email.' not found.');
         }
     }
 }

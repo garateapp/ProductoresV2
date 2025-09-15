@@ -2,46 +2,44 @@
 
 namespace App\Http\Controllers;
 
-use App\Models\Market;
-use App\Models\Country;
-use App\Models\CertificateType;
 use App\Models\AuthorizationType;
+use App\Models\CertificateType;
+use App\Models\Country;
 use App\Models\Especie;
+use App\Models\Market;
 use Illuminate\Http\Request;
 use Inertia\Inertia;
 
 class MarketController extends Controller
 {
+    public function index(Request $request)
+    {
+        $search = $request->input('search');
 
-        public function index(Request $request)
-        {
-            $search = $request->input('search');
-
-            $markets = Market::query()
-                ->when($search, function ($query, $search) {
-                    $query->whereHas('country', function ($q) use ($search) {
-                        $q->where('name', 'like', '%' . $search . '%');
-                    })
-                    ->orWhere('treatment_requirements', 'like', '%' . $search . '%')
-                    ->orWhere('other_requirements', 'like', '%' . $search . '%')
-                    ->orWhere('sampling_level', 'like', '%' . $search . '%')
-                    ->orWhere('quarantine_pests', 'like', '%' . $search . '%');
+        $markets = Market::query()
+            ->when($search, function ($query, $search) {
+                $query->whereHas('country', function ($q) use ($search) {
+                    $q->where('name', 'like', '%'.$search.'%');
                 })
-                ->with('country', 'certificateTypes', 'authorizationType', 'especies.variedads', 'variedads') // Eager load relationships
-                ->paginate(10); // Paginate with 10 items per page
+                    ->orWhere('treatment_requirements', 'like', '%'.$search.'%')
+                    ->orWhere('other_requirements', 'like', '%'.$search.'%')
+                    ->orWhere('sampling_level', 'like', '%'.$search.'%')
+                    ->orWhere('quarantine_pests', 'like', '%'.$search.'%');
+            })
+            ->with('country', 'certificateTypes', 'authorizationType', 'especies.variedads', 'variedads') // Eager load relationships
+            ->paginate(10); // Paginate with 10 items per page
 
-            return Inertia::render('Documentation/Markets/Index', [
-                'markets' => $markets,
-                'countries' => Country::all(), // Assuming you still need all countries for the dropdown
-               'certificateTypes' => CertificateType::all(), // Assuming you still need all certificate types for the dropdown
-                'authorizationTypes' => AuthorizationType::all(), // Add this line
-                'especies' => Especie::all(), // Add this line
-                'filters' => [
-                    'search' => $search,
-                ],
-            ]);
-        }
-
+        return Inertia::render('Documentation/Markets/Index', [
+            'markets' => $markets,
+            'countries' => Country::all(), // Assuming you still need all countries for the dropdown
+            'certificateTypes' => CertificateType::all(), // Assuming you still need all certificate types for the dropdown
+            'authorizationTypes' => AuthorizationType::all(), // Add this line
+            'especies' => Especie::all(), // Add this line
+            'filters' => [
+                'search' => $search,
+            ],
+        ]);
+    }
 
     public function store(Request $request)
     {

@@ -11,6 +11,7 @@ class CertificateTypeController extends Controller
     public function index()
     {
         $certificateTypes = CertificateType::all();
+
         return Inertia::render('Documentation/CertificateTypes/Index', [
             'certificateTypes' => $certificateTypes,
         ]);
@@ -30,7 +31,7 @@ class CertificateTypeController extends Controller
     public function update(Request $request, CertificateType $certificateType)
     {
         $validated = $request->validate([
-            'name' => 'required|string|max:255|unique:certificate_types,name,' . $certificateType->id,
+            'name' => 'required|string|max:255|unique:certificate_types,name,'.$certificateType->id,
         ]);
 
         $certificateType->update($validated);

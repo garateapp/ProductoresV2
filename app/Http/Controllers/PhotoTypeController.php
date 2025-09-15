@@ -11,6 +11,7 @@ class PhotoTypeController extends Controller
     public function index()
     {
         $photoTypes = PhotoType::latest()->paginate(10);
+
         return Inertia::render('PhotoTypes/Index', ['photoTypes' => $photoTypes]);
     }
 

@@ -17,8 +17,9 @@ class PreviewExcel extends Command
         $sheetOption = $this->option('sheet');
         $limit = (int) $this->option('rows');
 
-        if (!file_exists($path)) {
+        if (! file_exists($path)) {
             $this->error("File not found: {$path}");
+
             return self::FAILURE;
         }
 
@@ -46,11 +47,12 @@ class PreviewExcel extends Command
             ];
 
             $this->line(json_encode($output, JSON_PRETTY_PRINT | JSON_UNESCAPED_UNICODE));
+
             return self::SUCCESS;
         } catch (\Throwable $e) {
-            $this->error('Error reading Excel: ' . $e->getMessage());
+            $this->error('Error reading Excel: '.$e->getMessage());
+
             return self::FAILURE;
         }
     }
 }
-

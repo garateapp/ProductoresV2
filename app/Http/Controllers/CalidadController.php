@@ -12,6 +12,7 @@ class CalidadController extends Controller
     public function create()
     {
         $recepciones = Recepcion::all();
+
         return Inertia::render('Calidad/Create', [
             'recepciones' => $recepciones,
         ]);
@@ -44,6 +45,7 @@ class CalidadController extends Controller
         $calidad->load('detalles.parametro', 'detalles.valor', 'recepcion');
         $parametros = Parametro::all();
         $valores = Valor::all();
+
         return Inertia::render('Calidad/Show', [
             'calidad' => $calidad,
             'parametros' => $parametros,

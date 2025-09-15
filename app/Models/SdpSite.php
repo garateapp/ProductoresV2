@@ -27,4 +27,3 @@ class SdpSite extends Model
         return $this->belongsToMany(SagCertification::class, 'sag_certification_sdp');
     }
 }
-

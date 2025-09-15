@@ -5,8 +5,8 @@ namespace App\Http\Controllers;
 use App\Models\Service;
 use App\Models\User;
 use Illuminate\Http\Request;
-use Inertia\Inertia;
 use Illuminate\Support\Facades\DB;
+use Inertia\Inertia;
 
 class ServiceController extends Controller
 {
@@ -19,8 +19,8 @@ class ServiceController extends Controller
 
         if ($search) {
             $availableUsersQuery->where(function ($query) use ($search) {
-                $query->where('name', 'like', '%' . $search . '%')
-                      ->orWhere('email', 'like', '%' . $search . '%');
+                $query->where('name', 'like', '%'.$search.'%')
+                    ->orWhere('email', 'like', '%'.$search.'%');
             });
         }
 
@@ -61,17 +61,17 @@ class ServiceController extends Controller
                 'owner_id' => $validated['owner_id'],
             ]);
 
-            if (!empty($validated['phones'])) {
+            if (! empty($validated['phones'])) {
                 foreach ($validated['phones'] as $phone) {
-                    if($phone) { // Ensure phone is not null or empty
+                    if ($phone) { // Ensure phone is not null or empty
                         $service->phones()->create(['phone' => $phone]);
                     }
                 }
             }
 
-            if (!empty($validated['emails'])) {
+            if (! empty($validated['emails'])) {
                 foreach ($validated['emails'] as $email) {
-                    if($email) { // Ensure email is not null or empty
+                    if ($email) { // Ensure email is not null or empty
                         $service->emails()->create(['email' => $email]);
                     }
                 }
@@ -97,6 +97,7 @@ class ServiceController extends Controller
     public function edit(Service $service)
     {
         $service->load('owner', 'phones', 'emails');
+
         return Inertia::render('Services/Edit', [
             'service' => $service,
             'users' => User::all(),
@@ -124,7 +125,7 @@ class ServiceController extends Controller
 
             // Sync phones
             $service->phones()->delete();
-            if (!empty($validated['phones'])) {
+            if (! empty($validated['phones'])) {
                 foreach ($validated['phones'] as $phone) {
                     if ($phone) {
                         $service->phones()->create(['phone' => $phone]);
@@ -134,7 +135,7 @@ class ServiceController extends Controller
 
             // Sync emails
             $service->emails()->delete();
-            if (!empty($validated['emails'])) {
+            if (! empty($validated['emails'])) {
                 foreach ($validated['emails'] as $email) {
                     if ($email) {
                         $service->emails()->create(['email' => $email]);
@@ -161,7 +162,7 @@ class ServiceController extends Controller
         ]);
 
         // Check if the user is already attached to this service to prevent duplicate entry errors
-        if (!$service->users()->where('user_id', $request->user_id)->exists()) {
+        if (! $service->users()->where('user_id', $request->user_id)->exists()) {
             $service->users()->attach($request->user_id);
         }
 

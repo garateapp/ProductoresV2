@@ -16,4 +16,3 @@ class Continent extends Model
         return $this->hasMany(Country::class);
     }
 }
-

@@ -2,16 +2,16 @@
 
 namespace App\Http\Controllers;
 
-use App\Models\Proceso;
+use App\Exports\ProcessedFruitQualityExport;
 use App\Models\Parametro;
-use App\Models\Valor;
 use App\Models\PhotoType;
+use App\Models\Proceso;
 use App\Models\ProcessedFruitQuality;
 use App\Models\ProcessedFruitQualityDetail;
+use App\Models\Valor;
 use Illuminate\Http\Request;
-use Illuminate\Support\Facades\Auth;
 use Inertia\Inertia;
-use Illuminate\Support\Facades\Log;
+use Maatwebsite\Excel\Facades\Excel;
 
 class ProcessedFruitQualityController extends Controller
 {
@@ -22,15 +22,15 @@ class ProcessedFruitQualityController extends Controller
         if ($request->has('search')) {
             $searchTerm = $request->input('search');
             $query->where(function ($q) use ($searchTerm) {
-                $q->where('n_proceso', 'like', '%' . $searchTerm . '%')
-                  ->orWhere('variedad', 'like', '%' . $searchTerm . '%')
-                  ->orWhere('especie', 'like', '%' . $searchTerm . '%');
+                $q->where('n_proceso', 'like', '%'.$searchTerm.'%')
+                    ->orWhere('variedad', 'like', '%'.$searchTerm.'%')
+                    ->orWhere('especie', 'like', '%'.$searchTerm.'%');
             });
         }
 
         $procesos = $query->with(['processedFruitQualities.details', 'processedFruitQualities.photos.photoType'])->paginate(10);
 
-                        $parametros = Parametro::with('valors')->get();
+        $parametros = Parametro::with('valors')->get();
 
         $photoTypes = PhotoType::all();
 
@@ -47,9 +47,18 @@ class ProcessedFruitQualityController extends Controller
         $validated = $request->validate([
             'proceso_id' => 'required|exists:procesos,id',
             'numero_de_caja' => 'nullable|string|max:255',
+            'numero_embaladora_mano' => 'nullable|string|max:255',
+            'peso_exacto_caja' => 'nullable|numeric',
+            'codigo_embalaje' => 'nullable|string|max:255',
+            'categoria' => 'nullable|string|max:255',
+            'destino' => 'nullable|string|max:255',
+            'calibre' => 'nullable|string|max:255',
+            'color_cubrimiento' => 'nullable|string|max:255',
+            'color_fondo' => 'nullable|string|max:255',
             't_muestra' => 'nullable|integer',
             'observaciones' => 'nullable|string',
             'responsable' => 'nullable|string',
+            'estado' => 'nullable|in:Aprobada,Rechazada',
             'materia_vegetal' => 'boolean',
             'piedras' => 'boolean',
             'barro' => 'boolean',
@@ -127,13 +136,14 @@ class ProcessedFruitQualityController extends Controller
 
         if ($qualityId) {
             $quality = ProcessedFruitQuality::where('proceso_id', $proceso->id)
-                                            ->where('id', $qualityId)
-                                            ->with('photos.photoType')
-                                            ->first();
+                ->where('id', $qualityId)
+                ->with('photos.photoType')
+                ->first();
         } else {
             // If no specific quality_id is provided, return null for a new evaluation
             $quality = null;
         }
+
         return response()->json($quality);
     }
 
@@ -144,14 +154,14 @@ class ProcessedFruitQualityController extends Controller
 
         if ($qualityId) {
             $quality = ProcessedFruitQuality::where('proceso_id', $proceso->id)
-                                            ->where('id', $qualityId)
-                                            ->first();
+                ->where('id', $qualityId)
+                ->first();
         } else {
             // If no specific quality_id is provided, return null
             $quality = null;
         }
 
-        if (!$quality) {
+        if (! $quality) {
             return response()->json(['detalles' => [], 'defectos' => [], 'desordenFisiologico' => [], 'curvaCalibre' => [], 'indiceMadurez' => []]);
         }
 
@@ -163,16 +173,16 @@ class ProcessedFruitQualityController extends Controller
         $curva_param_ids = [1, 2, 6];
         $madurez_param_ids = [7, 8, 9, 10, 13, 14, 15, 16, 17, 18];
 
-        $defectos = $detalles->filter(function($detalle) use ($defecto_param_ids) {
+        $defectos = $detalles->filter(function ($detalle) use ($defecto_param_ids) {
             return in_array($detalle->parametro_id, $defecto_param_ids);
         });
-        $desordenFisiologico = $detalles->filter(function($detalle) use ($desorden_param_ids) {
+        $desordenFisiologico = $detalles->filter(function ($detalle) use ($desorden_param_ids) {
             return in_array($detalle->parametro_id, $desorden_param_ids);
         });
-        $curvaCalibre = $detalles->filter(function($detalle) use ($curva_param_ids) {
+        $curvaCalibre = $detalles->filter(function ($detalle) use ($curva_param_ids) {
             return in_array($detalle->parametro_id, $curva_param_ids);
         });
-        $indiceMadurez = $detalles->filter(function($detalle) use ($madurez_param_ids) {
+        $indiceMadurez = $detalles->filter(function ($detalle) use ($madurez_param_ids) {
             return in_array($detalle->parametro_id, $madurez_param_ids);
         });
 
@@ -183,5 +193,24 @@ class ProcessedFruitQualityController extends Controller
             'curvaCalibre' => $curvaCalibre->values(),
             'indiceMadurez' => $indiceMadurez->values(),
         ]);
+    }
+
+    public function export(Request $request)
+    {
+        $query = ProcessedFruitQuality::with('proceso');
+
+        if ($request->filled('estado')) {
+            $query->where('estado', $request->input('estado'));
+        }
+        if ($request->filled('from')) {
+            $query->whereDate('created_at', '>=', $request->input('from'));
+        }
+        if ($request->filled('to')) {
+            $query->whereDate('created_at', '<=', $request->input('to'));
+        }
+
+        $items = $query->get();
+
+        return Excel::download(new ProcessedFruitQualityExport($items), 'processed-fruit-quality.xlsx');
     }
 }

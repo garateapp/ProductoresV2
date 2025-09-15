@@ -2,9 +2,8 @@
 
 namespace App\Http\Controllers;
 
-use App\Models\Recepcion;
 use App\Models\Especie;
-use App\Models\User;
+use App\Models\Recepcion;
 use App\Models\Variedad; // Add this line
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
@@ -17,7 +16,7 @@ class RecepcionController extends Controller
         $user = Auth::user();
         $isProducer = false;
 
-        if (!empty($user->idprod)) {
+        if (! empty($user->idprod)) {
             $isProducer = true;
         }
 
@@ -34,10 +33,10 @@ class RecepcionController extends Controller
         if ($request->has('search')) {
             $searchTerm = $request->input('search');
             $query->where(function ($q) use ($searchTerm) {
-                $q->where('n_variedad', 'like', '%' . $searchTerm . '%')
-                  ->orWhere('n_especie', 'like', '%' . $searchTerm . '%');
-                  // Add lote if it exists in recepcions table
-                  // ->orWhere('lote', 'like', '%' . $searchTerm . '%');
+                $q->where('n_variedad', 'like', '%'.$searchTerm.'%')
+                    ->orWhere('n_especie', 'like', '%'.$searchTerm.'%');
+                // Add lote if it exists in recepcions table
+                // ->orWhere('lote', 'like', '%' . $searchTerm . '%');
             });
         }
 

@@ -11,6 +11,7 @@ class CertifyingHouseController extends Controller
     public function index()
     {
         $certifyingHouses = CertifyingHouse::all();
+
         return Inertia::render('Documentation/CertifyingHouses/Index', [
             'certifyingHouses' => $certifyingHouses,
         ]);
@@ -30,7 +31,7 @@ class CertifyingHouseController extends Controller
     public function update(Request $request, CertifyingHouse $certifyingHouse)
     {
         $validated = $request->validate([
-            'name' => 'required|string|max:255|unique:certifying_houses,name,' . $certifyingHouse->id,
+            'name' => 'required|string|max:255|unique:certifying_houses,name,'.$certifyingHouse->id,
         ]);
 
         $certifyingHouse->update($validated);

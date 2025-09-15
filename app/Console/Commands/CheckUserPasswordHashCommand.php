@@ -30,9 +30,9 @@ class CheckUserPasswordHashCommand extends Command
         $user = User::where('email', $email)->first();
 
         if ($user) {
-            $this->info('User found. Password hash: ' . $user->password);
+            $this->info('User found. Password hash: '.$user->password);
         } else {
-            $this->error('User with email ' . $email . ' not found.');
+            $this->error('User with email '.$email.' not found.');
         }
     }
 }

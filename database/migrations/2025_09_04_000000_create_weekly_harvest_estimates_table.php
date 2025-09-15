@@ -4,7 +4,8 @@ use Illuminate\Database\Migrations\Migration;
 use Illuminate\Database\Schema\Blueprint;
 use Illuminate\Support\Facades\Schema;
 
-return new class extends Migration {
+return new class extends Migration
+{
     public function up(): void
     {
         Schema::create('weekly_harvest_estimates', function (Blueprint $table) {
@@ -43,11 +44,11 @@ return new class extends Migration {
             $table->unique([
                 'user_id', 'especie_id', 'variedad_id',
                 'season_code', 'iso_year', 'iso_week',
-                'predio', 'block'
+                'predio', 'block',
             ], 'uq_weekly_estimates_scope');
 
-            $table->index(['user_id','season_code','iso_year','iso_week'], 'idx_user_season_week');
-            $table->index(['especie_id','variedad_id'], 'idx_especie_variedad');
+            $table->index(['user_id', 'season_code', 'iso_year', 'iso_week'], 'idx_user_season_week');
+            $table->index(['especie_id', 'variedad_id'], 'idx_especie_variedad');
             $table->index('season_code', 'idx_season_code');
             $table->index(['agronomist_id'], 'idx_agronomist');
         });
@@ -58,4 +59,3 @@ return new class extends Migration {
         Schema::dropIfExists('weekly_harvest_estimates');
     }
 };
-

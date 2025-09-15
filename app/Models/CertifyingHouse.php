@@ -16,4 +16,3 @@ class CertifyingHouse extends Model
         return $this->hasMany(ProducerCertification::class);
     }
 }
-

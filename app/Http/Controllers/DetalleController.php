@@ -3,9 +3,6 @@
 namespace App\Http\Controllers;
 
 use App\Models\Calidad;
-use App\Models\Detalle;
-use App\Models\Parametro;
-use App\Models\Valor;
 use Illuminate\Http\Request;
 
 class DetalleController extends Controller

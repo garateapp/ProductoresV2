@@ -34,19 +34,19 @@ return [
     */
     'pdf' => [
         'enabled' => true,
-        'binary'  => env('WKHTML_PDF_BINARY', (env('APP_ENV') == 'local' ? 'C:\\wkhtmltopdf\\bin\\wkhtmltopdf.exe' : '/usr/local/bin/wkhtmltopdf')),
+        'binary' => env('WKHTML_PDF_BINARY', (env('APP_ENV') == 'local' ? 'C:\\wkhtmltopdf\\bin\\wkhtmltopdf.exe' : '/usr/local/bin/wkhtmltopdf')),
         'timeout' => false,
         'options' => [
             'javascript-delay' => 2000,
         ],
-        'env'     => [],
+        'env' => [],
     ],
     'image' => [
         'enabled' => true,
-        'binary'  => env('WKHTML_IMG_BINARY', (env('APP_ENV') == 'local' ? 'C:\\wkhtmltopdf\\bin\\wkhtmltoimage.exe' : '/usr/local/bin/wkhtmltoimage')),
+        'binary' => env('WKHTML_IMG_BINARY', (env('APP_ENV') == 'local' ? 'C:\\wkhtmltopdf\\bin\\wkhtmltoimage.exe' : '/usr/local/bin/wkhtmltoimage')),
         'timeout' => false,
         'options' => [],
-        'env'     => [],
+        'env' => [],
     ],
 
 ];

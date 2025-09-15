@@ -2,8 +2,8 @@
 
 namespace App\Http\Controllers;
 
-use Illuminate\Http\Request;
 use App\Models\User;
+use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 
 class ProducerAgronomistController extends Controller
@@ -14,6 +14,7 @@ class ProducerAgronomistController extends Controller
     public function index()
     {
         $agronomists = User::role('Agronomo')->get();
+
         return response()->json($agronomists);
     }
 
@@ -37,11 +38,11 @@ class ProducerAgronomistController extends Controller
 
         // Check if the relationship already exists
         $exists = DB::table('campo_staff')
-                    ->where('user_id', $request->producer_id)
-                    ->where('agronomo_id', $request->agronomist_id)
-                    ->exists();
+            ->where('user_id', $request->producer_id)
+            ->where('agronomo_id', $request->agronomist_id)
+            ->exists();
 
-        if (!$exists) {
+        if (! $exists) {
             DB::table('campo_staff')->insert([
                 'user_id' => $request->producer_id,
                 'agronomo_id' => $request->agronomist_id,

@@ -11,4 +11,3 @@ class AuthorizationType extends Model
 
     protected $fillable = ['name'];
 }
-

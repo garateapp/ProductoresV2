@@ -2,14 +2,14 @@
 
 namespace App\Http\Controllers;
 
-use App\Models\User;
-use App\Models\SagCertification; // Added
-use Illuminate\Http\Request;
-use Inertia\Inertia;
-use Illuminate\Support\Facades\Storage; // Added
-use Illuminate\Support\Facades\Response; // Added
-use App\Models\Especie;
 use App\Models\Country;
+use App\Models\Especie; // Added
+use App\Models\SagCertification;
+use App\Models\User;
+use Illuminate\Http\Request; // Added
+// Added
+use Illuminate\Support\Facades\Storage;
+use Inertia\Inertia;
 
 class SagController extends Controller
 {
@@ -21,14 +21,14 @@ class SagController extends Controller
 
         // Get unique RUTs that match the search criteria
         $query = User::select('rut')
-                     ->whereNotNull('rut')
-                     ->whereNotNull('csg')
-                     ->distinct();
+            ->whereNotNull('rut')
+            ->whereNotNull('csg')
+            ->distinct();
 
         if ($search) {
             $query->where(function ($q) use ($search) {
-                $q->where('rut', 'like', '%' . $search . '%')
-                  ->orWhere('name', 'like', '%' . $search . '%');
+                $q->where('rut', 'like', '%'.$search.'%')
+                    ->orWhere('name', 'like', '%'.$search.'%');
             });
         }
 
@@ -39,10 +39,10 @@ class SagController extends Controller
         $rutsOnCurrentPage = $paginatedRuts->pluck('rut')->toArray();
 
         $producersData = User::whereIn('rut', $rutsOnCurrentPage)
-                             ->whereNotNull('csg')
-                             ->with('especies', 'csgEspecieCountryStatuses') // sagCertifications removed from here
-                             ->get()
-                             ->groupBy('rut');
+            ->whereNotNull('csg')
+            ->with('especies', 'csgEspecieCountryStatuses') // sagCertifications removed from here
+            ->get()
+            ->groupBy('rut');
 
         // Fetch all SAG Certifications for the producers on the current page (legacy by RUT)
         $allProducerSagCertifications = SagCertification::whereIn('producer_rut', $rutsOnCurrentPage)->get()->groupBy('producer_rut');
@@ -52,14 +52,25 @@ class SagController extends Controller
         $certsByCsg = SagCertification::whereIn('csg_user_id', $csgUserIds)->get()->groupBy('csg_user_id');
         $certCountsByCsg = collect();
         $certStatusByCsg = collect();
-        $kpiValid = 0; $kpiExpSoon = 0; $kpiExpired = 0; $kpiTotal = 0;
+        $kpiValid = 0;
+        $kpiExpSoon = 0;
+        $kpiExpired = 0;
+        $kpiTotal = 0;
         foreach ($certsByCsg as $csgId => $rows) {
             $total = $rows->count();
-            $expired = 0; $expSoon = 0; $valid = 0;
+            $expired = 0;
+            $expSoon = 0;
+            $valid = 0;
             foreach ($rows as $cert) {
                 if ($cert->expiration_date) {
                     $diff = now()->diffInDays(\Carbon\Carbon::parse($cert->expiration_date), false);
-                    if ($diff < 0) $expired++; elseif ($diff <= 90) $expSoon++; else $valid++;
+                    if ($diff < 0) {
+                        $expired++;
+                    } elseif ($diff <= 90) {
+                        $expSoon++;
+                    } else {
+                        $valid++;
+                    }
                 }
             }
             $certCountsByCsg[$csgId] = $total;
@@ -74,7 +85,6 @@ class SagController extends Controller
             $kpiExpired += $expired;
         }
 
-
         // Transform the grouped data for the frontend
         $producers = $producersData->map(function ($csgUsers, $rut) use ($allProducerSagCertifications, $certCountsByCsg, $certStatusByCsg) {
             $producerName = $csgUsers->first()->name;
@@ -83,7 +93,7 @@ class SagController extends Controller
                 return [
                     'id' => $user->id,
                     'csg_code' => $user->csg,
-                    'especies' => $user->especies->map(fn($especie) => ['id' => $especie->id, 'name' => $especie->name]),
+                    'especies' => $user->especies->map(fn ($especie) => ['id' => $especie->id, 'name' => $especie->name]),
                     'sag_certifications_count' => (int) ($certCountsByCsg[$user->id] ?? 0),
                     'sag_certifications_status' => $certStatusByCsg[$user->id] ?? ['expired' => 0, 'expiring_soon' => 0, 'valid' => 0],
                 ];
@@ -108,7 +118,6 @@ class SagController extends Controller
             $paginatedRuts->currentPage(),
             ['path' => $paginatedRuts->path()]
         );
-
 
         return Inertia::render('Sag/Index', [
             'producers' => $paginatedProducers, // Pass the paginated producers
@@ -139,7 +148,7 @@ class SagController extends Controller
         if ($search) {
             $rutQuery->where(function ($q) use ($search) {
                 $q->where('rut', 'like', "%{$search}%")
-                  ->orWhere('name', 'like', "%{$search}%");
+                    ->orWhere('name', 'like', "%{$search}%");
             });
         }
 
@@ -154,21 +163,35 @@ class SagController extends Controller
         foreach ($csgUsers as $user) {
             $byCsg = $certs->get($user->id, collect());
             $total = $byCsg->count();
-            $expired = 0; $expSoon = 0; $valid = 0;
+            $expired = 0;
+            $expSoon = 0;
+            $valid = 0;
             foreach ($byCsg as $cert) {
                 if ($cert->expiration_date) {
                     $diff = now()->diffInDays(\Carbon\Carbon::parse($cert->expiration_date), false);
-                    if ($diff < 0) $expired++; elseif ($diff <= 90) $expSoon++; else $valid++;
+                    if ($diff < 0) {
+                        $expired++;
+                    } elseif ($diff <= 90) {
+                        $expSoon++;
+                    } else {
+                        $valid++;
+                    }
                 }
             }
 
             // Status filter
             $include = true;
-            if ($statusFilter === 'Vigente') $include = $valid > 0;
-            elseif ($statusFilter === 'Por vencer') $include = $expSoon > 0;
-            elseif ($statusFilter === 'Vencida') $include = $expired > 0;
+            if ($statusFilter === 'Vigente') {
+                $include = $valid > 0;
+            } elseif ($statusFilter === 'Por vencer') {
+                $include = $expSoon > 0;
+            } elseif ($statusFilter === 'Vencida') {
+                $include = $expired > 0;
+            }
 
-            if (!$include) continue;
+            if (! $include) {
+                continue;
+            }
 
             $rows[] = [
                 'rut' => $user->rut,
@@ -186,7 +209,7 @@ class SagController extends Controller
             'Content-Disposition' => 'attachment; filename="sag_certificaciones.csv"',
         ];
 
-        $callback = function() use ($rows) {
+        $callback = function () use ($rows) {
             $out = fopen('php://output', 'w');
             // BOM for Excel UTF-8 compatibility
             fprintf($out, chr(0xEF).chr(0xBB).chr(0xBF));
@@ -204,9 +227,9 @@ class SagController extends Controller
     {
         // Fetch all user records for the given RUT
         $producerCsgRecords = User::where('rut', $rut)
-                                  ->whereNotNull('csg') // Ensure it's a CSG record
-                                  ->with('especies', 'csgEspecieCountryStatuses') // sagCertifications removed from here
-                                  ->get();
+            ->whereNotNull('csg') // Ensure it's a CSG record
+            ->with('especies', 'csgEspecieCountryStatuses') // sagCertifications removed from here
+            ->get();
 
         if ($producerCsgRecords->isEmpty()) {
             abort(404, 'Productor no encontrado.');
@@ -243,6 +266,7 @@ class SagController extends Controller
                         $status = 'Vigente';
                     }
                 }
+
                 return [
                     'id' => $cert->id,
                     'name' => $cert->name,
@@ -255,7 +279,7 @@ class SagController extends Controller
                     'country_id' => $cert->country_id,
                     'is_active' => (bool) $cert->is_active,
                     'csg_code' => $cert->csgUser?->csg,
-                    'sdps' => $cert->sdps->map(fn($s) => [
+                    'sdps' => $cert->sdps->map(fn ($s) => [
                         'id' => $s->id,
                         'code' => $s->code,
                         'name' => $s->name,
@@ -264,13 +288,13 @@ class SagController extends Controller
                     'days_to_expiration' => $days,
                 ];
             }),
-            'especies' => Especie::select('id','name')->orderBy('name')->get(),
-            'countries' => Country::select('id','name')->orderBy('name')->get(),
+            'especies' => Especie::select('id', 'name')->orderBy('name')->get(),
+            'countries' => Country::select('id', 'name')->orderBy('name')->get(),
             'csgRecords' => $producerCsgRecords->map(function ($user) use ($sdpSitesByCsg) {
                 return [
                     'id' => $user->id,
                     'csg_code' => $user->csg,
-                    'especies' => $user->especies->map(fn($especie) => ['id' => $especie->id, 'name' => $especie->name]),
+                    'especies' => $user->especies->map(fn ($especie) => ['id' => $especie->id, 'name' => $especie->name]),
                     // sag_certifications removed from here as it's now at producer level
                     'csg_especie_country_statuses' => $user->csgEspecieCountryStatuses->map(function ($status) {
                         return [
@@ -287,7 +311,7 @@ class SagController extends Controller
                             'code' => $sdp->code,
                             'name' => $sdp->name,
                             'address' => $sdp->address,
-                            'is_active' => (bool)$sdp->is_active,
+                            'is_active' => (bool) $sdp->is_active,
                         ];
                     })->values(),
                 ];
@@ -338,7 +362,7 @@ class SagController extends Controller
         ]);
 
         // Ensure provided SDP sites belong to the selected CSG
-        if (!empty($validated['sdp_site_ids'])) {
+        if (! empty($validated['sdp_site_ids'])) {
             $validCount = \App\Models\SdpSite::where('csg_user_id', $validated['csg_user_id'])
                 ->whereIn('id', $validated['sdp_site_ids'])
                 ->count();
@@ -348,7 +372,7 @@ class SagController extends Controller
         }
 
         $file = $request->file('file');
-        $fileName = time() . '_' . $file->getClientOriginalName();
+        $fileName = time().'_'.$file->getClientOriginalName();
         $filePath = $file->storeAs('sag_certifications', $fileName, 'public'); // Store in storage/app/public/sag_certifications
 
         // Derive producer RUT from the selected CSG user to satisfy legacy NOT NULL column
@@ -366,10 +390,10 @@ class SagController extends Controller
             'certification_type' => $validated['certification_type'],
             'especie_id' => $validated['especie_id'] ?? null,
             'country_id' => $validated['country_id'] ?? null,
-            'is_active' => array_key_exists('is_active', $validated) ? (bool)$validated['is_active'] : true,
+            'is_active' => array_key_exists('is_active', $validated) ? (bool) $validated['is_active'] : true,
         ]);
 
-        if (!empty($validated['sdp_site_ids'])) {
+        if (! empty($validated['sdp_site_ids'])) {
             $cert->sdps()->sync($validated['sdp_site_ids']);
         }
 
@@ -383,13 +407,14 @@ class SagController extends Controller
         ]);
 
         $certification->update(['is_active' => $data['is_active']]);
+
         return back()->with('success', 'Estado de vigencia actualizado.');
     }
 
     public function downloadCertification(SagCertification $certification)
     {
         if (Storage::disk('public')->exists($certification->file_path)) {
-            return Storage::disk('public')->download($certification->file_path, $certification->name . '.' . pathinfo($certification->file_path, PATHINFO_EXTENSION));
+            return Storage::disk('public')->download($certification->file_path, $certification->name.'.'.pathinfo($certification->file_path, PATHINFO_EXTENSION));
         }
 
         abort(404, 'Archivo no encontrado.');

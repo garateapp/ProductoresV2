@@ -48,4 +48,3 @@ class Market extends Model
         return $this->belongsToMany(Variedad::class, 'market_variedad');
     }
 }
-

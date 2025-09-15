@@ -7,32 +7,46 @@ use App\Models\Valor;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\DB;
 use Maatwebsite\Excel\Concerns\FromCollection;
-use Maatwebsite\Excel\Concerns\WithHeadings;
-use Maatwebsite\Excel\Concerns\WithMapping;
 use Maatwebsite\Excel\Concerns\ShouldAutoSize;
 use Maatwebsite\Excel\Concerns\WithEvents;
+use Maatwebsite\Excel\Concerns\WithHeadings;
+use Maatwebsite\Excel\Concerns\WithMapping;
 use Maatwebsite\Excel\Events\AfterSheet;
 use PhpOffice\PhpSpreadsheet\Cell\Coordinate;
-use PhpOffice\PhpSpreadsheet\Style\Fill;
-use PhpOffice\PhpSpreadsheet\Style\Border;
 use PhpOffice\PhpSpreadsheet\Style\Alignment;
+use PhpOffice\PhpSpreadsheet\Style\Border;
+use PhpOffice\PhpSpreadsheet\Style\Fill;
 
-class CherriesConsolidatedExport implements FromCollection, WithHeadings, WithMapping, ShouldAutoSize, WithEvents
+class CherriesConsolidatedExport implements FromCollection, ShouldAutoSize, WithEvents, WithHeadings, WithMapping
 {
     protected $receptions;
+
     protected $headings;
+
     protected $calibreHeadings = [];
+
     protected $firmezasHeadings = [];
+
     protected $distFirmezasHeadings = [];
+
     protected $solidosSolublesHeadings = [];
+
     protected $colorCubrimientoHeadings = [];
+
     protected $colorFondoHeadings = [];
+
     protected $defectosCondicionHeadings = [];
+
     protected $defectosCalidadHeadings = [];
+
     protected $danoPlagaHeadings = [];
+
     protected $distFirmezasSegregacionHeadings = [];
+
     protected $defectosPudricionHeadings = [];
+
     protected $danoplagaHeadings = [];
+
     protected $firmnessData;
 
     public function __construct(Collection $receptions)
@@ -57,7 +71,7 @@ class CherriesConsolidatedExport implements FromCollection, WithHeadings, WithMa
                 'numero_recepcion',
                 DB::raw("CASE WHEN nombre_color = 'Rojo' THEN 'Light' WHEN nombre_color IN ('Rojo Caoba','Santina') THEN 'Dark' WHEN nombre_color IN ('Caoba Oscuro','Black') THEN 'Black' END AS grupo_color"),
                 DB::raw("CASE WHEN firmeza >= 280 THEN 'MUY FIRME' WHEN firmeza BETWEEN 199.1 AND 279.9 THEN 'FIRME' WHEN firmeza BETWEEN 179.1 AND 199 THEN 'SENSIBLE' WHEN firmeza BETWEEN 0.1 AND 179 THEN 'BLANDO' END AS categoria_firmeza"),
-                DB::raw("COUNT(*) AS cantidad")
+                DB::raw('COUNT(*) AS cantidad')
             )
             ->whereIn('numero_recepcion', $reception_numbers)
             ->groupBy('numero_recepcion', DB::raw("CASE WHEN nombre_color = 'Rojo' THEN 'Light' WHEN nombre_color IN ('Rojo Caoba','Santina') THEN 'Dark' WHEN nombre_color IN ('Caoba Oscuro','Black') THEN 'Black' END, CASE WHEN firmeza >= 280 THEN 'MUY FIRME' WHEN firmeza BETWEEN 199.1 AND 279.9 THEN 'FIRME' WHEN firmeza BETWEEN 179.1 AND 199 THEN 'SENSIBLE' WHEN firmeza BETWEEN 0.1 AND 179 THEN 'BLANDO' END"))
@@ -77,7 +91,7 @@ class CherriesConsolidatedExport implements FromCollection, WithHeadings, WithMa
     }
 
     /**
-     * @var Recepcion $reception
+     * @var Recepcion
      */
     public function map($reception): array
     {
@@ -191,7 +205,7 @@ class CherriesConsolidatedExport implements FromCollection, WithHeadings, WithMa
             foreach ($firmeza_categories as $category) {
                 $key = "{$color}-{$category}";
                 $cantidad = $datos_lookup[$key] ?? 0;
-                $resultados->push((object)[
+                $resultados->push((object) [
                     'grupo_color' => $color,
                     'categoria_firmeza' => $category,
                     'cantidad' => $cantidad,
@@ -291,7 +305,7 @@ class CherriesConsolidatedExport implements FromCollection, WithHeadings, WithMa
         $counts = DB::connection('firmpro')
             ->table('fpdatos as fpd')
             ->select('fpd.nombre_color', DB::raw('COUNT(*) as cantidad'))
-            ->where('fpd.numero_recepcion', (string)$numeroRecepcion)
+            ->where('fpd.numero_recepcion', (string) $numeroRecepcion)
             ->groupBy('fpd.nombre_color')
             ->pluck('cantidad', 'nombre_color')
             ->toArray();
@@ -302,11 +316,11 @@ class CherriesConsolidatedExport implements FromCollection, WithHeadings, WithMa
             $norm[mb_strtoupper(trim($k))] = (int) $v;
         }
 
-        $rojo          = $norm['ROJO'] ?? 0;
-        $rojoCaoba     = $norm['ROJO CAOBA'] ?? 0;
-        $santina       = $norm['SANTINA'] ?? 0;
-        $caobaOscuro   = $norm['CAOBA OSCURO'] ?? 0;
-        $black         = $norm['BLACK'] ?? ($norm['NEGRO'] ?? 0);
+        $rojo = $norm['ROJO'] ?? 0;
+        $rojoCaoba = $norm['ROJO CAOBA'] ?? 0;
+        $santina = $norm['SANTINA'] ?? 0;
+        $caobaOscuro = $norm['CAOBA OSCURO'] ?? 0;
+        $black = $norm['BLACK'] ?? ($norm['NEGRO'] ?? 0);
 
         $total = $rojo + $rojoCaoba + $santina + $caobaOscuro + $black;
         if ($total <= 0) {
@@ -412,9 +426,9 @@ class CherriesConsolidatedExport implements FromCollection, WithHeadings, WithMa
 
         // GRUPO: SOLIDOS SOLUBLES
         $this->solidosSolublesHeadings = Valor::where('parametro_id', 17)
-                                        ->where('especie', $speciesName)
-                                        ->pluck('name')
-                                        ->toArray();
+            ->where('especie', $speciesName)
+            ->pluck('name')
+            ->toArray();
         sort($this->solidosSolublesHeadings, SORT_NATURAL | SORT_FLAG_CASE);
         $headings = array_merge($headings, $this->solidosSolublesHeadings);
 
@@ -441,38 +455,38 @@ class CherriesConsolidatedExport implements FromCollection, WithHeadings, WithMa
 
         // GRUPO: % TIPO DE PUDRICIÓN
         $this->defectosPudricionHeadings = Valor::where('parametro_id', 5)
-                                                  ->where('especie', $speciesName)
-                                                  ->where('name', 'LIKE', 'Pudrición%')
-                                                  ->orderBy('name')
-                                                  ->pluck('name')
-                                                  ->toArray();
+            ->where('especie', $speciesName)
+            ->where('name', 'LIKE', 'Pudrición%')
+            ->orderBy('name')
+            ->pluck('name')
+            ->toArray();
         $headings = array_merge($headings, $this->defectosPudricionHeadings);
         $headings[] = 'Total Defecto Pudrición';
 
         // GRUPO: % PLAGA
-        $this->danoplagaHeadings = Valor::where ('parametro_id', 3)
-                                        ->where('especie', $speciesName)
-                                        ->orderBy('name')
-                                        ->pluck('name')
-                                        ->toArray();
+        $this->danoplagaHeadings = Valor::where('parametro_id', 3)
+            ->where('especie', $speciesName)
+            ->orderBy('name')
+            ->pluck('name')
+            ->toArray();
         $headings = array_merge($headings, $this->danoplagaHeadings);
         $headings[] = 'Total Daño Plaga';
 
         // GRUPO: DEFECTOS DE CALIDAD
         $this->defectosCalidadHeadings = Valor::where('parametro_id', 4)
-                                                ->where('especie', $speciesName)
-                                                ->orderBy('name')
-                                                ->pluck('name')
-                                                ->toArray();
+            ->where('especie', $speciesName)
+            ->orderBy('name')
+            ->pluck('name')
+            ->toArray();
         $headings = array_merge($headings, $this->defectosCalidadHeadings);
 
         // GRUPO: DEFECTOS DE CONDICIÓN
         $this->defectosCondicionHeadings = Valor::where('parametro_id', 5)
-                                                  ->where('especie', $speciesName)
-                                                  ->where('name', 'NOT LIKE', 'Pudrición%') // Exclude Pudrición for this group
-                                                  ->orderBy('name')
-                                                  ->pluck('name')
-                                                  ->toArray();
+            ->where('especie', $speciesName)
+            ->where('name', 'NOT LIKE', 'Pudrición%') // Exclude Pudrición for this group
+            ->orderBy('name')
+            ->pluck('name')
+            ->toArray();
         $headings = array_merge($headings, $this->defectosCondicionHeadings);
 
         $this->headings = $headings;
@@ -481,7 +495,7 @@ class CherriesConsolidatedExport implements FromCollection, WithHeadings, WithMa
     public function registerEvents(): array
     {
         return [
-            AfterSheet::class => function(AfterSheet $event) {
+            AfterSheet::class => function (AfterSheet $event) {
                 // Insert a new row for the group headers
                 $event->sheet->insertNewRowBefore(1, 1);
 
@@ -545,7 +559,7 @@ class CherriesConsolidatedExport implements FromCollection, WithHeadings, WithMa
                 }
 
                 // Style the main header row (row 2)
-                $event->sheet->getStyle('A2:' . $event->sheet->getHighestColumn() . '2')->applyFromArray([
+                $event->sheet->getStyle('A2:'.$event->sheet->getHighestColumn().'2')->applyFromArray([
                     'font' => ['bold' => true],
                     'borders' => [
                         'allBorders' => [
@@ -578,7 +592,7 @@ class CherriesConsolidatedExport implements FromCollection, WithHeadings, WithMa
                 // Apply borders to data (from row 3 onwards)
                 $highestRow = $event->sheet->getHighestRow();
                 $highestColumn = $event->sheet->getHighestColumn();
-                $event->sheet->getStyle('A3:' . $highestColumn . $highestRow)->applyFromArray([
+                $event->sheet->getStyle('A3:'.$highestColumn.$highestRow)->applyFromArray([
                     'borders' => [
                         'allBorders' => [
                             'borderStyle' => Border::BORDER_THIN,
@@ -590,7 +604,7 @@ class CherriesConsolidatedExport implements FromCollection, WithHeadings, WithMa
                 // Apply stripe styling to data rows (from row 3 onwards)
                 for ($row = 3; $row <= $highestRow; $row++) {
                     if ($row % 2 == 0) { // Even rows
-                        $event->sheet->getStyle('A' . $row . ':' . $highestColumn . $row)->applyFromArray([
+                        $event->sheet->getStyle('A'.$row.':'.$highestColumn.$row)->applyFromArray([
                             'fill' => [
                                 'fillType' => Fill::FILL_SOLID,
                                 'startColor' => ['argb' => 'FFE0E0E0'], // Light grey
@@ -609,10 +623,10 @@ class CherriesConsolidatedExport implements FromCollection, WithHeadings, WithMa
                 // Add formula to Diferencia column (Column U, 21st column)
                 $diferenciaColumn = Coordinate::stringFromColumnIndex(21);
                 for ($row = 3; $row <= $highestRow; $row++) { // Start from row 3 for data
-                    $estimacionExportacionCell = Coordinate::stringFromColumnIndex(19) . $row; // Column S
-                    $exportableProcesoCell = Coordinate::stringFromColumnIndex(20) . $row; // Column T
+                    $estimacionExportacionCell = Coordinate::stringFromColumnIndex(19).$row; // Column S
+                    $exportableProcesoCell = Coordinate::stringFromColumnIndex(20).$row; // Column T
                     $formula = "={$estimacionExportacionCell}-{$exportableProcesoCell}";
-                    $event->sheet->setCellValue($diferenciaColumn . $row, $formula);
+                    $event->sheet->setCellValue($diferenciaColumn.$row, $formula);
                 }
             },
         ];

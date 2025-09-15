@@ -8,7 +8,6 @@ use Illuminate\Support\Facades\Hash;
 use Illuminate\Validation\Rules;
 use Inertia\Inertia;
 use Spatie\Permission\Models\Role;
-use Illuminate\Support\Str;
 
 class UserController extends Controller
 {
@@ -26,6 +25,7 @@ class UserController extends Controller
             ->paginate(10)
             ->through(function ($user) {
                 $user->user_type = $user->idprod ? 'Productor' : ($user->services->isNotEmpty() ? 'Servicio' : 'Usuario');
+
                 return $user;
             });
 
@@ -77,7 +77,7 @@ class UserController extends Controller
     public function edit(User $user)
     {
         return Inertia::render('Users/Edit', [
-            'user' => $user
+            'user' => $user,
         ]);
     }
 
@@ -110,6 +110,7 @@ class UserController extends Controller
     {
         $roles = Role::all();
         $userRoles = $user->roles->pluck('id')->values()->all();
+
         return Inertia::render('Users/AssignRoles', compact('user', 'roles', 'userRoles'));
     }
 

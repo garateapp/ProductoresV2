@@ -53,4 +53,3 @@ class ProducerCertification extends Model
         return $this->hasMany(CertificationOtherDocument::class, 'certification_id');
     }
 }
-
