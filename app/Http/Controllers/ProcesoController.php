@@ -5,6 +5,7 @@ namespace App\Http\Controllers;
 use App\Models\Especie;
 use App\Models\Proceso;
 use App\Models\Variedad;
+use App\Models\Service;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 use Inertia\Inertia;
@@ -16,19 +17,42 @@ class ProcesoController extends Controller
         $user = Auth::user();
         $isProducer = false;
 
-        if (! empty($user->idprod)) {
+        if (!empty($user->idprod)) {
             $isProducer = true;
         }
 
         $query = Proceso::query();
 
-        // Filter by producer if applicable
-        if ($isProducer) {
-            $query->where('c_productor', $user->idprod); // Assuming c_productor matches user's idprod
+        // Base access scope: producer's own + service-associated producers (owner or member)
+        $allowedProducerIds = collect();
+        if (!empty($user->idprod)) {
+            $allowedProducerIds->push($user->idprod);
+        }
+        // Services the user owns
+       $ownedServiceUserIds = Service::where('owner_id', $user->id)
+            ->with(['users:id,idprod'])
+            ->get()
+            ->pluck('users')
+            ->flatten()
+            ->pluck('idprod')
+            ->filter();
+        // Services the user belongs to
+        $memberServiceUserIds = $user->services()->with(['users:name'])->get()
+            ->pluck('users')
+            ->flatten();
+
+
+        $allowedProducerIds = $memberServiceUserIds->map(function ($id) {
+            return $id->name;
+        });
+
+
+        if ($allowedProducerIds->isNotEmpty()) {
+            $query->whereIn('agricola', $allowedProducerIds->all());
         }
 
         // General search filter
-        if ($request->has('search')) {
+        if ($request->has('search') && $request->input('search') !== '' && $request->input('search') !== null) {
             $searchTerm = $request->input('search');
             $query->where(function ($q) use ($searchTerm) {
                 $q->where('especie', 'like', '%'.$searchTerm.'%')
@@ -39,7 +63,7 @@ class ProcesoController extends Controller
         $variedades = collect();
 
         // Filter by selected especie
-        if ($request->has('especie_id') && $request->input('especie_id') !== '') {
+        if ($request->has('especie_id') && $request->input('especie_id') !== '' && $request->input('especie_id') !== null) {
             $especie = Especie::find($request->input('especie_id'));
             if ($especie) {
                 $query->where('especie', $especie->name);
@@ -48,7 +72,7 @@ class ProcesoController extends Controller
         }
 
         // Filter by selected variedad
-        if ($request->has('variedad_id') && $request->input('variedad_id') !== '') {
+        if ($request->has('variedad_id') && $request->input('variedad_id') !== '' && $request->input('variedad_id') !== null) {
             $variedad = Variedad::find($request->input('variedad_id'));
             if ($variedad) {
                 $query->where('variedad', $variedad->name);
@@ -63,6 +87,7 @@ class ProcesoController extends Controller
 
         // Calculate totals for the chart
         $chartDataQuery = clone $query; // Clone the query
+         $query->orderBy('fecha', 'desc');
         $chartData = $chartDataQuery->selectRaw('especie, SUM(exp) as exportacion, SUM(comercial) as comercial, SUM(desecho) as desecho, SUM(merma) as merma')
             ->groupBy('especie')
             ->get();

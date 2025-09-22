@@ -11,8 +11,8 @@ import {
 } from '@/Components/ui/dialog';
 
 export default function ManageProducersModal({ 
-    service, 
-    availableUsers, 
+    service = {},
+    availableUsers = { data: [] },
     closeModal, 
     showModal, 
     handleAttachUser, 
@@ -22,13 +22,18 @@ export default function ManageProducersModal({
     const [searchAssigned, setSearchAssigned] = useState('');
     const [searchUnassigned, setSearchUnassigned] = useState('');
 
-    const filteredAssignedProducers = service.users.filter(user =>
+    const assignedUsers = Array.isArray(service?.users) ? service.users : [];
+    const allAvailableUsers = Array.isArray(availableUsers?.data)
+        ? availableUsers.data
+        : (Array.isArray(availableUsers) ? availableUsers : []);
+
+    const filteredAssignedProducers = assignedUsers.filter(user =>
         (user.name || '').toLowerCase().includes(searchAssigned.toLowerCase()) ||
         (user.email || '').toLowerCase().includes(searchAssigned.toLowerCase())
     );
 
-    const filteredUnassignedProducers = availableUsers.data.filter(user =>
-        !service.users.some(assignedUser => assignedUser.id === user.id) &&
+    const filteredUnassignedProducers = allAvailableUsers.filter(user =>
+        !assignedUsers.some(assignedUser => assignedUser.id === user.id) &&
         ((user.name || '').toLowerCase().includes(searchUnassigned.toLowerCase()) ||
         (user.email || '').toLowerCase().includes(searchUnassigned.toLowerCase()))
     );

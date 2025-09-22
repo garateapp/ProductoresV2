@@ -42,12 +42,12 @@ export default function Create() {
     <div className="container mx-auto py-10">
       <Card>
         <CardHeader>
-          <CardTitle>Create Producer</CardTitle>
+          <CardTitle>Crear Productor</CardTitle>
         </CardHeader>
         <CardContent>
           <form onSubmit={submit} className="space-y-4">
             <div>
-              <Label htmlFor="name">Name</Label>
+              <Label htmlFor="name">Nombre</Label>
               <Input
                 id="name"
                 type="text"
@@ -57,7 +57,7 @@ export default function Create() {
               {errors.name && <div className="text-red-500 text-sm">{errors.name}</div>}
             </div>
             <div>
-              <Label htmlFor="email">Email</Label>
+              <Label htmlFor="email">Correo electrónico</Label>
               <Input
                 id="email"
                 type="email"
@@ -67,7 +67,7 @@ export default function Create() {
               {errors.email && <div className="text-red-500 text-sm">{errors.email}</div>}
             </div>
             <div>
-              <Label htmlFor="password">Password</Label>
+              <Label htmlFor="password">Contraseña</Label>
               <Input
                 id="password"
                 type="password"
@@ -77,7 +77,7 @@ export default function Create() {
               {errors.password && <div className="text-red-500 text-sm">{errors.password}</div>}
             </div>
             <div>
-              <Label htmlFor="password_confirmation">Confirm Password</Label>
+              <Label htmlFor="password_confirmation">Confirmar contraseña</Label>
               <Input
                 id="password_confirmation"
                 type="password"
@@ -96,7 +96,7 @@ export default function Create() {
               {errors.rut && <div className="text-red-500 text-sm">{errors.rut}</div>}
             </div>
             <div>
-              <Label htmlFor="user">User</Label>
+              <Label htmlFor="user">Usuario</Label>
               <Input
                 id="user"
                 type="text"
@@ -106,7 +106,7 @@ export default function Create() {
               {errors.user && <div className="text-red-500 text-sm">{errors.user}</div>}
             </div>
             <div>
-              <Label htmlFor="idprod">ID Prod</Label>
+              <Label htmlFor="idprod">ID Productor</Label>
               <Input
                 id="idprod"
                 type="text"
@@ -132,7 +132,7 @@ export default function Create() {
                 checked={data.emnotification}
                 onChange={(e) => setData('emnotification', e.target.checked)}
               />
-              <Label htmlFor="emnotification">Email Notification</Label>
+              <Label htmlFor="emnotification">Notificación por email</Label>
               {errors.emnotification && <div className="text-red-500 text-sm">{errors.emnotification}</div>}
             </div>
             <div>
@@ -256,7 +256,7 @@ export default function Create() {
               {errors.certificaciones && <div className="text-red-500 text-sm">{errors.certificaciones}</div>}
             </div>
             <div>
-              <Label htmlFor="status">Status</Label>
+              <Label htmlFor="status">Estado</Label>
               <Input
                 id="status"
                 type="text"
@@ -272,10 +272,10 @@ export default function Create() {
                 checked={data.enviomasivo}
                 onChange={(e) => setData('enviomasivo', e.target.checked)}
               />
-              <Label htmlFor="enviomasivo">Envio Masivo</Label>
+              <Label htmlFor="enviomasivo">Envío masivo</Label>
               {errors.enviomasivo && <div className="text-red-500 text-sm">{errors.enviomasivo}</div>}
             </div>
-            <Button type="submit">Create</Button>
+            <Button type="submit">Crear</Button>
           </form>
         </CardContent>
       </Card>
@@ -283,4 +283,4 @@ export default function Create() {
   );
 }
 
-Create.layout = page => <AuthenticatedLayout children={page} header={<h2 className="font-semibold text-xl text-gray-800 leading-tight">Create Producer</h2>} />;
+Create.layout = page => <AuthenticatedLayout children={page} header={<h2 className="font-semibold text-xl text-gray-800 leading-tight">Crear Productor</h2>} />;

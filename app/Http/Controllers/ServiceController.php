@@ -7,7 +7,7 @@ use App\Models\User;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use Inertia\Inertia;
-
+use Illuminate\Support\Facades\Log;
 class ServiceController extends Controller
 {
     public function index(Request $request)
@@ -15,7 +15,9 @@ class ServiceController extends Controller
         $services = Service::with('users', 'owner', 'phones', 'emails')->get();
 
         $search = $request->input('search');
-        $availableUsersQuery = User::whereDoesntHave('services');
+        // For the index + modal flow, we need the full user list;
+        // the modal itself will exclude users already assigned to the selected service.
+        $availableUsersQuery = User::query();
 
         if ($search) {
             $availableUsersQuery->where(function ($query) use ($search) {
@@ -24,7 +26,25 @@ class ServiceController extends Controller
             });
         }
 
-        $availableUsers = $availableUsersQuery->paginate(10)->withQueryString();
+
+        $availableUsers = $availableUsersQuery->get();
+
+        // If the authenticated user is a producer (idprod not null), load their recepciones and procesos
+        $myRecepciones = collect();
+        $myProcesos = collect();
+        if (auth()->check() && ! empty(auth()->user()->idprod)) {
+            $producerCode = auth()->user()->idprod;
+            $myRecepciones = \App\Models\Recepcion::query()
+                ->where('id_emisor', $producerCode)
+                ->orderByDesc('fecha_g_recepcion')
+                ->limit(50)
+                ->get(['id','numero_g_recepcion','fecha_g_recepcion','n_especie','n_variedad','cantidad','peso_neto','informe']);
+            $myProcesos = \App\Models\Proceso::query()
+                ->where('c_productor', $producerCode)
+                ->orderByDesc('fecha')
+                ->limit(50)
+                ->get(['id','n_proceso','fecha','especie','variedad','kilos_netos','informe','exp','comercial','merma']);
+        }
 
         return Inertia::render('Services/Index', [
             'services' => $services,
@@ -32,6 +52,8 @@ class ServiceController extends Controller
             'filters' => [
                 'search' => $search,
             ],
+            'myRecepciones' => $myRecepciones,
+            'myProcesos' => $myProcesos,
         ]);
     }
 
@@ -88,9 +110,28 @@ class ServiceController extends Controller
             $query->where('service_id', $service->id);
         })->get();
 
+        // Aggregate recepciones y procesos de los usuarios asociados al servicio
+        $producerCodes = $service->users->pluck('idprod')->filter()->values();
+        $serviceRecepciones = collect();
+        $serviceProcesos = collect();
+        if ($producerCodes->isNotEmpty()) {
+            $serviceRecepciones = \App\Models\Recepcion::query()
+                ->whereIn('id_emisor', $producerCodes)
+                ->orderByDesc('fecha_g_recepcion')
+                ->limit(100)
+                ->get(['id','numero_g_recepcion','fecha_g_recepcion','n_especie','n_variedad','n_emisor','cantidad','peso_neto','informe']);
+            $serviceProcesos = \App\Models\Proceso::query()
+                ->whereIn('c_productor', $producerCodes)
+                ->orderByDesc('fecha')
+                ->limit(100)
+                ->get(['id','n_proceso','fecha','especie','variedad','kilos_netos','informe','exp','comercial','merma','c_productor']);
+        }
+
         return Inertia::render('Services/Show', [
             'service' => $service,
             'availableUsers' => $availableUsers,
+            'recepciones' => $serviceRecepciones,
+            'procesos' => $serviceProcesos,
         ]);
     }
 

@@ -2,7 +2,7 @@ import React from 'react';
 import AuthenticatedLayout from '@/Layouts/AuthenticatedLayout';
 import { Head, Link, useForm } from '@inertiajs/react';
 
-export default function ServiceShow({ auth, service, availableUsers }) {
+export default function ServiceShow({ auth, service, availableUsers, recepciones = [], procesos = [] }) {
     const { post, delete: destroy } = useForm();
 
     const handleAttachUser = (userId) => {
@@ -66,6 +66,72 @@ export default function ServiceShow({ auth, service, availableUsers }) {
                                     </ul>
                                 ) : (
                                     <p className="mt-2 text-sm text-gray-600">No hay más productores disponibles para asociar.</p>
+                                )}
+                            </div>
+
+                            {/* Recepciones del Servicio */}
+                            <div className="mt-8">
+                                <h4 className="text-md font-medium text-gray-900">Recepciones del Servicio</h4>
+                                {Array.isArray(recepciones) && recepciones.length > 0 ? (
+                                    <div className="mt-2 overflow-x-auto">
+                                        <table className="min-w-full divide-y divide-gray-200">
+                                            <thead className="bg-gray-50">
+                                                <tr>
+                                                    <th className="px-4 py-2 text-xs font-medium text-gray-500 uppercase">Lote</th>
+                                                    <th className="px-4 py-2 text-xs font-medium text-gray-500 uppercase">Fecha</th>
+                                                    <th className="px-4 py-2 text-xs font-medium text-gray-500 uppercase">Especie</th>
+                                                    <th className="px-4 py-2 text-xs font-medium text-gray-500 uppercase">Variedad</th>
+                                                    <th className="px-4 py-2 text-xs font-medium text-gray-500 uppercase">Kilos</th>
+                                                </tr>
+                                            </thead>
+                                            <tbody className="bg-white divide-y divide-gray-200">
+                                                {recepciones.map(r => (
+                                                    <tr key={r.id}>
+                                                        <td className="px-4 py-2 whitespace-nowrap">{r.numero_g_recepcion}</td>
+                                                        <td className="px-4 py-2 whitespace-nowrap">{new Date(r.fecha_g_recepcion).toLocaleDateString('es-CL')}</td>
+                                                        <td className="px-4 py-2 whitespace-nowrap">{r.n_especie}</td>
+                                                        <td className="px-4 py-2 whitespace-nowrap">{r.n_variedad}</td>
+                                                        <td className="px-4 py-2 whitespace-nowrap">{(r.peso_neto ?? 0).toLocaleString('es-CL')}</td>
+                                                    </tr>
+                                                ))}
+                                            </tbody>
+                                        </table>
+                                    </div>
+                                ) : (
+                                    <p className="mt-2 text-sm text-gray-600">No hay recepciones asociadas a los productores de este servicio.</p>
+                                )}
+                            </div>
+
+                            {/* Procesos del Servicio */}
+                            <div className="mt-8">
+                                <h4 className="text-md font-medium text-gray-900">Procesos del Servicio</h4>
+                                {Array.isArray(procesos) && procesos.length > 0 ? (
+                                    <div className="mt-2 overflow-x-auto">
+                                        <table className="min-w-full divide-y divide-gray-200">
+                                            <thead className="bg-gray-50">
+                                                <tr>
+                                                    <th className="px-4 py-2 text-xs font-medium text-gray-500 uppercase">Proceso</th>
+                                                    <th className="px-4 py-2 text-xs font-medium text-gray-500 uppercase">Fecha</th>
+                                                    <th className="px-4 py-2 text-xs font-medium text-gray-500 uppercase">Especie</th>
+                                                    <th className="px-4 py-2 text-xs font-medium text-gray-500 uppercase">Variedad</th>
+                                                    <th className="px-4 py-2 text-xs font-medium text-gray-500 uppercase">Kg Netos</th>
+                                                </tr>
+                                            </thead>
+                                            <tbody className="bg-white divide-y divide-gray-200">
+                                                {procesos.map(p => (
+                                                    <tr key={p.id}>
+                                                        <td className="px-4 py-2 whitespace-nowrap">{p.n_proceso}</td>
+                                                        <td className="px-4 py-2 whitespace-nowrap">{new Date(p.fecha).toLocaleDateString('es-CL')}</td>
+                                                        <td className="px-4 py-2 whitespace-nowrap">{p.especie}</td>
+                                                        <td className="px-4 py-2 whitespace-nowrap">{p.variedad}</td>
+                                                        <td className="px-4 py-2 whitespace-nowrap">{(p.kilos_netos ?? 0).toLocaleString('es-CL')}</td>
+                                                    </tr>
+                                                ))}
+                                            </tbody>
+                                        </table>
+                                    </div>
+                                ) : (
+                                    <p className="mt-2 text-sm text-gray-600">No hay procesos asociados a los productores de este servicio.</p>
                                 )}
                             </div>
 

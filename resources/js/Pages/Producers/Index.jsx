@@ -46,7 +46,7 @@ export default function Index({ producers, filters }) {
 
   function handleDelete(e, producer) {
     e.preventDefault();
-    if (confirm('Are you sure you want to delete this producer?')) {
+    if (confirm('¿Estás seguro de eliminar este productor?')) {
       destroy(route('producers.destroy', producer.id));
     }
   }
@@ -64,14 +64,14 @@ export default function Index({ producers, filters }) {
         <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
           <CardTitle className="text-2xl font-bold">Productores</CardTitle>
           <Link href={route('producers.create')}>
-            <Button>Create Producer</Button>
+            <Button>Crear Productor</Button>
           </Link>
         </CardHeader>
         <CardContent>
           <div className="mb-4 flex justify-between items-center">
             <Input
               type="text"
-              placeholder="Search producers..."
+              placeholder="Buscar productores..."
               value={data.search}
               onChange={handleSearchChange}
               className="max-w-sm"
@@ -82,12 +82,12 @@ export default function Index({ producers, filters }) {
               <TableRow>
                 <TableHead onClick={() => handleSort('name')} className="cursor-pointer min-w-[120px]">
                   <div className="flex items-center whitespace-nowrap">
-                    Name {renderSortIcon('name')}
+                    Nombre {renderSortIcon('name')}
                   </div>
                 </TableHead>
                 <TableHead onClick={() => handleSort('email')} className="cursor-pointer min-w-[250px]">
                   <div className="flex items-center">
-                    Email {renderSortIcon('email')}
+                    Correo {renderSortIcon('email')}
                   </div>
                 </TableHead>
                 <TableHead onClick={() => handleSort('rut')} className="cursor-pointer min-w-[120px]">
@@ -142,9 +142,9 @@ export default function Index({ producers, filters }) {
                   <TableCell>{producer.direccion}</TableCell>
                   <TableCell>
                     <Link href={route('producers.edit', producer.id)} className="mr-2">
-                      <Button variant="outline">Edit</Button>
+                      <Button variant="outline">Editar</Button>
                     </Link>
-                    <Button variant="destructive" onClick={(e) => handleDelete(e, producer)}>Delete</Button>
+                    <Button variant="destructive" onClick={(e) => handleDelete(e, producer)}>Eliminar</Button>
                   </TableCell>
                 </TableRow>
               ))}
@@ -157,7 +157,7 @@ export default function Index({ producers, filters }) {
                   href={producers.prev_page_url}
                   className="relative inline-flex items-center px-4 py-2 border border-gray-300 text-sm font-medium rounded-md text-gray-700 bg-white hover:bg-gray-50"
                 >
-                  Previous
+                  Anterior
                 </Link>
               )}
               {producers.next_page_url && (
@@ -165,15 +165,15 @@ export default function Index({ producers, filters }) {
                   href={producers.next_page_url}
                   className="ml-3 relative inline-flex items-center px-4 py-2 border border-gray-300 text-sm font-medium rounded-md text-gray-700 bg-white hover:bg-gray-50"
                 >
-                  Next
+                  Siguiente
                 </Link>
               )}
             </div>
             <div className="hidden sm:flex-1 sm:flex sm:items-center sm:justify-between">
               <div>
                 <p className="text-sm text-gray-700">
-                  Showing <span className="font-medium">{producers.from}</span> to <span className="font-medium">{producers.to}</span> of{' '}
-                  <span className="font-medium">{producers.total}</span> results
+                  Mostrando <span className="font-medium">{producers.from}</span> a <span className="font-medium">{producers.to}</span> de{' '}
+                  <span className="font-medium">{producers.total}</span> resultados
                 </p>
               </div>
               <div>

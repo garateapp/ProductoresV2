@@ -48,4 +48,8 @@ class Recepcion extends Model
     {
         return $this->belongsTo(Variedad::class, 'n_variedad', 'name');
     }
+    public function especie(): BelongsTo
+    {
+        return $this->belongsTo(Especie::class, 'n_especie', 'name');
+    }
 }

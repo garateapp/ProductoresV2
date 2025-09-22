@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import { Link, useForm, usePage, router } from '@inertiajs/react';
 import { Button } from '@/Components/ui/button';
+import { Badge } from '@/Components/ui/badge';
 import { Card, CardContent, CardHeader, CardTitle } from '@/Components/ui/card';
 import {
   Table,
@@ -11,7 +12,7 @@ import {
   TableRow,
 } from '@/Components/ui/table';
 import { Input } from '@/Components/ui/input';
-import { FileText, Trash2, UploadCloud } from 'lucide-react';
+import { FileText, Trash2, UploadCloud, Eye, RefreshCw, ClipboardCheck, Send } from 'lucide-react';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from '@/Components/ui/dialog';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/Components/ui/tabs';
 import { Switch } from '@/Components/ui/switch';
@@ -20,6 +21,19 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import AuthenticatedLayout from '@/Layouts/AuthenticatedLayout';
 
 export default function Index({ recepciones, especies, variedades = [], filters, isProducer, totalRecepciones, totalKilos = 0, parametros, photoTypes = [] }) {
+  const getSpeciesBadgeClass = (name = '') => {
+    const key = String(name).toLowerCase();
+    if (key.includes('cherr')) return 'bg-[#7F1F38] text-white'; // cereza oscuro
+    if (key.includes('apple') || key.includes('manzana')) return 'bg-green-600 text-white';
+    if (key.includes('pear') || key.includes('pera')) return 'bg-lime-600 text-white';
+    if (key.includes('mandarin') || key.includes('mandarina')) return 'bg-orange-500 text-white';
+    if (key.includes('orange') || key.includes('naranja')) return 'bg-orange-600 text-white';
+    if (key.includes('nectarin') || key.includes('nectarina')) return 'bg-rose-600 text-white';
+    if (key.includes('peaches') || key.includes('peach')) return 'bg-rose-600 text-white';
+    if (key.includes('plums') || key.includes('plum')) return 'bg-violet-600 text-white';
+    if (key.includes('membrill')) return 'bg-yellow-600 text-white';
+    return 'bg-slate-600 text-white';
+  };
   const { flash } = usePage().props;
   const { data: calidadData, setData: setCalidadData, post: postCalidad, processing: processingCalidad, errors: errorsCalidad, reset: resetCalidad } = useForm({
     cantidad_total_muestra: '',
@@ -74,6 +88,7 @@ export default function Index({ recepciones, especies, variedades = [], filters,
   const [curvaCalibreAgregados, setCurvaCalibreAgregados] = useState([]);
   const [indiceMadurezAgregados, setIndiceMadurezAgregados] = useState([]);
   const [hasFirmproDetails, setHasFirmproDetails] = useState(false);
+  const [loadingFirmproId, setLoadingFirmproId] = useState(null);
 
   const fetchCalidadData = async (recepcion) => {
     try {
@@ -109,6 +124,46 @@ export default function Index({ recepciones, especies, variedades = [], filters,
     setDesordenFisiologicoAgregados([]);
     fetchCalidadData(recepcion);
     setIsModalOpen(true);
+  };
+
+  const handleCargarFirmpro = (recepcion) => {
+    if (!recepcion) return;
+    if (!confirm('¿Cargar datos de FirmPro para este lote?')) return;
+    setLoadingFirmproId(recepcion.id);
+    router.post(route('control-calidad.cargar-firmpro', recepcion.id), {}, {
+      preserveState: true,
+      preserveScroll: true,
+      onFinish: () => setLoadingFirmproId(null),
+    });
+  };
+
+  const handleCargarFirmproAll = async () => {
+    try {
+      const list = (recepciones && Array.isArray(recepciones.data)) ? recepciones.data : [];
+      if (list.length === 0) {
+        alert('No hay recepciones en la lista actual.');
+        return;
+      }
+      if (!confirm('¿Cargar datos de FirmPro para todas las recepciones listadas?')) return;
+      setLoadingFirmproId('ALL');
+      const csrf = document.querySelector('meta[name="csrf-token"]')?.getAttribute('content');
+      for (const r of list) {
+        try {
+          await fetch(route('control-calidad.cargar-firmpro', r.id), {
+            method: 'POST',
+            headers: {
+              'X-CSRF-TOKEN': csrf,
+              'Accept': 'application/json',
+            },
+          });
+        } catch (e) {
+          console.error('Error cargando FirmPro para recepción', r.id, e);
+        }
+      }
+      alert('Carga de FirmPro finalizada para las recepciones listadas.');
+    } finally {
+      setLoadingFirmproId(null);
+    }
   };
 
   const handleCloseModal = () => {
@@ -350,7 +405,15 @@ export default function Index({ recepciones, especies, variedades = [], filters,
               onChange={handleSearchChange}
               className="max-w-sm"
             />
-            <div className="flex flex-wrap gap-2">
+            <div className="flex flex-wrap gap-2 items-center">
+              <Button
+                variant="secondary"
+                onClick={handleCargarFirmproAll}
+                disabled={loadingFirmproId === 'ALL'}
+                title="Cargar FirmPro para todas las recepciones listadas"
+              >
+                <UploadCloud className="mr-2 h-4 w-4" /> Cargar FirmPro (todos)
+              </Button>
               <Button
                 variant={filterData.especie_id === '' ? 'default' : 'outline'}
                 onClick={() => handleEspecieFilter('')}
@@ -420,7 +483,6 @@ export default function Index({ recepciones, especies, variedades = [], filters,
                 <TableHead>Cantidad</TableHead>
                 <TableHead>Kilos</TableHead>
                 <TableHead>Nota</TableHead>
-                <TableHead>Informe</TableHead>
                 <TableHead>Acciones</TableHead>
               </TableRow>
             </TableHeader>
@@ -429,7 +491,11 @@ export default function Index({ recepciones, especies, variedades = [], filters,
                 <TableRow key={recepcion.id}>
                   <TableCell>{recepcion.numero_g_recepcion}</TableCell>
                   <TableCell>{recepcion.n_emisor}</TableCell>
-                  <TableCell>{recepcion.n_especie}</TableCell>
+                  <TableCell>
+                    <Badge className={getSpeciesBadgeClass(recepcion.n_especie)}>
+                      {recepcion.n_especie}
+                    </Badge>
+                  </TableCell>
                   <TableCell>{recepcion.n_variedad}</TableCell>
                   <TableCell>{new Date(recepcion.fecha_g_recepcion).toLocaleDateString('es-CL')}</TableCell>
                   <TableCell>{recepcion.numero_documento_recepcion}</TableCell>
@@ -437,19 +503,56 @@ export default function Index({ recepciones, especies, variedades = [], filters,
                   <TableCell>{recepcion.peso_neto.toLocaleString('es-CL')}</TableCell>
                   <TableCell>{recepcion.nota_calidad === 0 ? 'S/N' : recepcion.nota_calidad}</TableCell>
                   <TableCell>
-                    {recepcion.informe ? (
-                      <a href={recepcion.informe} target="_blank" rel="noopener noreferrer" className="text-blue-600 hover:text-blue-800">
-                        <FileText className="h-5 w-5" />
+                    <div className="flex items-center gap-2">
+                      {/* Evaluar */}
+                      <Button title="Evaluar" variant="ghost" size="icon" onClick={() => handleOpenModal(recepcion)}>
+                        <ClipboardCheck className="h-4 w-4" />
+                      </Button>
+
+                      {/* Previsualizar (vista HTML) */}
+                      <a
+                        href={route('control-calidad.preview-report', recepcion.id)}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        title="Previsualizar"
+                      >
+                        <Button variant="ghost" size="icon">
+                          <Eye className="h-4 w-4" />
+                        </Button>
                       </a>
-                    ) : (
-                      '-'
-                    )}
-                  </TableCell>
-                  <TableCell>
-                    <Button onClick={() => handleOpenModal(recepcion)}>Evaluar</Button>
-                    <a href={route('control-calidad.generate-report', recepcion.id)} target="_blank" rel="noopener noreferrer">
-                      <Button variant="outline" className="ml-2">Informe</Button>
-                    </a>
+
+                      {/* Ver Informe (PDF generado si existe en recepcion.informe; si no, usa generate) */}
+                      {recepcion.informe ? (
+                        <a href={recepcion.informe} target="_blank" rel="noopener noreferrer" title="Ver Informe">
+                          <Button variant="ghost" size="icon">
+                            <FileText className="h-4 w-4" />
+                          </Button>
+                        </a>
+                      ) : (
+                        <a
+                          href={route('control-calidad.generate-report', recepcion.id)}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          title="Ver Informe"
+                        >
+                          <Button variant="ghost" size="icon">
+                            <FileText className="h-4 w-4" />
+                          </Button>
+                        </a>
+                      )}
+
+                      {/* Reenviar (regenerar/reenviar) */}
+                      <a
+                        href={route('control-calidad.generate-report', recepcion.id)}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        title="Reenviar"
+                      >
+                        <Button variant="ghost" size="icon">
+                          <Send className="h-4 w-4" />
+                        </Button>
+                      </a>
+                    </div>
                   </TableCell>
                 </TableRow>
               ))}
@@ -465,7 +568,10 @@ export default function Index({ recepciones, especies, variedades = [], filters,
         }}>
           <DialogContent className="max-w-5xl max-h-[90vh] overflow-y-auto">
             <DialogHeader>
-              <DialogTitle>Evaluación de Calidad</DialogTitle>
+              <div className="flex items-center justify-between gap-2">
+                <DialogTitle>Evaluación de Calidad</DialogTitle>
+
+              </div>
               <DialogDescription>
                 <div className="grid grid-cols-2 gap-4 text-sm">
                   <div>

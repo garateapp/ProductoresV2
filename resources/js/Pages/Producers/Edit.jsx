@@ -43,19 +43,19 @@ export default function Edit({ producer }) {
     <div className="container mx-auto py-10">
       <Card>
         <CardHeader>
-          <CardTitle>Edit Producer</CardTitle>
+          <CardTitle>Editar Productor</CardTitle>
         </CardHeader>
         <CardContent>
           <Tabs defaultValue="general">
             <TabsList>
-              <TabsTrigger value="general">General Information</TabsTrigger>
-              <TabsTrigger value="telefonos">Telefonos</TabsTrigger>
-              <TabsTrigger value="agronomists">Agronomists</TabsTrigger>
+              <TabsTrigger value="general">Información General</TabsTrigger>
+              <TabsTrigger value="telefonos">Teléfonos</TabsTrigger>
+              <TabsTrigger value="agronomists">Agrónomos</TabsTrigger>
             </TabsList>
             <TabsContent value="general">
               <form onSubmit={submit} className="grid grid-cols-1 md:grid-cols-2 gap-4 mt-4">
                 <div>
-                  <Label htmlFor="name">Name</Label>
+                  <Label htmlFor="name">Nombre</Label>
                   <Input
                     id="name"
                     type="text"
@@ -65,7 +65,7 @@ export default function Edit({ producer }) {
                   {errors.name && <div className="text-red-500 text-sm">{errors.name}</div>}
                 </div>
                 <div>
-                  <Label htmlFor="email">Email</Label>
+                  <Label htmlFor="email">Correo electrónico</Label>
                   <Input
                     id="email"
                     type="email"
@@ -85,7 +85,7 @@ export default function Edit({ producer }) {
                   {errors.rut && <div className="text-red-500 text-sm">{errors.rut}</div>}
                 </div>
                 <div>
-                  <Label htmlFor="user">User</Label>
+                  <Label htmlFor="user">Usuario</Label>
                   <Input
                     id="user"
                     type="text"
@@ -95,7 +95,7 @@ export default function Edit({ producer }) {
                   {errors.user && <div className="text-red-500 text-sm">{errors.user}</div>}
                 </div>
                 <div>
-                  <Label htmlFor="idprod">ID Producer</Label>
+                  <Label htmlFor="idprod">ID Productor</Label>
                   <Input
                     id="idprod"
                     type="text"
@@ -122,7 +122,7 @@ export default function Edit({ producer }) {
                     onChange={(e) => setData('emnotification', e.target.checked)}
                     className="h-4 w-4"
                   />
-                  <Label htmlFor="emnotification">Email Notification</Label>
+                  <Label htmlFor="emnotification">Notificación por email</Label>
                   {errors.emnotification && <div className="text-red-500 text-sm">{errors.emnotification}</div>}
                 </div>
                 <div>
@@ -146,7 +146,7 @@ export default function Edit({ producer }) {
                   {errors.comercial && <div className="text-red-500 text-sm">{errors.comercial}</div>}
                 </div>
                 <div>
-                  <Label htmlFor="desecho">Waste</Label>
+                  <Label htmlFor="desecho">Desecho</Label>
                   <Input
                     id="desecho"
                     type="number"
@@ -156,7 +156,7 @@ export default function Edit({ producer }) {
                   {errors.desecho && <div className="text-red-500 text-sm">{errors.desecho}</div>}
                 </div>
                 <div>
-                  <Label htmlFor="merma">Shrinkage</Label>
+                  <Label htmlFor="merma">Merma</Label>
                   <Input
                     id="merma"
                     type="number"
@@ -166,7 +166,7 @@ export default function Edit({ producer }) {
                   {errors.merma && <div className="text-red-500 text-sm">{errors.merma}</div>}
                 </div>
                 <div>
-                  <Label htmlFor="exp">EXP</Label>
+                  <Label htmlFor="exp">Exp</Label>
                   <Input
                     id="exp"
                     type="number"
@@ -176,7 +176,7 @@ export default function Edit({ producer }) {
                   {errors.exp && <div className="text-red-500 text-sm">{errors.exp}</div>}
                 </div>
                 <div>
-                  <Label htmlFor="predio">Property</Label>
+                  <Label htmlFor="predio">Predio</Label>
                   <Input
                     id="predio"
                     type="text"
@@ -186,7 +186,7 @@ export default function Edit({ producer }) {
                   {errors.predio && <div className="text-red-500 text-sm">{errors.predio}</div>}
                 </div>
                 <div>
-                  <Label htmlFor="comuna">Commune</Label>
+                  <Label htmlFor="comuna">Comuna</Label>
                   <Input
                     id="comuna"
                     type="text"
@@ -196,7 +196,7 @@ export default function Edit({ producer }) {
                   {errors.comuna && <div className="text-red-500 text-sm">{errors.comuna}</div>}
                 </div>
                 <div>
-                  <Label htmlFor="provincia">Province</Label>
+                  <Label htmlFor="provincia">Provincia</Label>
                   <Input
                     id="provincia"
                     type="text"
@@ -206,7 +206,7 @@ export default function Edit({ producer }) {
                   {errors.provincia && <div className="text-red-500 text-sm">{errors.provincia}</div>}
                 </div>
                 <div>
-                  <Label htmlFor="direccion">Address</Label>
+                  <Label htmlFor="direccion">Dirección</Label>
                   <Input
                     id="direccion"
                     type="text"
@@ -216,7 +216,7 @@ export default function Edit({ producer }) {
                   {errors.direccion && <div className="text-red-500 text-sm">{errors.direccion}</div>}
                 </div>
                 <div>
-                  <Label htmlFor="antiguedad">Antiquity</Label>
+                  <Label htmlFor="antiguedad">Antigüedad</Label>
                   <Input
                     id="antiguedad"
                     type="number"
@@ -226,7 +226,7 @@ export default function Edit({ producer }) {
                   {errors.antiguedad && <div className="text-red-500 text-sm">{errors.antiguedad}</div>}
                 </div>
                 <div>
-                  <Label htmlFor="fitosanitario">Phytosanitary</Label>
+                  <Label htmlFor="fitosanitario">Fitosanitario</Label>
                   <Input
                     id="fitosanitario"
                     type="text"
@@ -236,7 +236,7 @@ export default function Edit({ producer }) {
                   {errors.fitosanitario && <div className="text-red-500 text-sm">{errors.fitosanitario}</div>}
                 </div>
                 <div>
-                  <Label htmlFor="certificaciones">Certifications</Label>
+                  <Label htmlFor="certificaciones">Certificaciones</Label>
                   <Input
                     id="certificaciones"
                     type="text"
@@ -246,7 +246,7 @@ export default function Edit({ producer }) {
                   {errors.certificaciones && <div className="text-red-500 text-sm">{errors.certificaciones}</div>}
                 </div>
                 <div>
-                  <Label htmlFor="status">Status</Label>
+                  <Label htmlFor="status">Estado</Label>
                   <Input
                     id="status"
                     type="text"
@@ -263,11 +263,11 @@ export default function Edit({ producer }) {
                     onChange={(e) => setData('enviomasivo', e.target.checked)}
                     className="h-4 w-4"
                   />
-                  <Label htmlFor="enviomasivo">Massive Send</Label>
+                  <Label htmlFor="enviomasivo">Envío masivo</Label>
                   {errors.enviomasivo && <div className="text-red-500 text-sm">{errors.enviomasivo}</div>}
                 </div>
                 <div className="md:col-span-2">
-                  <Button type="submit">Update</Button>
+                  <Button type="submit">Actualizar</Button>
                 </div>
               </form>
             </TabsContent>
@@ -284,4 +284,4 @@ export default function Edit({ producer }) {
   );
 }
 
-Edit.layout = page => <AuthenticatedLayout children={page} header={<h2 className="font-semibold text-xl text-gray-800 leading-tight">Edit Producer</h2>} />;
+Edit.layout = page => <AuthenticatedLayout children={page} header={<h2 className="font-semibold text-xl text-gray-800 leading-tight">Editar Productor</h2>} />;
