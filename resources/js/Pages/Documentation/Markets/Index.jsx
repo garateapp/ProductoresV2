@@ -75,6 +75,8 @@ export default function MarketsIndex({ auth, markets, countries, certificateType
 
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [editingMarket, setEditingMarket] = useState(null);
+  // Track selected especie for future variety-related features (safe placeholder)
+  const [selectedEspecieId, setSelectedEspecieId] = useState(null);
 
   const handleOpenCreateModal = () => {
     setEditingMarket(null);
