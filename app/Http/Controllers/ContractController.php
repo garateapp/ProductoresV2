@@ -52,4 +52,40 @@ class ContractController extends Controller
 
         return redirect()->route('contracts.index')->with('success', 'Contrato creado exitosamente.');
     }
+
+    public function edit(Contract $contract)
+    {
+        $producers = User::whereNotNull('idprod')->get();
+
+        return Inertia::render('Contracts/Edit', [
+            'contract' => $contract->load('user'),
+            'producers' => $producers,
+        ]);
+    }
+
+    public function update(Request $request, Contract $contract)
+    {
+        $validatedData = $request->validate([
+            'user_id' => ['required', 'exists:users,id'],
+            'contract_file' => ['nullable', 'file', 'mimes:pdf,doc,docx,jpg,jpeg,png', 'max:5120'],
+            'fecha_contrato' => ['required', 'date'],
+            'vencimiento' => ['required', 'date', 'after_or_equal:fecha_contrato'],
+            'comision' => ['required', 'numeric'],
+            'flete_a_huerto' => ['required', 'string', 'in:NO,50%,100%'],
+            'rebate' => ['required', 'boolean'],
+            'bonificacion' => ['required', 'boolean'],
+            'tarifa_premium' => ['required', 'boolean'],
+            'comparativa' => ['nullable', 'string', 'max:1000'],
+            'descuento_fruta_comercial' => ['required', 'boolean'],
+        ]);
+
+        if ($request->hasFile('contract_file')) {
+            $filePath = $request->file('contract_file')->store('contracts', 'public');
+            $validatedData['contract_file_path'] = $filePath;
+        }
+
+        $contract->update($validatedData);
+
+        return redirect()->route('contracts.index')->with('success', 'Contrato actualizado exitosamente.');
+    }
 }
