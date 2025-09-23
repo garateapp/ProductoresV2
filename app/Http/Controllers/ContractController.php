@@ -20,7 +20,7 @@ class ContractController extends Controller
 
     public function create()
     {
-        $producers = User::whereNotNull('idprod')->get();
+        $producers = User::whereNotNull('idprod')->where('is_active', true)->get();
 
         return Inertia::render('Contracts/Create', [
             'producers' => $producers,
@@ -66,7 +66,6 @@ class ContractController extends Controller
     public function update(Request $request, Contract $contract)
     {
         $validatedData = $request->validate([
-            'user_id' => ['required', 'exists:users,id'],
             'contract_file' => ['nullable', 'file', 'mimes:pdf,doc,docx,jpg,jpeg,png', 'max:5120'],
             'fecha_contrato' => ['required', 'date'],
             'vencimiento' => ['required', 'date', 'after_or_equal:fecha_contrato'],
@@ -84,6 +83,8 @@ class ContractController extends Controller
             $validatedData['contract_file_path'] = $filePath;
         }
 
+        // Enforce non-editable producer: keep original user_id
+        $validatedData['user_id'] = $contract->user_id;
         $contract->update($validatedData);
 
         return redirect()->route('contracts.index')->with('success', 'Contrato actualizado exitosamente.');

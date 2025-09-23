@@ -40,6 +40,11 @@ export default function Edit({ auth, contract, producers }) {
     put(route('contracts.update', contract.id));
   };
 
+  const inputClass = (hasError) => [
+    'mt-1 block w-full rounded-md border shadow-sm focus:ring-opacity-50',
+    hasError ? 'border-red-500 focus:border-red-500 focus:ring-red-200' : 'border-gray-300 focus:border-indigo-300 focus:ring focus:ring-indigo-200',
+  ].join(' ');
+
   return (
     <AuthenticatedLayout user={auth.user} header={<h2 className="font-semibold text-xl text-gray-800 leading-tight">Editar Contrato</h2>}>
       <Head title="Editar Contrato" />
@@ -53,27 +58,27 @@ export default function Edit({ auth, contract, producers }) {
                   <Select
                     options={producerOptions}
                     value={producerOptions.find(o => o.value === data.user_id) || null}
-                    onChange={(opt) => setData('user_id', opt ? opt.value : '')}
-                    placeholder="Seleccione un productor"
-                    isClearable
+                    isClearable={false}
+                    isDisabled={true}
+                    placeholder="No editable"
+                    styles={{ control: (base)=>({ ...base, backgroundColor:'#f5f5f5' }) }}
                   />
-                  {errors.user_id && <div className="text-red-600 text-sm mt-1">{errors.user_id}</div>}
                 </div>
 
                 <div>
                   <Label>Fecha de Contrato</Label>
-                  <input type="date" value={data.fecha_contrato} onChange={(e)=>setData('fecha_contrato', e.target.value)} className="mt-1 block w-full rounded-md border-gray-300" />
+                  <input type="date" value={data.fecha_contrato} onChange={(e)=>setData('fecha_contrato', e.target.value)} className={inputClass(!!errors.fecha_contrato)} aria-invalid={!!errors.fecha_contrato} />
                   {errors.fecha_contrato && <div className="text-red-600 text-sm mt-1">{errors.fecha_contrato}</div>}
                 </div>
                 <div>
                   <Label>Fecha de Vencimiento</Label>
-                  <input type="date" value={data.vencimiento} onChange={(e)=>setData('vencimiento', e.target.value)} className="mt-1 block w-full rounded-md border-gray-300" />
+                  <input type="date" value={data.vencimiento} onChange={(e)=>setData('vencimiento', e.target.value)} className={inputClass(!!errors.vencimiento)} aria-invalid={!!errors.vencimiento} />
                   {errors.vencimiento && <div className="text-red-600 text-sm mt-1">{errors.vencimiento}</div>}
                 </div>
 
                 <div>
                   <Label>Comisión</Label>
-                  <input type="number" step="0.01" value={data.comision} onChange={(e)=>setData('comision', e.target.value)} className="mt-1 block w-full rounded-md border-gray-300" />
+                  <input type="number" step="0.01" value={data.comision} onChange={(e)=>setData('comision', e.target.value)} className={inputClass(!!errors.comision)} aria-invalid={!!errors.comision} />
                   {errors.comision && <div className="text-red-600 text-sm mt-1">{errors.comision}</div>}
                 </div>
                 <div>
@@ -83,13 +88,15 @@ export default function Edit({ auth, contract, producers }) {
                     value={fleteOptions.find(o => o.value === data.flete_a_huerto) || null}
                     onChange={(opt)=>setData('flete_a_huerto', opt ? opt.value : '')}
                     placeholder="Seleccione flete"
+                    aria-invalid={!!errors.flete_a_huerto}
+                    styles={{ control: (base)=>({ ...base, borderColor: errors.flete_a_huerto ? '#ef4444' : base.borderColor }) }}
                   />
                   {errors.flete_a_huerto && <div className="text-red-600 text-sm mt-1">{errors.flete_a_huerto}</div>}
                 </div>
 
                 <div className="md:col-span-2">
                   <Label>Archivo de Contrato (opcional)</Label>
-                  <input type="file" onChange={(e)=>setData('contract_file', e.target.files[0])} className="mt-1 block w-full text-sm border rounded" />
+                  <input type="file" onChange={(e)=>setData('contract_file', e.target.files[0])} className={inputClass(!!errors.contract_file) + ' text-sm'} aria-invalid={!!errors.contract_file} />
                   {errors.contract_file && <div className="text-red-600 text-sm mt-1">{errors.contract_file}</div>}
                 </div>
 
@@ -112,7 +119,7 @@ export default function Edit({ auth, contract, producers }) {
 
                 <div className="md:col-span-2">
                   <Label>Comparativa</Label>
-                  <textarea rows={3} value={data.comparativa} onChange={(e)=>setData('comparativa', e.target.value)} className="mt-1 block w-full rounded-md border-gray-300" />
+                  <textarea rows={3} value={data.comparativa} onChange={(e)=>setData('comparativa', e.target.value)} className={inputClass(!!errors.comparativa)} aria-invalid={!!errors.comparativa} />
                   {errors.comparativa && <div className="text-red-600 text-sm mt-1">{errors.comparativa}</div>}
                 </div>
 
@@ -128,4 +135,3 @@ export default function Edit({ auth, contract, producers }) {
     </AuthenticatedLayout>
   );
 }
-
