@@ -1,9 +1,10 @@
 import React from 'react';
-import { useForm } from '@inertiajs/react';
+import { useForm, Link } from '@inertiajs/react';
 import { Button } from '@/Components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/Components/ui/card';
 import { Label } from '@/Components/ui/label';
 import { Input } from '@/Components/ui/input';
+import { Switch } from '@/Components/ui/switch';
 import AuthenticatedLayout from '@/Layouts/AuthenticatedLayout';
 
 export default function Create() {
@@ -17,6 +18,7 @@ export default function Create() {
     idprod: '',
     csg: '',
     emnotification: true,
+    is_active: true,
     kilos_netos: '',
     comercial: '',
     desecho: '',
@@ -45,7 +47,8 @@ export default function Create() {
           <CardTitle>Crear Productor</CardTitle>
         </CardHeader>
         <CardContent>
-          <form onSubmit={submit} className="space-y-4">
+          <form onSubmit={submit} className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <div className="md:col-span-2 text-sm font-semibold text-gray-700">Cuenta</div>
             <div>
               <Label htmlFor="name">Nombre</Label>
               <Input
@@ -85,6 +88,17 @@ export default function Create() {
                 onChange={(e) => setData('password_confirmation', e.target.value)}
               />
             </div>
+            <div className="flex items-center gap-3">
+              <Switch id="is_active" checked={data.is_active} onCheckedChange={(v) => setData('is_active', !!v)} />
+              <Label htmlFor="is_active">Activo</Label>
+              {errors.is_active && <div className="text-red-500 text-sm">{errors.is_active}</div>}
+            </div>
+            <div className="flex items-center gap-3">
+              <Switch id="emnotification" checked={data.emnotification} onCheckedChange={(v) => setData('emnotification', !!v)} />
+              <Label htmlFor="emnotification">Notificación por email</Label>
+              {errors.emnotification && <div className="text-red-500 text-sm">{errors.emnotification}</div>}
+            </div>
+            <div className="md:col-span-2 mt-2 text-sm font-semibold text-gray-700">Identificación del Productor</div>
             <div>
               <Label htmlFor="rut">RUT</Label>
               <Input
@@ -125,16 +139,7 @@ export default function Create() {
               />
               {errors.csg && <div className="text-red-500 text-sm">{errors.csg}</div>}
             </div>
-            <div className="flex items-center space-x-2">
-              <input
-                type="checkbox"
-                id="emnotification"
-                checked={data.emnotification}
-                onChange={(e) => setData('emnotification', e.target.checked)}
-              />
-              <Label htmlFor="emnotification">Notificación por email</Label>
-              {errors.emnotification && <div className="text-red-500 text-sm">{errors.emnotification}</div>}
-            </div>
+            <div className="md:col-span-2 mt-2 text-sm font-semibold text-gray-700">Ubicación</div>
             <div>
               <Label htmlFor="kilos_netos">Kilos Netos</Label>
               <Input
@@ -145,6 +150,7 @@ export default function Create() {
               />
               {errors.kilos_netos && <div className="text-red-500 text-sm">{errors.kilos_netos}</div>}
             </div>
+            <div className="md:col-span-2 mt-2 text-sm font-semibold text-gray-700">Producción y KPIs</div>
             <div>
               <Label htmlFor="comercial">Comercial</Label>
               <Input
@@ -265,17 +271,17 @@ export default function Create() {
               />
               {errors.status && <div className="text-red-500 text-sm">{errors.status}</div>}
             </div>
-            <div className="flex items-center space-x-2">
-              <input
-                type="checkbox"
-                id="enviomasivo"
-                checked={data.enviomasivo}
-                onChange={(e) => setData('enviomasivo', e.target.checked)}
-              />
+            <div className="flex items-center gap-3">
+              <Switch id="enviomasivo" checked={data.enviomasivo} onCheckedChange={(v) => setData('enviomasivo', !!v)} />
               <Label htmlFor="enviomasivo">Envío masivo</Label>
               {errors.enviomasivo && <div className="text-red-500 text-sm">{errors.enviomasivo}</div>}
             </div>
-            <Button type="submit">Crear</Button>
+            <div className="md:col-span-2 mt-2 sticky bottom-0 bg-white/80 backdrop-blur border-t py-3 flex justify-between px-2">
+              <Link href={route('producers.index')}>
+                <Button type="button" variant="outline">Volver</Button>
+              </Link>
+              <Button type="submit">Crear</Button>
+            </div>
           </form>
         </CardContent>
       </Card>

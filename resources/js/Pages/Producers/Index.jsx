@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { Link, useForm } from '@inertiajs/react';
+import { Link, useForm, router, usePage } from '@inertiajs/react';
 import { Button } from '@/Components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/Components/ui/card';
 import {
@@ -12,13 +12,17 @@ import {
 } from '@/Components/ui/table';
 import { Input } from '@/Components/ui/input';
 import { ChevronUp, ChevronDown } from 'lucide-react';
+import { Badge } from '@/Components/ui/badge';
+import { Switch } from '@/Components/ui/switch';
 import AuthenticatedLayout from '@/Layouts/AuthenticatedLayout';
 
 export default function Index({ producers, filters }) {
+  const { props } = usePage();
   const { data, setData, get } = useForm({
     search: filters.search || '',
     sort_by: filters.sort_by || 'name',
     sort_order: filters.sort_order || 'asc',
+    show_inactive: !!filters.show_inactive,
   });
 
   const { delete: destroy } = useForm();
@@ -42,7 +46,7 @@ export default function Index({ producers, filters }) {
     }, 300);
 
     return () => clearTimeout(delayDebounceFn);
-  }, [data.search, data.sort_by, data.sort_order]);
+  }, [data.search, data.sort_by, data.sort_order, data.show_inactive]);
 
   function handleDelete(e, producer) {
     e.preventDefault();
@@ -63,11 +67,50 @@ export default function Index({ producers, filters }) {
       <Card>
         <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
           <CardTitle className="text-2xl font-bold">Productores</CardTitle>
-          <Link href={route('producers.create')}>
-            <Button>Crear Productor</Button>
-          </Link>
+          <div className="flex items-center gap-2">
+            <Button
+              variant="secondary"
+              onClick={() => {
+                if (!confirm('¿Ejecutar sincronización de estados de productores?')) return;
+                router.post(route('producers.sync-active'), {}, { preserveScroll: true });
+              }}
+              title="Sincroniza estados (activos/inactivos) desde SQL Server"
+            >
+              Sincronizar estados
+            </Button>
+            <Button
+              variant="outline"
+              onClick={() => {
+                if (!confirm('¿Ejecutar sincronización de prueba (sin aplicar cambios)?')) return;
+                router.post(route('producers.sync-active'), { dry_run: true }, { preserveScroll: true });
+              }}
+              title="Ejecuta una simulación de la sincronización (dry-run)"
+            >
+              Prueba (dry-run)
+            </Button>
+            <Link href={route('producers.create')}>
+              <Button>Crear Productor</Button>
+            </Link>
+          </div>
         </CardHeader>
         <CardContent>
+          {props?.flash?.success && (
+            <div className="mb-3 rounded border border-green-200 bg-green-50 text-green-800 px-3 py-2 text-sm">
+              {props.flash.success}
+            </div>
+          )}
+          {props?.flash?.sync_output && (
+            <div className="mb-4">
+              <details className="rounded border bg-gray-50">
+                <summary className="cursor-pointer select-none px-3 py-2 text-sm font-medium text-gray-800">
+                  Ver detalle de la sincronización
+                </summary>
+                <pre className="max-h-64 overflow-auto whitespace-pre-wrap p-3 text-xs text-gray-800">
+{props.flash.sync_output}
+                </pre>
+              </details>
+            </div>
+          )}
           <div className="mb-4 flex justify-between items-center">
             <Input
               type="text"
@@ -76,6 +119,14 @@ export default function Index({ producers, filters }) {
               onChange={handleSearchChange}
               className="max-w-sm"
             />
+            <div className="flex items-center gap-2 text-sm">
+              <Switch
+                id="show-inactive-switch"
+                checked={!!data.show_inactive}
+                onCheckedChange={(val) => setData('show_inactive', !!val)}
+              />
+              <label htmlFor="show-inactive-switch">Mostrar inactivos</label>
+            </div>
           </div>
           <Table>
             <TableHeader>
@@ -125,6 +176,7 @@ export default function Index({ producers, filters }) {
                     Dirección {renderSortIcon('direccion')}
                   </div>
                 </TableHead>
+                <TableHead className="min-w-[100px]">Estado</TableHead>
                 <TableHead className="min-w-[120px]">Acciones</TableHead>
               </TableRow>
             </TableHeader>
@@ -140,6 +192,11 @@ export default function Index({ producers, filters }) {
                   <TableCell>{producer.comuna}</TableCell>
                   <TableCell>{producer.provincia}</TableCell>
                   <TableCell>{producer.direccion}</TableCell>
+                  <TableCell>
+                    {!producer.is_active && (
+                      <Badge variant="destructive">Inactivo</Badge>
+                    )}
+                  </TableCell>
                   <TableCell>
                     <Link href={route('producers.edit', producer.id)} className="mr-2">
                       <Button variant="outline">Editar</Button>

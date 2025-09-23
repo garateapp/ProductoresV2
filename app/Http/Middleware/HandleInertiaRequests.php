@@ -33,6 +33,12 @@ class HandleInertiaRequests extends Middleware
             'auth' => [
                 'user' => $request->user() ? $request->user()->load('roles') : null,
             ],
+            'flash' => [
+                'success' => fn () => $request->session()->get('success'),
+                'error' => fn () => $request->session()->get('error'),
+                'sync_output' => fn () => $request->session()->get('sync_output'),
+                'calidad_id' => fn () => $request->session()->get('calidad_id'),
+            ],
             'ziggy' => function () use ($request) {
                 return array_merge((new \Tighten\Ziggy\Ziggy)->toArray(), [
                     'location' => $request->url(),

@@ -43,6 +43,7 @@ class User extends Authenticatable
         'certificaciones',
         'status',
         'enviomasivo',
+        'is_active',
     ];
 
     /**
@@ -65,6 +66,7 @@ class User extends Authenticatable
         return [
             'email_verified_at' => 'datetime',
             'password' => 'hashed',
+            'is_active' => 'boolean',
         ];
     }
 

@@ -15,9 +15,9 @@ class ServiceController extends Controller
         $services = Service::with('users', 'owner', 'phones', 'emails')->get();
 
         $search = $request->input('search');
-        // For the index + modal flow, we need the full user list;
+        // For the index + modal flow, we need users (only active) list;
         // the modal itself will exclude users already assigned to the selected service.
-        $availableUsersQuery = User::query();
+        $availableUsersQuery = User::query()->where('is_active', true);
 
         if ($search) {
             $availableUsersQuery->where(function ($query) use ($search) {
@@ -106,7 +106,7 @@ class ServiceController extends Controller
     public function show(Service $service)
     {
         $service->load('users');
-        $availableUsers = User::whereDoesntHave('services', function ($query) use ($service) {
+        $availableUsers = User::where('is_active', true)->whereDoesntHave('services', function ($query) use ($service) {
             $query->where('service_id', $service->id);
         })->get();
 

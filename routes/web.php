@@ -35,6 +35,7 @@ Route::middleware('auth')->group(function () {
     Route::resource('photo-types', App\Http\Controllers\PhotoTypeController::class)->names('photo-types');
 
     Route::resource('producers', App\Http\Controllers\ProducerController::class)->names('producers');
+    Route::post('producers/sync-active', [App\Http\Controllers\ProducerController::class, 'syncActive'])->name('producers.sync-active');
 
     Route::resource('telefonos', App\Http\Controllers\TelefonoController::class)->only(['store', 'update', 'destroy'])->names('telefonos');
 

@@ -5,6 +5,7 @@ namespace App\Http\Controllers;
 use App\Models\User;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Hash;
+use Illuminate\Support\Facades\Artisan;
 use Illuminate\Validation\Rules;
 use Inertia\Inertia;
 
@@ -16,6 +17,12 @@ class ProducerController extends Controller
     public function index(Request $request)
     {
         $query = User::role('Productor');
+
+        // Active filter (default: only active)
+        $showInactive = $request->boolean('show_inactive', false);
+        if (! $showInactive) {
+            $query->where('is_active', true);
+        }
 
         // Filtering
         if ($request->has('search')) {
@@ -47,6 +54,7 @@ class ProducerController extends Controller
                     'idprod' => $producer->idprod,
                     'csg' => $producer->csg,
                     'emnotification' => $producer->emnotification,
+                    'is_active' => (bool) $producer->is_active,
                     'kilos_netos' => $producer->kilos_netos,
                     'comercial' => $producer->comercial,
                     'desecho' => $producer->desecho,
@@ -63,7 +71,7 @@ class ProducerController extends Controller
                     'enviomasivo' => $producer->enviomasivo,
                 ];
             }),
-            'filters' => $request->all(['search', 'sort_by', 'sort_order']),
+            'filters' => $request->all(['search', 'sort_by', 'sort_order', 'show_inactive']),
         ]);
     }
 
@@ -89,6 +97,7 @@ class ProducerController extends Controller
             'idprod' => 'nullable|string|max:255',
             'csg' => 'nullable|string|max:255',
             'emnotification' => 'boolean',
+            'is_active' => 'boolean',
             'kilos_netos' => 'nullable|integer',
             'comercial' => 'nullable|integer',
             'desecho' => 'nullable|integer',
@@ -114,6 +123,7 @@ class ProducerController extends Controller
             'idprod' => $request->idprod,
             'csg' => $request->csg,
             'emnotification' => $request->emnotification,
+            'is_active' => $request->boolean('is_active', true),
             'kilos_netos' => $request->kilos_netos,
             'comercial' => $request->comercial,
             'desecho' => $request->desecho,
@@ -160,6 +170,7 @@ class ProducerController extends Controller
                 'idprod' => $producer->idprod,
                 'csg' => $producer->csg,
                 'emnotification' => $producer->emnotification,
+                'is_active' => (bool) $producer->is_active,
                 'kilos_netos' => $producer->kilos_netos,
                 'comercial' => $producer->comercial,
                 'desecho' => $producer->desecho,
@@ -199,6 +210,7 @@ class ProducerController extends Controller
             'idprod' => 'nullable|string|max:255',
             'csg' => 'nullable|string|max:255',
             'emnotification' => 'boolean',
+            'is_active' => 'boolean',
             'kilos_netos' => 'nullable|integer',
             'comercial' => 'nullable|integer',
             'desecho' => 'nullable|integer',
@@ -215,7 +227,30 @@ class ProducerController extends Controller
             'enviomasivo' => 'boolean',
         ]);
 
-        $producer->update($request->all());
+        $producer->update([
+            'name' => $request->name,
+            'email' => $request->email,
+            'rut' => $request->rut,
+            'user' => $request->user,
+            'idprod' => $request->idprod,
+            'csg' => $request->csg,
+            'emnotification' => $request->boolean('emnotification'),
+            'is_active' => $request->boolean('is_active', $producer->is_active),
+            'kilos_netos' => $request->kilos_netos,
+            'comercial' => $request->comercial,
+            'desecho' => $request->desecho,
+            'merma' => $request->merma,
+            'exp' => $request->exp,
+            'predio' => $request->predio,
+            'comuna' => $request->comuna,
+            'provincia' => $request->provincia,
+            'direccion' => $request->direccion,
+            'antiguedad' => $request->antiguedad,
+            'fitosanitario' => $request->fitosanitario,
+            'certificaciones' => $request->certificaciones,
+            'status' => $request->status,
+            'enviomasivo' => $request->boolean('enviomasivo'),
+        ]);
 
         return redirect()->route('producers.index');
     }
@@ -228,5 +263,17 @@ class ProducerController extends Controller
         $producer->delete();
 
         return redirect()->route('producers.index');
+    }
+
+    public function syncActive(Request $request)
+    {
+        $dryRun = $request->boolean('dry_run', false);
+        $params = $dryRun ? ['--dry-run' => true] : [];
+        Artisan::call('producers:sync-active', $params);
+        $output = Artisan::output();
+
+        return redirect()->route('producers.index')
+            ->with('success', 'Sincronización de estados ejecutada'.($dryRun ? ' (prueba)' : '').'.')
+            ->with('sync_output', $output);
     }
 }
