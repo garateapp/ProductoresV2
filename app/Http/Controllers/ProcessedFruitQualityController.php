@@ -85,46 +85,72 @@ class ProcessedFruitQualityController extends Controller
 
     public function storeDetail(Request $request)
     {
-        $validated = $request->validate([
+        $madurez_param_ids = [7, 8, 9, 10, 13, 14, 15, 16, 17, 18];
+
+        $baseRules = [
             'processed_fruit_quality_id' => 'required|exists:processed_fruit_qualities,id',
             'parametro_id' => 'required|exists:parametros,id',
-            'valor_id' => 'required|exists:valors,id',
             'cantidad_muestra' => 'nullable|integer',
             'exportable' => 'boolean',
             'temperatura' => 'nullable',
             'valor_presion' => 'nullable|numeric',
-        ]);
+        ];
+
+        if (in_array((int) $request->input('parametro_id'), $madurez_param_ids, true)) {
+            $baseRules['valor_text'] = 'nullable|string';
+        } else {
+            $baseRules['valor_id'] = 'required|exists:valors,id';
+        }
+
+        $validated = $request->validate($baseRules);
 
         $quality = ProcessedFruitQuality::find($validated['processed_fruit_quality_id']);
         $parametro = Parametro::find($validated['parametro_id']);
-        $valor = Valor::find($validated['valor_id']);
 
-        $porcMuestra = ($quality->t_muestra > 0 && $validated['cantidad_muestra'] !== null) ? ($validated['cantidad_muestra'] / $quality->t_muestra * 100) : 0;
+        $valorName = null;
+        $valorId = null;
+        if (in_array((int) $validated['parametro_id'], $madurez_param_ids, true)) {
+            $valorName = isset($validated['valor_text']) && trim((string) $validated['valor_text']) !== ''
+                ? trim((string) $validated['valor_text'])
+                : null;
+        } else {
+            $valor = Valor::find($validated['valor_id']);
+            $valorId = $valor?->id;
+            $valorName = $valor?->nombre;
+        }
 
-        $categoria = $validated['exportable'] ? 'Exportable' : null;
+        $porcMuestra = ($quality && $quality->t_muestra > 0 && array_key_exists('cantidad_muestra', $validated) && $validated['cantidad_muestra'] !== null)
+            ? ($validated['cantidad_muestra'] / $quality->t_muestra * 100)
+            : 0;
+
+        $categoria = !empty($validated['exportable']) ? 'Exportable' : null;
 
         $detailData = [
             'processed_fruit_quality_id' => $validated['processed_fruit_quality_id'],
             'parametro_id' => $validated['parametro_id'],
-            'valor_id' => $validated['valor_id'],
-            'cantidad_muestra' => $validated['cantidad_muestra'],
+            'valor_id' => $valorId,
+            'cantidad_muestra' => $validated['cantidad_muestra'] ?? null,
             'porcentaje_muestra' => $porcMuestra,
             'categoria' => $categoria,
             'temperatura' => $validated['temperatura'] ?? null,
             'valor_ss' => $validated['valor_presion'] ?? null,
-            'tipo_item' => $parametro->nombre,
-            'detalle_item' => $valor->nombre,
-            'tipo_detalle' => $parametro->tipo_detalle ?? null, // Assuming parametro has tipo_detalle
+            'tipo_item' => $parametro?->nombre,
+            'detalle_item' => $valorName,
+            'tipo_detalle' => $parametro?->tipo_detalle ?? null,
         ];
 
-        $detail = ProcessedFruitQualityDetail::updateOrCreate(
-            [
-                'processed_fruit_quality_id' => $validated['processed_fruit_quality_id'],
-                'parametro_id' => $validated['parametro_id'],
-                'valor_id' => $validated['valor_id'],
-            ],
-            $detailData
-        );
+        $match = [
+            'processed_fruit_quality_id' => $validated['processed_fruit_quality_id'],
+            'parametro_id' => $validated['parametro_id'],
+        ];
+        if ($valorId !== null) {
+            $match['valor_id'] = $valorId;
+        } elseif ($valorName !== null) {
+            // Ensure we don't overwrite other free-text entries for the same parametro
+            $match['detalle_item'] = $valorName;
+        }
+
+        ProcessedFruitQualityDetail::updateOrCreate($match, $detailData);
 
         return redirect()->back()->with('success', 'Detalle de calidad guardado exitosamente.');
     }
@@ -140,8 +166,11 @@ class ProcessedFruitQualityController extends Controller
                 ->with('photos.photoType')
                 ->first();
         } else {
-            // If no specific quality_id is provided, return null for a new evaluation
-            $quality = null;
+            // If no specific ID provided, return the latest quality for this process if exists
+            $quality = ProcessedFruitQuality::where('proceso_id', $proceso->id)
+                ->with('photos.photoType')
+                ->latest()
+                ->first();
         }
 
         return response()->json($quality);

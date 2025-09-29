@@ -490,6 +490,8 @@
 
     <div class="title">Informe de Recepción de {{ $recepcion->n_especie }}</div>
 
+    
+
     <script>
         // Defaults to avoid undefined when controller doesn't pass datasets
         @php

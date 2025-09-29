@@ -51,7 +51,11 @@ Route::middleware('auth')->group(function () {
     Route::get('control-calidad/{recepcion}/calidad', [App\Http\Controllers\ControlCalidadController::class, 'getCalidad'])->name('control-calidad.get-calidad');
     Route::post('control-calidad/{recepcion}/cargar-firmpro', [App\Http\Controllers\ControlCalidadController::class, 'cargarFirmpro'])->name('control-calidad.cargar-firmpro');
     Route::get('control-calidad/{recepcion}/report', [App\Http\Controllers\ControlCalidadController::class, 'generateReport'])->name('control-calidad.generate-report');
-    Route::get('control-calidad/{recepcion}/report/preview', [App\Http\Controllers\ControlCalidadController::class, 'previewReport'])->name('control-calidad.preview-report');
+    // React preview page with shadcn switch
+    Route::get('control-calidad/{recepcion}/report/preview', [App\Http\Controllers\ControlCalidadController::class, 'previewPage'])->name('control-calidad.preview-report');
+    // HTML-only report for iframe rendering inside preview page
+    Route::get('control-calidad/{recepcion}/report/preview/html', [App\Http\Controllers\ControlCalidadController::class, 'previewReport'])->name('control-calidad.preview-report-html');
+    Route::post('control-calidad/{recepcion}/report/approve', [App\Http\Controllers\ControlCalidadController::class, 'approveReport'])->name('control-calidad.approve-report');
 
     // Processed Fruit Quality Control Routes
     Route::get('processed-fruit-quality', [App\Http\Controllers\ProcessedFruitQualityController::class, 'index'])->name('processed-fruit-quality.index');

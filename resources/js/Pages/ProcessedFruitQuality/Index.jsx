@@ -101,6 +101,12 @@ export default function Index({
     const errorsQuality = qualityFormState.errors;
     const resetQuality = qualityFormState.reset;
 
+    const isCherries = useCallback((proceso) => {
+        const name = String(proceso?.especie || '').toLowerCase();
+        const id = proceso?.especie_id ?? proceso?.id_especie;
+        return name.includes('cherr') || id === 7;
+    }, []);
+
     const {
         data: detailData,
         setData: setDetailData,
@@ -112,6 +118,7 @@ export default function Index({
         processed_fruit_quality_id: null,
         parametro_id: "",
         valor_id: "",
+        valor_text: "",
         cantidad_muestra: "",
         exportable: false,
         temperatura: "",
@@ -146,63 +153,43 @@ export default function Index({
         async (proceso, qualityIdToFetch = null) => {
             if (!proceso) return;
             try {
-                let existingQuality = null;
-                if (qualityIdToFetch) {
-                    // Fetch specific quality if ID is provided
-                    const response = await fetch(
-                        route("processed-fruit-quality.getQuality", {
-                            proceso: proceso.id,
-                            quality_id: qualityIdToFetch,
-                        })
-                    );
-                    existingQuality = await response.json();
-                } else if (
-                    proceso.processed_fruit_qualities &&
-                    proceso.processed_fruit_qualities.length > 0
-                ) {
-                    // If no specific ID, but there are existing qualities, fetch the first one (or handle selection)
-                    // For now, we'll just reset the form for a new entry if no specific ID is given
-                    // This part might need more sophisticated logic later if we want to edit an existing one by default
-                }
+                // Always ask backend for current/last quality
+                const response = await fetch(
+                    route('processed-fruit-quality.getQuality', {
+                        proceso: proceso.id,
+                        quality_id: qualityIdToFetch || '',
+                    })
+                );
+                const existingQuality = await response.json();
 
                 if (existingQuality) {
                     const transformedQuality = {
                         ...existingQuality,
-                        materia_vegetal:
-                            existingQuality.materia_vegetal === "SI",
-                        piedras: existingQuality.piedras === "SI",
-                        barro: existingQuality.barro === "SI",
-                        pedicelo_largo: existingQuality.pedicelo_largo === "SI",
-                        racimo: existingQuality.racimo === "SI",
-                        esponjas: existingQuality.esponjas === "SI",
+                        materia_vegetal: existingQuality.materia_vegetal === 'SI',
+                        piedras: existingQuality.piedras === 'SI',
+                        barro: existingQuality.barro === 'SI',
+                        pedicelo_largo: existingQuality.pedicelo_largo === 'SI',
+                        racimo: existingQuality.racimo === 'SI',
+                        esponjas: existingQuality.esponjas === 'SI',
                     };
                     setQualityData(transformedQuality);
                     setQualityId(existingQuality.id);
                     setPhotos(existingQuality.photos || []);
-                } else {
-                    if (!qualityIdToFetch) {
-                        // Solo resetea si es nuevo
-                        resetQuality();
-                        setQualityId(null);
-                        setPhotos([]);
-                    }
                 }
-                // Fetch details as well
+
+                // Fetch details too
                 const detailsResponse = await fetch(
-                    route("processed-fruit-quality.getDetails", {
+                    route('processed-fruit-quality.getDetails', {
                         proceso: proceso.id,
-                        quality_id:
-                            qualityIdToFetch ||
-                            (existingQuality ? existingQuality.id : null),
+                        quality_id: (existingQuality && existingQuality.id) || qualityIdToFetch || '',
                     })
                 );
                 const data = await detailsResponse.json();
                 setDetallesAgregados(data.detalles || []);
                 setDefectosAgregados(data.defectos || []);
-                // removed: desorden fisiologico and curva calibre aggregations
                 setIndiceMadurezAgregados(data.indiceMadurez || []);
             } catch (error) {
-                console.error("Error fetching existing quality data:", error);
+                console.error('Error fetching existing quality data:', error);
             }
         },
         []
@@ -219,14 +206,15 @@ export default function Index({
         // removed: desorden fisiologico and curva calibre resets
         setIndiceMadurezAgregados([]);
 
-        // ✅ Establece el ID
+        // Establece el proceso y opcionalmente el ID a editar
+        setQualityData("proceso_id", proceso.id);
         setQualityId(qualityIdToEdit);
 
-        // ✅ Espera a que los datos se carguen
-        await fetchQualityData(proceso, qualityIdToEdit);
+        // Si estamos editando, precargar; si es nuevo, no precargar
+        if (qualityIdToEdit) {
+            await fetchQualityData(proceso, qualityIdToEdit);
+        }
 
-        // Solo ahora actualiza el proceso_id y abre el modal
-        setQualityData("proceso_id", proceso.id);
         setIsModalOpen(true);
     };
 
@@ -237,17 +225,12 @@ export default function Index({
 
     const submitQuality = (e) => {
         e.preventDefault();
-        postQuality(route("processed-fruit-quality.storeQuality"), {
+        postQuality(route('processed-fruit-quality.storeQuality'), {
             data: { ...qualityData, proceso_id: selectedProceso.id },
-            onSuccess: (page) => {
-                const newQualityId = page.props.flash?.quality_id;
-                if (newQualityId) {
-                    setQualityId(newQualityId);
-                }
-                toast.success(
-                    page.props.flash?.success || "Operación exitosa."
-                );
-                fetchQualityData(selectedProceso, newQualityId); // Pass the newQualityId
+            onSuccess: () => {
+                toast.success('Operación exitosa.');
+                // Re-cargar desde backend el último registro guardado
+                fetchQualityData(selectedProceso);
             },
             onError: (errors) => {
                 console.error(
@@ -260,6 +243,14 @@ export default function Index({
             preserveScroll: true,
         });
     };
+
+    // Mantener modal con datos actualizados tras guardar Info General
+    useEffect(() => {
+        const id = qualityId || flash?.quality_id;
+        if (isModalOpen && selectedProceso && id) {
+            fetchQualityData(selectedProceso, id);
+        }
+    }, [isModalOpen, selectedProceso, qualityId, flash?.quality_id]);
 
   const submitDetail = (e) => {
   e.preventDefault();
@@ -678,7 +669,7 @@ export default function Index({
                                     <TabsTrigger value="defectos">
                                         Defectos
                                     </TabsTrigger>
-                                    
+
                                     <TabsTrigger value="indice-madurez">
                                         Indice de Madurez
                                     </TabsTrigger>
@@ -787,20 +778,20 @@ export default function Index({
                                                 />
                                             </div>
                                             <div>
-                                                <Label htmlFor="categoria">
-                                                    Categoría
-                                                </Label>
-                                                <Input
-                                                    id="categoria"
-                                                    type="text"
+                                                <Label htmlFor="categoria">Categoría</Label>
+                                                <Select
                                                     value={qualityData.categoria}
-                                                    onChange={(e) =>
-                                                        setQualityData(
-                                                            "categoria",
-                                                            e.target.value
-                                                        )
-                                                    }
-                                                />
+                                                    onValueChange={(value) => setQualityData('categoria', value)}
+                                                >
+                                                    <SelectTrigger className="w-full">
+                                                        <SelectValue placeholder="Seleccionar categoría" />
+                                                    </SelectTrigger>
+                                                    <SelectContent>
+                                                        {['CAT 1','CAT 2','COMERCIAL','VEGA','SUPERMERCADO','DESECHO'].map(opt => (
+                                                            <SelectItem key={opt} value={opt}>{opt}</SelectItem>
+                                                        ))}
+                                                    </SelectContent>
+                                                </Select>
                                             </div>
                                             <div>
                                                 <Label htmlFor="destino">
@@ -852,24 +843,17 @@ export default function Index({
                                                     }
                                                 />
                                             </div>
-                                            <div>
-                                                <Label htmlFor="color_fondo">
-                                                    Color de Fondo
-                                                </Label>
-                                                <Input
-                                                    id="color_fondo"
-                                                    type="text"
-                                                    value={
-                                                        qualityData.color_fondo
-                                                    }
-                                                    onChange={(e) =>
-                                                        setQualityData(
-                                                            "color_fondo",
-                                                            e.target.value
-                                                        )
-                                                    }
-                                                />
-                                            </div>
+                                            {!isCherries(selectedProceso) && (
+                                                <div>
+                                                    <Label htmlFor="color_fondo">Color de Fondo</Label>
+                                                    <Input
+                                                        id="color_fondo"
+                                                        type="text"
+                                                        value={qualityData.color_fondo}
+                                                        onChange={(e) => setQualityData('color_fondo', e.target.value)}
+                                                    />
+                                                </div>
+                                            )}
                                         </div>
                                         <div>
                                             <Label htmlFor="t_muestra">
@@ -945,10 +929,8 @@ export default function Index({
                                                             "parametro_id",
                                                             value
                                                         );
-                                                        setDetailData(
-                                                            "valor_id",
-                                                            ""
-                                                        );
+                                                    setDetailData("valor_id", "");
+                                                    setDetailData("valor_text", "");
                                                     }}
                                                     value={
                                                         detailData.parametro_id
@@ -1152,7 +1134,7 @@ export default function Index({
                                     </form>
                                 </TabsContent>
 
-                                
+
 
                                 {/* Curva de Calibre tab removed */}
                                 {/* <TabsContent value="curva-calibre">
@@ -1424,49 +1406,15 @@ export default function Index({
                                                     </SelectContent>
                                                 </Select>
                                             </div>
-                                            <div>
-                                                <Label htmlFor="valor_id_im">
-                                                    Valor
-                                                </Label>
-                                                <Select
-                                                    onValueChange={(value) =>
-                                                        setDetailData(
-                                                            "valor_id",
-                                                            value
-                                                        )
-                                                    }
-                                                    value={detailData.valor_id}
-                                                >
-                                                    <SelectTrigger className="w-full">
-                                                        <SelectValue placeholder="Seleccionar Valor" />
-                                                    </SelectTrigger>
-                                                    <SelectContent>
-                                                        {parametros
-                                                            .find(
-                                                                (p) =>
-                                                                    p.id ===
-                                                                    parseInt(
-                                                                        detailData.parametro_id
-                                                                    )
-                                                            )
-                                                            ?.valors.map(
-                                                                (valor) => (
-                                                                    <SelectItem
-                                                                        key={
-                                                                            valor.id
-                                                                        }
-                                                                        value={String(
-                                                                            valor.id
-                                                                        )}
-                                                                    >
-                                                                        {
-                                                                            valor.nombre
-                                                                        }
-                                                                    </SelectItem>
-                                                                )
-                                                            )}
-                                                    </SelectContent>
-                                                </Select>
+                                            <div style={{ display: 'none' }}>
+                                                <Label htmlFor="valor_text_im">Valor</Label>
+                                                <Input
+                                                    id="valor_text_im"
+                                                    type="text"
+                                                    value={detailData.valor_text}
+                                                    onChange={(e) => setDetailData('valor_text', e.target.value)}
+                                                    placeholder="Ingrese valor"
+                                                />
                                             </div>
                                         </div>
                                         <div className="grid grid-cols-2 gap-4 mt-4">
@@ -1489,7 +1437,7 @@ export default function Index({
                                                 />
                                             </div>
                                             <div>
-                                                <Label htmlFor="valor_presion_im">°Brix</Label>
+                                            <Label htmlFor="valor_presion_im">Promedio Brix</Label>
                                                 <Input
                                                     id="valor_presion_im"
                                                     type="number"
@@ -1532,6 +1480,9 @@ export default function Index({
                                                             </TableHead>
                                                             <TableHead>
                                                                 Valor SS
+                                                            </TableHead>
+                                                             <TableHead>
+                                                                Promedio Brix
                                                             </TableHead>
                                                         </TableRow>
                                                     </TableHeader>

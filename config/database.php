@@ -125,6 +125,20 @@ return [
             // 'encrypt' => env('DB_ENCRYPT', 'yes'),
             'trust_server_certificate' => env('DB_TRUST_SERVER_CERTIFICATE', 'true'),
         ],
+        'unitec' => [
+            'driver' => 'sqlsrv',
+            'url' => env('UNITEC_DB_URL'),
+            'host' => env('UNITEC_DB_HOST', '192.168.0.9'),
+            'port' => env('UNITEC_DB_PORT', '1433'),
+            'database' => env('UNITEC_DB_DATABASE', 'UNITEC_DB'),
+            'username' => env('UNITEC_DB_USERNAME', 'fx'),
+            'password' => env('UNITEC_DB_PASSWORD', 'Primet3c1'),
+            'charset' => 'utf8',
+            'prefix' => '',
+            'prefix_indexes' => true,
+            // 'encrypt' => env('DB_ENCRYPT', 'yes'),
+            'trust_server_certificate' => env('DB_TRUST_SERVER_CERTIFICATE', 'true'),
+        ],
 
     ],
 

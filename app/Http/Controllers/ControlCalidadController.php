@@ -16,6 +16,7 @@ use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Facades\Log;
+use Illuminate\Support\Facades\Storage;
 use Inertia\Inertia;
 use Spatie\Browsershot\Browsershot;
 
@@ -1299,6 +1300,7 @@ class ControlCalidadController extends Controller
         $solubleSolids = QualityChartsService::getSolidosSolublesData($receptions);
         $coverageColor = QualityChartsService::getColorCubrimientoData($receptions);
 
+        $isPreview = false;
         $html = view('reports.reception_report', compact(
             'recepcion',
             'temperatura_pulpa',
@@ -1310,7 +1312,8 @@ class ControlCalidadController extends Controller
             'coverageColor',
             'averageFirmness',
             'firmnessDistribution',
-            'solubleSolids'
+            'solubleSolids',
+            'isPreview'
         ))->render();
 
         try {
@@ -1391,6 +1394,7 @@ class ControlCalidadController extends Controller
         $solubleSolids = \App\Services\QualityChartsService::getSolidosSolublesData($receptions);
         $coverageColor = \App\Services\QualityChartsService::getColorCubrimientoData($receptions);
 
+        $isPreview = false; // HTML-only (no preview controls); used inside iframe
         return view('reports.reception_report', compact(
             'recepcion',
             'temperatura_pulpa',
@@ -1402,7 +1406,116 @@ class ControlCalidadController extends Controller
             'coverageColor',
             'averageFirmness',
             'firmnessDistribution',
-            'solubleSolids'
+            'solubleSolids',
+            'isPreview'
         ));
+    }
+
+    public function previewPage(Recepcion $recepcion)
+    {
+        return Inertia::render('ControlCalidad/Preview', [
+            'recepcionId' => $recepcion->id,
+            'numero' => $recepcion->numero_g_recepcion,
+            'approved' => (bool) $recepcion->informe,
+            'informeUrl' => $recepcion->informe,
+            'htmlUrl' => route('control-calidad.preview-report-html', $recepcion->id),
+            'approveUrl' => route('control-calidad.approve-report', $recepcion->id),
+            'generateUrl' => route('control-calidad.generate-report', $recepcion->id),
+        ]);
+    }
+
+    public function approveReport(Recepcion $recepcion)
+    {
+        $calidad = $recepcion->calidad;
+
+        $temperatura_pulpa = null;
+        $porcentaje_exportable = 100;
+        $defectos_calidad_sum = 0;
+        $defectos_condicion_sum = 0;
+        $danos_plaga_sum = 0;
+
+        if ($calidad) {
+            $temperatura_pulpa_detalle = $calidad->detalles()->where('tipo_detalle', 'ss')->first();
+            if ($temperatura_pulpa_detalle) {
+                $temperatura_pulpa = $temperatura_pulpa_detalle->temperatura;
+            }
+
+            $defectos_calidad_sum = $calidad->detalles()
+                ->where('tipo_item', 'DEFECTOS DE CALIDAD')
+                ->sum('porcentaje_muestra');
+            $defectos_condicion_sum = $calidad->detalles()
+                ->where('tipo_item', 'DEFECTOS DE CONDICION')
+                ->sum('porcentaje_muestra');
+            $danos_plaga_sum = $calidad->detalles()
+                ->where('tipo_item', 'DAÑOS DE PLAGA')
+                ->sum('porcentaje_muestra');
+
+            $total_defectos_sum = $defectos_calidad_sum + $defectos_condicion_sum + $danos_plaga_sum;
+            $porcentaje_exportable = max(0, 100 - $total_defectos_sum);
+        }
+
+        $receptions = collect([$recepcion]);
+        $sizeDistribution = QualityChartsService::getSizeDistributionData($receptions);
+        $averageFirmness = QualityChartsService::getPromedioFirmezasData($receptions);
+        $firmnessDistribution = QualityChartsService::getDistribucionFirmezasData($receptions);
+        $solubleSolids = QualityChartsService::getSolidosSolublesData($receptions);
+        $coverageColor = QualityChartsService::getColorCubrimientoData($receptions);
+
+        $isPreview = false; // render without preview-only controls
+        $html = view('reports.reception_report', compact(
+            'recepcion',
+            'temperatura_pulpa',
+            'porcentaje_exportable',
+            'defectos_calidad_sum',
+            'defectos_condicion_sum',
+            'danos_plaga_sum',
+            'sizeDistribution',
+            'coverageColor',
+            'averageFirmness',
+            'firmnessDistribution',
+            'solubleSolids',
+            'isPreview'
+        ))->render();
+
+        try {
+            $pdfRelative = 'reporte_recepcion_' . $recepcion->numero_g_recepcion . '.pdf';
+            $pdfPath = storage_path('app/public/' . $pdfRelative);
+            $tmpDir = storage_path('app/browsershot-temp');
+
+            if (! is_dir($tmpDir)) {
+                mkdir($tmpDir, 0755, true);
+            }
+
+            Browsershot::html($html)
+                ->setTemporaryDirectory($tmpDir)
+                ->setOption('headless', true)
+                ->noSandbox()
+                ->addChromiumArguments([
+                    '--no-sandbox',
+                    '--disable-dev-shm-usage',
+                    '--disable-gpu',
+                    '--font-render-hinting=none',
+                    '--headless=new',
+                ])
+                ->waitUntilNetworkIdle()
+                ->wait(15)
+                ->setViewport(1920, 1080)
+                ->landscape(false)
+                ->showBackground()
+                ->savePdf($pdfPath);
+
+            // Save public URL in recepcion->informe so Index can show direct link
+            $publicUrl = asset('storage/' . $pdfRelative);
+            $recepcion->informe = $publicUrl;
+            $recepcion->save();
+
+            return response()->json([
+                'status' => 'approved',
+                'url' => $publicUrl,
+            ]);
+        } catch (\Exception $e) {
+            Log::error('Approve report error: ' . $e->getMessage());
+            return response()->json(['status' => 'error', 'message' => $e->getMessage()], 500);
+        }
     }
 }

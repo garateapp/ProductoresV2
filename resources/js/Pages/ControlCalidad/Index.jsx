@@ -521,7 +521,7 @@ export default function Index({ recepciones, especies, variedades = [], filters,
                         </Button>
                       </a>
 
-                      {/* Ver Informe (PDF generado si existe en recepcion.informe; si no, usa generate) */}
+                      {/* Ver Informe: habilitado solo si está aprobado (informe) */}
                       {recepcion.informe ? (
                         <a href={recepcion.informe} target="_blank" rel="noopener noreferrer" title="Ver Informe">
                           <Button variant="ghost" size="icon">
@@ -529,29 +529,28 @@ export default function Index({ recepciones, especies, variedades = [], filters,
                           </Button>
                         </a>
                       ) : (
+                        <Button variant="ghost" size="icon" disabled title="Ver Informe (no aprobado)">
+                          <FileText className="h-4 w-4" />
+                        </Button>
+                      )}
+
+                      {/* Reenviar (misma lógica que Ver Informe: solo habilitado cuando aprobado) */}
+                      {recepcion.informe ? (
                         <a
                           href={route('control-calidad.generate-report', recepcion.id)}
                           target="_blank"
                           rel="noopener noreferrer"
-                          title="Ver Informe"
+                          title="Reenviar"
                         >
                           <Button variant="ghost" size="icon">
-                            <FileText className="h-4 w-4" />
+                            <Send className="h-4 w-4" />
                           </Button>
                         </a>
-                      )}
-
-                      {/* Reenviar (regenerar/reenviar) */}
-                      <a
-                        href={route('control-calidad.generate-report', recepcion.id)}
-                        target="_blank"
-                        rel="noopener noreferrer"
-                        title="Reenviar"
-                      >
-                        <Button variant="ghost" size="icon">
+                      ) : (
+                        <Button variant="ghost" size="icon" disabled title="Reenviar (no aprobado)">
                           <Send className="h-4 w-4" />
                         </Button>
-                      </a>
+                      )}
                     </div>
                   </TableCell>
                 </TableRow>
