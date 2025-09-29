@@ -62,9 +62,13 @@ Route::middleware('auth')->group(function () {
     Route::get('processed-fruit-quality', [App\Http\Controllers\ProcessedFruitQualityController::class, 'index'])->name('processed-fruit-quality.index');
     Route::post('processed-fruit-quality/quality', [App\Http\Controllers\ProcessedFruitQualityController::class, 'storeQuality'])->name('processed-fruit-quality.storeQuality');
     Route::post('processed-fruit-quality/detail', [App\Http\Controllers\ProcessedFruitQualityController::class, 'storeDetail'])->name('processed-fruit-quality.storeDetail');
+    Route::patch('processed-fruit-quality/{quality}/tolerance', [App\Http\Controllers\ProcessedFruitQualityController::class, 'updateToleranceLabel'])->name('processed-fruit-quality.updateTolerance');
+    Route::patch('processed-fruit-quality/{quality}/status', [App\Http\Controllers\ProcessedFruitQualityController::class, 'updateStatus'])->name('processed-fruit-quality.updateStatus');
     Route::get('processed-fruit-quality/{proceso}/quality', [App\Http\Controllers\ProcessedFruitQualityController::class, 'getQuality'])->name('processed-fruit-quality.getQuality');
     Route::get('processed-fruit-quality/{proceso}/details', [App\Http\Controllers\ProcessedFruitQualityController::class, 'getDetails'])->name('processed-fruit-quality.getDetails');
     Route::get('processed-fruit-quality/export', [App\Http\Controllers\ProcessedFruitQualityController::class, 'export'])->name('processed-fruit-quality.export');
+    Route::get('processed-fruit-quality/{proceso}/report', [App\Http\Controllers\ProcessedFruitQualityController::class, 'generateReport'])->name('processed-fruit-quality.generate-report');
+    Route::get('processed-fruit-quality/{proceso}/report/preview', [App\Http\Controllers\ProcessedFruitQualityController::class, 'previewReport'])->name('processed-fruit-quality.preview-report');
 
     Route::post('producers/{producer}/agronomists', [App\Http\Controllers\ProducerAgronomistController::class, 'store'])->name('producers.agronomists.store');
     Route::delete('producers/{producer}/agronomists', [App\Http\Controllers\ProducerAgronomistController::class, 'destroy'])->name('producers.agronomists.destroy');

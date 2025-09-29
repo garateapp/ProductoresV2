@@ -11,7 +11,7 @@ import {
     TableRow,
 } from "@/Components/ui/table";
 import { Input } from "@/Components/ui/input";
-import { FileText, Trash2, UploadCloud } from "lucide-react";
+import { FileText, Trash2, UploadCloud, Eye, Send } from "lucide-react";
 import {
     Dialog,
     DialogContent,
@@ -109,6 +109,8 @@ export default function Index({
         peso_exacto_caja: "",
         codigo_embalaje: "",
         categoria: "",
+        tolerance_label: '1S',
+        estado: 'Aprobada',
         destino: "",
         calibre: "",
         color_cubrimiento: "",
@@ -141,6 +143,82 @@ export default function Index({
         const id = proceso?.especie_id ?? proceso?.id_especie;
         return name.includes('cherr') || id === 7;
     }, []);
+
+    // --- Tolerancias por defecto (por categoría) ---
+    const [toleranceLabel, setToleranceLabel] = useState('1S'); // Etiqueta de evaluación: 1S | 1-2 | 3 | 4
+    const CATEGORY_MAP = {
+        'CAT 1': '1S',
+        'CAT 2': '1-2',
+        'COMERCIAL': '3',
+        'SUPERMERCADO': '3',
+        'VEGA': '3',
+        'DESECHO': '4',
+    };
+
+    const TOLERANCES = {
+        CONDICION: {
+            // nombre canonico -> { '1S': n, '1-2': n, '3': n, '4': n }
+            'PUDRICIONES PARDAS': { '1S': 0, '1-2': 0, '3': 0, '4': 0 },
+            'PUDRICIONES NEGRAS': { '1S': 0, '1-2': 0, '3': 0, '4': 0 },
+            'DANO PAJARO': { '1S': 0, '1-2': 0, '3': 0, '4': 0 },
+            'PEDICELOS DESHIDRATADOS': { '1S': 0, '1-2': 0, '3': 0, '4': 0 },
+            'HERIDAS ABIERTAS': { '1S': 0, '1-2': 1, '3': 1, '4': 1 },
+            'SUTURA ABIERTA': { '1S': 2, '1-2': 2, '3': 4, '4': 6 },
+            'FRUTA BLANDA': { '1S': 0, '1-2': 4, '3': 6, '4': 10 },
+            'PITTING': { '1S': 4, '1-2': 6, '3': 6, '4': 12 },
+            'MACHUCONES': { '1S': 2, '1-2': 5, '3': 7, '4': 10 },
+            'HOMBROS BLANDOS': { '1S': 4, '1-2': 6, '3': 6, '4': 12 },
+        },
+        CALIDAD: {
+            'DESHIDRATACION DE FRUTO': { '1S': 0, '1-2': 0, '3': 2, '4': 4 },
+            'RESIDUO QUIMICO': { '1S': 0, '1-2': 0, '3': 0, '4': 0 },
+            'POLVO / TIERRA': { '1S': 0, '1-2': 0, '3': 0, '4': 0 },
+            'FRUTO DEFORME / DOBLE': { '1S': 2, '1-2': 4, '3': 6, '4': 8 },
+            'MANCHAS / RUSSET': { '1S': 4, '1-2': 4, '3': 6, '4': 8 },
+            'DANO TRIPS (MANCHA DORADA)': { '1S': 4, '1-2': 4, '3': 6, '4': 8 },
+            'PARTIDURA / MEDIA LUNA': { '1S': 4, '1-2': 8, '3': 10, '4': 15 },
+            'HERIDAS CICATRIZADAS': { '1S': 4, '1-2': 4, '3': 6, '4': 8 },
+        },
+        TOTAL: {
+            CONDICION: { '1S': 4, '1-2': 6, '3': 7, '4': 12 },
+            CALIDAD: { '1S': 8, '1-2': 10, '3': 10, '4': 15 },
+        }
+    };
+
+    const normalizeText = (s = '') => {
+        let t = String(s).toUpperCase();
+        const map = { 'Á':'A','É':'E','Í':'I','Ó':'O','Ú':'U','Ü':'U','Ñ':'N' };
+        t = t.replace(/[ÁÉÍÓÚÜÑ]/g, c => map[c] || c);
+        t = t.replace(/\s+\(.*?\)/g, ''); // remove parentheses like (<65 UD) or (B*)
+        t = t.replace(/\s+/g, ' ').trim();
+        return t;
+    };
+
+    const mapToCanonicalDefect = (raw = '') => {
+        const t = normalizeText(raw);
+        // coarse contains mappings
+        if (t.includes('PUDRICION') && t.includes('PARDA')) return 'PUDRICIONES PARDAS';
+        if (t.includes('PUDRICION') && t.includes('NEGRA')) return 'PUDRICIONES NEGRAS';
+        if (t.includes('PAJAR')) return 'DANO PAJARO';
+        if (t.includes('PEDICEL') && t.includes('DESHIDRA')) return 'PEDICELOS DESHIDRATADOS';
+        if (t.includes('HERIDA') && t.includes('ABIERTA')) return 'HERIDAS ABIERTAS';
+        if (t.includes('SUTURA') && t.includes('ABIERTA')) return 'SUTURA ABIERTA';
+        if (t.includes('FRUTA BLANDA')) return 'FRUTA BLANDA';
+        if (t.includes('PITTING')) return 'PITTING';
+        if (t.includes('MACHU')) return 'MACHUCONES';
+        if (t.includes('HOMBRO') && t.includes('BLANDO')) return 'HOMBROS BLANDOS';
+        if (t.includes('DESHIDRAT') && t.includes('FRUTO')) return 'DESHIDRATACION DE FRUTO';
+        if (t.includes('RESIDUO') && t.includes('QUIM')) return 'RESIDUO QUIMICO';
+        if ((t.includes('POLVO') || t.includes('TIERRA'))) return 'POLVO / TIERRA';
+        if ((t.includes('DEFORME') || t.includes('DOBLE'))) return 'FRUTO DEFORME / DOBLE';
+        if (t.includes('RUSSET') || t.includes('MANCHA') && !t.includes('TRIPS')) return 'MANCHAS / RUSSET';
+        if (t.includes('TRIPS') || t.includes('DORADA')) return 'DANO TRIPS (MANCHA DORADA)';
+        if (t.includes('PARTIDURA') || t.includes('MEDIA LUNA')) return 'PARTIDURA / MEDIA LUNA';
+        if (t.includes('CICATRIZ')) return 'HERIDAS CICATRIZADAS';
+        return t; // fallback
+    };
+
+    // Auto-aprobar o rechazar según tolerancias acumuladas (movido más abajo para evitar TDZ)
 
     const {
         data: detailData,
@@ -184,6 +262,56 @@ export default function Index({
     const [indiceMadurezAgregados, setIndiceMadurezAgregados] = useState([]);
     const [photos, setPhotos] = useState([]);
 
+    // Auto-aprobar o rechazar según tolerancias acumuladas
+    useEffect(() => {
+        try {
+            const catKey = (toleranceLabel || qualityData.tolerance_label) || (CATEGORY_MAP[normalizeText(qualityData.categoria || '')] || '1S');
+            const byDefect = { CONDICION: {}, CALIDAD: {} };
+            let sumCond = 0; let sumCal = 0;
+            (defectosAgregados || []).forEach(d => {
+                const tipo = normalizeText(d.tipo_item || '');
+                const det = mapToCanonicalDefect(d.detalle_item || '');
+                const val = Number(d.porcentaje_muestra) || 0;
+                const group = tipo.includes('CONDIC') ? 'CONDICION' : (tipo.includes('CALID') ? 'CALIDAD' : null);
+                if (!group) return;
+                byDefect[group][det] = (byDefect[group][det] || 0) + val;
+                if (group === 'CONDICION') sumCond += val; else sumCal += val;
+            });
+            const totAllowedCond = TOLERANCES.TOTAL.CONDICION[catKey];
+            const totAllowedCal = TOLERANCES.TOTAL.CALIDAD[catKey];
+            const overTotalCond = sumCond > totAllowedCond;
+            const overTotalCal = sumCal > totAllowedCal;
+            let anyOver = overTotalCond || overTotalCal;
+            if (!anyOver) {
+                for (const [name, val] of Object.entries(byDefect.CONDICION)) {
+                    const tol = TOLERANCES.CONDICION[name]?.[catKey];
+                    if (tol != null && val > tol) { anyOver = true; break; }
+                }
+            }
+            if (!anyOver) {
+                for (const [name, val] of Object.entries(byDefect.CALIDAD)) {
+                    const tol = TOLERANCES.CALIDAD[name]?.[catKey];
+                    if (tol != null && val > tol) { anyOver = true; break; }
+                }
+            }
+            const computed = anyOver ? 'Rechazada' : 'Aprobada';
+            if (qualityData.estado !== computed) {
+                setQualityData('estado', computed);
+                if (qualityId) {
+                    fetch(route('processed-fruit-quality.updateStatus', qualityId), {
+                        method: 'PATCH',
+                        headers: {
+                            'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]').getAttribute('content'),
+                            'Accept': 'application/json',
+                            'Content-Type': 'application/json',
+                        },
+                        body: JSON.stringify({ estado: computed })
+                    }).then((r) => { if (r.ok) router.reload({ only: ['procesos'] }); }).catch(() => {});
+                }
+            }
+        } catch (e) { /* noop */ }
+    }, [defectosAgregados, toleranceLabel, qualityId, qualityData.tolerance_label, qualityData.categoria]);
+
     const fetchQualityData = useCallback(
         async (proceso, qualityIdToFetch = null) => {
             if (!proceso) return;
@@ -210,6 +338,9 @@ export default function Index({
                     setQualityData(transformedQuality);
                     setQualityId(existingQuality.id);
                     setPhotos(existingQuality.photos || []);
+                    if (existingQuality.tolerance_label) {
+                        setToleranceLabel(existingQuality.tolerance_label);
+                    }
                 }
 
                 // Fetch details too
@@ -587,6 +718,58 @@ export default function Index({
                                                 }`}
                                             />
                                         </div>
+                                        <div className="flex items-center gap-2">
+                                            {/* Previsualizar reporte */}
+                                            <a
+                                                href={route('processed-fruit-quality.preview-report', proceso.id)}
+                                                target="_blank"
+                                                rel="noopener noreferrer"
+                                                title="Previsualizar Informe"
+                                                onClick={(e) => e.stopPropagation()}
+                                            >
+                                                <Button variant="ghost" size="icon">
+                                                    <Eye className="h-4 w-4" />
+                                                </Button>
+                                            </a>
+                                            {/* Ver Informe: si ya existe URL usarla; si no, generar */}
+                                            {proceso.informe ? (
+                                                <a
+                                                    href={proceso.informe}
+                                                    target="_blank"
+                                                    rel="noopener noreferrer"
+                                                    title="Ver Informe"
+                                                    onClick={(e) => e.stopPropagation()}
+                                                >
+                                                    <Button variant="ghost" size="icon">
+                                                        <FileText className="h-4 w-4" />
+                                                    </Button>
+                                                </a>
+                                            ) : (
+                                                <a
+                                                    href={route('processed-fruit-quality.generate-report', proceso.id)}
+                                                    target="_blank"
+                                                    rel="noopener noreferrer"
+                                                    title="Ver Informe"
+                                                    onClick={(e) => e.stopPropagation()}
+                                                >
+                                                    <Button variant="ghost" size="icon">
+                                                        <FileText className="h-4 w-4" />
+                                                    </Button>
+                                                </a>
+                                            )}
+                                            {/* Reenviar / Regenerar */}
+                                            <a
+                                                href={route('processed-fruit-quality.generate-report', proceso.id)}
+                                                target="_blank"
+                                                rel="noopener noreferrer"
+                                                title="Reenviar Informe"
+                                                onClick={(e) => e.stopPropagation()}
+                                            >
+                                                <Button variant="ghost" size="icon">
+                                                    <Send className="h-4 w-4" />
+                                                </Button>
+                                            </a>
+                                        </div>
                                     </CardHeader>
                                 </CollapsibleTrigger>
                                 <CollapsibleContent>
@@ -712,16 +895,51 @@ export default function Index({
                     <Dialog open={isModalOpen} onOpenChange={setIsModalOpen}>
                         <DialogContent className="max-w-5xl max-h-[90vh] overflow-y-auto">
                             <DialogHeader>
-                                <DialogTitle>
-                                    Evaluación de Calidad para Proceso N°:{" "}
-                                    {selectedProceso.n_proceso}
-                                </DialogTitle>
-                                <DialogDescription>
-                                    <p>
-                                        <strong>Variedad:</strong>{" "}
-                                        {selectedProceso.variedad}
-                                    </p>
-                                </DialogDescription>
+                                <div className="flex items-start justify-between gap-4">
+                                    <div>
+                                        <DialogTitle>
+                                            Evaluación de Calidad para Proceso N°: {selectedProceso.n_proceso}
+                                        </DialogTitle>
+                                        <DialogDescription>
+                                            <p><strong>Variedad:</strong> {selectedProceso.variedad}</p>
+                                            <p className="text-xs text-gray-500">ID evaluación: {qualityId || '—'}</p>
+                                        </DialogDescription>
+                                    </div>
+                                    <div className="flex items-center gap-2 pt-1">
+                                        <Label htmlFor="estado_switch" className="whitespace-nowrap">
+                                            {qualityData.estado === 'Aprobada' ? 'Aprobada' : 'Rechazada'}
+                                        </Label>
+                                        <Switch
+                                            id="estado_switch"
+                                            checked={qualityData.estado === 'Aprobada'}
+                                            onCheckedChange={async (val) => {
+                                                const nuevo = val ? 'Aprobada' : 'Rechazada';
+                                                setQualityData('estado', nuevo);
+                                                if (qualityId) {
+                                                    try {
+                                                        const resp = await fetch(route('processed-fruit-quality.updateStatus', qualityId), {
+                                                            method: 'PATCH',
+                                                            headers: {
+                                                                'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]').getAttribute('content'),
+                                                                'Accept': 'application/json',
+                                                                'Content-Type': 'application/json',
+                                                            },
+                                                            body: JSON.stringify({ estado: nuevo }),
+                                                        });
+                                                        if (resp.ok) {
+                                                            router.reload({ only: ['procesos'] });
+                                                        }
+                                                    } catch (err) {
+                                                        console.error('No se pudo actualizar el estado', err);
+                                                        toast.error('No se pudo actualizar el estado');
+                                                    }
+                                                } else {
+                                                    toast.message('El estado se guardará al crear la evaluación.');
+                                                }
+                                            }}
+                                        />
+                                    </div>
+                                </div>
                             </DialogHeader>
 
                             <Tabs
@@ -749,19 +967,7 @@ export default function Index({
                                         onSubmit={submitQuality}
                                         className="space-y-4 mt-4"
                                     >
-                                        <div className="flex items-center justify-between">
-                                            <div className="text-sm text-gray-600">
-                                                Estado de Evaluación
-                                            </div>
-                                            <div className="flex items-center gap-2">
-                                                <Label htmlFor="estado_switch">{qualityData.estado === 'Aprobada' ? 'Aprobada' : 'Rechazada'}</Label>
-                                                <Switch
-                                                    id="estado_switch"
-                                                    checked={qualityData.estado === 'Aprobada'}
-                                                    onCheckedChange={(val) => setQualityData('estado', val ? 'Aprobada' : 'Rechazada')}
-                                                />
-                                            </div>
-                                        </div>
+                                        {/* Estado movido al encabezado */}
                                         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                                             <div>
                                                 <Label htmlFor="numero_de_caja">
@@ -984,6 +1190,26 @@ export default function Index({
                                         onSubmit={submitDetail}
                                         className="space-y-4 mt-4"
                                     >
+                                        {/* Selector de etiqueta (categoría de tolerancia) */}
+                                        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                                            <div>
+                                                <Label htmlFor="tolerance_label">Etiqueta de tolerancia</Label>
+                                                <Select
+                                                    value={toleranceLabel}
+                                                    onValueChange={(value) => setToleranceLabel(value)}
+                                                >
+                                                    <SelectTrigger className="w-full">
+                                                        <SelectValue placeholder="Seleccionar etiqueta" />
+                                                    </SelectTrigger>
+                                                    <SelectContent>
+                                                        {['1S','1-2','3','4'].map(opt => (
+                                                            <SelectItem key={opt} value={opt}>{opt}</SelectItem>
+                                                        ))}
+                                                    </SelectContent>
+                                                </Select>
+                                            </div>
+                                        </div>
+
                                         <div className="grid grid-cols-2 gap-4">
                                             <div>
                                                 <Label htmlFor="parametro_id">
@@ -1134,6 +1360,84 @@ export default function Index({
                                         >
                                             Agregar Defecto
                                         </Button>
+                                        {/* Indicador de Tolerancias / Score */}
+                                        {(() => {
+                                            const catKey = toleranceLabel || (CATEGORY_MAP[normalizeText(qualityData.categoria || '')] || '1S');
+                                            const byDefect = {};
+                                            let sumCond = 0; let sumCal = 0;
+                                            defectosAgregados.forEach(d => {
+                                                const tipo = normalizeText(d.tipo_item || '');
+                                                const det = mapToCanonicalDefect(d.detalle_item || '');
+                                                const val = Number(d.porcentaje_muestra) || 0;
+                                                const group = tipo.includes('CONDIC') ? 'CONDICION' : (tipo.includes('CALID') ? 'CALIDAD' : null);
+                                                if (!group) return;
+                                                byDefect[group] = byDefect[group] || {};
+                                                byDefect[group][det] = (byDefect[group][det] || 0) + val;
+                                                if (group === 'CONDICION') sumCond += val; else sumCal += val;
+                                            });
+                                            const totAllowedCond = TOLERANCES.TOTAL.CONDICION[catKey];
+                                            const totAllowedCal = TOLERANCES.TOTAL.CALIDAD[catKey];
+                                            const overTotalCond = sumCond > totAllowedCond;
+                                            const overTotalCal = sumCal > totAllowedCal;
+                                            return (
+                                                <div className="mt-4 space-y-2">
+                                                    <div className="text-sm text-gray-600">Categoría seleccionada: <span className="font-semibold">{catKey}</span></div>
+                                                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                                                        <div className={`border rounded p-3 ${overTotalCond ? 'border-red-500 bg-red-50' : 'border-gray-200 bg-white'}`}>
+                                                            <div className="font-semibold mb-2">Defectos de Condición</div>
+                                                            <div className="text-sm mb-2">Total: {sumCond.toFixed(2)}% / Permitido: {totAllowedCond}%</div>
+                                                            <div className="max-h-40 overflow-auto">
+                                                                <table className="w-full text-sm">
+                                                                    <thead>
+                                                                        <tr className="text-gray-500"><th className="text-left">Defecto</th><th className="text-right">Acum.</th><th className="text-right">Tol.</th></tr>
+                                                                    </thead>
+                                                                    <tbody>
+                                                                        {Object.entries(byDefect.CONDICION || {}).map(([name, val]) => {
+                                                                            const tol = TOLERANCES.CONDICION[name]?.[catKey];
+                                                                            const over = tol != null && val > tol;
+                                                                            const near = tol != null && !over && val > 0.9 * tol;
+                                                                            return (
+                                                                                <tr key={`cond-${name}`} className={`${over ? 'text-red-600' : near ? 'text-amber-600' : ''}`}>
+                                                                                    <td>{name}</td>
+                                                                                    <td className="text-right">{val.toFixed(2)}%</td>
+                                                                                    <td className="text-right">{tol != null ? `${tol}%` : '—'}</td>
+                                                                                </tr>
+                                                                            );
+                                                                        })}
+                                                                    </tbody>
+                                                                </table>
+                                                            </div>
+                                                        </div>
+                                                        <div className={`border rounded p-3 ${overTotalCal ? 'border-red-500 bg-red-50' : 'border-gray-200 bg-white'}`}>
+                                                            <div className="font-semibold mb-2">Defectos de Calidad</div>
+                                                            <div className="text-sm mb-2">Total: {sumCal.toFixed(2)}% / Permitido: {totAllowedCal}%</div>
+                                                            <div className="max-h-40 overflow-auto">
+                                                                <table className="w-full text-sm">
+                                                                    <thead>
+                                                                        <tr className="text-gray-500"><th className="text-left">Defecto</th><th className="text-right">Acum.</th><th className="text-right">Tol.</th></tr>
+                                                                    </thead>
+                                                                    <tbody>
+                                                                        {Object.entries(byDefect.CALIDAD || {}).map(([name, val]) => {
+                                                                            const tol = TOLERANCES.CALIDAD[name]?.[catKey];
+                                                                            const over = tol != null && val > tol;
+                                                                            const near = tol != null && !over && val > 0.9 * tol;
+                                                                            return (
+                                                                                <tr key={`cal-${name}`} className={`${over ? 'text-red-600' : near ? 'text-amber-600' : ''}`}>
+                                                                                    <td>{name}</td>
+                                                                                    <td className="text-right">{val.toFixed(2)}%</td>
+                                                                                    <td className="text-right">{tol != null ? `${tol}%` : '—'}</td>
+                                                                                </tr>
+                                                                            );
+                                                                        })}
+                                                                    </tbody>
+                                                                </table>
+                                                            </div>
+                                                        </div>
+                                                    </div>
+                                                </div>
+                                            );
+                                        })()}
+
                                         {defectosAgregados.length > 0 && (
                                             <div className="mt-4 overflow-x-auto max-h-[200px] overflow-y-auto">
                                                 <h4 className="text-md font-medium mb-2">

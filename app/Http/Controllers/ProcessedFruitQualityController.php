@@ -14,6 +14,8 @@ use App\Models\Valor;
 use Illuminate\Http\Request;
 use Inertia\Inertia;
 use Maatwebsite\Excel\Facades\Excel;
+use Spatie\Browsershot\Browsershot;
+use Illuminate\Support\Facades\Log;
 
 class ProcessedFruitQualityController extends Controller
 {
@@ -73,6 +75,7 @@ class ProcessedFruitQualityController extends Controller
             'peso_exacto_caja' => 'nullable|numeric',
             'codigo_embalaje' => 'nullable|string|max:255',
             'categoria' => 'nullable|string|max:255',
+            'tolerance_label' => 'nullable|in:1S,1-2,3,4',
             'destino' => 'nullable|string|max:255',
             'calibre' => 'nullable|string|max:255',
             'color_cubrimiento' => 'nullable|string|max:255',
@@ -103,6 +106,26 @@ class ProcessedFruitQualityController extends Controller
         $quality = ProcessedFruitQuality::create($validated);
 
         return redirect()->back()->with('quality_id', $quality->id)->with('success', 'Calidad de proceso guardada exitosamente.');
+    }
+
+    public function updateToleranceLabel(ProcessedFruitQuality $quality, Request $request)
+    {
+        $data = $request->validate([
+            'tolerance_label' => 'required|in:1S,1-2,3,4',
+        ]);
+        $quality->tolerance_label = $data['tolerance_label'];
+        $quality->save();
+        return response()->json(['status' => 'ok']);
+    }
+
+    public function updateStatus(ProcessedFruitQuality $quality, Request $request)
+    {
+        $data = $request->validate([
+            'estado' => 'required|in:Aprobada,Rechazada',
+        ]);
+        $quality->estado = $data['estado'];
+        $quality->save();
+        return response()->json(['status' => 'ok', 'estado' => $quality->estado]);
     }
 
     public function storeDetail(Request $request)
@@ -263,5 +286,53 @@ class ProcessedFruitQualityController extends Controller
         $items = $query->get();
 
         return Excel::download(new ProcessedFruitQualityExport($items), 'processed-fruit-quality.xlsx');
+    }
+
+    public function previewReport(Proceso $proceso)
+    {
+        $proceso->load(['processedFruitQualities.details', 'processedFruitQualities.photos.photoType']);
+
+        return view('reports.processed_fruit_quality_report', [
+            'proceso' => $proceso,
+        ]);
+    }
+
+    public function generateReport(Proceso $proceso)
+    {
+        $proceso->load(['processedFruitQualities.details', 'processedFruitQualities.photos.photoType']);
+
+        $html = view('reports.processed_fruit_quality_report', compact('proceso'))->render();
+
+        try {
+            $pdfRelative = 'reporte_proceso_' . $proceso->n_proceso . '.pdf';
+            $pdfPath = storage_path('app/public/' . $pdfRelative);
+
+            Browsershot::html($html)
+                ->setTemporaryDirectory(storage_path('app/browsershot-temp'))
+                ->setOption('headless', true)
+                ->noSandbox()
+                ->addChromiumArguments([
+                    '--no-sandbox',
+                    '--disable-dev-shm-usage',
+                    '--disable-gpu',
+                    '--font-render-hinting=none',
+                    '--headless=new',
+                ])
+                ->waitUntilNetworkIdle()
+                ->wait(10)
+                ->setViewport(1920, 1080)
+                ->landscape(false)
+                ->showBackground()
+                ->savePdf($pdfPath);
+
+            // Opcional: guardar URL pública en proceso->informe
+            $proceso->informe = asset('storage/' . $pdfRelative);
+            $proceso->save();
+
+            return response()->file($pdfPath);
+        } catch (\Exception $e) {
+            Log::error('Browsershot (Proceso) error: ' . $e->getMessage());
+            throw $e;
+        }
     }
 }

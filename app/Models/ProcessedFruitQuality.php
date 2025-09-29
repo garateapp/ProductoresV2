@@ -23,6 +23,7 @@ class ProcessedFruitQuality extends Model
         'peso_exacto_caja',
         'codigo_embalaje',
         'categoria',
+        'tolerance_label',
         'destino',
         'calibre',
         'color_cubrimiento',

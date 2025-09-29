@@ -23,7 +23,7 @@ import AuthenticatedLayout from '@/Layouts/AuthenticatedLayout';
 export default function Index({ recepciones, especies, variedades = [], filters, isProducer, totalRecepciones, totalKilos = 0, parametros, photoTypes = [] }) {
   const getSpeciesBadgeClass = (name = '') => {
     const key = String(name).toLowerCase();
-    if (key.includes('cherr')) return 'bg-[#7F1F38] text-white'; // cereza oscuro
+    if (key.includes('cherries')) return 'bg-[#7F1F38] text-white'; // cereza oscuro
     if (key.includes('apple') || key.includes('manzana')) return 'bg-green-600 text-white';
     if (key.includes('pear') || key.includes('pera')) return 'bg-lime-600 text-white';
     if (key.includes('mandarin') || key.includes('mandarina')) return 'bg-orange-500 text-white';
