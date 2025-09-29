@@ -71,6 +71,16 @@ export default function Index({ recepciones, especies, variedades = [], filters,
     variedad_id: filters.variedad_id || '',
   });
 
+  const [photoTypesState, setPhotoTypesState] = useState(photoTypes || []);
+  useEffect(() => {
+    if (!photoTypes || photoTypes.length === 0) {
+      fetch(route('photo-types.all'))
+        .then(r => r.json())
+        .then(data => setPhotoTypesState(data || []))
+        .catch(() => setPhotoTypesState([]));
+    }
+  }, []);
+
   const { data: photoData, setData: setPhotoData, post: postPhoto, processing: processingPhoto, errors: errorsPhoto, reset: resetPhoto } = useForm({
     photo: null,
     photo_type_id: '',
@@ -808,7 +818,7 @@ export default function Index({ recepciones, especies, variedades = [], filters,
                             <Label htmlFor="photo_type_id">Tipo de Foto</Label>
                             <Select onValueChange={(value) => setPhotoData('photo_type_id', value)} value={photoData.photo_type_id}>
                                 <SelectTrigger><SelectValue placeholder="Seleccionar tipo..." /></SelectTrigger>
-                                <SelectContent>{photoTypes.map(type => (<SelectItem key={type.id} value={String(type.id)}>{type.name}</SelectItem>))}</SelectContent>
+                                <SelectContent>{photoTypesState.map(type => (<SelectItem key={type.id} value={String(type.id)}>{type.name}</SelectItem>))}</SelectContent>
                             </Select>
                             {errorsPhoto.photo_type_id && <p className="mt-1 text-sm text-red-600">{errorsPhoto.photo_type_id}</p>}
                           </div>

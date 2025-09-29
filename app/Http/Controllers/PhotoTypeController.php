@@ -8,6 +8,10 @@ use Inertia\Inertia;
 
 class PhotoTypeController extends Controller
 {
+    public function all()
+    {
+        return response()->json(PhotoType::all());
+    }
     public function index()
     {
         $photoTypes = PhotoType::latest()->paginate(10);

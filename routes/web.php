@@ -33,6 +33,7 @@ Route::middleware('auth')->group(function () {
     Route::post('roles/{role}/sync-permissions', [App\Http\Controllers\RoleController::class, 'syncPermissions'])->name('roles.syncPermissions');
     Route::resource('permissions', App\Http\Controllers\PermissionController::class)->names('permissions');
     Route::resource('photo-types', App\Http\Controllers\PhotoTypeController::class)->names('photo-types');
+    Route::get('photo-types-all', [App\Http\Controllers\PhotoTypeController::class, 'all'])->name('photo-types.all');
 
     Route::resource('producers', App\Http\Controllers\ProducerController::class)->names('producers');
     Route::post('producers/sync-active', [App\Http\Controllers\ProducerController::class, 'syncActive'])->name('producers.sync-active');

@@ -3,11 +3,13 @@
 namespace App\Http\Controllers;
 
 use App\Exports\ProcessedFruitQualityExport;
+use App\Models\Especie;
 use App\Models\Parametro;
 use App\Models\PhotoType;
 use App\Models\Proceso;
 use App\Models\ProcessedFruitQuality;
 use App\Models\ProcessedFruitQualityDetail;
+use App\Models\Variedad;
 use App\Models\Valor;
 use Illuminate\Http\Request;
 use Inertia\Inertia;
@@ -28,17 +30,37 @@ class ProcessedFruitQualityController extends Controller
             });
         }
 
+        // Species and variety filters
+        $variedades = collect();
+        if ($request->filled('especie_id')) {
+            $especie = Especie::find($request->input('especie_id'));
+            if ($especie) {
+                $query->where('especie', $especie->name);
+                $variedades = $especie->variedads;
+            }
+        }
+        if ($request->filled('variedad_id')) {
+            $variedad = Variedad::find($request->input('variedad_id'));
+            if ($variedad) {
+                $query->where('variedad', $variedad->name);
+            }
+        }
+
         $procesos = $query->with(['processedFruitQualities.details', 'processedFruitQualities.photos.photoType'])->paginate(10);
 
         $parametros = Parametro::with('valors')->get();
 
         $photoTypes = PhotoType::all();
 
+        $especies = Especie::all();
+
         return Inertia::render('ProcessedFruitQuality/Index', [
             'procesos' => $procesos,
-            'filters' => $request->only(['search']),
+            'filters' => $request->only(['search', 'especie_id', 'variedad_id']),
             'parametros' => $parametros,
             'photoTypes' => $photoTypes,
+            'especies' => $especies->toArray(),
+            'variedades' => $variedades,
         ]);
     }
 

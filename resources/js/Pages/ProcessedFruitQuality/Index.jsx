@@ -54,6 +54,8 @@ export default function Index({
     filters,
     parametros,
     photoTypes = [],
+    especies = [],
+    variedades = [],
 }) {
     console.log(parametros);
     const { flash } = usePage().props;
@@ -66,6 +68,39 @@ export default function Index({
             [procesoId]: !prev[procesoId],
         }));
     };
+
+    const [photoTypesState, setPhotoTypesState] = useState(photoTypes || []);
+    const { data: filterData, setData: setFilterData } = useForm({
+        search: filters.search || '',
+        especie_id: filters.especie_id || '',
+        variedad_id: filters.variedad_id || '',
+    });
+
+    const handleSearchChange = (e) => {
+        const value = e.target.value;
+        setFilterData('search', value);
+        router.get(route('processed-fruit-quality.index', { ...filterData, search: value }), { preserveState: true, replace: true });
+    };
+
+    const handleEspecieFilter = (especieId) => {
+        setFilterData('especie_id', especieId);
+        setFilterData('variedad_id', '');
+        router.get(route('processed-fruit-quality.index', { ...filterData, especie_id: especieId, variedad_id: '' }), { preserveState: true, replace: true });
+    };
+
+    const handleVariedadFilter = (variedadId) => {
+        setFilterData('variedad_id', variedadId);
+        router.get(route('processed-fruit-quality.index', { ...filterData, variedad_id: variedadId }), { preserveState: true, replace: true });
+    };
+
+    useEffect(() => {
+        if (!photoTypes || photoTypes.length === 0) {
+            fetch(route('photo-types.all'))
+                .then(r => r.json())
+                .then(data => setPhotoTypesState(data || []))
+                .catch(() => setPhotoTypesState([]));
+        }
+    }, []);
 
     const qualityFormState = useForm({
         proceso_id: null,
@@ -433,21 +468,52 @@ export default function Index({
         >
             <div className="container mx-auto py-10">
                 <Toaster richColors position="top-right" />
-                <div className="mb-4">
+                <div className="mb-4 flex flex-col md:flex-row justify-between items-center gap-4">
                     <Input
                         type="text"
                         placeholder="Buscar por N° Proceso, Especie o Variedad..."
-                        value={filters.search || ""}
-                        onChange={(e) =>
-                            router.get(
-                                route("processed-fruit-quality.index"),
-                                { search: e.target.value },
-                                { preserveState: true, replace: true }
-                            )
-                        }
+                        value={filterData.search}
+                        onChange={handleSearchChange}
                         className="max-w-sm"
                     />
+                    <div className="flex flex-wrap gap-2 items-center">
+                        <Button
+                            variant={filterData.especie_id === '' ? 'default' : 'outline'}
+                            onClick={() => handleEspecieFilter('')}
+                        >
+                            Todas las Especies
+                        </Button>
+                        {especies.map((especie) => (
+                            <Button
+                                key={especie.id}
+                                variant={filterData.especie_id === String(especie.id) ? 'default' : 'outline'}
+                                onClick={() => handleEspecieFilter(especie.id)}
+                            >
+                                {especie.name}
+                            </Button>
+                        ))}
+                    </div>
                 </div>
+
+                {filterData.especie_id && variedades.length > 0 && (
+                    <div className="mb-4 flex flex-wrap gap-2">
+                        <Button
+                            variant={filterData.variedad_id === '' ? 'default' : 'outline'}
+                            onClick={() => handleVariedadFilter('')}
+                        >
+                            Todas las Variedades
+                        </Button>
+                        {variedades.map((variedad) => (
+                            <Button
+                                key={variedad.id}
+                                variant={filterData.variedad_id === String(variedad.id) ? 'default' : 'outline'}
+                                onClick={() => handleVariedadFilter(variedad.id)}
+                            >
+                                {variedad.name}
+                            </Button>
+                        ))}
+                    </div>
+                )}
                 <Card>
                     <CardHeader>
                         <CardTitle className="text-2xl font-bold">
@@ -1556,7 +1622,7 @@ export default function Index({
                                                             <SelectValue placeholder="Seleccionar tipo..." />
                                                         </SelectTrigger>
                                                         <SelectContent>
-                                                            {photoTypes.map(
+                                                            {photoTypesState.map(
                                                                 (type) => (
                                                                     <SelectItem
                                                                         key={
@@ -1565,11 +1631,7 @@ export default function Index({
                                                                         value={String(
                                                                             type.id
                                                                         )}
-                                                                    >
-                                                                        {
-                                                                            type.name
-                                                                        }
-                                                                    </SelectItem>
+                                                                    >{type.name}</SelectItem>
                                                                 )
                                                             )}
                                                         </SelectContent>
