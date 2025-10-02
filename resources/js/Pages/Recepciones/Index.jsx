@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { Link, useForm } from '@inertiajs/react';
+import { Link, useForm, router } from '@inertiajs/react';
 import { Button } from '@/Components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/Components/ui/card';
 import {
@@ -11,10 +11,12 @@ import {
   TableRow,
 } from '@/Components/ui/table';
 import { Input } from '@/Components/ui/input';
-import { FileText } from 'lucide-react'; // Import FileText icon
+import { FileText, RefreshCw } from 'lucide-react'; // Import FileText icon
 import AuthenticatedLayout from '@/Layouts/AuthenticatedLayout';
+import { usePage } from '@inertiajs/react';
 
 export default function Index({ recepciones, especies, variedades = [], filters, isProducer, totalRecepciones, totalKilos = 0 }) {
+  const { props } = usePage();
   const { data, setData, get } = useForm({
     search: filters.search || '',
     especie_id: filters.especie_id || '',
@@ -35,6 +37,9 @@ export default function Index({ recepciones, especies, variedades = [], filters,
   };
 
   useEffect(() => {
+    if (props?.flash?.sync_output || props?.flash?.success || props?.flash?.error) {
+      return;
+    }
     const delayDebounceFn = setTimeout(() => {
       get(route('recepciones.index', {
         search: data.search,
@@ -44,15 +49,38 @@ export default function Index({ recepciones, especies, variedades = [], filters,
     }, 300);
 
     return () => clearTimeout(delayDebounceFn);
-  }, [data.search, data.especie_id, data.variedad_id]);
+  }, [data.search, data.especie_id, data.variedad_id, props?.flash?.sync_output, props?.flash?.success, props?.flash?.error]);
 
   return (
     <div className="container mx-auto py-10">
       <Card>
         <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
           <CardTitle className="text-2xl font-bold">Recepciones</CardTitle>
+          <SyncButton />
         </CardHeader>
         <CardContent>
+          {props?.flash?.success && (
+            <div className="mb-3 rounded border border-green-200 bg-green-50 text-green-800 px-3 py-2 text-sm">
+              {props.flash.success}
+            </div>
+          )}
+          {props?.flash?.error && (
+            <div className="mb-3 rounded border border-red-200 bg-red-50 text-red-800 px-3 py-2 text-sm">
+              {props.flash.error}
+            </div>
+          )}
+          {props?.flash?.sync_output && (
+            <div className="mb-4">
+              <details className="rounded border bg-gray-50">
+                <summary className="cursor-pointer select-none px-3 py-2 text-sm font-medium text-gray-800">
+                  Ver detalle de la sincronización
+                </summary>
+                <pre className="max-h-64 overflow-auto whitespace-pre-wrap p-3 text-xs text-gray-800">
+{props.flash.sync_output}
+                </pre>
+              </details>
+            </div>
+          )}
           <div className="mb-4 flex flex-col md:flex-row justify-between items-center gap-4">
             <Input
               type="text"
@@ -190,6 +218,33 @@ export default function Index({ recepciones, especies, variedades = [], filters,
           </div>
         </CardContent>
       </Card>
+    </div>
+  );
+}
+
+function SyncButton() {
+  const [syncing, setSyncing] = useState(false);
+  const doSync = (dry = false) => {
+    if (!dry && !confirm('¿Ejecutar sincronización de recepciones?')) return;
+    if (dry && !confirm('¿Ejecutar sincronización de prueba (sin aplicar cambios)?')) return;
+    setSyncing(true);
+    router.post(route('recepciones.sync'), dry ? { dry_run: true } : {}, {
+      preserveScroll: true,
+      onFinish: () => setSyncing(false),
+    });
+  };
+  return (
+    <div className="flex items-center gap-2">
+      <Button variant="outline" onClick={() => doSync(false)} disabled={syncing} title="Sincronizar recepciones">
+        <RefreshCw className={`h-4 w-4 mr-2 ${syncing ? 'animate-spin' : ''}`} /> {syncing ? 'Sincronizando...' : 'Sincronizar'}
+      </Button>
+      <Button
+        variant="secondary"
+        onClick={() => doSync(true)}
+        title="Simular sincronización (dry-run)"
+      >
+        Prueba (dry-run)
+      </Button>
     </div>
   );
 }

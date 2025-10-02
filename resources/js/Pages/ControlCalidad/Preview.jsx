@@ -48,10 +48,13 @@ export default function Preview({ recepcionId, numero, htmlUrl, approveUrl, appr
             <div className="flex items-center gap-2">
               <span className="text-sm">Aprobar reporte para descarga</span>
               <Switch checked={approved} disabled={approving || approved} onCheckedChange={handleApprove} />
+              {approving && (
+                <span className="text-xs text-gray-500 animate-pulse">Generando reporte...</span>
+              )}
             </div>
             <a href={approved ? generateUrl : undefined} target="_blank" rel="noopener noreferrer">
-              <Button disabled={!approved} variant="outline">
-                <FileText className="h-4 w-4 mr-2" /> Ver informe
+              <Button disabled={!approved || approving} variant="outline">
+                <FileText className="h-4 w-4 mr-2" /> {approving ? 'Generando...' : 'Ver informe'}
               </Button>
             </a>
           </div>
@@ -70,4 +73,3 @@ Preview.layout = page => (
   <AuthenticatedLayout user={page.props.auth.user} children={page}
     header={<h2 className="font-semibold text-xl text-gray-800 leading-tight">Previsualización Informe</h2>} />
 );
-

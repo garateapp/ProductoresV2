@@ -41,8 +41,10 @@ Route::middleware('auth')->group(function () {
     Route::resource('telefonos', App\Http\Controllers\TelefonoController::class)->only(['store', 'update', 'destroy'])->names('telefonos');
 
     Route::resource('recepciones', App\Http\Controllers\RecepcionController::class)->only(['index'])->names('recepciones');
+    Route::post('recepciones/sync', [App\Http\Controllers\RecepcionController::class, 'recepction_sync'])->name('recepciones.sync');
 
     Route::resource('procesos', App\Http\Controllers\ProcesoController::class)->only(['index'])->names('procesos');
+    Route::post('procesos/sync', [App\Http\Controllers\ProcesoController::class, 'procesos_sync'])->name('procesos.sync');
 
     Route::resource('control-calidad', App\Http\Controllers\ControlCalidadController::class)->only(['index'])->names('control-calidad');
     Route::get('control-calidad/get-valores', [App\Http\Controllers\ControlCalidadController::class, 'getValores'])->name('control-calidad.get-valores');

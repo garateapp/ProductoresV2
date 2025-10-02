@@ -306,9 +306,13 @@ class ProcessedFruitQualityController extends Controller
         try {
             $pdfRelative = 'reporte_proceso_' . $proceso->n_proceso . '.pdf';
             $pdfPath = storage_path('app/public/' . $pdfRelative);
+            $tmpDir = storage_path('app/browsershot-temp');
+            if (! is_dir($tmpDir)) {
+                @mkdir($tmpDir, 0755, true);
+            }
 
-            Browsershot::html($html)
-                ->setTemporaryDirectory(storage_path('app/browsershot-temp'))
+            $shot =  Browsershot::html($html)
+                ->setTemporaryDirectory($tmpDir)
                 ->setOption('headless', true)
                 ->noSandbox()
                 ->addChromiumArguments([
@@ -319,11 +323,39 @@ class ProcessedFruitQualityController extends Controller
                     '--headless=new',
                 ])
                 ->waitUntilNetworkIdle()
-                ->wait(10)
+                ->wait(15)
                 ->setViewport(1920, 1080)
                 ->landscape(false)
-                ->showBackground()
-                ->savePdf($pdfPath);
+                ->showBackground();
+
+            // Allow overriding paths via env (both our custom and Browsershot's names)
+            $chromePath = env('CHROME_PATH') ?: env('BROWSERSHOT_CHROME_PATH');
+            if (! empty($chromePath)) {
+                $shot->setOption('executablePath', $chromePath);
+            }
+            $nodePath = env('NODE_PATH') ?: env('BROWSERSHOT_NODE_PATH');
+            if (! empty($nodePath)) {
+                $shot->setNodeBinary($nodePath);
+            }
+            $npmPath = env('NPM_PATH') ?: env('BROWSERSHOT_NPM_PATH');
+            if (! empty($npmPath)) {
+                $shot->setNpmBinary($npmPath);
+            }
+
+            $shot->savePdf($pdfPath);
+
+            // Optional: allow overriding Chrome path via .env
+            // if (! empty(env('CHROME_PATH'))) {
+            //     $shot->setOption('executablePath', env('CHROME_PATH'));
+            // }
+            // if (! empty(env('NODE_PATH'))) {
+            //     $shot->setNodeBinary(env('NODE_PATH'));
+            // }
+            // if (! empty(env('NPM_PATH'))) {
+            //     $shot->setNpmBinary(env('NPM_PATH'));
+            // }
+
+            // $shot->savePdf($pdfPath);
 
             // Opcional: guardar URL pública en proceso->informe
             $proceso->informe = asset('storage/' . $pdfRelative);

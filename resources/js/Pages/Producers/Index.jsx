@@ -41,12 +41,17 @@ export default function Index({ producers, filters }) {
   };
 
   useEffect(() => {
+    // Si venimos de una sincronización (dry-run o real) y hay resumen en flash,
+    // evitamos hacer el GET inmediato que borraría los mensajes flash.
+    if (props?.flash?.sync_output || props?.flash?.success || props?.flash?.error) {
+      return;
+    }
     const delayDebounceFn = setTimeout(() => {
       get(route('producers.index'), { preserveState: true, replace: true });
     }, 300);
 
     return () => clearTimeout(delayDebounceFn);
-  }, [data.search, data.sort_by, data.sort_order, data.show_inactive]);
+  }, [data.search, data.sort_by, data.sort_order, data.show_inactive, props?.flash?.sync_output, props?.flash?.success, props?.flash?.error]);
 
   function handleDelete(e, producer) {
     e.preventDefault();

@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { Link, useForm } from '@inertiajs/react';
+import { Link, useForm, usePage, router } from '@inertiajs/react';
 import { Button } from '@/Components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/Components/ui/card';
 import {
@@ -11,11 +11,12 @@ import {
   TableRow,
 } from '@/Components/ui/table';
 import { Input } from '@/Components/ui/input';
-import { FileText } from 'lucide-react';
+import { FileText, RefreshCw } from 'lucide-react';
 import Chart from 'react-apexcharts';
 import AuthenticatedLayout from '@/Layouts/AuthenticatedLayout';
 
 export default function Index({ procesos, especies, variedades = [], filters, isProducer, totalProcesos, totalKgProcesados, totalExportacion, totalComercial, totalMerma, chartData }) {
+  const { props } = usePage();
   const { data, setData, get } = useForm({
     search: filters.search || '',
     especie_id: filters.especie_id || '',
@@ -36,6 +37,9 @@ export default function Index({ procesos, especies, variedades = [], filters, is
   };
 
   useEffect(() => {
+    if (props?.flash?.sync_output || props?.flash?.success || props?.flash?.error) {
+      return;
+    }
     const delayDebounceFn = setTimeout(() => {
       get(route('procesos.index', {
         search: data.search,
@@ -45,7 +49,7 @@ export default function Index({ procesos, especies, variedades = [], filters, is
     }, 300);
 
     return () => clearTimeout(delayDebounceFn);
-  }, [data.search, data.especie_id, data.variedad_id]);
+  }, [data.search, data.especie_id, data.variedad_id, props?.flash?.sync_output, props?.flash?.success, props?.flash?.error]);
 
   const calculatePercentage = (value, total) => {
     if (total === 0) return '0.00%';
@@ -57,8 +61,23 @@ export default function Index({ procesos, especies, variedades = [], filters, is
       <Card>
         <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
           <CardTitle className="text-2xl font-bold">Procesos</CardTitle>
+          <SyncButton />
         </CardHeader>
         <CardContent>
+          {props?.flash?.success && (
+            <div className="mb-3 rounded border border-green-200 bg-green-50 text-green-800 px-3 py-2 text-sm">{props.flash.success}</div>
+          )}
+          {props?.flash?.error && (
+            <div className="mb-3 rounded border border-red-200 bg-red-50 text-red-800 px-3 py-2 text-sm">{props.flash.error}</div>
+          )}
+          {props?.flash?.sync_output && (
+            <div className="mb-4">
+              <details className="rounded border bg-gray-50">
+                <summary className="cursor-pointer select-none px-3 py-2 text-sm font-medium text-gray-800">Ver detalle de la sincronización</summary>
+                <pre className="max-h-64 overflow-auto whitespace-pre-wrap p-3 text-xs text-gray-800">{props.flash.sync_output}</pre>
+              </details>
+            </div>
+          )}
           <div className="mb-4 flex flex-col md:flex-row justify-between items-center gap-4">
             <Input
               type="text"
@@ -281,6 +300,27 @@ export default function Index({ procesos, especies, variedades = [], filters, is
           </div>
         </CardContent>
       </Card>
+    </div>
+  );
+}
+
+function SyncButton() {
+  const [syncing, setSyncing] = useState(false);
+  const doSync = (dry = false) => {
+    if (!dry && !confirm('¿Ejecutar sincronización de procesos?')) return;
+    if (dry && !confirm('¿Ejecutar sincronización de prueba (sin aplicar cambios)?')) return;
+    setSyncing(true);
+    router.post(route('procesos.sync'), dry ? { dry_run: true } : {}, {
+      preserveScroll: true,
+      onFinish: () => setSyncing(false),
+    });
+  };
+  return (
+    <div className="flex items-center gap-2">
+      <Button variant="outline" onClick={() => doSync(false)} disabled={syncing} title="Sincronizar procesos">
+        <RefreshCw className={`h-4 w-4 mr-2 ${syncing ? 'animate-spin' : ''}`} /> {syncing ? 'Sincronizando...' : 'Sincronizar'}
+      </Button>
+      <Button variant="secondary" onClick={() => doSync(true)} disabled={syncing} title="Simular sincronización (dry-run)">Prueba (dry-run)</Button>
     </div>
   );
 }
