@@ -1,20 +1,18 @@
-import React, { useState, useEffect } from 'react';
+import React, { useEffect, useMemo, useState } from 'react';
 import { Link, useForm, router, usePage } from '@inertiajs/react';
 import { Button } from '@/Components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/Components/ui/card';
-import {
-  Table,
-  TableBody,
-  TableCell,
-  TableHead,
-  TableHeader,
-  TableRow,
-} from '@/Components/ui/table';
 import { Input } from '@/Components/ui/input';
-import { ChevronUp, ChevronDown } from 'lucide-react';
 import { Badge } from '@/Components/ui/badge';
 import { Switch } from '@/Components/ui/switch';
 import AuthenticatedLayout from '@/Layouts/AuthenticatedLayout';
+import {
+  Accordion,
+  AccordionContent,
+  AccordionItem,
+  AccordionTrigger,
+} from '@/Components/ui/accordion';
+import { ChevronDown, ChevronUp } from 'lucide-react';
 
 export default function Index({ producers, filters }) {
   const { props } = usePage();
@@ -26,24 +24,26 @@ export default function Index({ producers, filters }) {
   });
 
   const { delete: destroy } = useForm();
+  const [ready, setReady] = useState(false);
+
+  useEffect(() => {
+    setReady(true);
+  }, []);
 
   const handleSearchChange = (e) => {
     setData('search', e.target.value);
   };
 
-  const handleSort = (column) => {
-    if (data.sort_by === column) {
-      setData('sort_order', data.sort_order === 'asc' ? 'desc' : 'asc');
-    } else {
-      setData('sort_by', column);
-      setData('sort_order', 'asc');
-    }
+  const handleSortFieldChange = (e) => {
+    setData('sort_by', e.target.value);
+  };
+
+  const toggleSortOrder = () => {
+    setData('sort_order', data.sort_order === 'asc' ? 'desc' : 'asc');
   };
 
   useEffect(() => {
-    // Si venimos de una sincronización (dry-run o real) y hay resumen en flash,
-    // evitamos hacer el GET inmediato que borraría los mensajes flash.
-    if (props?.flash?.sync_output || props?.flash?.success || props?.flash?.error) {
+    if (!ready || props?.flash?.sync_output || props?.flash?.success || props?.flash?.error) {
       return;
     }
     const delayDebounceFn = setTimeout(() => {
@@ -51,7 +51,7 @@ export default function Index({ producers, filters }) {
     }, 300);
 
     return () => clearTimeout(delayDebounceFn);
-  }, [data.search, data.sort_by, data.sort_order, data.show_inactive, props?.flash?.sync_output, props?.flash?.success, props?.flash?.error]);
+  }, [ready, data.search, data.sort_by, data.sort_order, data.show_inactive, props?.flash?.sync_output, props?.flash?.success, props?.flash?.error]);
 
   function handleDelete(e, producer) {
     e.preventDefault();
@@ -60,19 +60,47 @@ export default function Index({ producers, filters }) {
     }
   }
 
-  const renderSortIcon = (column) => {
-    if (data.sort_by === column) {
-      return data.sort_order === 'asc' ? <ChevronUp className="ml-1 h-4 w-4" /> : <ChevronDown className="ml-1 h-4 w-4" />;
-    }
-    return null;
-  };
+  const groupedProducers = useMemo(() => {
+    const map = new Map();
+
+    (producers?.data || []).forEach((record) => {
+      const key = record.rut || `producer-${record.id}`;
+      if (!map.has(key)) {
+        map.set(key, {
+          key,
+          rut: record.rut,
+          name: record.name,
+          email: record.email,
+          records: [],
+          csgs: new Set(),
+          activeCount: 0,
+          inactiveCount: 0,
+        });
+      }
+      const entry = map.get(key);
+      entry.records.push(record);
+      if (record.csg) {
+        entry.csgs.add(record.csg);
+      }
+      if (record.is_active) {
+        entry.activeCount += 1;
+      } else {
+        entry.inactiveCount += 1;
+      }
+    });
+
+    return Array.from(map.values()).map((group) => ({
+      ...group,
+      csgs: Array.from(group.csgs).sort((a, b) => String(a).localeCompare(String(b))),
+    }));
+  }, [producers?.data]);
 
   return (
     <div className="container mx-auto py-10">
       <Card>
-        <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+        <CardHeader className="flex flex-col gap-4 pb-4 md:flex-row md:items-center md:justify-between md:space-y-0">
           <CardTitle className="text-2xl font-bold">Productores</CardTitle>
-          <div className="flex items-center gap-2">
+          <div className="flex flex-wrap items-center gap-2">
             <Button
               variant="secondary"
               onClick={() => {
@@ -98,14 +126,14 @@ export default function Index({ producers, filters }) {
             </Link>
           </div>
         </CardHeader>
-        <CardContent>
+        <CardContent className="space-y-6">
           {props?.flash?.success && (
-            <div className="mb-3 rounded border border-green-200 bg-green-50 text-green-800 px-3 py-2 text-sm">
+            <div className="rounded border border-green-200 bg-green-50 px-3 py-2 text-sm text-green-800">
               {props.flash.success}
             </div>
           )}
           {props?.flash?.sync_output && (
-            <div className="mb-4">
+            <div>
               <details className="rounded border bg-gray-50">
                 <summary className="cursor-pointer select-none px-3 py-2 text-sm font-medium text-gray-800">
                   Ver detalle de la sincronización
@@ -116,153 +144,194 @@ export default function Index({ producers, filters }) {
               </details>
             </div>
           )}
-          <div className="mb-4 flex justify-between items-center">
-            <Input
-              type="text"
-              placeholder="Buscar productores..."
-              value={data.search}
-              onChange={handleSearchChange}
-              className="max-w-sm"
-            />
-            <div className="flex items-center gap-2 text-sm">
-              <Switch
-                id="show-inactive-switch"
-                checked={!!data.show_inactive}
-                onCheckedChange={(val) => setData('show_inactive', !!val)}
+
+          <div className="flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
+            <div className="flex flex-col gap-3 sm:flex-row sm:items-center">
+              <Input
+                type="text"
+                placeholder="Buscar productores..."
+                value={data.search}
+                onChange={handleSearchChange}
+                className="max-w-xs"
               />
-              <label htmlFor="show-inactive-switch">Mostrar inactivos</label>
+              <div className="flex items-center gap-2 text-sm">
+                <Switch
+                  id="show-inactive-switch"
+                  checked={!!data.show_inactive}
+                  onCheckedChange={(val) => setData('show_inactive', !!val)}
+                />
+                <label htmlFor="show-inactive-switch" className="text-gray-600">Mostrar inactivos</label>
+              </div>
+            </div>
+            <div className="flex flex-wrap items-center gap-2 text-sm text-gray-600">
+              <span>Ordenar por:</span>
+              <select
+                value={data.sort_by}
+                onChange={handleSortFieldChange}
+                className="rounded border px-2 py-1 text-sm"
+              >
+                <option value="name">Nombre</option>
+                <option value="email">Email</option>
+                <option value="rut">RUT</option>
+                <option value="idprod">Código Productor</option>
+                <option value="csg">CSG</option>
+                <option value="predio">Predio</option>
+                <option value="comuna">Comuna</option>
+                <option value="provincia">Provincia</option>
+                <option value="direccion">Dirección</option>
+              </select>
+              <Button
+                variant="outline"
+                size="icon"
+                onClick={toggleSortOrder}
+                title={`Cambiar orden (${data.sort_order === 'asc' ? 'Ascendente' : 'Descendente'})`}
+              >
+                {data.sort_order === 'asc' ? (
+                  <ChevronUp className="h-4 w-4" />
+                ) : (
+                  <ChevronDown className="h-4 w-4" />
+                )}
+              </Button>
             </div>
           </div>
-          <Table>
-            <TableHeader>
-              <TableRow>
-                <TableHead onClick={() => handleSort('name')} className="cursor-pointer min-w-[120px]">
-                  <div className="flex items-center whitespace-nowrap">
-                    Nombre {renderSortIcon('name')}
-                  </div>
-                </TableHead>
-                <TableHead onClick={() => handleSort('email')} className="cursor-pointer min-w-[250px]">
-                  <div className="flex items-center">
-                    Correo {renderSortIcon('email')}
-                  </div>
-                </TableHead>
-                <TableHead onClick={() => handleSort('rut')} className="cursor-pointer min-w-[120px]">
-                  <div className="flex items-center whitespace-nowrap">
-                    RUT {renderSortIcon('rut')}
-                  </div>
-                </TableHead>
-                <TableHead onClick={() => handleSort('idprod')} className="cursor-pointer min-w-[100px]">
-                  <div className="flex items-center whitespace-nowrap">
-                    ID Prod {renderSortIcon('idprod')}
-                  </div>
-                </TableHead>
-                <TableHead onClick={() => handleSort('csg')} className="cursor-pointer min-w-[90px]">
-                  <div className="flex items-center whitespace-nowrap">
-                    CSG {renderSortIcon('csg')}
-                  </div>
-                </TableHead>
-                <TableHead onClick={() => handleSort('predio')} className="cursor-pointer min-w-[120px]">
-                  <div className="flex items-center whitespace-nowrap">
-                    Predio {renderSortIcon('predio')}
-                  </div>
-                </TableHead>
-                <TableHead onClick={() => handleSort('comuna')} className="cursor-pointer min-w-[120px]">
-                  <div className="flex items-center whitespace-nowrap">
-                    Comuna {renderSortIcon('comuna')}
-                  </div>
-                </TableHead>
-                <TableHead onClick={() => handleSort('provincia')} className="cursor-pointer min-w-[120px]">
-                  <div className="flex items-center whitespace-nowrap">
-                    Provincia {renderSortIcon('provincia')}
-                  </div>
-                </TableHead>
-                <TableHead onClick={() => handleSort('direccion')} className="cursor-pointer min-w-[150px]">
-                  <div className="flex items-center whitespace-nowrap">
-                    Dirección {renderSortIcon('direccion')}
-                  </div>
-                </TableHead>
-                <TableHead className="min-w-[100px]">Estado</TableHead>
-                <TableHead className="min-w-[120px]">Acciones</TableHead>
-              </TableRow>
-            </TableHeader>
-            <TableBody>
-              {producers.data.map(producer => (
-                <TableRow key={producer.id}>
-                  <TableCell>{producer.name}</TableCell>
-                  <TableCell>{producer.email}</TableCell>
-                  <TableCell>{producer.rut}</TableCell>
-                  <TableCell>{producer.idprod}</TableCell>
-                  <TableCell>{producer.csg}</TableCell>
-                  <TableCell>{producer.predio}</TableCell>
-                  <TableCell>{producer.comuna}</TableCell>
-                  <TableCell>{producer.provincia}</TableCell>
-                  <TableCell>{producer.direccion}</TableCell>
-                  <TableCell>
-                    {!producer.is_active && (
-                      <Badge variant="destructive">Inactivo</Badge>
-                    )}
-                  </TableCell>
-                  <TableCell>
-                    <Link href={route('producers.edit', producer.id)} className="mr-2">
-                      <Button variant="outline">Editar</Button>
-                    </Link>
-                    <Button variant="destructive" onClick={(e) => handleDelete(e, producer)}>Eliminar</Button>
-                  </TableCell>
-                </TableRow>
+
+          {groupedProducers.length ? (
+            <Accordion type="multiple" className="space-y-4">
+              {groupedProducers.map((group) => (
+                <AccordionItem key={group.key} value={group.key} className="border rounded-lg">
+                  <AccordionTrigger className="flex flex-col items-start gap-2 px-4 py-3 text-left">
+                    <div className="flex w-full flex-wrap items-center justify-between gap-2">
+                      <div>
+                        <p className="font-semibold text-gray-800">{group.name || 'Sin nombre'}</p>
+                        <p className="text-xs text-gray-500">
+                          RUT: {group.rut || 'N/A'}
+                          {group.email ? ` · ${group.email}` : ''}
+                        </p>
+                      </div>
+                      <div className="flex flex-wrap items-center gap-2 text-xs text-gray-600">
+                        <Badge variant="outline">Registros: {group.records.length}</Badge>
+                        {group.inactiveCount > 0 && (
+                          <Badge variant="destructive">Inactivos: {group.inactiveCount}</Badge>
+                        )}
+                      </div>
+                    </div>
+                    <div className="flex flex-wrap items-center gap-2">
+                      {group.csgs.length ? (
+                        group.csgs.map((csg) => (
+                          <Badge key={csg} variant="secondary" className="text-xs">
+                            CSG {csg}
+                          </Badge>
+                        ))
+                      ) : (
+                        <span className="text-xs text-gray-500">Sin CSG registrados</span>
+                      )}
+                    </div>
+                  </AccordionTrigger>
+                  <AccordionContent className="px-4 pb-4">
+                    <div className="space-y-4">
+                      {group.records.map((record) => (
+                        <div key={record.id} className="rounded-md border border-gray-200 bg-white p-4 shadow-sm">
+                          <div className="flex flex-wrap gap-4 text-sm text-gray-700">
+                            <div className="flex items-center gap-2">
+                              <span className="font-semibold text-gray-800">CSG:</span>
+                              {record.csg ? (
+                                <Badge variant="secondary">{record.csg}</Badge>
+                              ) : (
+                                <span className="text-gray-500">Sin CSG</span>
+                              )}
+                            </div>
+                            <div>
+                              <span className="font-semibold text-gray-800">Código productor:</span> {record.idprod || 'N/A'}
+                            </div>
+                            <div>
+                              <span className="font-semibold text-gray-800">Predio:</span> {record.predio || 'N/A'}
+                            </div>
+                            <div>
+                              <span className="font-semibold text-gray-800">Comuna:</span> {record.comuna || 'N/A'}
+                            </div>
+                            <div>
+                              <span className="font-semibold text-gray-800">Provincia:</span> {record.provincia || 'N/A'}
+                            </div>
+                            <div className="flex-1 min-w-[200px]">
+                              <span className="font-semibold text-gray-800">Dirección:</span> {record.direccion || 'N/A'}
+                            </div>
+                          </div>
+                          <div className="mt-4 flex flex-wrap items-center gap-2">
+                            {!record.is_active && <Badge variant="destructive">Inactivo</Badge>}
+                            <div className="ml-auto flex flex-wrap gap-2">
+                              <Link href={route('producers.edit', record.id)}>
+                                <Button variant="outline" size="sm">Editar</Button>
+                              </Link>
+                              <Button variant="destructive" size="sm" onClick={(e) => handleDelete(e, record)}>
+                                Eliminar
+                              </Button>
+                            </div>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  </AccordionContent>
+                </AccordionItem>
               ))}
-            </TableBody>
-          </Table>
-          <div className="flex items-center justify-between mt-4">
-            <div className="flex-1 flex justify-between sm:hidden">
-              {producers.prev_page_url && (
+            </Accordion>
+          ) : (
+            <div className="rounded border border-dashed border-gray-200 py-12 text-center text-gray-500">
+              No se encontraron productores con los filtros seleccionados.
+            </div>
+          )}
+
+          <div className="flex items-center justify-between pt-4">
+            <div className="flex-1 flex justify-between md:hidden">
+              {producers.prev_page_url ? (
                 <Link
                   href={producers.prev_page_url}
                   className="relative inline-flex items-center px-4 py-2 border border-gray-300 text-sm font-medium rounded-md text-gray-700 bg-white hover:bg-gray-50"
                 >
                   Anterior
                 </Link>
+              ) : (
+                <span className="relative inline-flex items-center px-4 py-2 border border-gray-200 text-sm font-medium rounded-md text-gray-300 bg-white cursor-not-allowed">
+                  Anterior
+                </span>
               )}
-              {producers.next_page_url && (
+              {producers.next_page_url ? (
                 <Link
                   href={producers.next_page_url}
                   className="ml-3 relative inline-flex items-center px-4 py-2 border border-gray-300 text-sm font-medium rounded-md text-gray-700 bg-white hover:bg-gray-50"
                 >
                   Siguiente
                 </Link>
+              ) : (
+                <span className="ml-3 relative inline-flex items-center px-4 py-2 border border-gray-200 text-sm font-medium rounded-md text-gray-300 bg-white cursor-not-allowed">
+                  Siguiente
+                </span>
               )}
             </div>
-            <div className="hidden sm:flex-1 sm:flex sm:items-center sm:justify-between">
-              <div>
-                <p className="text-sm text-gray-700">
-                  Mostrando <span className="font-medium">{producers.from}</span> a <span className="font-medium">{producers.to}</span> de{' '}
-                  <span className="font-medium">{producers.total}</span> resultados
-                </p>
+            <div className="hidden flex-1 items-center justify-between md:flex">
+              <div className="text-sm text-gray-700">
+                Mostrando <span className="font-medium">{producers.from}</span> a <span className="font-medium">{producers.to}</span> de{' '}
+                <span className="font-medium">{producers.total}</span> resultados
               </div>
-              <div>
-                <nav className="relative z-0 inline-flex rounded-md shadow-sm -space-x-px" aria-label="Pagination">
-                  {producers.links.map((link, index) => (
-                    link.url ? (
-                      <Link
-                        key={index}
-                        href={link.url}
-                        className={`relative inline-flex items-center px-4 py-2 border text-sm font-medium ${link.active
-                          ? 'z-10 bg-indigo-50 border-indigo-500 text-indigo-600'
-                          : 'bg-white border-gray-300 text-gray-500 hover:bg-gray-50'
-                        }`}
-                        dangerouslySetInnerHTML={{ __html: link.label }}
-                      />
-                    ) : (
-                      <span
-                        key={index}
-                        className={`relative inline-flex items-center px-4 py-2 border text-sm font-medium ${link.active
-                          ? 'z-10 bg-indigo-50 border-indigo-500 text-indigo-600'
-                          : 'bg-white border-gray-300 text-gray-500'
-                        } cursor-not-allowed`}
-                        dangerouslySetInnerHTML={{ __html: link.label }}
-                      />
-                    )
-                  ))}
-                </nav>
+              <div className="flex items-center gap-1">
+                {producers.links.map((link, index) => (
+                  link.url ? (
+                    <Link
+                      key={index}
+                      href={link.url}
+                      className={`px-3 py-1 text-sm border rounded ${link.active
+                        ? 'border-indigo-500 bg-indigo-50 text-indigo-600'
+                        : 'border-gray-300 bg-white text-gray-600 hover:bg-gray-50'
+                      }`}
+                      dangerouslySetInnerHTML={{ __html: link.label }}
+                    />
+                  ) : (
+                    <span
+                      key={index}
+                      className="px-3 py-1 text-sm border border-gray-200 rounded text-gray-400"
+                      dangerouslySetInnerHTML={{ __html: link.label }}
+                    />
+                  )
+                ))}
               </div>
             </div>
           </div>
@@ -272,4 +341,6 @@ export default function Index({ producers, filters }) {
   );
 }
 
-Index.layout = page => <AuthenticatedLayout children={page} header={<h2 className="font-semibold text-xl text-gray-800 leading-tight">Productores</h2>} />;
+Index.layout = (page) => (
+  <AuthenticatedLayout children={page} header={<h2 className="font-semibold text-xl text-gray-800 leading-tight">Productores</h2>} />
+);

@@ -74,3 +74,20 @@
     @apply bg-background text-foreground;
   }
 }
+:root {
+  --corp-green: #038c34;
+  --corp-orange: #fe790f;
+}
+
+.kpi-card {
+  border-left-width: 6px;
+  border-radius: 10px;
+}
+.kpi-green {
+  border-left-color: var(--corp-green);
+  background-color: rgba(3, 140, 52, 0.06);
+}
+.kpi-orange {
+  border-left-color: var(--corp-orange);
+  background-color: rgba(254, 121, 15, 0.08);
+}

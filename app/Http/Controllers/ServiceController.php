@@ -4,6 +4,11 @@ namespace App\Http\Controllers;
 
 use App\Models\Service;
 use App\Models\User;
+use App\Models\Recepcion;
+use App\Models\Proceso;
+use App\Models\ProducerCertification;
+use App\Models\CsgEspecieCountryStatus;
+use App\Models\Contract;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use Inertia\Inertia;
@@ -34,13 +39,15 @@ class ServiceController extends Controller
         $myProcesos = collect();
         if (auth()->check() && ! empty(auth()->user()->idprod)) {
             $producerCode = auth()->user()->idprod;
+            $producerName = auth()->user()->name;
+            Log::info("producerCode: $producerCode, producerName: $producerName");
             $myRecepciones = \App\Models\Recepcion::query()
                 ->where('id_emisor', $producerCode)
                 ->orderByDesc('fecha_g_recepcion')
                 ->limit(50)
                 ->get(['id','numero_g_recepcion','fecha_g_recepcion','n_especie','n_variedad','cantidad','peso_neto','informe']);
             $myProcesos = \App\Models\Proceso::query()
-                ->where('c_productor', $producerCode)
+                ->where('agricola', $producerName)
                 ->orderByDesc('fecha')
                 ->limit(50)
                 ->get(['id','n_proceso','fecha','especie','variedad','kilos_netos','informe','exp','comercial','merma']);
@@ -228,6 +235,117 @@ class ServiceController extends Controller
     {
         return response()->json([
             'test_message' => 'Data received successfully!',
+        ]);
+    }
+
+    public function dashboard(Service $service)
+    {
+        $service->load('users');
+        $producerIds = $service->users->pluck('id');
+        $producerCodes = $service->users->pluck('idprod')->filter()->values();
+
+        $producerNames = $service->users->pluck('name')->filter()->values();
+
+        $recepciones = collect();
+        $procesos = collect();
+        if ($producerCodes->isNotEmpty()) {
+            $recepciones = Recepcion::query()
+                ->whereIn('id_emisor', $producerCodes)
+                ->orderByDesc('fecha_g_recepcion')
+                ->limit(50)
+                ->get(['id','numero_g_recepcion','fecha_g_recepcion','n_especie','n_variedad','n_emisor','cantidad','peso_neto','informe']);
+            $procesos = Proceso::query()
+                ->whereIn('agricola', $producerNames)
+                ->orderByDesc('fecha')
+                ->limit(50)
+                ->get(['id','n_proceso','fecha','especie','variedad','kilos_netos','informe','exp','comercial','merma','c_productor']);
+        }
+
+        $certifications = ProducerCertification::with(['certifyingHouse','certificateType','especie','user:id,name'])
+            ->whereIn('user_id', $producerIds)
+            ->orderByDesc('expiration_date')
+            ->limit(100)
+            ->get();
+
+        $markets = CsgEspecieCountryStatus::with(['user:id,name','especie:id,name','country:id,name'])
+            ->whereIn('user_id', $producerIds)
+            ->limit(200)
+            ->get();
+
+        $contracts = Contract::whereIn('user_id', $producerIds)
+            ->orderByDesc('fecha_contrato')
+            ->get(['id','user_id','contract_file_path','fecha_contrato','vencimiento','comision']);
+
+        $recepBySpecies = collect();
+        $procStackBySpecies = collect();
+        $recepWeeklyBySpecies = ['weeks' => [], 'series' => []];
+        $procCategoryTotals = null;
+
+        if ($producerCodes->isNotEmpty()) {
+            $recepBySpecies = Recepcion::selectRaw('n_especie as especie, SUM(peso_neto) as kilos')
+                ->whereIn('id_emisor', $producerCodes)
+                ->groupBy('n_especie')
+                ->orderByDesc('kilos')
+                ->limit(10)
+                ->get();
+
+            $procStackBySpecies = Proceso::selectRaw('especie, SUM(exp) as exp, SUM(comercial) as comercial, SUM(merma) as merma, SUM(desecho) as desecho')
+                ->whereIn('agricola', $producerNames)
+                ->groupBy('especie')
+                ->orderByDesc(DB::raw('SUM(exp)+SUM(comercial)+SUM(merma)+SUM(desecho)'))
+                ->limit(10)
+                ->get();
+
+            $recepWeeklyRaw = Recepcion::selectRaw("DATE_FORMAT(fecha_g_recepcion, '%x-%v') as semana, n_especie as especie, SUM(peso_neto) as kilos, MIN(fecha_g_recepcion) as min_fecha")
+                ->whereIn('id_emisor', $producerCodes)
+                ->groupBy(DB::raw("DATE_FORMAT(fecha_g_recepcion, '%x-%v')"), 'n_especie')
+                ->orderBy('min_fecha')
+                ->limit(200)
+                ->get();
+
+            $weeks = $recepWeeklyRaw->pluck('semana')->unique()->values()->all();
+            sort($weeks);
+            $speciesList = $recepWeeklyRaw->pluck('especie')->unique()->values();
+
+            $series = [];
+            foreach ($speciesList as $sp) {
+                $points = [];
+                foreach ($weeks as $wk) {
+                    $val = $recepWeeklyRaw->firstWhere(fn ($r) => $r->especie === $sp && $r->semana === $wk);
+                    $points[] = $val ? (int) $val->kilos : 0;
+                }
+                $series[] = ['name' => $sp, 'data' => $points];
+            }
+
+            $recepWeeklyBySpecies = [
+                'weeks' => $weeks,
+                'series' => $series,
+            ];
+
+            $procCategoryTotals = Proceso::selectRaw('SUM(exp) as exp, SUM(comercial) as comercial, SUM(merma) as merma, SUM(desecho) as desecho')
+                ->whereIn('agricola', $producerNames)
+                ->first();
+        }
+        return Inertia::render('Services/Dashboard', [
+            'service' => $service,
+            'recepciones' => $recepciones,
+            'procesos' => $procesos,
+            'certifications' => $certifications,
+            'markets' => $markets,
+            'contracts' => $contracts,
+            'stats' => [
+                'producers' => $service->users->count(),
+                'recepciones' => $recepciones->count(),
+                'procesos' => $procesos->count(),
+                'certifications' => $certifications->count(),
+                'contracts' => $contracts->count(),
+            ],
+            'charts' => [
+                'recepBySpecies' => $recepBySpecies,
+                'procStackBySpecies' => $procStackBySpecies,
+                'recepWeeklyBySpecies' => $recepWeeklyBySpecies,
+                'procCategoryTotals' => $procCategoryTotals,
+            ],
         ]);
     }
 }

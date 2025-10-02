@@ -5,14 +5,32 @@ use App\Http\Controllers\ReporteriaController;
 use App\Http\Controllers\UserController;
 use Illuminate\Support\Facades\Route;
 use Inertia\Inertia;
+use App\Models\Service;
+use App\Http\Controllers\AdminDashboardController;
 
 Route::get('/', function () {
     return redirect()->route('login');
 });
 
 Route::get('/dashboard', function () {
+    $user = auth()->user();
+    if (! $user) {
+        return redirect()->route('login');
+    }
+    // Admin: puede ver todos los dashboards → envíalo al índice de servicios
+    if (method_exists($user, 'hasRole') && ($user->hasRole('Admin') || $user->hasRole('Administrador'))) {
+        return redirect()->route('admin.dashboard');
+    }
+    // Dueño de servicio: su dashboard como página principal
+    $service = Service::where('owner_id', $user->id)->first();
+    if ($service) {
+        return redirect()->route('services.dashboard', $service);
+    }
+    // Por defecto dashboard genérico
     return Inertia::render('Dashboard');
 })->middleware(['auth', 'verified'])->name('dashboard');
+
+Route::get('/admin/dashboard', [AdminDashboardController::class, 'index'])->middleware(['auth','verified'])->name('admin.dashboard');
 
 Route::middleware('auth')->group(function () {
     Route::get('/profile', [ProfileController::class, 'edit'])->name('profile.edit');
@@ -37,6 +55,7 @@ Route::middleware('auth')->group(function () {
 
     Route::resource('producers', App\Http\Controllers\ProducerController::class)->names('producers');
     Route::post('producers/sync-active', [App\Http\Controllers\ProducerController::class, 'syncActive'])->name('producers.sync-active');
+    Route::get('producers/{producer}/dashboard', [App\Http\Controllers\ProducerController::class, 'dashboard'])->name('producers.dashboard');
 
     Route::resource('telefonos', App\Http\Controllers\TelefonoController::class)->only(['store', 'update', 'destroy'])->names('telefonos');
 
@@ -85,6 +104,7 @@ Route::middleware('auth')->group(function () {
 
     // Service Module Routes
     Route::resource('services', App\Http\Controllers\ServiceController::class)->names('services');
+    Route::get('services/{service}/dashboard', [App\Http\Controllers\ServiceController::class, 'dashboard'])->name('services.dashboard');
     Route::post('services/{service}/attach-user', [App\Http\Controllers\ServiceController::class, 'attachUser'])->name('services.attachUser');
     Route::delete('services/{service}/detach-user/{user}', [App\Http\Controllers\ServiceController::class, 'detachUser'])->name('services.detachUser');
     Route::get('services/{service}/producers', [App\Http\Controllers\ServiceController::class, 'getServiceProducers'])->name('services.getServiceProducers');

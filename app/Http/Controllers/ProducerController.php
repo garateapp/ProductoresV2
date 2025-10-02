@@ -6,6 +6,7 @@ use App\Models\User;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Hash;
 use Illuminate\Support\Facades\Artisan;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Validation\Rules;
 use Inertia\Inertia;
 
@@ -276,4 +277,115 @@ class ProducerController extends Controller
             ->with('success', 'Sincronización de estados ejecutada'.($dryRun ? ' (prueba)' : '').'.')
             ->with('sync_output', $output);
     }
+
+    public function dashboard(User $producer)
+    {
+        $producer->load(['services']);
+        $code = $producer->idprod;
+        $name = $producer->name;
+
+        $recepciones = \App\Models\Recepcion::query()
+            ->when($code, fn($q) => $q->where('id_emisor', $code))
+            ->orderByDesc('fecha_g_recepcion')
+            ->limit(50)
+            ->get(['id','numero_g_recepcion','fecha_g_recepcion','n_especie','n_variedad','cantidad','peso_neto','informe']);
+
+        $procesos = \App\Models\Proceso::query()
+            ->when($name, fn($q) => $q->where('agricola', $name))
+            ->orderByDesc('fecha')
+            ->limit(50)
+            ->get(['id','n_proceso','fecha','especie','variedad','kilos_netos','informe','exp','comercial','merma']);
+
+        $certifications = \App\Models\ProducerCertification::with(['certifyingHouse','certificateType','especie'])
+            ->where('user_id', $producer->id)
+            ->orderByDesc('expiration_date')
+            ->limit(100)
+            ->get();
+
+        $markets = \App\Models\CsgEspecieCountryStatus::with(['especie:id,name','country:id,name'])
+            ->where('user_id', $producer->id)
+            ->limit(200)
+            ->get();
+
+        $contracts = \App\Models\Contract::where('user_id', $producer->id)
+            ->orderByDesc('fecha_contrato')
+            ->get(['id','user_id','contract_file_path','fecha_contrato','vencimiento','comision']);
+
+        $recepBySpecies = collect();
+        $procStackBySpecies = collect();
+        $recepWeeklyBySpecies = ['weeks' => [], 'series' => []];
+        $procCategoryTotals = null;
+
+        if ($code) {
+            $recepBySpecies = \App\Models\Recepcion::selectRaw('n_especie as especie, SUM(peso_neto) as kilos')
+                ->where('id_emisor', $code)
+                ->groupBy('n_especie')
+                ->orderByDesc('kilos')
+                ->limit(10)
+                ->get();
+
+            $procStackBySpecies = \App\Models\Proceso::selectRaw('especie, SUM(exp) as exp, SUM(comercial) as comercial, SUM(merma) as merma, SUM(desecho) as desecho')
+                ->where('c_productor', $code)
+                ->groupBy('especie')
+                ->orderByDesc(DB::raw('SUM(exp)+SUM(comercial)+SUM(merma)+SUM(desecho)'))
+                ->limit(10)
+                ->get();
+
+            $recepWeeklyRaw = \App\Models\Recepcion::selectRaw("DATE_FORMAT(fecha_g_recepcion, '%x-%v') as semana, n_especie as especie, SUM(peso_neto) as kilos, MIN(fecha_g_recepcion) as min_fecha")
+                ->where('id_emisor', $code)
+                ->groupBy(DB::raw("DATE_FORMAT(fecha_g_recepcion, '%x-%v')"), 'n_especie')
+                ->orderBy('min_fecha')
+                ->limit(200)
+                ->get();
+
+            $weeks = $recepWeeklyRaw->pluck('semana')->unique()->values()->all();
+            sort($weeks);
+            $speciesList = $recepWeeklyRaw->pluck('especie')->unique()->values();
+
+            $series = [];
+            foreach ($speciesList as $sp) {
+                $points = [];
+                foreach ($weeks as $wk) {
+                    $val = $recepWeeklyRaw->firstWhere(fn ($r) => $r->especie === $sp && $r->semana === $wk);
+                    $points[] = $val ? (int) $val->kilos : 0;
+                }
+                $series[] = ['name' => $sp, 'data' => $points];
+            }
+
+            $recepWeeklyBySpecies = [
+                'weeks' => $weeks,
+                'series' => $series,
+            ];
+
+            $procCategoryTotals = \App\Models\Proceso::selectRaw('SUM(exp) as exp, SUM(comercial) as comercial, SUM(merma) as merma, SUM(desecho) as desecho')
+                ->where('c_productor', $code)
+                ->first();
+        }
+
+        return Inertia::render('Producers/Dashboard', [
+            'producer' => $producer,
+            'recepciones' => $recepciones,
+            'procesos' => $procesos,
+            'certifications' => $certifications,
+            'markets' => $markets,
+            'contracts' => $contracts,
+            'stats' => [
+                'recepciones' => $recepciones->count(),
+                'procesos' => $procesos->count(),
+                'certifications' => $certifications->count(),
+                'contracts' => $contracts->count(),
+            ],
+            'charts' => [
+                'recepBySpecies' => $recepBySpecies,
+                'procStackBySpecies' => $procStackBySpecies,
+                'recepWeeklyBySpecies' => $recepWeeklyBySpecies,
+                'procCategoryTotals' => $procCategoryTotals,
+            ],
+        ]);
+    }
 }
+
+
+
+
+
