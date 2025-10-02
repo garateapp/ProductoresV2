@@ -33,6 +33,15 @@ export default function Create({ auth, producers }) {
     { value: 'NO', label: 'NO' },
     { value: '50%', label: '50%' },
     { value: '100%', label: '100%' },
+    { value: '0.014', label: '0.014' },
+    { value: '0.017', label: '0.017' },
+    { value: '0.018', label: '0.018' },
+    { value: '0.019', label: '0.019' },
+    { value: '0.025', label: '0.025' },
+    { value: '0.028', label: '0.028' },
+    { value: '0.049', label: '0.049' },
+    { value: '0.053', label: '0.053' },
+    { value: '0.058', label: '0.058' },
   ];
 
   const submit = (e) => {
