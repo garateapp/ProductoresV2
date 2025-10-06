@@ -1,4 +1,4 @@
-<!DOCTYPE html>
+﻿<!DOCTYPE html>
 <html lang="es">
 
 <head>
@@ -192,8 +192,8 @@
 
         .stamp-image {
             position: absolute;
-            top: 150px;
-            left: 45%;
+            top: 50px;
+            left: 80%;
             width: 150px;
             height: auto;
             opacity: 0.3;
@@ -490,7 +490,7 @@
 
     <div class="title">Informe de Recepción de {{ $recepcion->n_especie }}</div>
 
-    
+
 
     <script>
         // Defaults to avoid undefined when controller doesn't pass datasets
@@ -500,6 +500,14 @@
             $averageFirmness = $averageFirmness ?? [];
             $firmnessDistribution = $firmnessDistribution ?? [];
             $solubleSolids = $solubleSolids ?? [];
+            $precalibrePercentage = (float) (
+                optional(
+                    optional(optional($recepcion->calidad)->detalles)
+                        ->where('tipo_item', 'DISTRIBUCIÓN DE CALIBRES')
+                        ->where('detalle_item', 'PRECALIBRE')
+                        ->first()
+                )->porcentaje_muestra ?? 0
+            );
             //dd($coverageColor, $averageFirmness, $firmnessDistribution, $coverageColor,$sizeDistribution);
         @endphp
 
@@ -508,34 +516,38 @@
                 case 'cherries':
                     return {
                         exportable: 'rgba(255, 99, 132, 0.6)', // Red tone
-                            defectosCalidad: 'rgba(200, 0, 0, 0.6)', // Darker red
-                            defectosCondicion: 'rgba(150, 0, 0, 0.6)', // Even darker red
-                            danosPlaga: 'rgba(100, 0, 0, 0.6)', // Darkest red
-                            borderColor: 'rgba(255, 255, 255, 1)'
+                        defectosCalidad: 'rgba(200, 0, 0, 0.6)', // Darker red
+                        defectosCondicion: 'rgba(150, 0, 0, 0.6)', // Even darker red
+                        danosPlaga: 'rgba(100, 0, 0, 0.6)', // Darkest red
+                        precalibre: '#FBBF24',
+                        borderColor: 'rgba(255, 255, 255, 1)'
                     };
                 case 'apples':
                     return {
                         exportable: 'rgba(75, 192, 192, 0.6)', // Green tone
-                            defectosCalidad: 'rgba(0, 150, 0, 0.6)', // Darker green
-                            defectosCondicion: 'rgba(0, 100, 0, 0.6)', // Even darker green
-                            danosPlaga: 'rgba(0, 50, 0, 0.6)', // Darkest green
-                            borderColor: 'rgba(255, 255, 255, 1)'
+                        defectosCalidad: 'rgba(0, 150, 0, 0.6)', // Darker green
+                        defectosCondicion: 'rgba(0, 100, 0, 0.6)', // Even darker green
+                        danosPlaga: 'rgba(0, 50, 0, 0.6)', // Darkest green
+                        precalibre: '#FBBF24',
+                        borderColor: 'rgba(255, 255, 255, 1)'
                     };
                 case 'nectarines':
                     return {
                         exportable: 'rgba(255, 159, 64, 0.6)', // Orange tone
-                            defectosCalidad: 'rgba(200, 100, 0, 0.6)', // Darker orange
-                            defectosCondicion: 'rgba(150, 50, 0, 0.6)', // Even darker orange
-                            danosPlaga: 'rgba(100, 25, 0, 0.6)', // Darkest orange
-                            borderColor: 'rgba(255, 255, 255, 1)'
+                        defectosCalidad: 'rgba(200, 100, 0, 0.6)', // Darker orange
+                        defectosCondicion: 'rgba(150, 50, 0, 0.6)', // Even darker orange
+                        danosPlaga: 'rgba(100, 25, 0, 0.6)', // Darkest orange
+                        precalibre: '#FBBF24',
+                        borderColor: 'rgba(255, 255, 255, 1)'
                     };
                 default: // Default colors if species not matched
                     return {
                         exportable: 'rgba(54, 162, 235, 0.6)', // Blue
-                            defectosCalidad: 'rgba(255, 206, 86, 0.6)', // Yellow
-                            defectosCondicion: 'rgba(153, 102, 255, 0.6)', // Purple
-                            danosPlaga: 'rgba(255, 99, 132, 0.6)', // Red
-                            borderColor: 'rgba(255, 255, 255, 1)'
+                        defectosCalidad: 'rgba(255, 206, 86, 0.6)', // Yellow
+                        defectosCondicion: 'rgba(153, 102, 255, 0.6)', // Purple
+                        danosPlaga: 'rgba(255, 99, 132, 0.6)', // Red
+                        precalibre: '#FBBF24',
+                        borderColor: 'rgba(255, 255, 255, 1)'
                     };
             }
         }
@@ -586,24 +598,32 @@
             return '#666666';
         }
 
-        function generateHtmlLegend(chart, legendContainerId) {
+        function generateHtmlLegend(chart, legendContainerId, options = {}) {
             const legendContainer = document.getElementById(legendContainerId);
             if (!legendContainer) return;
 
-            const {
-                labels
-            } = chart.data;
-            const datasets = chart.data.datasets;
+            const labels = chart?.data?.labels || [];
+            const datasets = chart?.data?.datasets || [];
+            if (!labels.length || !datasets.length) {
+                legendContainer.innerHTML = '';
+                return;
+            }
 
+            const skipSet = new Set((options.skipLabels || []).map(label => String(label).toLowerCase()));
             let html = '';
+
             labels.forEach((label, index) => {
-                const color = Array.isArray(datasets[0].backgroundColor) ? datasets[0].backgroundColor[index] :
-                    datasets[0].backgroundColor;
-                const value = datasets[0].data[index];
+                if (skipSet.has(String(label).toLowerCase())) return;
+
+                const dataset = datasets[0];
+                const background = Array.isArray(dataset.backgroundColor) ? dataset.backgroundColor[index] : dataset.backgroundColor;
+                const rawValue = Array.isArray(dataset.data) ? dataset.data[index] : dataset.data;
+                const value = Number(rawValue) || 0;
                 const formattedValue = chart.config.type === 'bar' ? value.toFixed(2) : value.toFixed(2) + '%';
+
                 html += `
                     <div class="legend-item">
-                        <div class="legend-color-box" style="background-color:${color}"></div>
+                        <div class="legend-color-box" style="background-color:${background}"></div>
                         <span>${label}: ${formattedValue}</span>
                     </div>
                 `;
@@ -690,7 +710,26 @@
         }
 
         document.addEventListener('DOMContentLoaded', function() {
-            Chart.register(ChartDataLabels);
+            const doughnutCenterTextPlugin = {
+                id: 'doughnutCenterText',
+                afterDraw(chart) {
+                    const centerText = chart?.config?.options?.plugins?.centerText;
+                    if (!centerText?.text) return;
+                    const { chartArea, ctx } = chart;
+                    if (!chartArea) return;
+                    const x = (chartArea.left + chartArea.right) / 2;
+                    const y = (chartArea.top + chartArea.bottom) / 2 + (centerText.offsetY || 0);
+                    ctx.save();
+                    ctx.font = centerText.font || 'bold 16px sans-serif';
+                    ctx.fillStyle = centerText.color || '#111827';
+                    ctx.textAlign = 'center';
+                    ctx.textBaseline = 'middle';
+                    ctx.fillText(centerText.text, x, y);
+                    ctx.restore();
+                }
+            };
+
+            Chart.register(ChartDataLabels, doughnutCenterTextPlugin);
 
             // Exportable Pie Chart
             const ctx = document.getElementById('exportable-pie-chart-canvas');
@@ -700,20 +739,32 @@
                 const defectosCondicion = {{ $defectos_condicion_sum }};
                 const danosPlaga = {{ $danos_plaga_sum }};
                 const species = "{{ $recepcion->n_especie }}";
+                const precalibre = Number(@json($precalibrePercentage));
+                const exportableAdjusted = Math.max(exportable - precalibre, 0);
 
                 const colors = getChartColors(species);
+                const doughnutData = [
+                    exportableAdjusted,
+                    defectosCalidad,
+                    defectosCondicion,
+                    danosPlaga,
+                    precalibre
+                ];
 
                 const exportableChart = new Chart(ctx, {
                     type: 'doughnut',
                     data: {
-                        labels: ['Exportable', 'Defectos de Calidad', 'Defectos de Condición',
-                            'Daños de Plaga'
-                        ],
+                        labels: ['Exportable', 'Defectos de Calidad', 'Defectos de Condición', 'Daños de Plaga', 'Precalibre'],
                         datasets: [{
-                            data: [exportable, defectosCalidad, defectosCondicion, danosPlaga],
-                            backgroundColor: [colors.exportable, colors.defectosCalidad, colors
-                                .defectosCondicion, colors.danosPlaga
+                            data: doughnutData,
+                            backgroundColor: [
+                                colors.exportable,
+                                colors.defectosCalidad,
+                                colors.defectosCondicion,
+                                colors.danosPlaga,
+                                colors.precalibre
                             ],
+                            borderColor: colors.borderColor
                         }]
                     },
                     options: {
@@ -730,11 +781,17 @@
                             title: {
                                 display: true,
                                 text: 'Resumen Recepción'
+                            },
+                            centerText: {
+                                text: `${exportableAdjusted.toFixed(2)}%`,
+                                color: '#111827',
+                                font: 'bold 18px "Roboto", sans-serif'
                             }
                         }
                     }
                 });
-                generateHtmlLegend(exportableChart, 'exportable-legend');
+                generateHtmlLegend(exportableChart, 'exportable-legend', { skipLabels: ['Exportable'] });
+
             }
 
             // Calibre Distribution Chart
@@ -824,6 +881,15 @@
                                             size: 10
                                         }
                                     },
+
+                                    grid: {
+
+                                        display: false,
+
+                                        drawBorder: false
+
+                                    },
+
                                     ticks: {
                                         font: { size: 8 },
                                         maxRotation: 0,
@@ -833,6 +899,15 @@
                                 },
                                 x: {
                                     stacked: true,
+
+                                    grid: {
+
+                                        display: false,
+
+                                        drawBorder: false
+
+                                    },
+
                                     ticks: {
                                         font: { size: 8 },
                                         maxRotation: 0,
@@ -898,6 +973,15 @@
                                         display: true,
                                         text: 'Cantidad'
                                     },
+
+                                     grid: {
+
+                                         display: false,
+
+                                         drawBorder: false
+
+                                     },
+
                                      ticks: {
                                     font: { size: 8 },
                                     maxRotation: 0,
@@ -906,6 +990,15 @@
                                 }
                                 },
                                 x: {
+
+                                    grid: {
+
+                                        display: false,
+
+                                        drawBorder: false
+
+                                    },
+
                                     ticks: {
                                         font: { size: 8 },
                                         maxRotation: 45,
@@ -1006,6 +1099,15 @@
                                         display: true,
                                         text: 'Cantidad'
                                     },
+
+                                     grid: {
+
+                                         display: false,
+
+                                         drawBorder: false
+
+                                     },
+
                                      ticks: {
                                     font: { size: 8 },
                                     maxRotation: 0,
@@ -1015,6 +1117,15 @@
                                 },
                                 x: {
                                     stacked: true,
+
+                                    grid: {
+
+                                        display: false,
+
+                                        drawBorder: false
+
+                                    },
+
                                     ticks: {
                                         font: { size: 8 },
                                         maxRotation: 45,
@@ -1102,19 +1213,14 @@
                             },
                             datalabels: {
                                 display: true,
-                                color: '#FFFFFF', // texto siempre blanco
-                                align: 'center',
-                                anchor: 'center',
+                                color: '#000000',
+                                align: 'end',
+                                anchor: 'end',
+                                offset: -4,
                                 font: {
                                     weight: 'bold'
                                 },
-                                formatter: (val) => Number(val).toFixed(2),
-                                backgroundColor: (ctx) => {
-                                    // el mismo color de la barra
-                                    return ctx.dataset.backgroundColor;
-                                },
-                                borderRadius: 4,
-                                padding: 4
+                                formatter: (val) => Number(val).toFixed(2)
                             },
                             title: {
                                 display: true,
@@ -1128,6 +1234,15 @@
                                     display: true,
                                     text: 'Promedio'
                                 },
+
+                                grid: {
+
+                                    display: false,
+
+                                    drawBorder: false
+
+                                },
+
                                 ticks: {
                                     font: { size: 8 },
                                     maxRotation: 0,
@@ -1140,6 +1255,15 @@
                                     display: true,
                                     text: 'Color'
                                 },
+
+                                grid: {
+
+                                    display: false,
+
+                                    drawBorder: false
+
+                                },
+
                                 ticks: {
                                     font: { size: 8 },
                                     maxRotation: 0,
@@ -1181,7 +1305,15 @@
                                 display: false
                             },
                             datalabels: {
-                                display: false
+                                display: true,
+                                color: '#000000',
+                                align: 'end',
+                                anchor: 'end',
+                                offset: -4,
+                                font: {
+                                    weight: 'bold'
+                                },
+                                formatter: (val) => Number(val).toFixed(2)
                             },
                             title: {
                                 display: true,
@@ -1195,6 +1327,15 @@
                                     display: true,
                                     text: 'Promedio'
                                 },
+
+                                 grid: {
+
+                                     display: false,
+
+                                     drawBorder: false
+
+                                 },
+
                                  ticks: {
                                     font: { size: 8 },
                                     maxRotation: 0,
@@ -1207,6 +1348,15 @@
                                     display: true,
                                     text: 'Color'
                                 },
+
+                                grid: {
+
+                                    display: false,
+
+                                    drawBorder: false
+
+                                },
+
                                 ticks: {
                                     font: { size: 8 },
                                     maxRotation: 0,
@@ -1306,7 +1456,15 @@
                                 text: 'Distribución de Firmezas'
                             },
                             datalabels: {
-                                display: false
+                                display: true,
+                                color: '#000000',
+                                align: 'end',
+                                anchor: 'end',
+                                offset: -4,
+                                font: {
+                                    weight: 'bold'
+                                },
+                                formatter: (val) => Number(val).toFixed(2)
                             }
                         },
                         scales: {
@@ -1316,6 +1474,15 @@
                                     display: true,
                                     text: 'Valor'
                                 },
+
+                                 grid: {
+
+                                     display: false,
+
+                                     drawBorder: false
+
+                                 },
+
                                  ticks: {
                                     font: { size: 8 },
                                     maxRotation: 0,
@@ -1328,6 +1495,15 @@
                                     display: true,
                                     text: 'Color'
                                 },
+
+                                grid: {
+
+                                    display: false,
+
+                                    drawBorder: false
+
+                                },
+
                                 ticks: {
                                     font: { size: 8 },
                                     maxRotation: 0,

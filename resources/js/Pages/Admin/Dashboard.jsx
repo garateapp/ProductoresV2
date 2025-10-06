@@ -3,7 +3,7 @@ import { Head, Link } from '@inertiajs/react';
 import AuthenticatedLayout from '@/Layouts/AuthenticatedLayout';
 import { Card, CardHeader, CardTitle, CardContent } from '@/Components/ui/card';
 import Chart from 'react-apexcharts';
-import { Users, Building2, Truck, Factory, ShieldCheck, FileText as FileIcon } from 'lucide-react';
+import { Users, Building2, Truck, Factory, ShieldCheck, FileText as FileIcon, LayoutDashboard, Eye } from 'lucide-react';
 
 export default function AdminDashboard({ auth, services = [], producers = [], recepciones = [], procesos = [], certifications = [], contracts = [], stats = {}, charts = {} }) {
   const [producerFilter, setProducerFilter] = useState('');
@@ -255,7 +255,13 @@ export default function AdminDashboard({ auth, services = [], producers = [], re
                   {services.slice(0, 10).map(s => (
                     <li key={s.id} className="py-2 flex items-center justify-between">
                       <span>{s.name} <span className="text-xs text-gray-500">({s.users_count} productores)</span></span>
-                      <Link className="text-indigo-600 text-sm" href={route('services.dashboard', s.id)}>Dashboard</Link>
+                      <Link
+                        href={route('services.dashboard', s.id)}
+                        aria-label={`Ver dashboard del servicio ${s.name}`}
+                        className="inline-flex h-8 w-8 items-center justify-center rounded-full border border-indigo-100 bg-indigo-50 text-indigo-600 transition hover:bg-indigo-100"
+                      >
+                        <LayoutDashboard className="h-4 w-4" />
+                      </Link>
                     </li>
                   ))}
                 </ul>
@@ -272,7 +278,13 @@ export default function AdminDashboard({ auth, services = [], producers = [], re
                     {filteredProducers.map(p => (
                       <li key={p.id} className="py-2 px-2 flex items-center justify-between">
                         <span>{p.name} <span className="text-xs text-gray-500">({p.idprod || p.csg || '—'})</span></span>
-                        <Link className="text-indigo-600 text-sm" href={route('producers.dashboard', p.id)}>Dashboard</Link>
+                        <Link
+                          href={route('producers.dashboard', p.id)}
+                          aria-label={`Ver dashboard del productor ${p.name}`}
+                          className="inline-flex h-8 w-8 items-center justify-center rounded-full border border-indigo-100 bg-indigo-50 text-indigo-600 transition hover:bg-indigo-100"
+                        >
+                          <LayoutDashboard className="h-4 w-4" />
+                        </Link>
                       </li>
                     ))}
                   </ul>
@@ -299,7 +311,15 @@ export default function AdminDashboard({ auth, services = [], producers = [], re
                           <td className="px-3 py-2">{r.n_emisor}</td>
                           <td className="px-3 py-2">{r.n_especie}</td>
                           <td className="px-3 py-2">{r.n_variedad}</td>
-                          <td className="px-3 py-2 text-right"><Link className="text-indigo-600" href={route('control-calidad.preview-report', r.id)}>Ver</Link></td>
+                          <td className="px-3 py-2 text-right">
+                            <Link
+                              href={route('control-calidad.preview-report', r.id)}
+                              aria-label={`Ver reporte de recepción ${r.numero_g_recepcion}`}
+                              className="inline-flex h-8 w-8 items-center justify-center rounded-full border border-indigo-100 bg-indigo-50 text-indigo-600 transition hover:bg-indigo-100"
+                            >
+                              <Eye className="h-4 w-4" />
+                            </Link>
+                          </td>
                         </tr>
                       ))}
                     </tbody>
@@ -323,7 +343,15 @@ export default function AdminDashboard({ auth, services = [], producers = [], re
                           <td className="px-3 py-2">{new Date(p.fecha).toLocaleDateString('es-CL')}</td>
                           <td className="px-3 py-2">{p.especie}</td>
                           <td className="px-3 py-2">{p.variedad}</td>
-                          <td className="px-3 py-2 text-right"><Link className="text-indigo-600" href={route('processed-fruit-quality.preview-report', p.id)}>Ver</Link></td>
+                          <td className="px-3 py-2 text-right">
+                            <Link
+                              href={route('processed-fruit-quality.preview-report', p.id)}
+                              aria-label={`Ver informe de proceso ${p.n_proceso}`}
+                              className="inline-flex h-8 w-8 items-center justify-center rounded-full border border-indigo-100 bg-indigo-50 text-indigo-600 transition hover:bg-indigo-100"
+                            >
+                              <Eye className="h-4 w-4" />
+                            </Link>
+                          </td>
                         </tr>
                       ))}
                     </tbody>
@@ -354,5 +382,7 @@ function Stat({ title, value, color = 'green', icon: Icon }) {
     </div>
   );
 }
+
+
 
 

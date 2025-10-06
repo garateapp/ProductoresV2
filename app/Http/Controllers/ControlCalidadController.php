@@ -1254,6 +1254,8 @@ class ControlCalidadController extends Controller
 
         $temperatura_pulpa = null;
         $porcentaje_exportable = 100;
+        $precalibre = 0;
+        $precalibre = 0;
         $defectos_calidad_sum = 0;
         $defectos_condicion_sum = 0;
         $danos_plaga_sum = 0;
@@ -1277,10 +1279,19 @@ class ControlCalidadController extends Controller
             $danos_plaga_sum = $calidad->detalles()
                 ->where('tipo_item', 'DAÑOS DE PLAGA')
                 ->sum('porcentaje_muestra');
+            $distribucion_calibres = $calidad->detalles()
+                ->where('tipo_item', 'like', 'DISTRIBU%N DE CALIBRES')
+                ->get();
+
+            $precalibre_detalle = $distribucion_calibres->firstWhere('detalle_item', 'PRECALIBRE');
+            if ($precalibre_detalle) {
+                $precalibre = (float) $precalibre_detalle->porcentaje_muestra;
+            }
+
 
             $total_defectos_sum = $defectos_calidad_sum + $defectos_condicion_sum + $danos_plaga_sum;
 
-            $porcentaje_exportable = 100 - $total_defectos_sum;
+            $porcentaje_exportable = 100 - $total_defectos_sum - $precalibre;
             if ($porcentaje_exportable < 0) {
                 $porcentaje_exportable = 0;
             }
@@ -1305,6 +1316,7 @@ class ControlCalidadController extends Controller
             'recepcion',
             'temperatura_pulpa',
             'porcentaje_exportable',
+            'precalibre',
             'defectos_calidad_sum',
             'defectos_condicion_sum',
             'danos_plaga_sum',
