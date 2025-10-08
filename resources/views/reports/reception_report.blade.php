@@ -2416,7 +2416,7 @@
 
 
 
-                const formattedValue = chart.config.type === 'bar' ? value.toFixed(2) : value.toFixed(2) + '%';
+                const formattedValue = chart.config.type === 'bar' ? value.toFixed(1) : value.toFixed(1) + '%';
 
 
 
@@ -2500,7 +2500,7 @@
 
 
 
-                        <span>${dataset.label}: ${total.toFixed(2)}%</span>
+                        <span>${dataset.label}: ${total.toFixed(1)}%</span>
 
 
 
@@ -2576,7 +2576,7 @@
 
 
 
-                        <span>${ds.label}: ${avg.toFixed(2)}${postfix}</span>
+                        <span>${ds.label}: ${avg.toFixed(1)}${postfix}</span>
 
 
 
@@ -2734,7 +2734,7 @@
 
 
 
-                        <span>${it.label}: ${pct.toFixed(2)}% (${it.total})</span>
+                        <span>${it.label}: ${pct.toFixed(1)}% (${it.total})</span>
 
 
 
@@ -3058,7 +3058,7 @@
 
 
 
-                                text: `${exportableAdjusted.toFixed(2)}%`,
+                                text: `${exportableAdjusted.toFixed(1)}%`,
 
 
 
@@ -3362,7 +3362,7 @@
 
 
 
-                                        const pct = Number(val).toFixed(2);
+                                        const pct = Number(val).toFixed(1);
 
 
 
@@ -4204,7 +4204,7 @@
 
 
 
-                                formatter: (val) => Number(val).toFixed(2)
+                                formatter: (val) => Number(val).toFixed(1)
 
 
 
@@ -4544,7 +4544,7 @@
 
 
 
-                                formatter: (val) => Number(val).toFixed(2)
+                                formatter: (val) => Number(val).toFixed(1)
 
 
 
@@ -5108,7 +5108,7 @@
 
 
 
-                                formatter: (val) => Number(val).toFixed(2)
+                                formatter: (val) => Number(val).toFixed(1)
 
 
 
@@ -5498,7 +5498,7 @@
 
                             'ROJO CAOBA' => ['code' => '3', 'label' => 'Rojo Caoba', 'group' => 'Dark'],
 
-                            'SANTINA' => ['code' => '4', 'label' => 'Santina', 'group' => 'Dark'],
+                            'SANTINA' => ['code' => '3.5', 'label' => 'Santina', 'group' => 'Dark'],
 
                             'CAOBA OSCURO' => ['code' => '4', 'label' => 'Caoba Oscuro', 'group' => 'Black'],
 
@@ -5709,7 +5709,7 @@
 
                                                     <td class="color-code-label">
                                                         <strong>{{ $row['code'] }}</strong>
-                                                        <span>{{ $row['label'] }}</span>
+                                                        {{-- <span>{{ $row['label'] }}</span> --}}
 
                                                     </td>
 
@@ -5993,7 +5993,22 @@
 
 
 
-                            <li>{{ $detalle->detalle_item }}: {{ $detalle->porcentaje_muestra }} %</li>
+                            @php
+                                $detalleItem = $detalle->detalle_item ?? '';
+                                $porcentajeMuestra = (float) ($detalle->porcentaje_muestra ?? 0);
+                                $detalleLower = function_exists('mb_strtolower') ? mb_strtolower($detalleItem, 'UTF-8') : strtolower($detalleItem);
+                                $tienePudricion = str_contains($detalleLower, 'pudrición') || str_contains($detalleLower, 'pudricion');
+                            @endphp
+
+
+
+                            <li>
+                                @if ($tienePudricion && $porcentajeMuestra >= 2)
+                                    <strong>{{ $detalleItem }}: {{ $detalle->porcentaje_muestra }} %</strong>
+                                @else
+                                    {{ $detalleItem }}: {{ $detalle->porcentaje_muestra }} %
+                                @endif
+                            </li>
 
 
 

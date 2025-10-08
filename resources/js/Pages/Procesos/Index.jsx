@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { Link, useForm, usePage, router } from '@inertiajs/react';
 import { Button } from '@/Components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/Components/ui/card';
@@ -11,7 +11,7 @@ import {
   TableRow,
 } from '@/Components/ui/table';
 import { Input } from '@/Components/ui/input';
-import { FileText, RefreshCw } from 'lucide-react';
+import { FileText, RefreshCw, Upload as UploadIcon, X } from 'lucide-react';
 import Chart from 'react-apexcharts';
 import AuthenticatedLayout from '@/Layouts/AuthenticatedLayout';
 
@@ -22,6 +22,15 @@ export default function Index({ procesos, especies, variedades = [], filters, is
     especie_id: filters.especie_id || '',
     variedad_id: filters.variedad_id || '',
   });
+
+  const [selectedFiles, setSelectedFiles] = useState([]);
+  const [isDragging, setIsDragging] = useState(false);
+  const [fileErrors, setFileErrors] = useState([]);
+  const [uploading, setUploading] = useState(false);
+  const fileInputRef = useRef(null);
+
+  const userRoles = props?.auth?.user?.roles ?? [];
+  const isAdmin = userRoles.some((role) => ['Administrador', 'Admin'].includes(role.name));
 
   const handleSearchChange = (e) => {
     setData('search', e.target.value);
@@ -34,6 +43,123 @@ export default function Index({ procesos, especies, variedades = [], filters, is
 
   const handleVariedadFilter = (variedadId) => {
     setData('variedad_id', variedadId);
+  };
+
+  const extractProcesoId = (filename) => {
+    const match = filename.match(/^(\d+)/);
+    return match ? match[1] : null;
+  };
+
+  const handleFilesSelection = (fileList) => {
+    if (!isAdmin || uploading) {
+      return;
+    }
+    setFileErrors([]);
+    const incoming = Array.from(fileList || []);
+    if (!incoming.length) return;
+    const errors = [];
+
+    setSelectedFiles((prev) => {
+      const existingNames = new Set(prev.map((file) => file.name));
+      const merged = [...prev];
+
+      incoming.forEach((file) => {
+        const isPdf = file.type === 'application/pdf' || file.name.toLowerCase().endsWith('.pdf');
+        if (!isPdf) {
+          errors.push(`${file.name} (formato no permitido)`);
+          return;
+        }
+        if (existingNames.has(file.name)) {
+          errors.push(`${file.name} (duplicado)`);
+          return;
+        }
+        merged.push(file);
+        existingNames.add(file.name);
+      });
+
+      return merged;
+    });
+
+    if (errors.length) {
+      setFileErrors((prev) => [...prev, ...errors]);
+    }
+  };
+
+  const handleFileInputChange = (event) => {
+    handleFilesSelection(event.target.files);
+    event.target.value = '';
+  };
+
+  const handleDrop = (event) => {
+    event.preventDefault();
+    event.stopPropagation();
+    setIsDragging(false);
+    if (!isAdmin || uploading) {
+      return;
+    }
+    handleFilesSelection(event.dataTransfer.files);
+  };
+
+  const handleDragOver = (event) => {
+    event.preventDefault();
+    event.stopPropagation();
+    if (!isAdmin || uploading) {
+      return;
+    }
+    if (!isDragging) {
+      setIsDragging(true);
+    }
+  };
+
+  const handleDragLeave = (event) => {
+    event.preventDefault();
+    event.stopPropagation();
+    if (event.currentTarget && event.currentTarget.contains(event.relatedTarget)) {
+      return;
+    }
+    setIsDragging(false);
+  };
+
+  const handleOpenFileDialog = () => {
+    if (!isAdmin || uploading) {
+      return;
+    }
+    if (fileInputRef.current) {
+      fileInputRef.current.click();
+    }
+  };
+
+  const removeSelectedFile = (index) => {
+    setSelectedFiles((prev) => prev.filter((_, idx) => idx !== index));
+  };
+
+  const clearFileErrors = () => setFileErrors([]);
+
+  const handleUpload = () => {
+    if (!isAdmin) {
+      return;
+    }
+    if (!selectedFiles.length) {
+      setFileErrors((prev) => [...prev, 'Selecciona al menos un archivo antes de subir.']);
+      return;
+    }
+
+    setFileErrors([]);
+    const formData = new FormData();
+    selectedFiles.forEach((file) => formData.append('files[]', file));
+
+    setUploading(true);
+    router.post(route('procesos.informes.upload'), formData, {
+      forceFormData: true,
+      preserveScroll: true,
+      onSuccess: () => {
+        setSelectedFiles([]);
+      },
+      onError: () => {
+        setFileErrors((prev) => [...prev, 'Ocurrio un error al subir los archivos.']);
+      },
+      onFinish: () => setUploading(false),
+    });
   };
 
   useEffect(() => {
@@ -78,6 +204,100 @@ export default function Index({ procesos, especies, variedades = [], filters, is
               </details>
             </div>
           )}
+          {isAdmin && props?.flash?.upload_report && (
+            <div className="mb-3 rounded border border-indigo-200 bg-indigo-50 px-3 py-2 text-sm text-indigo-900">
+              <p>Archivos procesados: {props.flash.upload_report.processed ?? 0}. Informes actualizados: {props.flash.upload_report.updated ?? 0}.</p>
+              {props.flash.upload_report.not_found?.length > 0 && (
+                <p className="mt-1"><span className="font-medium">Sin coincidencias</span>: {props.flash.upload_report.not_found.slice(0, 5).join(', ')}{props.flash.upload_report.not_found.length > 5 ? '...' : ''}</p>
+              )}
+              {props.flash.upload_report.invalid_name?.length > 0 && (
+                <p className="mt-1"><span className="font-medium">Nombres no validos</span>: {props.flash.upload_report.invalid_name.slice(0, 5).join(', ')}{props.flash.upload_report.invalid_name.length > 5 ? '...' : ''}</p>
+              )}
+            </div>
+          )}
+          {isAdmin && fileErrors.length > 0 && (
+            <div className="mb-3 rounded border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-800">
+              <div className="flex items-center justify-between">
+                <span>Revisa los archivos seleccionados:</span>
+                <button type="button" onClick={clearFileErrors} className="text-red-600 hover:text-red-800">Cerrar</button>
+              </div>
+              <ul className="mt-2 list-disc space-y-1 pl-5">
+                {fileErrors.map((error, index) => (
+                  <li key={`${error}-${index}`}>{error}</li>
+                ))}
+              </ul>
+            </div>
+          )}
+          {isAdmin && (
+            <div
+              className={`mb-6 flex flex-col items-center justify-center rounded-lg border-2 border-dashed px-6 py-8 text-center transition ${isDragging ? 'border-indigo-500 bg-indigo-50' : 'border-gray-300 bg-white'}`}
+              onDragEnter={handleDragOver}
+              onDragOver={handleDragOver}
+              onDragLeave={handleDragLeave}
+              onDrop={handleDrop}
+              role="button"
+              tabIndex={0}
+              onClick={handleOpenFileDialog}
+              onKeyDown={(event) => {
+                if (event.key === 'Enter' || event.key === ' ') {
+                  event.preventDefault();
+                  event.stopPropagation();
+                  handleOpenFileDialog();
+                }
+              }}
+              >
+              <input
+                ref={fileInputRef}
+                type="file"
+                accept=".pdf"
+                multiple
+                className="hidden"
+                onChange={handleFileInputChange}
+              />
+              <UploadIcon className="h-8 w-8 text-gray-500" />
+              <p className="mt-3 text-sm text-gray-700">Arrastra y suelta los informes en PDF o usa el boton para seleccionar archivos.</p>
+              <Button
+                type="button"
+                variant="outline"
+                className="mt-4"
+                disabled={uploading}
+                onClick={(event) => {
+                  event.stopPropagation();
+                  handleOpenFileDialog();
+                }}
+              >
+                Seleccionar archivos
+              </Button>
+              <p className="mt-2 text-xs text-gray-500">Formato esperado: IDPROCESO-*.pdf (ej. 12-3103225.pdf).</p>
+            </div>
+          )}
+          {isAdmin && selectedFiles.length > 0 && (
+            <div className="mb-6 rounded border border-gray-200 bg-gray-50 p-4">
+              <div className="flex items-center justify-between">
+                <h4 className="text-sm font-semibold text-gray-700">Archivos listos para subir ({selectedFiles.length})</h4>
+                <Button type="button" variant="ghost" onClick={() => setSelectedFiles([])} disabled={!isAdmin || uploading}>Limpiar</Button>
+              </div>
+              <ul className="mt-3 space-y-2 text-sm text-gray-700">
+                {selectedFiles.map((file, index) => (
+                  <li key={`${file.name}-${index}`} className="flex items-center justify-between rounded border border-gray-200 bg-white px-3 py-2">
+                    <div>
+                      <span className="font-medium">{file.name}</span>
+                      {extractProcesoId(file.name) && (
+                        <span className="ml-2 text-xs text-gray-500">Proceso: {extractProcesoId(file.name)}</span>
+                      )}
+                    </div>
+                    <button type="button" onClick={() => removeSelectedFile(index)} className="text-gray-500 hover:text-red-600" aria-label="Eliminar archivo">
+                      <X className="h-4 w-4" />
+                    </button>
+                  </li>
+                ))}
+              </ul>
+              <div className="mt-4 flex justify-end gap-2">
+                <Button type="button" variant="outline" onClick={handleOpenFileDialog} disabled={!isAdmin || uploading}>Anadir mas</Button>
+                <Button type="button" onClick={handleUpload} disabled={!isAdmin || uploading}>{uploading ? 'Subiendo...' : 'Subir archivos'}</Button>
+              </div>
+            </div>
+          )}
           <div className="mb-4 flex flex-col md:flex-row justify-between items-center gap-4">
             <Input
               type="text"
@@ -90,7 +310,7 @@ export default function Index({ procesos, especies, variedades = [], filters, is
               <Button
                 variant={data.especie_id === '' ? 'default' : 'outline'}
                 onClick={() => handleEspecieFilter('')}
-              >
+                >
                 Todas las Especies
               </Button>
               {especies.map((especie) => (
@@ -110,7 +330,7 @@ export default function Index({ procesos, especies, variedades = [], filters, is
               <Button
                 variant={data.variedad_id === '' ? 'default' : 'outline'}
                 onClick={() => handleVariedadFilter('')}
-              >
+                >
                 Todas las Variedades
               </Button>
               {variedades.map((variedad) => (
@@ -326,3 +546,4 @@ function SyncButton() {
 }
 
 Index.layout = page => <AuthenticatedLayout children={page} header={<h2 className="font-semibold text-xl text-gray-800 leading-tight">Procesos</h2>} />;
+

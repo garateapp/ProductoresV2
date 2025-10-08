@@ -11,6 +11,7 @@ use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Facades\Log;
 use Inertia\Inertia;
+use Illuminate\Support\Facades\Storage;
 
 class ProcesoController extends Controller
 {
@@ -118,6 +119,85 @@ class ProcesoController extends Controller
             'chartData' => $chartData->toArray(), // Pass chart data to frontend
         ]);
     }
+    public function uploadInformes(Request $request)
+    {
+        if (! $request->user() || ! $request->user()->hasAnyRole(['Administrador', 'Admin'])) {
+            abort(403);
+        }
+
+        $validated = $request->validate([
+            'files' => ['required', 'array', 'min:1'],
+            'files.*' => ['file', 'mimes:pdf', 'max:20480'],
+        ]);
+
+        $files = $request->file('files', []);
+        $summary = [
+            'processed' => count($files),
+            'updated' => 0,
+            'not_found' => [],
+            'invalid_name' => [],
+        ];
+
+        foreach ($files as $file) {
+            $originalName = $file->getClientOriginalName();
+            $baseName = pathinfo($originalName, PATHINFO_FILENAME);
+
+            if (!preg_match('/^(\d+)/', $baseName, $matches)) {
+                $summary['invalid_name'][] = $originalName;
+                continue;
+            }
+
+            $procesoId = (int) $matches[1];
+
+            // $proceso = Proceso::find($procesoId);
+
+            // if (! $proceso) {
+
+                $proceso = Proceso::where('n_proceso', $procesoId)->first();
+
+            //}
+
+
+
+            if (! $proceso) {
+
+                $summary['not_found'][] = $originalName;
+
+                continue;
+
+            }
+
+
+
+            $sanitizedName = preg_replace('/[^A-Za-z0-9._-]/', '_', $originalName);
+
+            $storedPath = $file->storeAs('pdf-procesos', $sanitizedName, 'public');
+
+            $proceso->informe = $storedPath;//Storage::disk('public')->url($storedPath);
+
+            $proceso->save();
+
+
+            $summary['updated']++;
+        }
+
+        $summary['not_found_preview'] = array_slice($summary['not_found'], 0, 10);
+        $summary['invalid_name_preview'] = array_slice($summary['invalid_name'], 0, 10);
+
+        $message = "Archivos procesados: {$summary['processed']}. Informes actualizados: {$summary['updated']}.";
+        if (!empty($summary['not_found'])) {
+            $message .= ' Sin coincidencias: ' . count($summary['not_found']) . '.';
+        }
+        if (!empty($summary['invalid_name'])) {
+            $message .= ' Nombres invalidos: ' . count($summary['invalid_name']) . '.';
+        }
+
+        return redirect()
+            ->route('procesos.index')
+            ->with('success', $message)
+            ->with('upload_report', $summary);
+    }
+
     public function sync_proces()
     {   $fechaActual = new DateTime();
 
