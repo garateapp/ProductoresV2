@@ -4038,7 +4038,7 @@
 
                                         font: {
 
-                                            size: 9
+                                            size: 8
 
                                         }
 
@@ -4196,7 +4196,8 @@
 
 
 
-                                    weight: 'bold'
+                                    weight: 'bold',
+                                    size: 8
 
 
 
@@ -4536,7 +4537,8 @@
 
 
 
-                                    weight: 'bold'
+                                    weight: 'bold',
+                                    size: 8
 
 
 
@@ -5100,7 +5102,8 @@
 
 
 
-                                    weight: 'bold'
+                                    weight: 'bold',
+                                    size: 8
 
 
 
