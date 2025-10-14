@@ -1,6 +1,6 @@
 import React, { useMemo, useState } from 'react';
 import AuthenticatedLayout from '@/Layouts/AuthenticatedLayout';
-import { Head, Link } from '@inertiajs/react';
+import { Head, Link, router } from '@inertiajs/react';
 import { Input } from '@/Components/ui/input';
 import { Button } from '@/Components/ui/button';
 import { Badge } from '@/Components/ui/badge';
@@ -98,6 +98,14 @@ export default function ContractsIndex({ auth, contracts }) {
         else { setSortBy(key); setSortOrder('asc'); }
     };
 
+    const handleDelete = (contractId) => {
+        if (!window.confirm('Estas seguro de que deseas eliminar este contrato? Esta accion no se puede deshacer.')) {
+            return;
+        }
+
+        router.delete(route('contracts.destroy', contractId), { preserveScroll: true });
+    };
+
     return (
         <AuthenticatedLayout
             user={auth.user}
@@ -188,9 +196,19 @@ export default function ContractsIndex({ auth, contracts }) {
                                                         )}
                                                     </td>
                                                     <td className="px-6 py-4 whitespace-nowrap">
-                                                        <Link href={route('contracts.edit', contract.id)}>
-                                                            <Button size="sm" variant="outline">Editar</Button>
-                                                        </Link>
+                                                        <div className="flex items-center gap-2">
+                                                            <Link href={route('contracts.edit', contract.id)}>
+                                                                <Button size="sm" variant="outline">Editar</Button>
+                                                            </Link>
+                                                            <Button
+                                                                type="button"
+                                                                size="sm"
+                                                                variant="destructive"
+                                                                onClick={() => handleDelete(contract.id)}
+                                                            >
+                                                                Eliminar
+                                                            </Button>
+                                                        </div>
                                                     </td>
                                                 </tr>
                                             ))

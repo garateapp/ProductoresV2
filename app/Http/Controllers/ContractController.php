@@ -6,6 +6,7 @@ use App\Models\Contract;
 use App\Models\User;
 use Illuminate\Http\Request;
 use Inertia\Inertia;
+use Illuminate\Support\Facades\Storage;
 
 class ContractController extends Controller
 {
@@ -88,5 +89,16 @@ class ContractController extends Controller
         $contract->update($validatedData);
 
         return redirect()->route('contracts.index')->with('success', 'Contrato actualizado exitosamente.');
+    }
+
+    public function destroy(Contract $contract)
+    {
+        if ($contract->contract_file_path) {
+            Storage::disk('public')->delete($contract->contract_file_path);
+        }
+
+        $contract->delete();
+
+        return redirect()->route('contracts.index')->with('success', 'Contrato eliminado exitosamente.');
     }
 }

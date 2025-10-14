@@ -70,6 +70,7 @@ Route::middleware('auth')->group(function () {
     Route::get('control-calidad/get-valores', [App\Http\Controllers\ControlCalidadController::class, 'getValores'])->name('control-calidad.get-valores');
     Route::post('control-calidad/store-calidad', [App\Http\Controllers\ControlCalidadController::class, 'storeCalidad'])->name('control-calidad.store-calidad');
     Route::post('control-calidad/store-detalle', [App\Http\Controllers\ControlCalidadController::class, 'storeDetalle'])->name('control-calidad.store-detalle');
+    Route::delete('control-calidad/detalles/{detalle}', [App\Http\Controllers\ControlCalidadController::class, 'destroyDetalle'])->name('control-calidad.destroy-detalle');
     Route::get('control-calidad/{recepcion}/detalles', [App\Http\Controllers\ControlCalidadController::class, 'getDetalles'])->name('control-calidad.get-detalles');
     Route::get('control-calidad/{recepcion}/calidad', [App\Http\Controllers\ControlCalidadController::class, 'getCalidad'])->name('control-calidad.get-calidad');
     Route::post('control-calidad/{recepcion}/cargar-firmpro', [App\Http\Controllers\ControlCalidadController::class, 'cargarFirmpro'])->name('control-calidad.cargar-firmpro');
