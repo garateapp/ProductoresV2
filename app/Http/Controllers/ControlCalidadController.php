@@ -1356,8 +1356,8 @@ class ControlCalidadController extends Controller
             // OJO: primero configurar el temp, luego html()
             Browsershot::html($html)
                 ->setTemporaryDirectory(storage_path('app/browsershot-temp'))
-    // ->setChromePath('/usr/bin/chromium-browser') // ← Usa el que ya tienes
-    // ->setOption('executablePath', '/usr/bin/chromium-browser') // ← Clave para Puppeteer
+                ->setChromePath('/usr/bin/chromium-browser') // ← Usa el que ya tienes
+                ->setOption('executablePath', '/usr/bin/chromium-browser') // ← Clave para Puppeteer
                 ->setOption('headless', true)
                 ->noSandbox()
                 ->addChromiumArguments([
