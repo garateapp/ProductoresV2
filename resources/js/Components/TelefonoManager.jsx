@@ -3,7 +3,9 @@ import { useForm } from '@inertiajs/react';
 import { Button } from '@/Components/ui/button';
 import { Input } from '@/Components/ui/input';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/Components/ui/table';
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from '@/Components/ui/dialog';
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/Components/ui/dialog';
+import { Switch } from '@/Components/ui/switch';
+import { Label } from '@/Components/ui/label';
 
 export default function TelefonoManager({ producer }) {
   const [telefonos, setTelefonos] = useState(producer.telefonos || []);
@@ -11,14 +13,26 @@ export default function TelefonoManager({ producer }) {
   const { data, setData, post, put, delete: destroy, errors, reset } = useForm({
     id: null,
     numero: '',
+    user_id: producer.id,
+    sync_same_rut: false,
   });
 
   const openModal = (telefono = null) => {
     if (telefono) {
-      setData({ id: telefono.id, numero: telefono.numero, user_id: producer.id });
+      setData({
+        id: telefono.id,
+        numero: telefono.numero,
+        user_id: producer.id,
+        sync_same_rut: false,
+      });
     } else {
       reset();
-      setData({ numero: '', user_id: producer.id });
+      setData({
+        id: null,
+        numero: '',
+        user_id: producer.id,
+        sync_same_rut: false,
+      });
     }
     setIsModalOpen(true);
   };
@@ -26,6 +40,12 @@ export default function TelefonoManager({ producer }) {
   const closeModal = () => {
     setIsModalOpen(false);
     reset();
+    setData({
+      id: null,
+      numero: '',
+      user_id: producer.id,
+      sync_same_rut: false,
+    });
   };
 
   const handleSubmit = (e) => {
@@ -87,6 +107,16 @@ export default function TelefonoManager({ producer }) {
                 placeholder="Numero de Telefono"
               />
               {errors.numero && <div className="text-red-500 text-sm">{errors.numero}</div>}
+            </div>
+            <div className="flex items-center gap-2">
+              <Switch
+                id="sync_same_rut"
+                checked={!!data.sync_same_rut}
+                onCheckedChange={(value) => setData('sync_same_rut', value)}
+              />
+              <Label htmlFor="sync_same_rut" className="cursor-pointer">
+                Actualizar el resto de los CSG con el mismo RUT
+              </Label>
             </div>
             <Button type="submit">{data.id ? 'Update' : 'Create'}</Button>
           </form>

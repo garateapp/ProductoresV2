@@ -147,46 +147,78 @@ class QualityChartsService
     }
 
     public static function getPromedioFirmezasData(Collection $receptions): array
-    {
-        $categories = ['Muy Firme>280-1000 Durofel>75', 'Firme >200-279 Durofel 72-74.9', 'Sensible 180-199 Durofel 65-69.9', 'Blando 0.1 -179 Durofel <65.4'];
-        $colors = ['Light', 'Dark', 'Black'];
-        $acc = [];
-        foreach ($categories as $cat) {
-            $acc[$cat] = ['Light' => [], 'Dark' => [], 'Black' => []];
-        }
-        foreach ($receptions as $reception) {
-            if ($reception->calidad) {
-                $details = $reception->calidad->detalles->where('tipo_item', 'DISTRIBUCIÓN DE FIRMEZA')->values();
-                for ($i = 0; $i < $details->count(); $i++) {
-                    $categoryIndex = floor($i / 3);
-                    if ($categoryIndex >= count($categories)) {
-                        break;
-                    }
-                    $cat = $categories[$categoryIndex];
-                    $detail = $details[$i];
-                    $color = ucfirst(strtolower($detail->detalle_item));
-                    $value = $detail->valor_ss ?? 0;
-                    if (in_array($color, $colors)) {
-                        $acc[$cat][$color][] = $value;
-                    }
+{
+    // Definición con una clave estable para indexar
+    $categories = [
+        ['key' => 'muy_firme', 'top' => 'Muy Firme >280-1000', 'bottom' => 'Durofel >75'],
+        ['key' => 'firme',     'top' => 'Firme >200-279',       'bottom' => 'Durofel 72-74.9'],
+        ['key' => 'sensible',  'top' => 'Sensible 180-199',     'bottom' => 'Durofel 65-69.9'],
+        ['key' => 'blando',    'top' => 'Blando 0.1 -179',      'bottom' => 'Durofel <65.4'],
+    ];
+
+    // Etiquetas multilínea para Chart.js (cada label es un array de 2 líneas)
+    $labels = array_map(fn ($c) => [$c['top'], $c['bottom']], $categories);
+
+    $colors = ['Light', 'Dark', 'Black'];
+
+    // Acumuladores indexados por la clave string
+    $acc = [];
+    foreach ($categories as $c) {
+        $acc[$c['key']] = ['Light' => [], 'Dark' => [], 'Black' => []];
+    }
+
+    // Recorre recepciones y agrupa valores por categoría y color
+    foreach ($receptions as $reception) {
+        if ($reception->calidad) {
+            $details = $reception->calidad->detalles->where('tipo_item', 'DISTRIBUCIÓN DE FIRMEZA')->values();
+
+            for ($i = 0; $i < $details->count(); $i++) {
+                $categoryIndex = intdiv($i, 3); // cada 3 items cambia de categoría
+                if ($categoryIndex >= count($categories)) {
+                    break;
+                }
+
+                $key    = $categories[$categoryIndex]['key'];
+                $detail = $details[$i];
+
+                // Normaliza LIGHT/DARK/BLACK a Light/Dark/Black
+                $color = ucfirst(strtolower($detail->detalle_item ?? ''));
+                $value = (float) ($detail->valor_ss ?? 0);
+
+                if (in_array($color, $colors, true)) {
+                    $acc[$key][$color][] = $value;
                 }
             }
         }
-        $final = [];
-        foreach ($acc as $cat => $colorData) {
-            foreach ($colorData as $color => $values) {
-                $final[$cat][$color] = count($values) > 0 ? array_sum($values) / count($values) : 0;
-            }
-        }
-        $series = [['name' => 'Light', 'data' => []], ['name' => 'Dark', 'data' => []], ['name' => 'Black', 'data' => []]];
-        foreach ($final as $cat => $colorCounts) {
-            $series[0]['data'][] = round($colorCounts['Light'], 2);
-            $series[1]['data'][] = round($colorCounts['Dark'], 2);
-            $series[2]['data'][] = round($colorCounts['Black'], 2);
-        }
-
-        return ['categories' => $categories, 'series' => $series];
     }
+
+    // Promedios
+    $final = [];
+    foreach ($acc as $key => $colorData) {
+        $final[$key] = [
+            'Light' => count($colorData['Light']) ? array_sum($colorData['Light']) / count($colorData['Light']) : 0,
+            'Dark'  => count($colorData['Dark'])  ? array_sum($colorData['Dark'])  / count($colorData['Dark'])  : 0,
+            'Black' => count($colorData['Black']) ? array_sum($colorData['Black']) / count($colorData['Black']) : 0,
+        ];
+    }
+
+    // Series en el mismo orden de $categories
+    $series = [
+        ['name' => 'Light', 'data' => []],
+        ['name' => 'Dark',  'data' => []],
+        ['name' => 'Black', 'data' => []],
+    ];
+
+    foreach ($categories as $c) {
+        $key = $c['key'];
+        $series[0]['data'][] = round($final[$key]['Light'] ?? 0, 2);
+        $series[1]['data'][] = round($final[$key]['Dark']  ?? 0, 2);
+        $series[2]['data'][] = round($final[$key]['Black'] ?? 0, 2);
+    }
+
+    // Devuelve labels como arrays (dos líneas) para Chart.js
+    return ['categories' => $labels, 'series' => $series];
+}
 
     public static function getDistribucionFirmezasData(Collection $receptions): array
     {

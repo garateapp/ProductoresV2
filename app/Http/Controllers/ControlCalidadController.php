@@ -1,5 +1,6 @@
 <?php
 
+
 namespace App\Http\Controllers;
 
 use App\Models\Calidad;
@@ -11,17 +12,20 @@ use App\Models\Recepcion;
 use App\Models\Valor;
 use App\Models\Variedad;
 use App\Services\QualityChartsService;
+use App\Services\ReportNotificationService;
 use Carbon\Carbon;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Storage;
+use Illuminate\Support\Str;
 use Inertia\Inertia;
 use Spatie\Browsershot\Browsershot;
 
 class ControlCalidadController extends Controller
 {
+
     public function index(Request $request)
     {
         $user = Auth::user();
@@ -173,10 +177,12 @@ class ControlCalidadController extends Controller
             'exportable' => 'boolean',
             'temperatura' => 'nullable',
             'valor_presion' => 'nullable|numeric',
+            'obs_ext' => 'nullable|string',
         ]);
 
         $parametro = Parametro::find($validated['parametro_id']);
         $valor = Valor::find($validated['valor_id']);
+
 
         if (in_array($validated['parametro_id'], ['1', '2', '3', '4', '5', '6'])) {
             $tipo_detalle = 'cc';
@@ -189,7 +195,9 @@ class ControlCalidadController extends Controller
         } else {
             $t_muestra = $calidad->t_muestra;
         }
+        $calidad->obs_ext = $validated['obs_ext'];
 
+        $calidad->save();
         $porcMuestra = $validated['cantidad_muestra'] / $t_muestra * 100;
 
         $categoria = $validated['exportable'] ? 'Exportable' : null;
@@ -230,6 +238,13 @@ class ControlCalidadController extends Controller
         $indiceMadurez = $detalles->whereIn('tipo_item', $madurez_param_names);
 
         return redirect()->back()->with('success', 'Detalle guardado exitosamente.');
+    }
+
+    public function destroyDetalle(Detalle $detalle)
+    {
+        $detalle->delete();
+
+        return response()->json(['message' => 'Detalle eliminado exitosamente.']);
     }
 
     public function getDetalles(Recepcion $recepcion)
@@ -1433,10 +1448,11 @@ class ControlCalidadController extends Controller
             'htmlUrl' => route('control-calidad.preview-report-html', $recepcion->id),
             'approveUrl' => route('control-calidad.approve-report', $recepcion->id),
             'generateUrl' => route('control-calidad.generate-report', $recepcion->id),
+            'resendUrl' => route('control-calidad.resend-report', $recepcion->id),
         ]);
     }
 
-    public function approveReport(Recepcion $recepcion)
+    public function approveReport(Recepcion $recepcion, ReportNotificationService $notificationService)
     {
         $calidad = $recepcion->calidad;
 
@@ -1521,6 +1537,21 @@ class ControlCalidadController extends Controller
             $recepcion->informe = $publicUrl;
             $recepcion->save();
 
+            try {
+                $notificationService->notifyReceptionReport(
+                    $recepcion->fresh(),
+                    $publicUrl,
+                    $pdfPath,
+                    $pdfRelative
+                );
+            } catch (\Throwable $e) {
+                Log::error('Reception notification dispatch failed', [
+                    'recepcion_id' => $recepcion->id,
+                    'numero_g_recepcion' => $recepcion->numero_g_recepcion,
+                    'error' => $e->getMessage(),
+                ]);
+            }
+
             return response()->json([
                 'status' => 'approved',
                 'url' => $publicUrl,
@@ -1529,5 +1560,51 @@ class ControlCalidadController extends Controller
             Log::error('Approve report error: ' . $e->getMessage());
             return response()->json(['status' => 'error', 'message' => $e->getMessage()], 500);
         }
+    }
+
+    public function resendReport(Recepcion $recepcion, ReportNotificationService $notificationService)
+    {
+        if (! $recepcion->informe) {
+            return response()->json([
+                'status' => 'error',
+                'message' => 'La recepcion no tiene informe disponible para reenviar.',
+            ], 422);
+        }
+
+        $publicUrl = $recepcion->informe;
+        $relativePath = null;
+
+        if ($publicUrl) {
+            $relativePath = Str::after($publicUrl, '/storage/');
+            if ($relativePath === $publicUrl) {
+                $relativePath = null;
+            }
+        }
+
+        $absolutePath = $relativePath ? storage_path('app/public/' . ltrim($relativePath, '/')) : null;
+
+        try {
+            $notificationService->notifyReceptionReport(
+                $recepcion->fresh(),
+                $publicUrl,
+                $absolutePath,
+                $relativePath
+            );
+        } catch (\Throwable $e) {
+            Log::error('Reception notification resend failed', [
+                'recepcion_id' => $recepcion->id,
+                'numero_g_recepcion' => $recepcion->numero_g_recepcion,
+                'error' => $e->getMessage(),
+            ]);
+
+            return response()->json([
+                'status' => 'error',
+                'message' => 'No se pudo reenviar el informe.',
+            ], 500);
+        }
+
+        return response()->json([
+            'status' => 'resent',
+        ]);
     }
 }

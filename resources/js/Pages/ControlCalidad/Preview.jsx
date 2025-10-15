@@ -4,11 +4,12 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/Components/ui/card';
 import { Switch } from '@/Components/ui/switch';
 import { Button } from '@/Components/ui/button';
 import AuthenticatedLayout from '@/Layouts/AuthenticatedLayout';
-import { FileText } from 'lucide-react';
+import { FileText, Repeat } from 'lucide-react';
 
-export default function Preview({ recepcionId, numero, htmlUrl, approveUrl, approved: approvedProp, generateUrl, informeUrl }) {
+export default function Preview({ recepcionId, numero, htmlUrl, approveUrl, approved: approvedProp, generateUrl, informeUrl, resendUrl }) {
   const [approved, setApproved] = useState(!!approvedProp);
   const [approving, setApproving] = useState(false);
+  const [resending, setResending] = useState(false);
   const { auth } = usePage().props;
 
   const handleApprove = async (value) => {
@@ -38,6 +39,31 @@ export default function Preview({ recepcionId, numero, htmlUrl, approveUrl, appr
     }
   };
 
+  const handleResend = async () => {
+    if (!resendUrl) return;
+    try {
+      setResending(true);
+      const token = document.querySelector('meta[name="csrf-token"]').getAttribute('content');
+      const res = await fetch(resendUrl, {
+        method: 'POST',
+        headers: {
+          'X-CSRF-TOKEN': token,
+          'Accept': 'application/json',
+        },
+      });
+      const data = await res.json();
+      if (!res.ok || data?.status !== 'resent') {
+        alert(data?.message || 'No se pudo reenviar el informe');
+      } else {
+        alert('Informe reenviado correctamente');
+      }
+    } catch (e) {
+      alert('Error al reenviar el informe');
+    } finally {
+      setResending(false);
+    }
+  };
+
   return (
     <div className="container mx-auto py-6 space-y-4">
       <Head title={`Previsualización Informe #${numero || recepcionId}`} />
@@ -52,11 +78,21 @@ export default function Preview({ recepcionId, numero, htmlUrl, approveUrl, appr
                 <span className="text-xs text-gray-500 animate-pulse">Generando reporte...</span>
               )}
             </div>
-            <a href={approved ? generateUrl : undefined} target="_blank" rel="noopener noreferrer">
-              <Button disabled={!approved || approving} variant="outline">
-                <FileText className="h-4 w-4 mr-2" /> {approving ? 'Generando...' : 'Ver informe'}
+            <div className="flex items-center gap-2">
+              <a href={approved ? generateUrl : undefined} target="_blank" rel="noopener noreferrer">
+                <Button disabled={!approved || approving} variant="outline">
+                  <FileText className="h-4 w-4 mr-2" /> {approving ? 'Generando...' : 'Ver informe'}
+                </Button>
+              </a>
+              <Button
+                type="button"
+                variant="outline"
+                onClick={handleResend}
+                disabled={!approved || resending || approving}
+              >
+                <Repeat className="h-4 w-4 mr-2" /> {resending ? 'Reenviando...' : 'Reenviar'}
               </Button>
-            </a>
+            </div>
           </div>
         </CardHeader>
         <CardContent>

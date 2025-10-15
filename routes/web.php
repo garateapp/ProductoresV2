@@ -80,6 +80,7 @@ Route::middleware('auth')->group(function () {
     // HTML-only report for iframe rendering inside preview page
     Route::get('control-calidad/{recepcion}/report/preview/html', [App\Http\Controllers\ControlCalidadController::class, 'previewReport'])->name('control-calidad.preview-report-html');
     Route::post('control-calidad/{recepcion}/report/approve', [App\Http\Controllers\ControlCalidadController::class, 'approveReport'])->name('control-calidad.approve-report');
+    Route::post('control-calidad/{recepcion}/report/resend', [App\Http\Controllers\ControlCalidadController::class, 'resendReport'])->name('control-calidad.resend-report');
 
     // Processed Fruit Quality Control Routes
     Route::get('processed-fruit-quality', [App\Http\Controllers\ProcessedFruitQualityController::class, 'index'])->name('processed-fruit-quality.index');

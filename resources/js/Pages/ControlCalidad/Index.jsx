@@ -36,7 +36,7 @@ export default function Index({ recepciones, especies, variedades = [], filters,
   };
   const { flash } = usePage().props;
   const { data: calidadData, setData: setCalidadData, post: postCalidad, processing: processingCalidad, errors: errorsCalidad, reset: resetCalidad } = useForm({
-    cantidad_total_muestra: '',
+    t_muestra: '',
     materia_vegetal: false,
     piedras: false,
     barro: false,
@@ -224,6 +224,10 @@ export default function Index({ recepciones, especies, variedades = [], filters,
                 return newPhotos;
             });
             alert(data.message);
+            router.get(route('control-calidad.index', filterData), {
+                preserveState: true,
+                preserveScroll: true,
+            });
         } else {
             console.error('submitPhoto fetch error. Response data:', data);
             if (data.errors) {
@@ -238,11 +242,47 @@ export default function Index({ recepciones, especies, variedades = [], filters,
     } finally {
         setPhotoData('processing', false);
         console.log('submitPhoto finally block reached. processingPhoto set to false.');
-    }
-  };
-
-
-  const handleDeletePhoto = async (photoId) => {
+        }
+      };
+    
+      const handleDeleteDetalle = async (detalleId) => {
+        if (confirm('¿Estás seguro de que quieres eliminar este detalle?')) {
+            try {
+                const response = await fetch(route('control-calidad.destroy-detalle', detalleId), {
+                    method: 'DELETE',
+                    headers: {
+                        'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]').getAttribute('content'),
+                        'Content-Type': 'application/json',
+                        'Accept': 'application/json',
+                    },
+                });
+    
+                const data = await response.json();
+    
+                if (response.ok) {
+                    console.log('handleDeleteDetalle fetch success. Response data:', data);
+                    fetchDetalles();
+                    router.get(route('control-calidad.index', filterData), {
+                        preserveState: true,
+                        preserveScroll: true,
+                    });
+                } else {
+                    console.error('handleDeleteDetalle fetch error. Response data:', data);
+                    if (data.errors) {
+                        alert('Error: ' + Object.values(data.errors).flat().join('\n'));
+                    } else {
+                        alert('Error: ' + (data.message || 'Unknown error'));
+                    }
+                }
+            } catch (error) {
+                console.error('handleDeleteDetalle fetch failed:', error);
+                alert('Network error or unexpected issue.');
+            }
+        }
+      };
+    
+    
+      const handleDeletePhoto = async (photoId) => {
     if (confirm('¿Estás seguro de que quieres eliminar esta foto?')) {
         try {
             const response = await fetch(route('quality-control-photos.destroy', photoId), {
@@ -260,6 +300,10 @@ export default function Index({ recepciones, especies, variedades = [], filters,
                 console.log('handleDeletePhoto fetch success. Response data:', data);
                 setPhotos(prevPhotos => prevPhotos.filter(photo => photo.id !== data.deleted_id));
                 alert(data.message);
+                router.get(route('control-calidad.index', filterData), {
+                    preserveState: true,
+                    preserveScroll: true,
+                });
             } else {
                 console.error('handleDeletePhoto fetch error. Response data:', data);
                 if (data.errors) {
@@ -342,6 +386,15 @@ export default function Index({ recepciones, especies, variedades = [], filters,
         }
         // Re-fetch data for the current reception to update modal state
         fetchCalidadData(selectedRecepcion);
+
+        // Reload the entire page data to refresh the table
+        router.get(route('control-calidad.index', filterData), {
+            preserveState: true,
+            preserveScroll: true,
+            onSuccess: () => {
+                handleCloseModal();
+            }
+        });
       },
       onError: (errors) => {
         console.error('Error al guardar condiciones de llegada:', errors);
@@ -363,6 +416,10 @@ export default function Index({ recepciones, especies, variedades = [], filters,
       onSuccess: () => {
         fetchDetalles();
         resetDetalle();
+        router.get(route('control-calidad.index', filterData), {
+            preserveState: true,
+            preserveScroll: true,
+        });
       },
       onError: (errors) => {
         console.error('Error al guardar detalle de defecto:', errors);
@@ -601,7 +658,7 @@ export default function Index({ recepciones, especies, variedades = [], filters,
                 <div className="grid grid-cols-2 gap-4">
                   <div>
                     <Label htmlFor="t_muestra">Cantidad Total Muestra</Label>
-                    <Input id="t_muestra" type="number" value={calidadData.t_muestra} onChange={(e) => setCalidadData('cantidad_total_muestra', e.target.value)} />
+                    <Input id="t_muestra" type="number" value={calidadData.t_muestra} onChange={(e) => setCalidadData('t_muestra', e.target.value)} />
                   </div>
                   <div>
                     <Label htmlFor="embalaje">Embalaje</Label>
@@ -713,7 +770,7 @@ export default function Index({ recepciones, especies, variedades = [], filters,
                       <Label htmlFor="exportable_defectos">Exportable</Label>
                     </div>
                     <Button type="button" onClick={submitDetalle} disabled={processingDetalle || !calidadId}>Agregar Defecto</Button>
-                    {defectosAgregados.length > 0 && (<div className="mt-4 overflow-x-auto max-h-[200px] overflow-y-auto"><h4 className="text-md font-medium mb-2">Defectos Agregados:</h4><Table><TableHeader><TableRow><TableHead>Cantidad</TableHead><TableHead>Tipo Item</TableHead><TableHead>Detalle Item</TableHead><TableHead>% Muestra</TableHead><TableHead>Categoría</TableHead><TableHead>Acciones</TableHead></TableRow></TableHeader><TableBody>{defectosAgregados.map((detalle, index) => (<TableRow key={index}><TableCell className="max-w-xs truncate">{detalle.cantidad}</TableCell><TableCell>{detalle.tipo_item || 'N/A'}</TableCell><TableCell>{detalle.detalle_item || 'N/A'}</TableCell><TableCell className="max-w-xs truncate">{detalle.porcentaje_muestra}</TableCell><TableCell className="max-w-xs truncate text-sm">{detalle.categoria || 'N/A'}</TableCell><TableCell><Button variant="ghost" size="icon" onClick={() => console.log('Delete', detalle.id)}><Trash2 className="h-4 w-4 text-red-500" /></Button></TableCell></TableRow>))}</TableBody></Table></div>)}
+                    {defectosAgregados.length > 0 && (<div className="mt-4 overflow-x-auto max-h-[200px] overflow-y-auto"><h4 className="text-md font-medium mb-2">Defectos Agregados:</h4><Table><TableHeader><TableRow><TableHead>Cantidad</TableHead><TableHead>Tipo Item</TableHead><TableHead>Detalle Item</TableHead><TableHead>% Muestra</TableHead><TableHead>Categoría</TableHead><TableHead>Acciones</TableHead></TableRow></TableHeader><TableBody>{defectosAgregados.map((detalle, index) => (<TableRow key={index}><TableCell className="max-w-xs truncate">{detalle.cantidad}</TableCell><TableCell>{detalle.tipo_item || 'N/A'}</TableCell><TableCell>{detalle.detalle_item || 'N/A'}</TableCell><TableCell className="max-w-xs truncate">{detalle.porcentaje_muestra}</TableCell><TableCell className="max-w-xs truncate text-sm">{detalle.categoria || 'N/A'}</TableCell><TableCell><Button variant="ghost" size="icon" onClick={() => handleDeleteDetalle(detalle.id)}><Trash2 className="h-4 w-4 text-red-500" /></Button></TableCell></TableRow>))}</TableBody></Table></div>)}
                   </TabsContent>
 
                   <TabsContent value="desorden-fisiologico">
@@ -744,7 +801,7 @@ export default function Index({ recepciones, especies, variedades = [], filters,
                       </div>
                     </div>
                     <Button type="button" onClick={submitDetalle} disabled={processingDetalle || !calidadId}>Agregar Desorden Fisiológico</Button>
-                    {desordenFisiologicoAgregados.length > 0 && (<div className="mt-4 overflow-x-auto max-h-[200px] overflow-y-auto"><h4 className="text-md font-medium mb-2">Desorden Fisiológico Agregados:</h4><Table><TableHeader><TableRow><TableHead>Temperatura</TableHead><TableHead>Cantidad</TableHead><TableHead>Tipo Item</TableHead><TableHead>Detalle Item</TableHead><TableHead>Valor SS</TableHead><TableHead>Acciones</TableHead></TableRow></TableHeader><TableBody>{desordenFisiologicoAgregados.map((detalle, index) => (<TableRow key={index}><TableCell className="text-sm">{detalle.temperatura || 'N/A'}</TableCell><TableCell className="text-sm">{detalle.cantidad || 'N/A'}</TableCell><TableCell className="text-sm">{detalle.tipo_item || 'N/A'}</TableCell><TableCell className="text-sm">{detalle.detalle_item || 'N/A'}</TableCell><TableCell className="text-sm">{detalle.valor_ss || 'N/A'}</TableCell><TableCell><Button variant="ghost" size="icon" onClick={() => console.log('Delete', detalle.id)}><Trash2 className="h-4 w-4 text-red-500" /></Button></TableCell></TableRow>))}</TableBody></Table></div>)}
+                    {desordenFisiologicoAgregados.length > 0 && (<div className="mt-4 overflow-x-auto max-h-[200px] overflow-y-auto"><h4 className="text-md font-medium mb-2">Desorden Fisiológico Agregados:</h4><Table><TableHeader><TableRow><TableHead>Temperatura</TableHead><TableHead>Cantidad</TableHead><TableHead>Tipo Item</TableHead><TableHead>Detalle Item</TableHead><TableHead>Valor SS</TableHead><TableHead>Acciones</TableHead></TableRow></TableHeader><TableBody>{desordenFisiologicoAgregados.map((detalle, index) => (<TableRow key={index}><TableCell className="text-sm">{detalle.temperatura || 'N/A'}</TableCell><TableCell className="text-sm">{detalle.cantidad || 'N/A'}</TableCell><TableCell className="text-sm">{detalle.tipo_item || 'N/A'}</TableCell><TableCell className="text-sm">{detalle.detalle_item || 'N/A'}</TableCell><TableCell className="text-sm">{detalle.valor_ss || 'N/A'}</TableCell><TableCell><Button variant="ghost" size="icon" onClick={() => handleDeleteDetalle(detalle.id)}><Trash2 className="h-4 w-4 text-red-500" /></Button></TableCell></TableRow>))}</TableBody></Table></div>)}
                   </TabsContent>
 
                   <TabsContent value="curva-calibre">
@@ -776,7 +833,7 @@ export default function Index({ recepciones, especies, variedades = [], filters,
                       <Label htmlFor="exportable_curva_calibre">Exportable</Label>
                     </div>
                     <Button type="button" onClick={submitDetalle} disabled={processingDetalle || !calidadId}>Agregar Curva de Calibre</Button>
-                    {curvaCalibreAgregados.length > 0 && (<div className="mt-4 overflow-x-auto max-h-[200px] overflow-y-auto"><h4 className="text-md font-medium mb-2">Curva de Calibre Agregados:</h4><Table><TableHeader><TableRow><TableHead>Cantidad</TableHead><TableHead>Tipo Item</TableHead><TableHead>Detalle Item</TableHead><TableHead>% Muestra</TableHead><TableHead>Categoría</TableHead><TableHead>Acciones</TableHead></TableRow></TableHeader><TableBody>{curvaCalibreAgregados.map((detalle, index) => (<TableRow key={index}><TableCell className="max-w-xs truncate">{detalle.cantidad}</TableCell><TableCell>{detalle.tipo_item || 'N/A'}</TableCell><TableCell>{detalle.detalle_item || 'N/A'}</TableCell><TableCell className="max-w-xs truncate">{detalle.porcentaje_muestra}</TableCell><TableCell className="max-w-xs truncate text-sm">{detalle.categoria || 'N/A'}</TableCell><TableCell><Button variant="ghost" size="icon" onClick={() => console.log('Delete', detalle.id)}><Trash2 className="h-4 w-4 text-red-500" /></Button></TableCell></TableRow>))}</TableBody></Table></div>)}
+                    {curvaCalibreAgregados.length > 0 && (<div className="mt-4 overflow-x-auto max-h-[200px] overflow-y-auto"><h4 className="text-md font-medium mb-2">Curva de Calibre Agregados:</h4><Table><TableHeader><TableRow><TableHead>Cantidad</TableHead><TableHead>Tipo Item</TableHead><TableHead>Detalle Item</TableHead><TableHead>% Muestra</TableHead><TableHead>Categoría</TableHead><TableHead>Acciones</TableHead></TableRow></TableHeader><TableBody>{curvaCalibreAgregados.map((detalle, index) => (<TableRow key={index}><TableCell className="max-w-xs truncate">{detalle.cantidad}</TableCell><TableCell>{detalle.tipo_item || 'N/A'}</TableCell><TableCell>{detalle.detalle_item || 'N/A'}</TableCell><TableCell className="max-w-xs truncate">{detalle.porcentaje_muestra}</TableCell><TableCell className="max-w-xs truncate text-sm">{detalle.categoria || 'N/A'}</TableCell><TableCell><Button variant="ghost" size="icon" onClick={() => handleDeleteDetalle(detalle.id)}><Trash2 className="h-4 w-4 text-red-500" /></Button></TableCell></TableRow>))}</TableBody></Table></div>)}
                   </TabsContent>
 
                   <TabsContent value="indice-madurez">
@@ -807,7 +864,7 @@ export default function Index({ recepciones, especies, variedades = [], filters,
                       </div>
                     </div>
                     <Button type="button" onClick={submitDetalle} disabled={processingDetalle || !calidadId}>Agregar Indice de Madurez</Button>
-                    {indiceMadurezAgregados.length > 0 && (<div className="mt-4 overflow-x-auto max-h-[200px] overflow-y-auto"><h4 className="text-md font-medium mb-2">Indice de Madurez Agregados:</h4><Table><TableHeader><TableRow><TableHead>Temperatura</TableHead><TableHead>Tipo Item</TableHead><TableHead>Detalle Item</TableHead><TableHead>Valor SS</TableHead><TableHead>Acciones</TableHead></TableRow></TableHeader><TableBody>{indiceMadurezAgregados.map((detalle, index) => (<TableRow key={index}><TableCell className="text-sm">{detalle.temperatura || 'N/A'}</TableCell><TableCell className="text-sm">{detalle.cantidad || 'N/A'}</TableCell><TableCell className="text-sm">{detalle.tipo_item || 'N/A'}</TableCell><TableCell className="text-sm">{detalle.detalle_item || 'N/A'}</TableCell><TableCell className="text-sm">{detalle.valor_ss || 'N/A'}</TableCell><TableCell><Button variant="ghost" size="icon" onClick={() => console.log('Delete', detalle.id)}><Trash2 className="h-4 w-4 text-red-500" /></Button></TableCell></TableRow>))}</TableBody></Table></div>)}
+                    {indiceMadurezAgregados.length > 0 && (<div className="mt-4 overflow-x-auto max-h-[200px] overflow-y-auto"><h4 className="text-md font-medium mb-2">Indice de Madurez Agregados:</h4><Table><TableHeader><TableRow><TableHead>Temperatura</TableHead><TableHead>Tipo Item</TableHead><TableHead>Detalle Item</TableHead><TableHead>Valor SS</TableHead><TableHead>Acciones</TableHead></TableRow></TableHeader><TableBody>{indiceMadurezAgregados.map((detalle, index) => (<TableRow key={index}><TableCell className="text-sm">{detalle.temperatura || 'N/A'}</TableCell><TableCell className="text-sm">{detalle.cantidad || 'N/A'}</TableCell><TableCell className="text-sm">{detalle.tipo_item || 'N/A'}</TableCell><TableCell className="text-sm">{detalle.detalle_item || 'N/A'}</TableCell><TableCell className="text-sm">{detalle.valor_ss || 'N/A'}</TableCell><TableCell><Button variant="ghost" size="icon" onClick={() => handleDeleteDetalle(detalle.id)}><Trash2 className="h-4 w-4 text-red-500" /></Button></TableCell></TableRow>))}</TableBody></Table></div>)}
                   </TabsContent>
 
                   <TabsContent value="fotos">

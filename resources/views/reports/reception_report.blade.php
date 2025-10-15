@@ -386,7 +386,7 @@
 
 
 
-            width: calc(50%);
+            width: calc(47.3%);
 
 
 
@@ -466,7 +466,7 @@
 
 
 
-            box-shadow: 2px 2px 8px rgba(0, 0, 0, 1.1);
+            /* box-shadow: 2px 2px 8px rgba(0, 0, 0, 1.1); */
 
 
 
@@ -984,7 +984,7 @@
 
             border: 1px solid #dcdcdc;
 
-            padding: 1px 2px;
+            padding: 2px 2px;
 
             text-align: center;
 
@@ -3046,7 +3046,21 @@
 
 
 
-                                text: 'Resumen Recepción'
+                                text: 'Resumen Recepción',
+
+
+
+                                font: {
+
+                                    size: 10,
+
+                                    weight: 'bold',
+
+                                    color: '#333',
+
+                                     family: 'Sans-Serif',
+
+                                },
 
 
 
@@ -3386,7 +3400,18 @@
 
 
 
-                                    text: '% de Distribución de Calibre'
+                                    text: '% de Distribución de Calibre',
+                                    font: {
+
+                                    size: 10,
+
+                                    weight: 'bold',
+
+                                    color: '#333',
+
+                                     family: 'Sans-Serif',
+
+                                },
 
 
 
@@ -3423,18 +3448,21 @@
 
 
                                         text: 'Porcentaje (%)',
-
-
-
                                         font: {
 
+                                        size: 10,
 
+                                        weight: 'bold',
 
-                                            size: 10
+                                        color: '#333',
 
-
-
+                                         family: 'Sans-Serif',
                                         }
+
+
+
+
+
 
 
 
@@ -3466,7 +3494,8 @@
 
 
 
-                                            size: 8
+                                            size: 8,
+                                            family:'Sans-Serif',
 
 
 
@@ -3526,7 +3555,8 @@
 
 
 
-                                            size: 8
+                                            size: 8,
+                                            family:'Sans-Serif',
 
 
 
@@ -3562,15 +3592,17 @@
 
 
 
-                                        font: {
+                                       font: {
 
+                                    size: 10,
 
+                                    weight: 'bold',
 
-                                            size: 10
+                                    color: '#333',
 
+                                    family: 'Roboto',
 
-
-                                        }
+                                },
 
 
 
@@ -3758,7 +3790,18 @@
 
 
 
-                                    text: 'Distribución de Calibres por Color'
+                                    text: 'Distribución de Calibres por Color',
+                                     font: {
+
+                                    size: 10,
+
+                                    weight: 'bold',
+
+                                    color: '#333',
+
+                                    family: 'Roboto',
+
+                                },
 
 
 
@@ -3790,7 +3833,18 @@
 
 
 
-                                        text: 'Cantidad'
+                                        text: 'Cantidad',
+                                         font: {
+
+                                    size: 10,
+
+                                    weight: 'bold',
+
+                                    color: '#333',
+
+                                    family: 'Sans-Serif',
+
+                                },
 
 
 
@@ -3822,7 +3876,8 @@
 
 
 
-                                            size: 8
+                                            size: 8,
+                                            family:'Sans-Serif',
 
 
 
@@ -3878,7 +3933,8 @@
 
 
 
-                                            size: 8
+                                            size: 8,
+                                            family:'Sans-Serif',
 
 
 
@@ -3910,7 +3966,18 @@
 
 
 
-                                        text: 'Calibre'
+                                        text: 'Calibre',
+                                         font: {
+
+                                    size: 10,
+
+                                    weight: 'bold',
+
+                                    color: '#333',
+
+                                    family: 'Sans-Serif',
+
+                                },
 
 
 
@@ -4056,7 +4123,18 @@
 
                                     display: true,
 
-                                    text: '% de Distribución de Color'
+                                    text: '% de Distribución de Color',
+                                     font: {
+
+                                    size: 10,
+
+                                    weight: 'bold',
+
+                                    color: '#333',
+
+                                    family: 'Sans-Serif',
+
+                                },
 
                                 }
 
@@ -4221,7 +4299,18 @@
 
 
 
-                                text: '% Distribución de Firmezas por Segregación de Color'
+                                text: '% Distribución de Firmezas por Segregación de Color',
+                                  font: {
+
+                                    size: 10,
+
+                                    weight: 'bold',
+
+                                    color: '#333',
+
+                                    family: 'Sans-Serif',
+
+                                },
 
 
 
@@ -4253,7 +4342,18 @@
 
 
 
-                                    text: 'Promedio'
+                                    text: 'Promedio',
+                                     font: {
+
+                                    size: 10,
+
+                                    weight: 'bold',
+
+                                    color: '#333',
+
+                                    family: 'Sans-Serif',
+
+                                },
 
 
 
@@ -4285,7 +4385,8 @@
 
 
 
-                                        size: 8
+                                        size: 8,
+                                        family:'Sans-Serif',
 
 
 
@@ -4325,7 +4426,18 @@
 
 
 
-                                    text: 'Color'
+                                    text: 'Color',
+                                     font: {
+
+                                    size: 10,
+
+                                    weight: 'bold',
+
+                                    color: '#333',
+
+                                    family: 'Sans-Serif',
+
+                                },
 
 
 
@@ -4357,7 +4469,8 @@
 
 
 
-                                        size: 8
+                                        size: 8,
+                                        family:'Sans-Serif',
 
 
 
@@ -4562,7 +4675,18 @@
 
 
 
-                                text: 'Promedio de Brix'
+                                text: 'Promedio de Brix',
+                                 font: {
+
+                                    size: 10,
+
+                                    weight: 'bold',
+
+                                    color: '#333',
+
+                                    family: 'Sans-Serif',
+
+                                },
 
 
 
@@ -4594,7 +4718,18 @@
 
 
 
-                                    text: 'Promedio'
+                                    text: 'Promedio',
+                                     font: {
+
+                                    size: 10,
+
+                                    weight: 'bold',
+
+                                    color: '#333',
+
+                                    family: 'Sans-Serif',
+
+                                },
 
 
 
@@ -4626,7 +4761,8 @@
 
 
 
-                                        size: 8
+                                        size: 8,
+                                        family:'Sans-Serif',
 
 
 
@@ -4666,7 +4802,18 @@
 
 
 
-                                    text: 'Color'
+                                    text: 'Color',
+                                     font: {
+
+                                    size: 10,
+
+                                    weight: 'bold',
+
+                                    color: '#333',
+
+                                    family: 'Sans-Serif',
+
+                                },
 
 
 
@@ -4698,7 +4845,8 @@
 
 
 
-                                        size: 8
+                                        size: 8,
+                                        family:'Sans-Serif',
 
 
 
@@ -5066,7 +5214,18 @@
 
 
 
-                                text: 'Promedio de Firmezas'
+                                text: 'Promedio de Firmezas',
+                                 font: {
+
+                                    size: 10,
+
+                                    weight: 'bold',
+
+                                    color: '#333',
+
+                                    family: 'Sans-Serif',
+
+                                },
 
 
 
@@ -5143,7 +5302,18 @@
 
 
 
-                                    text: 'Valor'
+                                    text: 'Valor',
+                                     font: {
+
+                                    size: 10,
+
+                                    weight: 'bold',
+
+                                    color: '#333',
+
+                                    family: 'Sans-Serif',
+
+                                },
 
 
 
@@ -5175,7 +5345,8 @@
 
 
 
-                                        size: 8
+                                        size: 8,
+                                        family:'Sans-Serif',
 
 
 
@@ -5215,7 +5386,18 @@
 
 
 
-                                    text: 'Color'
+                                    text: 'Color',
+                                     font: {
+
+                                    size: 10,
+
+                                    weight: 'bold',
+
+                                    color: '#333',
+
+                                    family: 'Sans-Serif',
+
+                                },
 
 
 
@@ -5247,7 +5429,9 @@
 
 
 
-                                        size: 8
+                                        size: 8,
+                                        family:'Sans-Serif',
+
 
 
 
@@ -5339,7 +5523,7 @@
 
 
 
-        <div class="main-header-info-columns">
+        <div class="main-header-info-columns" style="padding-left: 15px;">
 
 
 
@@ -5677,6 +5861,8 @@
 
                     <div class="color-matrix-wrapper">
 
+                        <p style="text-align: center;font-weight: 700;font-family:Sans-Serif;color:#666;font-size:10px">Distribuci&oacute;n de Colores por Calibre</p>
+
                         @if (!empty($calibres) && !empty($matrixRows))
 
                             <table class="color-calibre-matrix">
@@ -5687,7 +5873,7 @@
                                         <th>Grupo</th>
                                         <th>Color</th>
                                         @foreach ($calibres as $calibre)
-                                            <th>{{ $calibre }}</th>
+                                            <th style="padding: 1px;">{{ $calibre }}</th>
                                         @endforeach
                                         <th>Total (%)</th>
                                     </tr>
@@ -5710,11 +5896,12 @@
 
                                                     @endif
 
-                                                    <td class="color-code-label">
+                                                    <td>
                                                         <strong>{{ $row['code'] }}</strong>
                                                         {{-- <span>{{ $row['label'] }}</span> --}}
 
                                                     </td>
+
 
                                                     @foreach ($calibres as $calibre)
 

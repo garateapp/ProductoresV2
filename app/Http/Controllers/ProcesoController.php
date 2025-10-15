@@ -12,6 +12,7 @@ use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Facades\Log;
 use Inertia\Inertia;
 use Illuminate\Support\Facades\Storage;
+use App\Services\ReportNotificationService;
 
 class ProcesoController extends Controller
 {
@@ -119,7 +120,7 @@ class ProcesoController extends Controller
             'chartData' => $chartData->toArray(), // Pass chart data to frontend
         ]);
     }
-    public function uploadInformes(Request $request)
+    public function uploadInformes(Request $request, ReportNotificationService $reportNotificationService)
     {
         if (! $request->user() || ! $request->user()->hasAnyRole(['Administrador', 'Admin'])) {
             abort(403);
@@ -179,6 +180,16 @@ class ProcesoController extends Controller
 
 
             $summary['updated']++;
+
+            try {
+                $reportNotificationService->notifyProcessReport($proceso, $storedPath, $originalName);
+            } catch (\Throwable $e) {
+                Log::error('Proceso notification dispatch failed', [
+                    'proceso_id' => $proceso->id ?? null,
+                    'n_proceso' => $proceso->n_proceso ?? null,
+                    'error' => $e->getMessage(),
+                ]);
+            }
         }
 
         $summary['not_found_preview'] = array_slice($summary['not_found'], 0, 10);
