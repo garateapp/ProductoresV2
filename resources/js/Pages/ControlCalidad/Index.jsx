@@ -20,6 +20,42 @@ import { Label } from '@/Components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/Components/ui/select';
 import AuthenticatedLayout from '@/Layouts/AuthenticatedLayout';
 
+const Paginator = ({ links }) => {
+  if (!links || links.length <= 1) {
+    return null;
+  }
+
+  return (
+    <nav className="mt-6 flex justify-center">
+      <div className="flex flex-wrap items-center gap-2">
+        {links.map((link, index) => {
+          const isDisabled = !link.url;
+          const baseClasses = 'px-3 py-1.5 text-sm border rounded transition-colors';
+          const stateClasses = link.active
+            ? 'bg-indigo-600 text-white border-indigo-600'
+            : 'bg-white text-gray-700 hover:bg-gray-100 border-gray-300';
+
+          return (
+            <Link
+              key={index}
+              href={link.url || '#'}
+              preserveScroll
+              preserveState
+              className={`${baseClasses} ${isDisabled ? 'cursor-not-allowed text-gray-400 bg-gray-100 border-gray-200' : stateClasses}`}
+              onClick={(event) => {
+                if (isDisabled) {
+                  event.preventDefault();
+                }
+              }}
+              dangerouslySetInnerHTML={{ __html: link.label }}
+            />
+          );
+        })}
+      </div>
+    </nav>
+  );
+};
+
 export default function Index({ recepciones, especies, variedades = [], filters, isProducer, totalRecepciones, totalKilos = 0, parametros, photoTypes = [] }) {
   const getSpeciesBadgeClass = (name = '') => {
     const key = String(name).toLowerCase();
@@ -624,6 +660,7 @@ export default function Index({ recepciones, especies, variedades = [], filters,
               ))}
             </TableBody>
           </Table>
+          <Paginator links={recepciones.links} />
         </CardContent>
       </Card>
 

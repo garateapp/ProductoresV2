@@ -72,7 +72,7 @@ class ControlCalidadController extends Controller
         $totalKilos = (int) $query->sum('peso_neto');
 
         // Eager load calidad and its photos for the main recepciones list
-        $recepciones = $query->with(['calidad.photos.photoType'])->paginate(10);
+        $recepciones = $query->with(['calidad.photos.photoType'])->paginate(10)->withQueryString();
 
         $especies = Especie::all();
 
