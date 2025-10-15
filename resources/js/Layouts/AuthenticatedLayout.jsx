@@ -115,9 +115,227 @@ export default function AuthenticatedLayout({ header, children }) {
                     </div>
                 </div>
 
-                {/* Menú móvil (responsive) - igual que antes */}
+                {/* Menú móvil (responsive) */}
                 <div className={`${showingNavigationDropdown ? 'block' : 'hidden'} sm:hidden`}>
-                    {/* ... (tu menú móvil actual) ... */}
+                    <div className="space-y-1 border-t border-greenex-vibrant-green pb-3 pt-2">
+                        <ResponsiveNavLink
+                            href={route('dashboard')}
+                            active={route().current('dashboard')}
+                            onClick={() => setShowingNavigationDropdown(false)}
+                        >
+                            Inicio
+                        </ResponsiveNavLink>
+
+                        {hasAnyRole(['Administrador', 'Productor', 'Gerencia']) && (
+                            <>
+                                <ResponsiveNavLink
+                                    href={route('recepciones.index')}
+                                    active={route().current('recepciones.*')}
+                                    onClick={() => setShowingNavigationDropdown(false)}
+                                >
+                                    Recepciones
+                                </ResponsiveNavLink>
+                                <ResponsiveNavLink
+                                    href={route('procesos.index')}
+                                    active={route().current('procesos.*')}
+                                    onClick={() => setShowingNavigationDropdown(false)}
+                                >
+                                    Procesos
+                                </ResponsiveNavLink>
+                                <ResponsiveNavLink
+                                    href={route('contracts.index')}
+                                    active={route().current('contracts.*')}
+                                    onClick={() => setShowingNavigationDropdown(false)}
+                                >
+                                    Contratos
+                                </ResponsiveNavLink>
+                            </>
+                        )}
+
+                        {hasAnyRole(['Administrador', 'Calidad']) && (
+                            <>
+                                <ResponsiveNavLink
+                                    href={route('control-calidad.index')}
+                                    active={route().current('control-calidad.*')}
+                                    onClick={() => setShowingNavigationDropdown(false)}
+                                >
+                                    Control de Calidad
+                                </ResponsiveNavLink>
+                                <ResponsiveNavLink
+                                    href={route('reporteria.calidad')}
+                                    active={route().current('reporteria.calidad')}
+                                    onClick={() => setShowingNavigationDropdown(false)}
+                                >
+                                    Reportería de Calidad
+                                </ResponsiveNavLink>
+                                <ResponsiveNavLink
+                                    href={route('processed-fruit-quality.index')}
+                                    active={route().current('processed-fruit-quality.*')}
+                                    onClick={() => setShowingNavigationDropdown(false)}
+                                >
+                                    Producto Terminado
+                                </ResponsiveNavLink>
+                                <ResponsiveNavLink
+                                    href={route('mrl-samples.index')}
+                                    active={route().current('mrl-samples.*')}
+                                    onClick={() => setShowingNavigationDropdown(false)}
+                                >
+                                    MRL - Gestión de Muestras
+                                </ResponsiveNavLink>
+                            </>
+                        )}
+
+                        {hasAnyRole(['Administrador', 'Agronomo', 'Sag']) && (
+                            <>
+                                <ResponsiveNavLink
+                                    href={route('sag.index')}
+                                    active={route().current('sag.index')}
+                                    onClick={() => setShowingNavigationDropdown(false)}
+                                >
+                                    Certificaciones SAG
+                                </ResponsiveNavLink>
+                                <ResponsiveNavLink
+                                    href={route('sdp-sites.index')}
+                                    active={route().current('sdp-sites.*')}
+                                    onClick={() => setShowingNavigationDropdown(false)}
+                                >
+                                    SDP (Sitios)
+                                </ResponsiveNavLink>
+                                <ResponsiveNavLink
+                                    href={route('producer-certifications.index')}
+                                    active={route().current('producer-certifications.*')}
+                                    onClick={() => setShowingNavigationDropdown(false)}
+                                >
+                                    Certificaciones Internacionales
+                                </ResponsiveNavLink>
+                            </>
+                        )}
+
+                        {hasAnyRole(['Administrador', 'Gerencia', 'Agronomo', 'Sag']) && (
+                            <>
+                                <ResponsiveNavLink
+                                    href={route('authorization-types.index')}
+                                    active={route().current('authorization-types.*')}
+                                    onClick={() => setShowingNavigationDropdown(false)}
+                                >
+                                    Tipos de Autorización
+                                </ResponsiveNavLink>
+                                <ResponsiveNavLink
+                                    href={route('certifying-houses.index')}
+                                    active={route().current('certifying-houses.*')}
+                                    onClick={() => setShowingNavigationDropdown(false)}
+                                >
+                                    Casas Certificadoras
+                                </ResponsiveNavLink>
+                                <ResponsiveNavLink
+                                    href={route('certificate-types.index')}
+                                    active={route().current('certificate-types.*')}
+                                    onClick={() => setShowingNavigationDropdown(false)}
+                                >
+                                    Tipos de Certificado
+                                </ResponsiveNavLink>
+                                <ResponsiveNavLink
+                                    href={route('markets.index')}
+                                    active={route().current('markets.*')}
+                                    onClick={() => setShowingNavigationDropdown(false)}
+                                >
+                                    Mercados
+                                </ResponsiveNavLink>
+                            </>
+                        )}
+
+                        {hasRole('Administrador') && (
+                            <>
+                                <ResponsiveNavLink
+                                    href={route('users.index')}
+                                    active={route().current('users.*')}
+                                    onClick={() => setShowingNavigationDropdown(false)}
+                                >
+                                    Usuarios
+                                </ResponsiveNavLink>
+                                <ResponsiveNavLink
+                                    href={route('producers.index')}
+                                    active={route().current('producers.*')}
+                                    onClick={() => setShowingNavigationDropdown(false)}
+                                >
+                                    Productores
+                                </ResponsiveNavLink>
+                                <ResponsiveNavLink
+                                    href={route('roles.index')}
+                                    active={route().current('roles.*')}
+                                    onClick={() => setShowingNavigationDropdown(false)}
+                                >
+                                    Roles
+                                </ResponsiveNavLink>
+                                <ResponsiveNavLink
+                                    href={route('permissions.index')}
+                                    active={route().current('permissions.*')}
+                                    onClick={() => setShowingNavigationDropdown(false)}
+                                >
+                                    Permisos
+                                </ResponsiveNavLink>
+                                <ResponsiveNavLink
+                                    href={route('services.index')}
+                                    active={route().current('services.*')}
+                                    onClick={() => setShowingNavigationDropdown(false)}
+                                >
+                                    Servicios
+                                </ResponsiveNavLink>
+                                <ResponsiveNavLink
+                                    href={route('weekly-harvest-estimates.index')}
+                                    active={route().current('weekly-harvest-estimates.*')}
+                                    onClick={() => setShowingNavigationDropdown(false)}
+                                >
+                                    Estimaciones Semanales
+                                </ResponsiveNavLink>
+                                <ResponsiveNavLink
+                                    href={route('producer-groups.index')}
+                                    active={route().current('producer-groups.*')}
+                                    onClick={() => setShowingNavigationDropdown(false)}
+                                >
+                                    Grupos de Productores
+                                </ResponsiveNavLink>
+                                <ResponsiveNavLink
+                                    href={route('continents.index')}
+                                    active={route().current('continents.*')}
+                                    onClick={() => setShowingNavigationDropdown(false)}
+                                >
+                                    Continentes
+                                </ResponsiveNavLink>
+                                <ResponsiveNavLink
+                                    href={route('countries.index')}
+                                    active={route().current('countries.*')}
+                                    onClick={() => setShowingNavigationDropdown(false)}
+                                >
+                                    Países
+                                </ResponsiveNavLink>
+                            </>
+                        )}
+                    </div>
+
+                    <div className="border-t border-greenex-vibrant-green pb-4 pt-4">
+                        <div className="px-4 text-sm text-greenex-white">
+                            <div>{user.name}</div>
+                            <div className="text-xs opacity-75">{user.email}</div>
+                        </div>
+                        <div className="mt-3 space-y-1">
+                            <ResponsiveNavLink
+                                href={route('profile.edit')}
+                                active={route().current('profile.edit')}
+                                onClick={() => setShowingNavigationDropdown(false)}
+                            >
+                                Perfil
+                            </ResponsiveNavLink>
+                            <ResponsiveNavLink
+                                method="post"
+                                href={route('logout')}
+                                as="button"
+                                onClick={() => setShowingNavigationDropdown(false)}
+                            >
+                                Cerrar Sesión
+                            </ResponsiveNavLink>
+                        </div>
+                    </div>
                 </div>
             </nav>
 
