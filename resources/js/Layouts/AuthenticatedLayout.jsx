@@ -20,6 +20,13 @@ import SagMenu from './Dropdowns/SagMenu.jsx';
 const navLinkClasses =
     "group inline-flex h-9 w-max items-center justify-center rounded-md bg-greenex-dark-green px-4 py-2 text-sm font-medium transition-colors hover:bg-greenex-vibrant-green hover:text-greenex-orange focus:bg-greenex-vibrant-green focus:text-greenex-orange focus:outline-none disabled:pointer-events-none disabled:opacity-50 text-greenex-white";
 
+const mobileNavLinkClasses =
+    "text-greenex-white hover:bg-greenex-vibrant-green hover:text-greenex-orange focus:bg-greenex-vibrant-green focus:text-greenex-orange border-greenex-vibrant-green";
+
+const mobileNavLinkProps = {
+    variant: 'dark',
+    className: mobileNavLinkClasses,
+};
 export default function AuthenticatedLayout({ header, children }) {
     const { user } = usePage().props.auth;
     const [showingNavigationDropdown, setShowingNavigationDropdown] = useState(false);
@@ -116,9 +123,10 @@ export default function AuthenticatedLayout({ header, children }) {
                 </div>
 
                 {/* Menú móvil (responsive) */}
-                <div className={`${showingNavigationDropdown ? 'block' : 'hidden'} sm:hidden`}>
+                <div className={`${showingNavigationDropdown ? 'block' : 'hidden'} sm:hidden bg-greenex-dark-green text-greenex-white`}>
                     <div className="space-y-1 border-t border-greenex-vibrant-green pb-3 pt-2">
                         <ResponsiveNavLink
+                            {...mobileNavLinkProps}
                             href={route('dashboard')}
                             active={route().current('dashboard')}
                             onClick={() => setShowingNavigationDropdown(false)}
@@ -129,6 +137,7 @@ export default function AuthenticatedLayout({ header, children }) {
                         {hasAnyRole(['Administrador', 'Productor', 'Gerencia']) && (
                             <>
                                 <ResponsiveNavLink
+                                    {...mobileNavLinkProps}
                                     href={route('recepciones.index')}
                                     active={route().current('recepciones.*')}
                                     onClick={() => setShowingNavigationDropdown(false)}
@@ -136,6 +145,7 @@ export default function AuthenticatedLayout({ header, children }) {
                                     Recepciones
                                 </ResponsiveNavLink>
                                 <ResponsiveNavLink
+                                    {...mobileNavLinkProps}
                                     href={route('procesos.index')}
                                     active={route().current('procesos.*')}
                                     onClick={() => setShowingNavigationDropdown(false)}
@@ -143,6 +153,7 @@ export default function AuthenticatedLayout({ header, children }) {
                                     Procesos
                                 </ResponsiveNavLink>
                                 <ResponsiveNavLink
+                                    {...mobileNavLinkProps}
                                     href={route('contracts.index')}
                                     active={route().current('contracts.*')}
                                     onClick={() => setShowingNavigationDropdown(false)}
@@ -155,6 +166,7 @@ export default function AuthenticatedLayout({ header, children }) {
                         {hasAnyRole(['Administrador', 'Calidad']) && (
                             <>
                                 <ResponsiveNavLink
+                                    {...mobileNavLinkProps}
                                     href={route('control-calidad.index')}
                                     active={route().current('control-calidad.*')}
                                     onClick={() => setShowingNavigationDropdown(false)}
@@ -162,6 +174,7 @@ export default function AuthenticatedLayout({ header, children }) {
                                     Control de Calidad
                                 </ResponsiveNavLink>
                                 <ResponsiveNavLink
+                                    {...mobileNavLinkProps}
                                     href={route('reporteria.calidad')}
                                     active={route().current('reporteria.calidad')}
                                     onClick={() => setShowingNavigationDropdown(false)}
@@ -169,6 +182,7 @@ export default function AuthenticatedLayout({ header, children }) {
                                     Reportería de Calidad
                                 </ResponsiveNavLink>
                                 <ResponsiveNavLink
+                                    {...mobileNavLinkProps}
                                     href={route('processed-fruit-quality.index')}
                                     active={route().current('processed-fruit-quality.*')}
                                     onClick={() => setShowingNavigationDropdown(false)}
@@ -176,6 +190,7 @@ export default function AuthenticatedLayout({ header, children }) {
                                     Producto Terminado
                                 </ResponsiveNavLink>
                                 <ResponsiveNavLink
+                                    {...mobileNavLinkProps}
                                     href={route('mrl-samples.index')}
                                     active={route().current('mrl-samples.*')}
                                     onClick={() => setShowingNavigationDropdown(false)}
@@ -188,6 +203,7 @@ export default function AuthenticatedLayout({ header, children }) {
                         {hasAnyRole(['Administrador', 'Agronomo', 'Sag']) && (
                             <>
                                 <ResponsiveNavLink
+                                    {...mobileNavLinkProps}
                                     href={route('sag.index')}
                                     active={route().current('sag.index')}
                                     onClick={() => setShowingNavigationDropdown(false)}
@@ -195,6 +211,7 @@ export default function AuthenticatedLayout({ header, children }) {
                                     Certificaciones SAG
                                 </ResponsiveNavLink>
                                 <ResponsiveNavLink
+                                    {...mobileNavLinkProps}
                                     href={route('sdp-sites.index')}
                                     active={route().current('sdp-sites.*')}
                                     onClick={() => setShowingNavigationDropdown(false)}
@@ -202,6 +219,7 @@ export default function AuthenticatedLayout({ header, children }) {
                                     SDP (Sitios)
                                 </ResponsiveNavLink>
                                 <ResponsiveNavLink
+                                    {...mobileNavLinkProps}
                                     href={route('producer-certifications.index')}
                                     active={route().current('producer-certifications.*')}
                                     onClick={() => setShowingNavigationDropdown(false)}
@@ -214,6 +232,7 @@ export default function AuthenticatedLayout({ header, children }) {
                         {hasAnyRole(['Administrador', 'Gerencia', 'Agronomo', 'Sag']) && (
                             <>
                                 <ResponsiveNavLink
+                                    {...mobileNavLinkProps}
                                     href={route('authorization-types.index')}
                                     active={route().current('authorization-types.*')}
                                     onClick={() => setShowingNavigationDropdown(false)}
@@ -221,6 +240,7 @@ export default function AuthenticatedLayout({ header, children }) {
                                     Tipos de Autorización
                                 </ResponsiveNavLink>
                                 <ResponsiveNavLink
+                                    {...mobileNavLinkProps}
                                     href={route('certifying-houses.index')}
                                     active={route().current('certifying-houses.*')}
                                     onClick={() => setShowingNavigationDropdown(false)}
@@ -228,6 +248,7 @@ export default function AuthenticatedLayout({ header, children }) {
                                     Casas Certificadoras
                                 </ResponsiveNavLink>
                                 <ResponsiveNavLink
+                                    {...mobileNavLinkProps}
                                     href={route('certificate-types.index')}
                                     active={route().current('certificate-types.*')}
                                     onClick={() => setShowingNavigationDropdown(false)}
@@ -235,6 +256,7 @@ export default function AuthenticatedLayout({ header, children }) {
                                     Tipos de Certificado
                                 </ResponsiveNavLink>
                                 <ResponsiveNavLink
+                                    {...mobileNavLinkProps}
                                     href={route('markets.index')}
                                     active={route().current('markets.*')}
                                     onClick={() => setShowingNavigationDropdown(false)}
@@ -247,6 +269,7 @@ export default function AuthenticatedLayout({ header, children }) {
                         {hasRole('Administrador') && (
                             <>
                                 <ResponsiveNavLink
+                                    {...mobileNavLinkProps}
                                     href={route('users.index')}
                                     active={route().current('users.*')}
                                     onClick={() => setShowingNavigationDropdown(false)}
@@ -254,6 +277,7 @@ export default function AuthenticatedLayout({ header, children }) {
                                     Usuarios
                                 </ResponsiveNavLink>
                                 <ResponsiveNavLink
+                                    {...mobileNavLinkProps}
                                     href={route('producers.index')}
                                     active={route().current('producers.*')}
                                     onClick={() => setShowingNavigationDropdown(false)}
@@ -261,6 +285,7 @@ export default function AuthenticatedLayout({ header, children }) {
                                     Productores
                                 </ResponsiveNavLink>
                                 <ResponsiveNavLink
+                                    {...mobileNavLinkProps}
                                     href={route('roles.index')}
                                     active={route().current('roles.*')}
                                     onClick={() => setShowingNavigationDropdown(false)}
@@ -268,6 +293,7 @@ export default function AuthenticatedLayout({ header, children }) {
                                     Roles
                                 </ResponsiveNavLink>
                                 <ResponsiveNavLink
+                                    {...mobileNavLinkProps}
                                     href={route('permissions.index')}
                                     active={route().current('permissions.*')}
                                     onClick={() => setShowingNavigationDropdown(false)}
@@ -275,6 +301,7 @@ export default function AuthenticatedLayout({ header, children }) {
                                     Permisos
                                 </ResponsiveNavLink>
                                 <ResponsiveNavLink
+                                    {...mobileNavLinkProps}
                                     href={route('services.index')}
                                     active={route().current('services.*')}
                                     onClick={() => setShowingNavigationDropdown(false)}
@@ -282,6 +309,7 @@ export default function AuthenticatedLayout({ header, children }) {
                                     Servicios
                                 </ResponsiveNavLink>
                                 <ResponsiveNavLink
+                                    {...mobileNavLinkProps}
                                     href={route('weekly-harvest-estimates.index')}
                                     active={route().current('weekly-harvest-estimates.*')}
                                     onClick={() => setShowingNavigationDropdown(false)}
@@ -289,6 +317,7 @@ export default function AuthenticatedLayout({ header, children }) {
                                     Estimaciones Semanales
                                 </ResponsiveNavLink>
                                 <ResponsiveNavLink
+                                    {...mobileNavLinkProps}
                                     href={route('producer-groups.index')}
                                     active={route().current('producer-groups.*')}
                                     onClick={() => setShowingNavigationDropdown(false)}
@@ -296,6 +325,7 @@ export default function AuthenticatedLayout({ header, children }) {
                                     Grupos de Productores
                                 </ResponsiveNavLink>
                                 <ResponsiveNavLink
+                                    {...mobileNavLinkProps}
                                     href={route('continents.index')}
                                     active={route().current('continents.*')}
                                     onClick={() => setShowingNavigationDropdown(false)}
@@ -303,6 +333,7 @@ export default function AuthenticatedLayout({ header, children }) {
                                     Continentes
                                 </ResponsiveNavLink>
                                 <ResponsiveNavLink
+                                    {...mobileNavLinkProps}
                                     href={route('countries.index')}
                                     active={route().current('countries.*')}
                                     onClick={() => setShowingNavigationDropdown(false)}
@@ -320,6 +351,7 @@ export default function AuthenticatedLayout({ header, children }) {
                         </div>
                         <div className="mt-3 space-y-1">
                             <ResponsiveNavLink
+                                {...mobileNavLinkProps}
                                 href={route('profile.edit')}
                                 active={route().current('profile.edit')}
                                 onClick={() => setShowingNavigationDropdown(false)}
@@ -330,6 +362,7 @@ export default function AuthenticatedLayout({ header, children }) {
                                 method="post"
                                 href={route('logout')}
                                 as="button"
+                                {...mobileNavLinkProps}
                                 onClick={() => setShowingNavigationDropdown(false)}
                             >
                                 Cerrar Sesión
