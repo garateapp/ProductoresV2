@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useCallback } from 'react';
-import { Link, useForm, usePage, router } from '@inertiajs/react';
+import { Link, useForm, usePage, router, useRemember } from '@inertiajs/react';
 import { Button } from '@/Components/ui/button';
 import { Badge } from '@/Components/ui/badge';
 import { Card, CardContent, CardHeader, CardTitle } from '@/Components/ui/card';
@@ -122,11 +122,11 @@ export default function Index({ recepciones, especies, variedades = [], filters,
     photo_type_id: '',
   });
 
-  const [isModalOpen, setIsModalOpen] = useState(false);
-  const [activeTab, setActiveTab] = useState('condiciones');
-  const [selectedRecepcion, setSelectedRecepcion] = useState(null);
+  const [isModalOpen, setIsModalOpen] = useRemember(false, 'cc-isModalOpen');
+  const [activeTab, setActiveTab] = useRemember('condiciones', 'cc-activeTab');
+  const [selectedRecepcion, setSelectedRecepcion] = useRemember(null, 'cc-selectedRecepcion');
   const [valores, setValores] = useState([]);
-  const [calidadId, setCalidadId] = useState(null);
+  const [calidadId, setCalidadId] = useRemember(null, 'cc-calidadId');
   const [photos, setPhotos] = useState([]);
   const [detallesAgregados, setDetallesAgregados] = useState([]);
   const [defectosAgregados, setDefectosAgregados] = useState([]);
@@ -161,6 +161,7 @@ export default function Index({ recepciones, especies, variedades = [], filters,
 
   const handleOpenModal = (recepcion) => {
     setSelectedRecepcion(recepcion);
+    setActiveTab('condiciones');
     resetCalidad();
     resetDetalle();
     resetPhoto();
@@ -215,6 +216,8 @@ export default function Index({ recepciones, especies, variedades = [], filters,
   const handleCloseModal = () => {
     setIsModalOpen(false);
     setSelectedRecepcion(null);
+    setCalidadId(null);
+    setActiveTab('condiciones');
   };
 
   const submitPhoto = async (e) => {
@@ -445,14 +448,10 @@ export default function Index({ recepciones, especies, variedades = [], filters,
       return;
     }
 
-    postDetalle(route('control-calidad.store-detalle'), {
+  postDetalle(route('control-calidad.store-detalle'), {
       onSuccess: () => {
         fetchDetalles();
         resetDetalle();
-        router.get(route('control-calidad.index', filterData), {
-            preserveState: true,
-            preserveScroll: true,
-        });
       },
       onError: (errors) => {
         console.error('Error al guardar detalle de defecto:', errors);

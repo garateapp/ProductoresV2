@@ -8,15 +8,22 @@ export default function Create({ auth, users, especies, variedades }) {
     const [filteredVariedades, setFilteredVariedades] = useState([]);
     const [filteredCsgs, setFilteredCsgs] = useState([]); // New state for filtered CSGs
 
-    const { data, setData, post, processing, errors, reset } = useForm({
-        user_id: '',
-        especie_id: '',
-        variedad_id: '',
+    const { data, setData, post, processing, errors, reset, transform } = useForm({
+        user_id: null,
+        especie_id: null,
+        variedad_id: null,
         csg: '',
         laboratory: '',
         sampling_date: '',
         result_file: null, // New field for file upload
     });
+
+    transform((formData) => ({
+        ...formData,
+        user_id: formData.user_id ? Number(formData.user_id) : null,
+        especie_id: formData.especie_id ? Number(formData.especie_id) : null,
+        variedad_id: formData.variedad_id ? Number(formData.variedad_id) : null,
+    }));
 
     const producerOptions = users
         .filter(user => user.idprod !== null) // Only include users who are producers
@@ -45,7 +52,7 @@ export default function Create({ auth, users, especies, variedades }) {
         } else {
             setFilteredVariedades([]);
         }
-        setData('variedad_id', ''); // Reset variedad when especie changes
+        setData('variedad_id', null); // Reset variedad when especie changes
     }, [data.especie_id]);
 
     // New useEffect for fetching CSGs based on selected producer's RUT
@@ -90,9 +97,9 @@ export default function Create({ auth, users, especies, variedades }) {
                                         id="user_id"
                                         name="user_id"
                                         options={producerOptions}
-                                        value={producerOptions.find(option => option.value === data.user_id)}
+                                        value={producerOptions.find(option => option.value === data.user_id) || null}
                                         onChange={(selectedOption) => {
-                                            setData('user_id', selectedOption ? selectedOption.value : '');
+                                            setData('user_id', selectedOption ? selectedOption.value : null);
                                             // CSG fetching is now handled by the new useEffect
                                         }}
                                         className="mt-1 block w-full rounded-md shadow-sm"
@@ -108,8 +115,8 @@ export default function Create({ auth, users, especies, variedades }) {
                                     <select
                                         id="especie_id"
                                         name="especie_id"
-                                        value={data.especie_id}
-                                        onChange={(e) => setData('especie_id', e.target.value)}
+                                        value={data.especie_id ?? ''}
+                                        onChange={(e) => setData('especie_id', e.target.value ? Number(e.target.value) : null)}
                                         className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-300 focus:ring focus:ring-indigo-200 focus:ring-opacity-50"
                                     >
                                         <option value="">Seleccione una especie</option>
@@ -125,8 +132,8 @@ export default function Create({ auth, users, especies, variedades }) {
                                     <select
                                         id="variedad_id"
                                         name="variedad_id"
-                                        value={data.variedad_id}
-                                        onChange={(e) => setData('variedad_id', e.target.value)}
+                                        value={data.variedad_id ?? ''}
+                                        onChange={(e) => setData('variedad_id', e.target.value ? Number(e.target.value) : null)}
                                         className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-300 focus:ring focus:ring-indigo-200 focus:ring-opacity-50"
                                     >
                                         <option value="">Seleccione una variedad</option>

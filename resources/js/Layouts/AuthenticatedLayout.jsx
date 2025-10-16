@@ -78,7 +78,7 @@ export default function AuthenticatedLayout({ header, children }) {
 
                                         {hasAnyRole(['Administrador', 'Agronomo', 'Sag']) && <SagMenu/>}
 
-                                        {hasAnyRole(['Administrador', 'Productor', 'Gerencia']) && (
+                                        {hasAnyRole(['Administrador',  'Gerencia', 'Contrato']) && (
                                             <NavigationMenuItem>
                                                 <NavigationMenuLink asChild className={navLinkClasses}>
                                                     <Link href={route('contracts.index')}>Contratos</Link>

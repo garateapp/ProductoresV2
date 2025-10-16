@@ -153,7 +153,7 @@ class ControlCalidadController extends Controller
         $validated = $request->validate([
             'calidad_id' => 'required|exists:calidads,id',
             'parametro_id' => 'required|exists:parametros,id',
-            'valor_id' => 'required|exists:valors,id',
+            'valor_id' => 'nullable|exists:valors,id',
             'cantidad_muestra' => 'nullable|integer',
             'exportable' => 'boolean',
             'temperatura' => 'nullable',
@@ -162,7 +162,7 @@ class ControlCalidadController extends Controller
         ]);
 
         $parametro = Parametro::find($validated['parametro_id']);
-        $valor = Valor::find($validated['valor_id']);
+        $valor = $validated['valor_id'] ? Valor::find($validated['valor_id']) : null;
 
 
         if (in_array($validated['parametro_id'], ['1', '2', '3', '4', '5', '6'])) {
@@ -171,33 +171,40 @@ class ControlCalidadController extends Controller
             $tipo_detalle = 'ss';
         }
         $calidad = Calidad::find($validated['calidad_id']);
-        if ($calidad->t_muestra == null) {
-            $t_muestra = 100;
-        } else {
-            $t_muestra = $calidad->t_muestra;
-        }
-        $calidad->obs_ext = $validated['obs_ext'];
-
+        $calidad->obs_ext = $validated['obs_ext'] ?? null;
         $calidad->save();
-        $porcMuestra = $validated['cantidad_muestra'] / $t_muestra * 100;
 
-        $categoria = $validated['exportable'] ? 'Exportable' : null;
+        $cantidadMuestra = isset($validated['cantidad_muestra']) ? (int) $validated['cantidad_muestra'] : 0;
+        $valorPresion = isset($validated['valor_presion']) ? (float) $validated['valor_presion'] : null;
+        $temperatura = $validated['temperatura'] ?? null;
+        $t_muestra = $calidad->t_muestra ?: 100;
+        if ($t_muestra <= 0) {
+            $t_muestra = 100;
+        }
+
+        $porcMuestra = $cantidadMuestra ? round(($cantidadMuestra / $t_muestra) * 100, 2) : 0;
+        $categoria = $request->boolean('exportable') ? 'Exportable' : null;
 
         $detalleData = [
             'calidad_id' => $validated['calidad_id'],
             'porcentaje_muestra' => $porcMuestra,
-            'valor_ss' => $validated['valor_presion'],
-            'cantidad' => $validated['cantidad_muestra'],
+            'valor_ss' => $valorPresion,
+            'cantidad' => $cantidadMuestra,
             'tipo_detalle' => $tipo_detalle,
-            'temperatura' => $validated['temperatura'],
+            'temperatura' => $temperatura,
             'categoria' => $categoria,
         ];
+
+        $detalleItem = $valor?->name;
+        if (! $detalleItem) {
+            return redirect()->back()->withErrors(['valor_id' => 'Debe seleccionar un valor para el parámetro elegido.']);
+        }
 
         $detalle = Detalle::updateOrCreate(
             [
                 'calidad_id' => $validated['calidad_id'],
                 'tipo_item' => $parametro->name,
-                'detalle_item' => $valor->name,
+                'detalle_item' => $detalleItem,
                 'tipo_detalle' => $tipo_detalle,
                 'porcentaje_muestra' => $porcMuestra,
                 'valor_ss' => $validated['valor_presion'],

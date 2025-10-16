@@ -21,12 +21,19 @@ class UserController extends Controller
                 $query->where('name', 'like', "%{$search}%")
                     ->orWhere('email', 'like', "%{$search}%");
             })
-            ->with('services')
+            ->with(['services', 'roles'])
             ->paginate(10)
             ->through(function ($user) {
-                $user->user_type = $user->idprod ? 'Productor' : ($user->services->isNotEmpty() ? 'Servicio' : 'Usuario');
+                $userType = $user->idprod ? 'Productor' : ($user->services->isNotEmpty() ? 'Servicio' : 'Usuario');
 
-                return $user;
+                return [
+                    'id' => $user->id,
+                    'name' => $user->name,
+                    'email' => $user->email,
+                    'user_type' => $userType,
+                    'csg' => $user->csg,
+                    'roles' => $user->roles->pluck('name')->values()->all(),
+                ];
             });
 
         return Inertia::render('Users/Index', [

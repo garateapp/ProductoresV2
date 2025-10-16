@@ -1,6 +1,7 @@
 import React from 'react';
 import { Link, useForm, router } from '@inertiajs/react';
 import { Button } from '@/Components/ui/button';
+import { Badge } from '@/Components/ui/badge';
 import { Card, CardContent, CardHeader, CardTitle } from '@/Components/ui/card';
 import { Input } from '@/Components/ui/input';
 import {
@@ -39,7 +40,7 @@ export default function Index({ users, filters }) {
 
   function handleDelete(e, user) {
     e.preventDefault();
-    if (confirm('Are you sure you want to delete this user?')) {
+    if (confirm('¿Estás seguro de que deseas eliminar este usuario?')) {
       destroy(route('users.destroy', user.id));
     }
   }
@@ -53,9 +54,9 @@ export default function Index({ users, filters }) {
     <div className="container mx-auto py-10">
       <Card>
         <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-          <CardTitle className="text-2xl font-bold">Users</CardTitle>
+          <CardTitle className="text-2xl font-bold">Usuarios</CardTitle>
           <Link href={route('users.create')}>
-            <Button>Create User</Button>
+            <Button>Crear Usuario</Button>
           </Link>
         </CardHeader>
         <CardContent>
@@ -64,19 +65,20 @@ export default function Index({ users, filters }) {
                     type="text"
                     value={search}
                     onChange={(e) => setSearch(e.target.value)}
-                    placeholder="Search..."
+                    placeholder="Buscar..."
                     className="mr-2"
                 />
-                <Button type="submit">Search</Button>
+                <Button type="submit">Buscar</Button>
             </form>
           <Table>
             <TableHeader>
               <TableRow>
-                <TableHead>Name</TableHead>
-                <TableHead>Email</TableHead>
+                <TableHead>Nombre</TableHead>
+                <TableHead>Correo</TableHead>
                 <TableHead>Tipo de Usuario</TableHead>
                 <TableHead>CSG</TableHead>
-                <TableHead>Actions</TableHead>
+                <TableHead>Roles</TableHead>
+                <TableHead>Acciones</TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
@@ -87,13 +89,26 @@ export default function Index({ users, filters }) {
                   <TableCell>{user.user_type}</TableCell>
                   <TableCell>{user.csg}</TableCell>
                   <TableCell>
+                    <div className="flex flex-wrap gap-2">
+                      {user.roles && user.roles.length > 0 ? (
+                        user.roles.map((role, index) => (
+                          <Badge key={`${user.id}-role-${index}`} variant="secondary">
+                            {role}
+                          </Badge>
+                        ))
+                      ) : (
+                        <Badge variant="outline">Sin roles</Badge>
+                      )}
+                    </div>
+                  </TableCell>
+                  <TableCell>
                     <Link href={route('users.edit', user.id)} className="mr-2">
-                      <Button variant="outline">Edit</Button>
+                      <Button variant="outline">Editar</Button>
                     </Link>
                     <Link href={route('users.assignRoles', user.id)} className="mr-2">
-                      <Button variant="outline">Assign Roles</Button>
+                      <Button variant="outline">Asignar Roles</Button>
                     </Link>
-                    <Button variant="destructive" onClick={(e) => handleDelete(e, user)}>Delete</Button>
+                    <Button variant="destructive" onClick={(e) => handleDelete(e, user)}>Eliminar</Button>
                   </TableCell>
                 </TableRow>
               ))}
@@ -106,4 +121,4 @@ export default function Index({ users, filters }) {
   );
 }
 
-Index.layout = page => <AuthenticatedLayout children={page} header={<h2 className="font-semibold text-xl text-gray-800 leading-tight">Users</h2>} />;
+Index.layout = page => <AuthenticatedLayout children={page} header={<h2 className="font-semibold text-xl text-gray-800 leading-tight">Usuarios</h2>} />;
