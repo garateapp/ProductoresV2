@@ -124,34 +124,15 @@ class ControlCalidadController extends Controller
             'obs_ext' => 'nullable|string',
         ]);
 
-        if ($validated['materia_vegetal'] == true) {
-            $validated['materia_vegetal'] = 'SI';
-        }
-        if ($validated['piedras'] == true) {
-
-            $validated['piedras'] = 'SI';
-        }
-        if ($validated['barro'] == true) {
-            $validated['barro'] = 'SI';
-        }
-        if ($validated['pedicelo_largo'] == true) {
-            $validated['pedicelo_largo'] = 'SI';
-        }
-        if ($validated['racimo'] == true) {
-            $validated['racimo'] = 'SI';
-        }
-        if ($validated['esponjas'] == true) {
-            $validated['esponjas'] = 'SI';
-        }
-        if ($validated['llenado_tottes'] == true) {
-            $validated['llenado_tottes'] = 'SI';
+        foreach (['materia_vegetal', 'piedras', 'barro', 'pedicelo_largo', 'racimo', 'esponjas'] as $field) {
+            $validated[$field] = ! empty($validated[$field]) ? 'SI' : 'NO';
         }
 
         $t_muestra = $validated['t_muestra'] ?? 100;
         $validated['t_muestra'] = $t_muestra;
 
         $calidad = Calidad::updateOrCreate(
-            ['recepcion_id' => $validated['recepcion_id'], 't_muestra' => $t_muestra],
+            ['recepcion_id' => $validated['recepcion_id']],
             $validated
         );
 

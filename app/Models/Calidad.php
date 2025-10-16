@@ -20,6 +20,7 @@ class Calidad extends Model
         'h_esponjas',
         'llenado_tottes',
         'embalaje',
+        'obs_ext',
     ];
 
     public function recepcion(): BelongsTo

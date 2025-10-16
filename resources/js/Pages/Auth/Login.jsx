@@ -78,23 +78,23 @@ export default function Login({ status, canResetPassword }) {
                                     className="rounded border-gray-300 text-primary shadow-sm focus:ring-primary"
                                 />
                                 <span className="ms-2 text-sm text-gray-600">
-                                    Remember me
+                                    Recordarme
                                 </span>
                             </label>
                         </div>
 
                         <div className="flex items-center justify-end">
-                            {canResetPassword && (
+                            {/* {canResetPassword && (
                                 <Link
                                     href={route('password.request')}
                                     className="rounded-md text-sm text-greenex-dark-green underline hover:text-greenex-orange focus:outline-none focus:ring-2 focus:ring-greenex-orange focus:ring-offset-2"
                                 >
                                     Forgot your password?
                                 </Link>
-                            )}
+                            )} */}
 
                             <Button className="ms-4" disabled={processing}>
-                                Log in
+                                Ingresar
                             </Button>
                         </div>
                     </form>

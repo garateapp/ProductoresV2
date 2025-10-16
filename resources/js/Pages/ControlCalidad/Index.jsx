@@ -423,13 +423,10 @@ export default function Index({ recepciones, especies, variedades = [], filters,
         // Re-fetch data for the current reception to update modal state
         fetchCalidadData(selectedRecepcion);
 
-        // Reload the entire page data to refresh the table
-        router.get(route('control-calidad.index', filterData), {
-            preserveState: true,
+        // Refresh the listing without closing the modal
+        router.reload({
+            only: ['recepciones'],
             preserveScroll: true,
-            onSuccess: () => {
-                handleCloseModal();
-            }
         });
       },
       onError: (errors) => {

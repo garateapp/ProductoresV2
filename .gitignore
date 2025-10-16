@@ -3,6 +3,8 @@
 .env
 .env.backup
 .env.production
+.env.example
+GEMINI.md
 .phpactor.json
 .phpunit.result.cache
 /.fleet
@@ -22,3 +24,6 @@
 Homestead.json
 Homestead.yaml
 Thumbs.db
+.env.example
+t1.txt
+.gitignore
