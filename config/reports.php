@@ -14,5 +14,10 @@ return [
         'trim',
         explode(',', env('REPORT_PREVIEW_RECIPIENTS', ''))
     ))),
+
+    'preview_phones' => array_values(array_filter(array_map(
+        'trim',
+        explode(',', env('PREVIEW_PHONE_REPORT', ''))
+    ))),
 ];
 

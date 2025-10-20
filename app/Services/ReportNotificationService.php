@@ -532,6 +532,53 @@ class ReportNotificationService
         return $message;
     }
 
+    private function buildReceptionPreviewWhatsappBody(?string $producerName, ?string $numeroRecepcion, ?string $formattedDate, ?string $previewUrl): string
+    {
+        $greetingName = $producerName ?: 'Equipo';
+        $dateSnippet = $formattedDate ? " del {$formattedDate}" : '';
+        $message = "Hola {$greetingName}, se ha generado un informe de previsualizacion para la recepcion {$numeroRecepcion}{$dateSnippet}.";
+
+        if ($previewUrl) {
+            $message .= " Puedes revisarlo en: {$previewUrl}";
+        }
+
+        $message .= ' Una vez validado, por favor aprueba el informe en la plataforma.';
+
+        return $message;
+    }
+
+    public function sendPreviewReportWhatsapp(Recepcion $recepcion, array $phones, ?string $previewUrl): void
+    {
+        $context = [
+            'channel' => 'reception_preview',
+            'recepcion_id' => $recepcion->id,
+            'numero_g_recepcion' => $recepcion->numero_g_recepcion,
+        ];
+
+        if (empty($phones)) {
+            Log::info('Preview report WhatsApp: no phone numbers provided', $context);
+            return;
+        }
+
+        $formattedDate = $this->formatDate($recepcion->fecha_g_recepcion);
+        $message = $this->buildReceptionPreviewWhatsappBody(
+            $recepcion->n_emisor,
+            $recepcion->numero_g_recepcion,
+            $formattedDate,
+            $previewUrl
+        );
+
+        foreach ($phones as $phone) {
+            $normalized = $this->normalizePhone($phone);
+            if (! $normalized) {
+                Log::warning('Preview report WhatsApp: could not normalize phone', $context + ['phone' => $phone]);
+                continue;
+            }
+
+            $this->sendWhatsappTextMessage($normalized, $message, $context + ['phone' => $normalized]);
+        }
+    }
+
     private function buildReceptionWhatsappBody(?string $producerName, ?string $numeroRecepcion, ?string $formattedDate, ?string $reportUrl): string
     {
         $greetingName = $producerName ?: 'Estimado(a)';

@@ -4,13 +4,14 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/Components/ui/card';
 import { Switch } from '@/Components/ui/switch';
 import { Button } from '@/Components/ui/button';
 import AuthenticatedLayout from '@/Layouts/AuthenticatedLayout';
-import { FileText, Repeat, Send } from 'lucide-react';
+import { FileText, Repeat, Send, MessageCircle } from 'lucide-react';
 
-export default function Preview({ recepcionId, numero, htmlUrl, approveUrl, approved: approvedProp, generateUrl, informeUrl, resendUrl, sendPreviewUrl }) {
+export default function Preview({ recepcionId, numero, htmlUrl, approveUrl, approved: approvedProp, generateUrl, informeUrl, resendUrl, sendPreviewUrl, sendPreviewWhatsappUrl }) {
   const [approved, setApproved] = useState(!!approvedProp);
   const [approving, setApproving] = useState(false);
   const [resending, setResending] = useState(false);
   const [sendingPreview, setSendingPreview] = useState(false);
+  const [sendingWhatsapp, setSendingWhatsapp] = useState(false);
   const { auth } = usePage().props;
 
   const handleApprove = async (value) => {
@@ -79,14 +80,39 @@ export default function Preview({ recepcionId, numero, htmlUrl, approveUrl, appr
       });
       const data = await res.json();
       if (!res.ok || data?.status !== 'sent') {
-        alert(data?.message || 'No se pudo enviar el reporte de previsualizacion.');
+        alert(data?.message || 'No se pudo enviar el reporte de previsualizaci�n.');
       } else {
-        alert('Reporte de previsualizacion enviado correctamente.');
+        alert('Reporte de previsualizaci�n enviado correctamente.');
       }
     } catch (e) {
-      alert('Error al enviar el reporte de previsualizacion.');
+      alert('Error al enviar el reporte de previsualizaci�n.');
     } finally {
       setSendingPreview(false);
+    }
+  };
+
+  const handleSendPreviewWhatsapp = async () => {
+    if (!sendPreviewWhatsappUrl) return;
+    try {
+      setSendingWhatsapp(true);
+      const token = document.querySelector('meta[name="csrf-token"]').getAttribute('content');
+      const res = await fetch(sendPreviewWhatsappUrl, {
+        method: 'POST',
+        headers: {
+          'X-CSRF-TOKEN': token,
+          'Accept': 'application/json',
+        },
+      });
+      const data = await res.json();
+      if (!res.ok || data?.status !== 'sent') {
+        alert(data?.message || 'No se pudo enviar el reporte por WhatsApp.');
+      } else {
+        alert('Reporte enviado por WhatsApp correctamente.');
+      }
+    } catch (e) {
+      alert('Error al enviar el reporte por WhatsApp.');
+    } finally {
+      setSendingWhatsapp(false);
     }
   };
 
@@ -100,14 +126,24 @@ export default function Preview({ recepcionId, numero, htmlUrl, approveUrl, appr
           <CardTitle className="text-xl font-semibold">Previsualización Informe Recepción #{numero || recepcionId}</CardTitle>
           <div className="flex items-center gap-4">
             <div className="flex items-center gap-3">
-              <Button
-                type="button"
-                variant="outline"
-                onClick={handleSendPreview}
-                disabled={!sendPreviewUrl || approved || approving || sendingPreview}
-              >
-                <Send className="h-4 w-4 mr-2" /> {sendingPreview ? "Enviando..." : "Enviar previsualizacion"}
-              </Button>
+              <div className="flex items-center gap-2">
+                <Button
+                  type="button"
+                  variant="outline"
+                  onClick={handleSendPreview}
+                  disabled={!sendPreviewUrl || approved || approving || sendingPreview}
+                >
+                  <Send className="h-4 w-4 mr-2" /> {sendingPreview ? "Enviando..." : "Enviar previsualización"}
+                </Button>
+                <Button
+                  type="button"
+                  variant="outline"
+                  onClick={handleSendPreviewWhatsapp}
+                  disabled={!sendPreviewWhatsappUrl || approved || approving || sendingWhatsapp}
+                >
+                  <MessageCircle className="h-4 w-4 mr-2" /> {sendingWhatsapp ? "Enviando..." : "Enviar por WhatsApp"}
+                </Button>
+              </div>
               <span className="text-sm">Aprobar reporte para descarga</span>
               <Switch checked={approved} disabled={approving || approved} onCheckedChange={handleApprove} />
               {approving && (

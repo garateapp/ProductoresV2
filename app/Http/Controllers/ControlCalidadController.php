@@ -1454,7 +1454,61 @@ $chrome = env('BROWSERSHOT_CHROME_PATH', '/home/forge/.cache/puppeteer/chrome/li
             'generateUrl' => route('control-calidad.generate-report', $recepcion->id),
             'resendUrl' => route('control-calidad.resend-report', $recepcion->id),
             'sendPreviewUrl' => route('control-calidad.send-preview', $recepcion->id),
+            'sendPreviewWhatsappUrl' => route('control-calidad.send-preview-whatsapp', $recepcion->id),
         ]);
+    }
+
+    private function buildPreviewReportViewData(Recepcion $recepcion, bool $isPreview = false): array
+    {
+        $calidad = $recepcion->calidad;
+
+        $temperatura_pulpa = null;
+        $porcentaje_exportable = 100;
+        $defectos_calidad_sum = 0;
+        $defectos_condicion_sum = 0;
+        $danos_plaga_sum = 0;
+
+        if ($calidad) {
+            $temperatura_pulpa_detalle = $calidad->detalles()->where('tipo_detalle', 'ss')->first();
+            if ($temperatura_pulpa_detalle) {
+                $temperatura_pulpa = $temperatura_pulpa_detalle->temperatura;
+            }
+
+            $defectos_calidad_sum = $calidad->detalles()
+                ->where('tipo_item', 'DEFECTOS DE CALIDAD')
+                ->sum('porcentaje_muestra');
+            $defectos_condicion_sum = $calidad->detalles()
+                ->where('tipo_item', 'DEFECTOS DE CONDICION')
+                ->sum('porcentaje_muestra');
+            $danos_plaga_sum = $calidad->detalles()
+                ->where('tipo_item', 'DAÑOS DE PLAGA')
+                ->sum('porcentaje_muestra');
+
+            $total_defectos_sum = $defectos_calidad_sum + $defectos_condicion_sum + $danos_plaga_sum;
+            $porcentaje_exportable = max(0, 100 - $total_defectos_sum);
+        }
+
+        $receptions = collect([$recepcion]);
+        $sizeDistribution = QualityChartsService::getSizeDistributionData($receptions);
+        $averageFirmness = QualityChartsService::getPromedioFirmezasData($receptions);
+        $firmnessDistribution = QualityChartsService::getDistribucionFirmezasData($receptions);
+        $solubleSolids = QualityChartsService::getSolidosSolublesData($receptions);
+        $coverageColor = QualityChartsService::getColorCubrimientoData($receptions);
+
+        return compact(
+            'recepcion',
+            'temperatura_pulpa',
+            'porcentaje_exportable',
+            'defectos_calidad_sum',
+            'defectos_condicion_sum',
+            'danos_plaga_sum',
+            'sizeDistribution',
+            'coverageColor',
+            'averageFirmness',
+            'firmnessDistribution',
+            'solubleSolids',
+            'isPreview'
+        );
     }
 
     public function approveReport(Recepcion $recepcion, ReportNotificationService $notificationService)
@@ -1579,19 +1633,16 @@ $chrome = env('BROWSERSHOT_CHROME_PATH', '/home/forge/.cache/puppeteer/chrome/li
                 'message' => 'El reporte ya fue aprobado, utiliza la opción de reenviar.',
             ], 422);
         }
-        if(env('APP_ENV') === 'local') {
-            $recipients="carlos.alvarez@greenex.cl";
-        }
-        else{
-            if($recepcion->n_emisor=="Greenex SpA") {
-            $recipients = array_values(array_filter(config('reports.preview_recipients', [])));
-            array_push($recipients, "claudio.jorquera@greenex.cl");
-            }
-            else{
-                $recipients = array_values(array_filter(config('reports.preview_recipients', [])));
 
+        if (app()->environment('local')) {
+            $recipients = array_filter(['carlos.alvarez@greenex.cl']);
+        } else {
+            $recipients = array_values(array_filter(config('reports.preview_recipients', [])));
+            if ($recepcion->n_emisor === 'Greenex SpA') {
+                $recipients[] = 'claudio.jorquera@greenex.cl';
             }
         }
+
         if (empty($recipients)) {
             return response()->json([
                 'status' => 'error',
@@ -1599,105 +1650,8 @@ $chrome = env('BROWSERSHOT_CHROME_PATH', '/home/forge/.cache/puppeteer/chrome/li
             ], 500);
         }
 
-        $calidad = $recepcion->calidad;
-
-        $temperatura_pulpa = null;
-        $porcentaje_exportable = 100;
-        $defectos_calidad_sum = 0;
-        $defectos_condicion_sum = 0;
-        $danos_plaga_sum = 0;
-
-        if ($calidad) {
-            $temperatura_pulpa_detalle = $calidad->detalles()->where('tipo_detalle', 'ss')->first();
-            if ($temperatura_pulpa_detalle) {
-                $temperatura_pulpa = $temperatura_pulpa_detalle->temperatura;
-            }
-
-            $defectos_calidad_sum = $calidad->detalles()
-                ->where('tipo_item', 'DEFECTOS DE CALIDAD')
-                ->sum('porcentaje_muestra');
-            $defectos_condicion_sum = $calidad->detalles()
-                ->where('tipo_item', 'DEFECTOS DE CONDICION')
-                ->sum('porcentaje_muestra');
-            $danos_plaga_sum = $calidad->detalles()
-                ->where('tipo_item', 'DAÑOS DE PLAGA')
-                ->sum('porcentaje_muestra');
-
-            $total_defectos_sum = $defectos_calidad_sum + $defectos_condicion_sum + $danos_plaga_sum;
-            $porcentaje_exportable = max(0, 100 - $total_defectos_sum);
-        }
-
-        $receptions = collect([$recepcion]);
-        $sizeDistribution = QualityChartsService::getSizeDistributionData($receptions);
-        $averageFirmness = QualityChartsService::getPromedioFirmezasData($receptions);
-        $firmnessDistribution = QualityChartsService::getDistribucionFirmezasData($receptions);
-        $solubleSolids = QualityChartsService::getSolidosSolublesData($receptions);
-        $coverageColor = QualityChartsService::getColorCubrimientoData($receptions);
-
-        $isPreview = false;
-        $html = view('reports.reception_report', compact(
-            'recepcion',
-            'temperatura_pulpa',
-            'porcentaje_exportable',
-            'defectos_calidad_sum',
-            'defectos_condicion_sum',
-            'danos_plaga_sum',
-            'sizeDistribution',
-            'coverageColor',
-            'averageFirmness',
-            'firmnessDistribution',
-            'solubleSolids',
-            'isPreview'
-        ))->render();
-
-        $tmpDir = storage_path('app/tmp');
-        if (! is_dir($tmpDir)) {
-            @mkdir($tmpDir, 0755, true);
-        }
-
-        $filename = 'reporte_recepcion_' . $recepcion->numero_g_recepcion . '_preview.pdf';
-        $tempPath = $tmpDir . '/preview_' . $recepcion->id . '_' . time() . '.pdf';
-        $chrome = env('BROWSERSHOT_CHROME_PATH', '/home/forge/.cache/puppeteer/chrome/linux-139.0.7258.138/chrome-linux64/chrome');
-        try {
-            $shot = Browsershot::html($html)
-                ->setTemporaryDirectory($tmpDir)
-                ->setChromePath($chrome)
-                ->setOption('executablePath', $chrome) // fuerza a puppeteer a usar ese binario
-                ->setOption('headless', true)
-                ->noSandbox()
-                ->addChromiumArguments([
-                    '--no-sandbox',
-                    '--disable-dev-shm-usage',
-                    '--disable-gpu',
-                    '--font-render-hinting=none',
-                    '--headless=new',
-                ])
-                ->waitUntilNetworkIdle()
-                ->wait(15)
-                ->setViewport(1920, 1080)
-                ->landscape(false)
-                ->showBackground();
-
-            // $chromePath = env('CHROME_PATH') ?: env('BROWSERSHOT_CHROME_PATH');
-            // if (! empty($chromePath)) {
-            //     $shot->setOption('executablePath', $chromePath);
-            // }
-            // $nodePath = env('NODE_PATH') ?: env('BROWSERSHOT_NODE_PATH');
-            // if (! empty($nodePath)) {
-            //     $shot->setNodeBinary($nodePath);
-            // }
-            // $npmPath = env('NPM_PATH') ?: env('BROWSERSHOT_NPM_PATH');
-            // if (! empty($npmPath)) {
-            //     $shot->setNpmBinary($npmPath);
-            // }
-
-            $shot->savePdf($tempPath);
-        } catch (\Throwable $e) {
-            Log::error('Preview report email PDF generation failed', [
-                'recepcion_id' => $recepcion->id,
-                'error' => $e->getMessage(),
-            ]);
-
+        [$tempPath, $filename, $error] = $this->generatePreviewReportPdf($recepcion);
+        if ($error !== null) {
             return response()->json([
                 'status' => 'error',
                 'message' => 'No se pudo generar el PDF del reporte.',
@@ -1731,7 +1685,33 @@ $chrome = env('BROWSERSHOT_CHROME_PATH', '/home/forge/.cache/puppeteer/chrome/li
         ]);
     }
 
-    public function resendReport(Recepcion $recepcion, ReportNotificationService $notificationService)
+public function sendPreviewWhatsapp(Recepcion $recepcion, ReportNotificationService $notificationService)
+    {
+        if ($recepcion->informe) {
+            return response()->json([
+                'status' => 'error',
+                'message' => 'El reporte ya fue aprobado, utiliza la opción de reenviar.',
+            ], 422);
+        }
+
+        $phones = array_values(array_filter(config('reports.preview_phones', [])));
+        if (empty($phones)) {
+            return response()->json([
+                'status' => 'error',
+                'message' => 'No hay destinatarios configurados para la previsualización vía WhatsApp.',
+            ], 500);
+        }
+
+        $previewUrl = route('control-calidad.preview-report', $recepcion->id);
+
+        $notificationService->sendPreviewReportWhatsapp($recepcion->fresh(), $phones, $previewUrl);
+
+        return response()->json([
+            'status' => 'sent',
+        ]);
+    }
+
+public function resendReport(Recepcion $recepcion, ReportNotificationService $notificationService)
     {
         if (! $recepcion->informe) {
             return response()->json([
