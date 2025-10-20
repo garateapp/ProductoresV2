@@ -82,6 +82,7 @@ Route::middleware('auth')->group(function () {
     Route::get('control-calidad/{recepcion}/report/preview', [App\Http\Controllers\ControlCalidadController::class, 'previewPage'])->name('control-calidad.preview-report');
     // HTML-only report for iframe rendering inside preview page
     Route::get('control-calidad/{recepcion}/report/preview/html', [App\Http\Controllers\ControlCalidadController::class, 'previewReport'])->name('control-calidad.preview-report-html');
+    Route::post('control-calidad/{recepcion}/report/send-preview', [App\Http\Controllers\ControlCalidadController::class, 'sendPreviewEmail'])->name('control-calidad.send-preview');
     Route::post('control-calidad/{recepcion}/report/approve', [App\Http\Controllers\ControlCalidadController::class, 'approveReport'])->name('control-calidad.approve-report');
     Route::post('control-calidad/{recepcion}/report/resend', [App\Http\Controllers\ControlCalidadController::class, 'resendReport'])->name('control-calidad.resend-report');
 

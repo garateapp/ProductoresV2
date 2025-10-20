@@ -11,6 +11,7 @@ use App\Models\PhotoType;
 use App\Models\Recepcion;
 use App\Models\Valor;
 use App\Models\Variedad;
+use App\Mail\ReceptionReportPreview;
 use App\Services\QualityChartsService;
 use App\Services\ReportNotificationService;
 use Carbon\Carbon;
@@ -19,6 +20,7 @@ use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Storage;
+use Illuminate\Support\Facades\Mail;
 use Illuminate\Support\Str;
 use Inertia\Inertia;
 use Spatie\Browsershot\Browsershot;
@@ -121,6 +123,7 @@ class ControlCalidadController extends Controller
             'h_esponjas' => 'nullable|string',
             'llenado_tottes' => 'nullable|string',
             'embalaje' => 'nullable|integer',
+            'nota_calidad' => 'nullable|numeric',
             'obs_ext' => 'nullable|string',
         ]);
 
@@ -131,10 +134,20 @@ class ControlCalidadController extends Controller
         $t_muestra = $validated['t_muestra'] ?? 100;
         $validated['t_muestra'] = $t_muestra;
 
+        $recepcionId = $validated['recepcion_id'];
+        $nota_calidad = $validated['nota_calidad'] ?? null;
+        unset($validated['nota_calidad']);
+
         $calidad = Calidad::updateOrCreate(
-            ['recepcion_id' => $validated['recepcion_id']],
+            ['recepcion_id' => $recepcionId],
             $validated
         );
+
+        $recepcion = Recepcion::find($recepcionId);
+        if ($recepcion) {
+            $recepcion->nota_calidad = ($nota_calidad === '' || $nota_calidad === null) ? null : $nota_calidad;
+            $recepcion->save();
+        }
 
         // Revert to redirect()->back() with flash data
         return redirect()->back()->with('calidad_id', $calidad->id)->with('success', 'Condiciones de llegada guardadas exitosamente.');
@@ -1440,6 +1453,7 @@ class ControlCalidadController extends Controller
             'approveUrl' => route('control-calidad.approve-report', $recepcion->id),
             'generateUrl' => route('control-calidad.generate-report', $recepcion->id),
             'resendUrl' => route('control-calidad.resend-report', $recepcion->id),
+            'sendPreviewUrl' => route('control-calidad.send-preview', $recepcion->id),
         ]);
     }
 
@@ -1551,6 +1565,164 @@ class ControlCalidadController extends Controller
             Log::error('Approve report error: ' . $e->getMessage());
             return response()->json(['status' => 'error', 'message' => $e->getMessage()], 500);
         }
+    }
+
+    public function sendPreviewEmail(Recepcion $recepcion)
+    {
+        if ($recepcion->informe) {
+            return response()->json([
+                'status' => 'error',
+                'message' => 'El reporte ya fue aprobado, utiliza la opción de reenviar.',
+            ], 422);
+        }
+        if(env('APP_ENV') === 'local') {
+            $recipients="carlos.alvarez@greenex.cl,viviana.valdebenito@greenex.cl,encargado.calidad@greenex.cl";
+        }
+        else{
+            if($recepcion->n_emisor=="Greenex SpA") {
+            $recipients = array_values(array_filter(config('reports.preview_recipients', [])));
+            array_push($recipients, "claudio.jorquera@greenex.cl");
+            }
+            else{
+                $recipients = array_values(array_filter(config('reports.preview_recipients', [])));
+
+            }
+        }
+        if (empty($recipients)) {
+            return response()->json([
+                'status' => 'error',
+                'message' => 'No hay destinatarios configurados para la previsualización.',
+            ], 500);
+        }
+
+        $calidad = $recepcion->calidad;
+
+        $temperatura_pulpa = null;
+        $porcentaje_exportable = 100;
+        $defectos_calidad_sum = 0;
+        $defectos_condicion_sum = 0;
+        $danos_plaga_sum = 0;
+
+        if ($calidad) {
+            $temperatura_pulpa_detalle = $calidad->detalles()->where('tipo_detalle', 'ss')->first();
+            if ($temperatura_pulpa_detalle) {
+                $temperatura_pulpa = $temperatura_pulpa_detalle->temperatura;
+            }
+
+            $defectos_calidad_sum = $calidad->detalles()
+                ->where('tipo_item', 'DEFECTOS DE CALIDAD')
+                ->sum('porcentaje_muestra');
+            $defectos_condicion_sum = $calidad->detalles()
+                ->where('tipo_item', 'DEFECTOS DE CONDICION')
+                ->sum('porcentaje_muestra');
+            $danos_plaga_sum = $calidad->detalles()
+                ->where('tipo_item', 'DAÑOS DE PLAGA')
+                ->sum('porcentaje_muestra');
+
+            $total_defectos_sum = $defectos_calidad_sum + $defectos_condicion_sum + $danos_plaga_sum;
+            $porcentaje_exportable = max(0, 100 - $total_defectos_sum);
+        }
+
+        $receptions = collect([$recepcion]);
+        $sizeDistribution = QualityChartsService::getSizeDistributionData($receptions);
+        $averageFirmness = QualityChartsService::getPromedioFirmezasData($receptions);
+        $firmnessDistribution = QualityChartsService::getDistribucionFirmezasData($receptions);
+        $solubleSolids = QualityChartsService::getSolidosSolublesData($receptions);
+        $coverageColor = QualityChartsService::getColorCubrimientoData($receptions);
+
+        $isPreview = false;
+        $html = view('reports.reception_report', compact(
+            'recepcion',
+            'temperatura_pulpa',
+            'porcentaje_exportable',
+            'defectos_calidad_sum',
+            'defectos_condicion_sum',
+            'danos_plaga_sum',
+            'sizeDistribution',
+            'coverageColor',
+            'averageFirmness',
+            'firmnessDistribution',
+            'solubleSolids',
+            'isPreview'
+        ))->render();
+
+        $tmpDir = storage_path('app/tmp');
+        if (! is_dir($tmpDir)) {
+            @mkdir($tmpDir, 0755, true);
+        }
+
+        $filename = 'reporte_recepcion_' . $recepcion->numero_g_recepcion . '_preview.pdf';
+        $tempPath = $tmpDir . '/preview_' . $recepcion->id . '_' . time() . '.pdf';
+
+        try {
+            $shot = Browsershot::html($html)
+                ->setTemporaryDirectory($tmpDir)
+                ->setOption('headless', true)
+                ->noSandbox()
+                ->addChromiumArguments([
+                    '--no-sandbox',
+                    '--disable-dev-shm-usage',
+                    '--disable-gpu',
+                    '--font-render-hinting=none',
+                    '--headless=new',
+                ])
+                ->waitUntilNetworkIdle()
+                ->wait(15)
+                ->setViewport(1920, 1080)
+                ->landscape(false)
+                ->showBackground();
+
+            $chromePath = env('CHROME_PATH') ?: env('BROWSERSHOT_CHROME_PATH');
+            if (! empty($chromePath)) {
+                $shot->setOption('executablePath', $chromePath);
+            }
+            $nodePath = env('NODE_PATH') ?: env('BROWSERSHOT_NODE_PATH');
+            if (! empty($nodePath)) {
+                $shot->setNodeBinary($nodePath);
+            }
+            $npmPath = env('NPM_PATH') ?: env('BROWSERSHOT_NPM_PATH');
+            if (! empty($npmPath)) {
+                $shot->setNpmBinary($npmPath);
+            }
+
+            $shot->savePdf($tempPath);
+        } catch (\Throwable $e) {
+            Log::error('Preview report email PDF generation failed', [
+                'recepcion_id' => $recepcion->id,
+                'error' => $e->getMessage(),
+            ]);
+
+            return response()->json([
+                'status' => 'error',
+                'message' => 'No se pudo generar el PDF del reporte.',
+            ], 500);
+        }
+
+        try {
+            Mail::to($recipients)->send(new ReceptionReportPreview(
+                $recepcion->fresh(),
+                route('control-calidad.preview-report', $recepcion->id),
+                $tempPath,
+                $filename
+            ));
+        } catch (\Throwable $e) {
+            Log::error('Preview report email send failed', [
+                'recepcion_id' => $recepcion->id,
+                'error' => $e->getMessage(),
+            ]);
+            @unlink($tempPath);
+
+            return response()->json([
+                'status' => 'error',
+                'message' => 'No se pudo enviar el correo de previsualización.',
+            ], 500);
+        }
+
+        @unlink($tempPath);
+
+        return response()->json([
+            'status' => 'sent',
+        ]);
     }
 
     public function resendReport(Recepcion $recepcion, ReportNotificationService $notificationService)

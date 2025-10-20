@@ -73,6 +73,7 @@ export default function Index({ recepciones, especies, variedades = [], filters,
   const { flash } = usePage().props;
   const { data: calidadData, setData: setCalidadData, post: postCalidad, processing: processingCalidad, errors: errorsCalidad, reset: resetCalidad } = useForm({
     t_muestra: '',
+    nota_calidad: '',
     materia_vegetal: false,
     piedras: false,
     barro: false,
@@ -149,10 +150,13 @@ export default function Index({ recepciones, especies, variedades = [], filters,
             pedicelo_largo: existingCalidad.pedicelo_largo === 'SI',
             racimo: existingCalidad.racimo === 'SI',
             esponjas: existingCalidad.esponjas === 'SI',
+            nota_calidad: recepcion?.nota_calidad ?? '',
           };
         setCalidadData(transformedCalidad);
         setCalidadId(existingCalidad.id);
         setPhotos(existingCalidad.photos || []);
+      } else {
+        setCalidadData('nota_calidad', recepcion?.nota_calidad ?? '');
       }
     } catch (error) {
       console.error('Error fetching existing calidad or detalles:', error);
@@ -166,6 +170,7 @@ export default function Index({ recepciones, especies, variedades = [], filters,
     resetDetalle();
     resetPhoto();
     setCalidadId(null);
+    setCalidadData('nota_calidad', recepcion.nota_calidad ?? '');
     setPhotos([]);
     setDefectosAgregados([]);
     setDesordenFisiologicoAgregados([]);
@@ -402,7 +407,9 @@ export default function Index({ recepciones, especies, variedades = [], filters,
             alert(page.props.success);
         }
         // Re-fetch data for the current reception to update modal state
-        fetchCalidadData(selectedRecepcion);
+        const updatedRecepcion = { ...selectedRecepcion, nota_calidad: calidadData.nota_calidad };
+        setSelectedRecepcion(updatedRecepcion);
+        fetchCalidadData(updatedRecepcion);
 
         // Refresh the listing without closing the modal
         router.reload({
@@ -689,8 +696,14 @@ export default function Index({ recepciones, especies, variedades = [], filters,
                     <Input id="t_muestra" type="number" value={calidadData.t_muestra} onChange={(e) => setCalidadData('t_muestra', e.target.value)} />
                   </div>
                   <div>
-                    <Label htmlFor="embalaje">Embalaje</Label>
-                    <Input id="embalaje" type="number" value={calidadData.embalaje} onChange={(e) => setCalidadData('embalaje', e.target.value)} />
+                    <Label htmlFor="nota_calidad">Nota</Label>
+                    <Input
+                      id="nota_calidad"
+                      type="number"
+                      step="0.01"
+                      value={calidadData.nota_calidad ?? ''}
+                      onChange={(e) => setCalidadData('nota_calidad', e.target.value)}
+                    />
                   </div>
                 </div>
                 <Tabs defaultValue="condiciones" className="w-full" onValueChange={setActiveTab}>
