@@ -30,6 +30,17 @@
 
 
 
+        .page-break { page-break-before: always; }
+        .photo-page { padding: 20px 10px; }
+        .photo-title { font-size: 16px; font-weight: 700; text-transform: uppercase; margin-bottom: 16px; color: #2c3e50; }
+        .photo-grid { display: flex; flex-wrap: wrap; gap: 16px; }
+        .photo-card { width: calc(50% - 8px); border: 1px solid #e5e7eb; border-radius: 8px; overflow: hidden; background: #ffffff; box-shadow: 0 2px 4px rgba(149, 157, 165, 0.2); }
+        .photo-card img { width: 100%; height: 220px; object-fit: cover; display: block; }
+        .photo-info { padding: 10px; font-size: 10px; color: #374151; }
+        .photo-info strong { display: block; margin-bottom: 4px; font-size: 11px; }
+        .photo-info p { margin: 0; }
+        .photo-info span { display: block; margin-top: 4px; font-size: 9px; color: #6b7280; }
+
         body {
 
 
@@ -1100,7 +1111,34 @@
 
 
 
-    <script>
+        @php
+        $photos = collect($recepcion->calidad?->photos ?? []);
+    @endphp
+
+    @if ($photos->count())
+        <div class="page-break"></div>
+        <div class="photo-page">
+            <h2 class="photo-title">Registro Fotográfico</h2>
+            <div class="photo-grid">
+                @foreach ($photos as $photo)
+                    <div class="photo-card">
+                        <img src="{{ $photo->url }}" alt="{{ $photo->photoType->name ?? 'Fotografía' }}">
+                        <div class="photo-info">
+                            <strong>{{ $photo->photoType->name ?? 'Sin clasificación' }}</strong>
+                            @if (!empty($photo->observations))
+                                <p>{{ $photo->observations }}</p>
+                            @endif
+                            @if ($photo->created_at)
+                                <span>{{ optional($photo->created_at)->format('d-m-Y H:i') }}</span>
+                            @endif
+                        </div>
+                    </div>
+                @endforeach
+            </div>
+        </div>
+    @endif
+
+<script>
 
 
 

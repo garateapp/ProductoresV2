@@ -303,7 +303,6 @@ class ControlCalidadController extends Controller
         $firmpro1 = Http::post('https://api.greenexweb.cl/api/BuscarRecepcionCloud?filter[numero_recepcion][eq]='.$recepcion->numero_g_recepcion);
 
         $firmpro1 = $firmpro1->json();
-        Log::debug($firmpro1);
 
         $categories = [];
         $series = [];
@@ -1269,180 +1268,53 @@ class ControlCalidadController extends Controller
 
     public function generateReport(Recepcion $recepcion)
     {
-        $calidad = $recepcion->calidad;
-
-        $temperatura_pulpa = null;
-        $porcentaje_exportable = 100;
-        $precalibre = 0;
-        $precalibre = 0;
-        $defectos_calidad_sum = 0;
-        $defectos_condicion_sum = 0;
-        $danos_plaga_sum = 0;
-        $distribucion_calibres = collect();
-        $distribucion_color = collect();
-        $promedio_firmezas = collect();
-        $promedio_brix = collect();
-        $distribucion_firmeza_color = ['light' => collect(), 'dark' => collect(), 'black' => collect()];
-        if ($calidad) {
-            $temperatura_pulpa_detalle = $calidad->detalles()->where('tipo_detalle', 'ss')->first();
-            if ($temperatura_pulpa_detalle) {
-                $temperatura_pulpa = $temperatura_pulpa_detalle->temperatura;
-            }
-
-            $defectos_calidad_sum = $calidad->detalles()
-                ->where('tipo_item', 'DEFECTOS DE CALIDAD')
-                ->sum('porcentaje_muestra');
-            $defectos_condicion_sum = $calidad->detalles()
-                ->where('tipo_item', 'DEFECTOS DE CONDICION')
-                ->sum('porcentaje_muestra');
-            $danos_plaga_sum = $calidad->detalles()
-                ->where('tipo_item', 'DAÑOS DE PLAGA')
-                ->sum('porcentaje_muestra');
-            $distribucion_calibres = $calidad->detalles()
-                ->where('tipo_item', 'like', 'DISTRIBU%N DE CALIBRES')
-                ->get();
-
-            $precalibre_detalle = $distribucion_calibres->firstWhere('detalle_item', 'PRECALIBRE');
-            if ($precalibre_detalle) {
-                $precalibre = (float) $precalibre_detalle->porcentaje_muestra;
-            }
-
-
-            $total_defectos_sum = $defectos_calidad_sum + $defectos_condicion_sum + $danos_plaga_sum;
-
-            $porcentaje_exportable = 100 - $total_defectos_sum - $precalibre;
-            if ($porcentaje_exportable < 0) {
-                $porcentaje_exportable = 0;
-            }
-
-            $distribucion_calibres = $calidad->detalles()->where('tipo_item', 'DISTRIBUCIÓN DE CALIBRES')->get();
-            $distribucion_color = $calidad->detalles()->where('tipo_item', 'COLOR DE CUBRIMIENTO')->get();
-            $promedio_firmezas = $calidad->detalles()->where('tipo_item', 'FIRMEZAS')->get();
-            $promedio_brix = $calidad->detalles()->where('tipo_item', 'SOLIDOS SOLUBLES')->get();
-
-            $distribucion_firmeza_color = ['light' => collect(), 'dark' => collect(), 'black' => collect()];
-        }
-
-        $receptions = collect([$recepcion]);
-        $sizeDistribution = QualityChartsService::getSizeDistributionData($receptions);
-        $averageFirmness = QualityChartsService::getPromedioFirmezasData($receptions);
-        $firmnessDistribution = QualityChartsService::getDistribucionFirmezasData($receptions);
-        $solubleSolids = QualityChartsService::getSolidosSolublesData($receptions);
-        $coverageColor = QualityChartsService::getColorCubrimientoData($receptions);
-
-        $isPreview = false;
-        $html = view('reports.reception_report', compact(
-            'recepcion',
-            'temperatura_pulpa',
-            'porcentaje_exportable',
-            'precalibre',
-            'defectos_calidad_sum',
-            'defectos_condicion_sum',
-            'danos_plaga_sum',
-            'sizeDistribution',
-            'coverageColor',
-            'averageFirmness',
-            'firmnessDistribution',
-            'solubleSolids',
-            'isPreview'
-        ))->render();
+        $html = view('reports.reception_report', $this->buildPreviewReportViewData($recepcion))->render();
 
         try {
-            $pdfPath = storage_path('app/public/reporte_recepcion_'.$recepcion->numero_g_recepcion.'.pdf');
+            $pdfRelative = 'reporte_recepcion_' . $recepcion->numero_g_recepcion . '.pdf';
+            $pdfPath = storage_path('app/public/' . $pdfRelative);
             $tmpDir = storage_path('app/browsershot-temp');
-
             if (! is_dir($tmpDir)) {
                 mkdir($tmpDir, 0755, true);
             }
+            $chrome = env('BROWSERSHOT_CHROME_PATH', '/home/forge/.cache/puppeteer/chrome/linux-139.0.7258.138/chrome-linux64/chrome');
 
-            Log::debug('Browsershot using temporary directory: '.$tmpDir);
-$chrome = env('BROWSERSHOT_CHROME_PATH', '/home/forge/.cache/puppeteer/chrome/linux-139.0.7258.138/chrome-linux64/chrome');
-            // OJO: primero configurar el temp, luego html()
             Browsershot::html($html)
-                ->setTemporaryDirectory(storage_path('app/browsershot-temp'))
-                   ->setChromePath($chrome)
-                ->setOption('executablePath', $chrome) // fuerza a puppeteer a usar ese binario
+                ->setTemporaryDirectory($tmpDir)
+                ->setChromePath($chrome)
+                ->setOption('executablePath', $chrome)
                 ->setOption('headless', true)
                 ->noSandbox()
                 ->addChromiumArguments([
-                    '--no-sandbox',              // ← Obligatorio con Snap
-                    '--disable-dev-shm-usage',   // ← Evita problemas en Docker/servidores
-                    '--disable-gpu',             // ← Recomendado en headless
+                    '--no-sandbox',
+                    '--disable-dev-shm-usage',
+                    '--disable-gpu',
                     '--font-render-hinting=none',
-                    '--headless=new',            // ← Modo headless moderno
+                    '--headless=new',
                 ])
                 ->waitUntilNetworkIdle()
-                ->wait(15) // segundos, no milisegundos
+                ->wait(15)
                 ->setViewport(1920, 1080)
                 ->landscape(false)
                 ->showBackground()
                 ->savePdf($pdfPath);
 
+            $recepcion->informe = asset('storage/' . $pdfRelative);
+            $recepcion->save();
+
             return response()->file($pdfPath);
         } catch (\Exception $e) {
-            Log::error('Browsershot error: '.$e->getMessage());
+            Log::error('Generate report error: ' . $e->getMessage());
             throw $e;
         }
-
-        return response()->file($pdfPath);
     }
 
-    public function previewReport(Recepcion $recepcion)
+public function previewReport(Recepcion $recepcion)
     {
-        $calidad = $recepcion->calidad;
-
-        $temperatura_pulpa = null;
-        $porcentaje_exportable = 100;
-        $defectos_calidad_sum = 0;
-        $defectos_condicion_sum = 0;
-        $danos_plaga_sum = 0;
-
-        if ($calidad) {
-            $temperatura_pulpa_detalle = $calidad->detalles()->where('tipo_detalle', 'ss')->first();
-            if ($temperatura_pulpa_detalle) {
-                $temperatura_pulpa = $temperatura_pulpa_detalle->temperatura;
-            }
-
-            $defectos_calidad_sum = $calidad->detalles()
-                ->where('tipo_item', 'DEFECTOS DE CALIDAD')
-                ->sum('porcentaje_muestra');
-            $defectos_condicion_sum = $calidad->detalles()
-                ->where('tipo_item', 'DEFECTOS DE CONDICION')
-                ->sum('porcentaje_muestra');
-            $danos_plaga_sum = $calidad->detalles()
-                ->where('tipo_item', 'DAÑOS DE PLAGA')
-                ->sum('porcentaje_muestra');
-
-            $total_defectos_sum = $defectos_calidad_sum + $defectos_condicion_sum + $danos_plaga_sum;
-            $porcentaje_exportable = max(0, 100 - $total_defectos_sum);
-        }
-
-        // Build chart datasets using the same service as Reportería
-        $receptions = collect([$recepcion]);
-        $sizeDistribution = \App\Services\QualityChartsService::getSizeDistributionData($receptions);
-        $averageFirmness = \App\Services\QualityChartsService::getPromedioFirmezasData($receptions);
-        $firmnessDistribution = \App\Services\QualityChartsService::getDistribucionFirmezasData($receptions);
-        $solubleSolids = \App\Services\QualityChartsService::getSolidosSolublesData($receptions);
-        $coverageColor = \App\Services\QualityChartsService::getColorCubrimientoData($receptions);
-
-        $isPreview = false; // HTML-only (no preview controls); used inside iframe
-        return view('reports.reception_report', compact(
-            'recepcion',
-            'temperatura_pulpa',
-            'porcentaje_exportable',
-            'defectos_calidad_sum',
-            'defectos_condicion_sum',
-            'danos_plaga_sum',
-            'sizeDistribution',
-            'coverageColor',
-            'averageFirmness',
-            'firmnessDistribution',
-            'solubleSolids',
-            'isPreview'
-        ));
+        return view('reports.reception_report', $this->buildPreviewReportViewData($recepcion, true));
     }
 
-    public function previewPage(Recepcion $recepcion)
+public function previewPage(Recepcion $recepcion)
     {
         return Inertia::render('ControlCalidad/Preview', [
             'recepcionId' => $recepcion->id,
@@ -1460,6 +1332,8 @@ $chrome = env('BROWSERSHOT_CHROME_PATH', '/home/forge/.cache/puppeteer/chrome/li
 
     private function buildPreviewReportViewData(Recepcion $recepcion, bool $isPreview = false): array
     {
+        $recepcion->loadMissing(['calidad.photos.photoType']);
+
         $calidad = $recepcion->calidad;
 
         $temperatura_pulpa = null;
@@ -1623,6 +1497,53 @@ $chrome = env('BROWSERSHOT_CHROME_PATH', '/home/forge/.cache/puppeteer/chrome/li
             Log::error('Approve report error: ' . $e->getMessage());
             return response()->json(['status' => 'error', 'message' => $e->getMessage()], 500);
         }
+    }
+
+    private function generatePreviewReportPdf(Recepcion $recepcion): array
+    {
+        $viewData = $this->buildPreviewReportViewData($recepcion, true);
+        $html = view('reports.reception_report', $viewData)->render();
+
+        $tmpDir = storage_path('app/tmp');
+        if (! is_dir($tmpDir)) {
+            @mkdir($tmpDir, 0755, true);
+        }
+
+        $filename = 'reporte_recepcion_' . $recepcion->numero_g_recepcion . '_preview.pdf';
+        $tempPath = $tmpDir . '/preview_' . $recepcion->id . '_' . time() . '.pdf';
+        $chrome = env('BROWSERSHOT_CHROME_PATH', env('CHROME_PATH', '/home/forge/.cache/puppeteer/chrome/linux-139.0.7258.138/chrome-linux64/chrome'));
+
+        try {
+            $shot = Browsershot::html($html)
+                ->setTemporaryDirectory($tmpDir)
+                ->setChromePath($chrome)
+                ->setOption('executablePath', $chrome)
+                ->setOption('headless', true)
+                ->noSandbox()
+                ->addChromiumArguments([
+                    '--no-sandbox',
+                    '--disable-dev-shm-usage',
+                    '--disable-gpu',
+                    '--font-render-hinting=none',
+                    '--headless=new',
+                ])
+                ->waitUntilNetworkIdle()
+                ->wait(15)
+                ->setViewport(1920, 1080)
+                ->landscape(false)
+                ->showBackground();
+
+            $shot->savePdf($tempPath);
+        } catch (\Throwable $e) {
+            Log::error('Preview report PDF generation failed', [
+                'recepcion_id' => $recepcion->id,
+                'error' => $e->getMessage(),
+            ]);
+
+            return [null, null, $e->getMessage()];
+        }
+
+        return [$tempPath, $filename, null];
     }
 
     public function sendPreviewEmail(Recepcion $recepcion)
