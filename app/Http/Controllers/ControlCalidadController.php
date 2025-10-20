@@ -1521,6 +1521,8 @@ class ControlCalidadController extends Controller
 
             Browsershot::html($html)
                 ->setTemporaryDirectory($tmpDir)
+                 ->setChromePath('/usr/bin/chromium-browser') // ← Usa el que ya tienes
+                ->setOption('executablePath', '/usr/bin/chromium-browser') // ← Clave para Puppeteer
                 ->setOption('headless', true)
                 ->noSandbox()
                 ->addChromiumArguments([
@@ -1657,6 +1659,8 @@ class ControlCalidadController extends Controller
         try {
             $shot = Browsershot::html($html)
                 ->setTemporaryDirectory($tmpDir)
+                 ->setChromePath('/usr/bin/chromium-browser') // ← Usa el que ya tienes
+                ->setOption('executablePath', '/usr/bin/chromium-browser') // ← Clave para Puppeteer
                 ->setOption('headless', true)
                 ->noSandbox()
                 ->addChromiumArguments([
@@ -1672,18 +1676,18 @@ class ControlCalidadController extends Controller
                 ->landscape(false)
                 ->showBackground();
 
-            $chromePath = env('CHROME_PATH') ?: env('BROWSERSHOT_CHROME_PATH');
-            if (! empty($chromePath)) {
-                $shot->setOption('executablePath', $chromePath);
-            }
-            $nodePath = env('NODE_PATH') ?: env('BROWSERSHOT_NODE_PATH');
-            if (! empty($nodePath)) {
-                $shot->setNodeBinary($nodePath);
-            }
-            $npmPath = env('NPM_PATH') ?: env('BROWSERSHOT_NPM_PATH');
-            if (! empty($npmPath)) {
-                $shot->setNpmBinary($npmPath);
-            }
+            // $chromePath = env('CHROME_PATH') ?: env('BROWSERSHOT_CHROME_PATH');
+            // if (! empty($chromePath)) {
+            //     $shot->setOption('executablePath', $chromePath);
+            // }
+            // $nodePath = env('NODE_PATH') ?: env('BROWSERSHOT_NODE_PATH');
+            // if (! empty($nodePath)) {
+            //     $shot->setNodeBinary($nodePath);
+            // }
+            // $npmPath = env('NPM_PATH') ?: env('BROWSERSHOT_NPM_PATH');
+            // if (! empty($npmPath)) {
+            //     $shot->setNpmBinary($npmPath);
+            // }
 
             $shot->savePdf($tempPath);
         } catch (\Throwable $e) {
