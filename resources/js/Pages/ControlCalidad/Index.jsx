@@ -12,7 +12,7 @@ import {
   TableRow,
 } from '@/Components/ui/table';
 import { Input } from '@/Components/ui/input';
-import { FileText, Trash2, UploadCloud, Eye, RefreshCw, ClipboardCheck, Send } from 'lucide-react';
+import { FileText, Trash2, UploadCloud, Eye, ClipboardCheck, Send, Loader2 } from 'lucide-react';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from '@/Components/ui/dialog';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/Components/ui/tabs';
 import { Switch } from '@/Components/ui/switch';
@@ -173,41 +173,30 @@ export default function Index({ recepciones, especies, variedades = [], filters,
     setIsModalOpen(true);
   };
 
-  const handleCargarFirmpro = (recepcion) => {
+  const handleCargarFirmpro = async (recepcion) => {
     if (!recepcion) return;
     if (!confirm('¿Cargar datos de FirmPro para este lote?')) return;
     setLoadingFirmproId(recepcion.id);
-    router.post(route('control-calidad.cargar-firmpro', recepcion.id), {}, {
-      preserveState: true,
-      preserveScroll: true,
-      onFinish: () => setLoadingFirmproId(null),
-    });
-  };
-
-  const handleCargarFirmproAll = async () => {
+    const csrf = document.querySelector('meta[name="csrf-token"]')?.getAttribute('content');
     try {
-      const list = (recepciones && Array.isArray(recepciones.data)) ? recepciones.data : [];
-      if (list.length === 0) {
-        alert('No hay recepciones en la lista actual.');
-        return;
+      const resp = await fetch(route('control-calidad.cargar-firmpro', recepcion.id), {
+        method: 'POST',
+        headers: {
+          'X-CSRF-TOKEN': csrf || '',
+          'Accept': 'application/json',
+        },
+      });
+      if (!resp.ok) {
+        throw new Error('Error al cargar FirmPro');
       }
-      if (!confirm('¿Cargar datos de FirmPro para todas las recepciones listadas?')) return;
-      setLoadingFirmproId('ALL');
-      const csrf = document.querySelector('meta[name="csrf-token"]')?.getAttribute('content');
-      for (const r of list) {
-        try {
-          await fetch(route('control-calidad.cargar-firmpro', r.id), {
-            method: 'POST',
-            headers: {
-              'X-CSRF-TOKEN': csrf,
-              'Accept': 'application/json',
-            },
-          });
-        } catch (e) {
-          console.error('Error cargando FirmPro para recepción', r.id, e);
-        }
+      const data = await resp.json().catch(() => null);
+      if (data?.message) {
+        alert(data.message);
       }
-      alert('Carga de FirmPro finalizada para las recepciones listadas.');
+      router.reload({ only: ['recepciones'] });
+    } catch (error) {
+      console.error('Error cargando FirmPro:', error);
+      alert('No se pudo cargar FirmPro. Intenta nuevamente.');
     } finally {
       setLoadingFirmproId(null);
     }
@@ -506,14 +495,6 @@ export default function Index({ recepciones, especies, variedades = [], filters,
             />
             <div className="flex flex-wrap gap-2 items-center">
               <Button
-                variant="secondary"
-                onClick={handleCargarFirmproAll}
-                disabled={loadingFirmproId === 'ALL'}
-                title="Cargar FirmPro para todas las recepciones listadas"
-              >
-                <UploadCloud className="mr-2 h-4 w-4" /> Cargar FirmPro (todos)
-              </Button>
-              <Button
                 variant={filterData.especie_id === '' ? 'default' : 'outline'}
                 onClick={() => handleEspecieFilter('')}
               >
@@ -603,6 +584,19 @@ export default function Index({ recepciones, especies, variedades = [], filters,
                   <TableCell>{recepcion.nota_calidad === 0 ? 'S/N' : recepcion.nota_calidad}</TableCell>
                   <TableCell>
                     <div className="flex items-center gap-2">
+                      <Button
+                        title="Cargar FirmPro"
+                        variant="ghost"
+                        size="icon"
+                        onClick={() => handleCargarFirmpro(recepcion)}
+                        disabled={loadingFirmproId === recepcion.id}
+                      >
+                        {loadingFirmproId === recepcion.id ? (
+                          <Loader2 className="h-4 w-4 animate-spin" />
+                        ) : (
+                          <UploadCloud className="h-4 w-4" />
+                        )}
+                      </Button>
                       {/* Evaluar */}
                       <Button title="Evaluar" variant="ghost" size="icon" onClick={() => handleOpenModal(recepcion)}>
                         <ClipboardCheck className="h-4 w-4" />
