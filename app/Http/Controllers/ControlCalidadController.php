@@ -1580,7 +1580,7 @@ $chrome = env('BROWSERSHOT_CHROME_PATH', '/home/forge/.cache/puppeteer/chrome/li
             ], 422);
         }
         if(env('APP_ENV') === 'local') {
-            $recipients="carlos.alvarez@greenex.cl,viviana.valdebenito@greenex.cl,encargado.calidad@greenex.cl";
+            $recipients="carlos.alvarez@greenex.cl";
         }
         else{
             if($recepcion->n_emisor=="Greenex SpA") {
