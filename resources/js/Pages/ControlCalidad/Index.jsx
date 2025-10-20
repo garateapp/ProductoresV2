@@ -252,10 +252,6 @@ export default function Index({ recepciones, especies, variedades = [], filters,
                 return newPhotos;
             });
             alert(data.message);
-            router.get(route('control-calidad.index', filterData), {
-                preserveState: true,
-                preserveScroll: true,
-            });
         } else {
             console.error('submitPhoto fetch error. Response data:', data);
             if (data.errors) {
@@ -290,10 +286,7 @@ export default function Index({ recepciones, especies, variedades = [], filters,
                 if (response.ok) {
                     console.log('handleDeleteDetalle fetch success. Response data:', data);
                     fetchDetalles();
-                    router.get(route('control-calidad.index', filterData), {
-                        preserveState: true,
-                        preserveScroll: true,
-                    });
+                    router.reload({ only: ['recepciones'] });
                 } else {
                     console.error('handleDeleteDetalle fetch error. Response data:', data);
                     if (data.errors) {
@@ -328,10 +321,6 @@ export default function Index({ recepciones, especies, variedades = [], filters,
                 console.log('handleDeletePhoto fetch success. Response data:', data);
                 setPhotos(prevPhotos => prevPhotos.filter(photo => photo.id !== data.deleted_id));
                 alert(data.message);
-                router.get(route('control-calidad.index', filterData), {
-                    preserveState: true,
-                    preserveScroll: true,
-                });
             } else {
                 console.error('handleDeletePhoto fetch error. Response data:', data);
                 if (data.errors) {
