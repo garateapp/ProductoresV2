@@ -10,6 +10,13 @@ class Valor extends Model
     use HasFactory;
 
     protected $table = 'valors';
+    protected $fillable = [
+        'name',
+        'parametro_id',
+        'especie',
+        'variedad',
+        'informe',
+    ];
 
     protected $appends = ['nombre'];
 

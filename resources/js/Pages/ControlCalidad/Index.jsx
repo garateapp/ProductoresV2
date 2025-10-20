@@ -12,7 +12,7 @@ import {
   TableRow,
 } from '@/Components/ui/table';
 import { Input } from '@/Components/ui/input';
-import { FileText, Trash2, UploadCloud, Eye, ClipboardCheck, Send, Loader2 } from 'lucide-react';
+import { FileText, Trash2, UploadCloud, Eye, ClipboardCheck, Send, Loader2, X } from 'lucide-react';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from '@/Components/ui/dialog';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/Components/ui/tabs';
 import { Switch } from '@/Components/ui/switch';
@@ -655,15 +655,27 @@ export default function Index({ recepciones, especies, variedades = [], filters,
       </Card>
 
       {selectedRecepcion && (
-        <Dialog open={isModalOpen} onOpenChange={(open) => {
-          console.log('Dialog onOpenChange triggered. New open state:', open);
-          setIsModalOpen(open);
-        }}>
+        <Dialog
+          open={isModalOpen}
+          onOpenChange={(open) => {
+            console.log('Dialog onOpenChange triggered. New open state:', open);
+            if (open) {
+              setIsModalOpen(true);
+            }
+          }}
+        >
           <DialogContent className="max-w-5xl max-h-[90vh] overflow-y-auto">
             <DialogHeader>
               <div className="flex items-center justify-between gap-2">
                 <DialogTitle>Evaluación de Calidad</DialogTitle>
-
+                <Button
+                  type="button"
+                  variant="ghost"
+                  size="icon"
+                  onClick={handleCloseModal}
+                >
+                  <X className="h-4 w-4" />
+                </Button>
               </div>
               <DialogDescription>
                 <div className="grid grid-cols-2 gap-4 text-sm">

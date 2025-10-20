@@ -41,6 +41,10 @@ export default function ControlCalidadMenu() {
           <Link href={route('mrl-samples.index')} className="w-full">MRL - Gestión de Muestras</Link>
         </DropdownMenuItem>
 
+        <DropdownMenuItem asChild>
+          <Link href={route('valores.index')} className="w-full">Valores</Link>
+        </DropdownMenuItem>
+
 
 
       </DropdownMenuContent>
