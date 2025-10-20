@@ -1356,12 +1356,12 @@ class ControlCalidadController extends Controller
             }
 
             Log::debug('Browsershot using temporary directory: '.$tmpDir);
-
+$chrome = env('BROWSERSHOT_CHROME_PATH', '/home/forge/.cache/puppeteer/chrome/linux-139.0.7258.138/chrome-linux64/chrome');
             // OJO: primero configurar el temp, luego html()
             Browsershot::html($html)
                 ->setTemporaryDirectory(storage_path('app/browsershot-temp'))
-                ->setChromePath('/usr/bin/chromium-browser') // ← Usa el que ya tienes
-                ->setOption('executablePath', '/usr/bin/chromium-browser') // ← Clave para Puppeteer
+                   ->setChromePath($chrome)
+                ->setOption('executablePath', $chrome) // fuerza a puppeteer a usar ese binario
                 ->setOption('headless', true)
                 ->noSandbox()
                 ->addChromiumArguments([
@@ -1518,11 +1518,13 @@ class ControlCalidadController extends Controller
             if (! is_dir($tmpDir)) {
                 mkdir($tmpDir, 0755, true);
             }
+ $chrome = env('BROWSERSHOT_CHROME_PATH', '/home/forge/.cache/puppeteer/chrome/linux-139.0.7258.138/chrome-linux64/chrome');
+
 
             Browsershot::html($html)
                 ->setTemporaryDirectory($tmpDir)
-                 ->setChromePath('/usr/bin/chromium-browser') // ← Usa el que ya tienes
-                ->setOption('executablePath', '/usr/bin/chromium-browser') // ← Clave para Puppeteer
+                    ->setChromePath($chrome)
+                ->setOption('executablePath', $chrome) // fuerza a puppeteer a usar ese binario
                 ->setOption('headless', true)
                 ->noSandbox()
                 ->addChromiumArguments([
@@ -1655,12 +1657,12 @@ class ControlCalidadController extends Controller
 
         $filename = 'reporte_recepcion_' . $recepcion->numero_g_recepcion . '_preview.pdf';
         $tempPath = $tmpDir . '/preview_' . $recepcion->id . '_' . time() . '.pdf';
-
+        $chrome = env('BROWSERSHOT_CHROME_PATH', '/home/forge/.cache/puppeteer/chrome/linux-139.0.7258.138/chrome-linux64/chrome');
         try {
             $shot = Browsershot::html($html)
                 ->setTemporaryDirectory($tmpDir)
-                ->setChromePath('/usr/bin/chromium-browser') // ← Usa el que ya tienes
-                //->setOption('executablePath', '/usr/bin/chromium-browser') // ← Clave para Puppeteer
+                ->setChromePath($chrome)
+                ->setOption('executablePath', $chrome) // fuerza a puppeteer a usar ese binario
                 ->setOption('headless', true)
                 ->noSandbox()
                 ->addChromiumArguments([
