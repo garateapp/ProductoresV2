@@ -9,6 +9,7 @@ use App\Models\Sync;
 use App\Models\Variedad;
 use Carbon\Carbon;
 use Illuminate\Console\Command;
+use Illuminate\Database\Eloquent\Relations\BelongsToMany;
 use Illuminate\Support\Facades\Http;
 use Livewire\Livewire;
 
@@ -34,7 +35,7 @@ class SyncRecepcions extends Command
      * @return int
      */
     public function handle()
-    {   
+    {
         
         
         $productions=Http::post('https://api.greenexweb.cl/api/ObtenerRecepcion');
@@ -123,12 +124,7 @@ class SyncRecepcions extends Command
 
                             $user=User::where('csg',$Codigo_Sag_emisor)->first();
                             if(!IS_NULL($user)){
-                                if($espec->comercializado->contains($user->id)){
-                                   
-                                }else{
-                                    $espec->comercializado()->attach($user->id);
-                                   
-                                }
+                                $this->attachUserIfPossible($espec, ['comercializado', 'users'], $user->id);
                             }
                             
                             $varie=Variedad::where('name',$n_variedad)->first();
@@ -148,11 +144,7 @@ class SyncRecepcions extends Command
 
                             if(!IS_NULL($user)){
                                 if($varie){
-                                    if($varie->comercializado->contains($user->id)){
-
-                                    }else{
-                                        $varie->comercializado()->attach($user->id);
-                                    }
+                                    $this->attachUserIfPossible($varie, ['comercializado', 'users'], $user->id);
                                 }
                             }
 
@@ -161,15 +153,9 @@ class SyncRecepcions extends Command
                             'name'=> $n_especie
                             ]);
                             $user=User::where('csg',$Codigo_Sag_emisor)->first();
-                            
-                            if(!IS_NULL($user)){
-                                if($especie->comercializado->contains($user->id)){
-                                 
 
-                                }else{
-                                    $especie->comercializado()->attach($user->id);
-                                   
-                                }
+                            if(!IS_NULL($user)){
+                                $this->attachUserIfPossible($especie, ['comercializado', 'users'], $user->id);
                             }
                             $varie=Variedad::where('name',$n_variedad)->first();
                             if($varie){
@@ -186,11 +172,7 @@ class SyncRecepcions extends Command
 
                             if(!IS_NULL($user)){
                                 if($varie){
-                                    if($varie->comercializado->contains($user->id)){
-
-                                    }else{
-                                        $varie->comercializado()->attach($user->id);
-                                    }
+                                    $this->attachUserIfPossible($varie, ['comercializado', 'users'], $user->id);
                                 }
                             }
                         }
@@ -270,5 +252,24 @@ class SyncRecepcions extends Command
 
 
         return Command::SUCCESS;
+    }
+
+    private function attachUserIfPossible($model, array $relationNames, int $userId): void
+    {
+        if (! $model) {
+            return;
+        }
+
+        foreach ($relationNames as $relation) {
+            if (! method_exists($model, $relation)) {
+                continue;
+            }
+
+            $relationInstance = $model->{$relation}();
+            if ($relationInstance instanceof BelongsToMany) {
+                $relationInstance->syncWithoutDetaching([$userId]);
+                return;
+            }
+        }
     }
 }

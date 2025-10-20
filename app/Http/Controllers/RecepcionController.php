@@ -4,10 +4,14 @@ namespace App\Http\Controllers;
 
 use App\Models\Especie;
 use App\Models\Recepcion;
+
+use App\Models\Calidad;
 use Illuminate\Support\Facades\Log;
+use Illuminate\Database\Eloquent\Relations\BelongsToMany;
 use Illuminate\Support\Facades\Http;
 use App\Models\Service;
 use App\Models\Variedad; // Add this line
+use App\Models\User;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 use Inertia\Inertia;
@@ -201,10 +205,11 @@ class RecepcionController extends Controller
             return $this->production_refresh();
         } catch (\Throwable $e) {
             Log::error('Recepciones sync error: '.$e->getMessage());
+            Log::error($e->getTraceAsString());
             return redirect()->route('recepciones.index')->with('error', 'Error al sincronizar recepciones');
         }
     }
-     public function production_refresh()
+    public function production_refresh()
     {
         $productions=Http::post('https://api.greenexweb.cl/api/ObtenerRecepcion');
         $productions = $productions->json();
@@ -292,12 +297,7 @@ class RecepcionController extends Controller
 
                             $user=User::where('csg',$Codigo_Sag_emisor)->first();
                             if(!IS_NULL($user)){
-                                if($espec->comercializado->contains($user->id)){
-
-                                }else{
-                                    $espec->comercializado()->attach($user->id);
-
-                                }
+                                $this->attachUserIfPossible($espec, ['comercializado', 'users'], $user->id);
                             }
 
                             $varie=Variedad::where('name',$n_variedad)->first();
@@ -317,11 +317,7 @@ class RecepcionController extends Controller
 
                             if(!IS_NULL($user)){
                                 if($varie){
-                                    if($varie->comercializado->contains($user->id)){
-
-                                    }else{
-                                        $varie->comercializado()->attach($user->id);
-                                    }
+                                    $this->attachUserIfPossible($varie, ['comercializado', 'users'], $user->id);
                                 }
                             }
 
@@ -332,13 +328,7 @@ class RecepcionController extends Controller
                             $user=User::where('csg',$Codigo_Sag_emisor)->first();
 
                             if(!IS_NULL($user)){
-                                if($especie->comercializado->contains($user->id)){
-
-
-                                }else{
-                                    $especie->comercializado()->attach($user->id);
-
-                                }
+                                $this->attachUserIfPossible($especie, ['comercializado', 'users'], $user->id);
                             }
                             $varie=Variedad::where('name',$n_variedad)->first();
                             if($varie){
@@ -355,11 +345,7 @@ class RecepcionController extends Controller
 
                             if(!IS_NULL($user)){
                                 if($varie){
-                                    if($varie->comercializado->contains($user->id)){
-
-                                    }else{
-                                        $varie->comercializado()->attach($user->id);
-                                    }
+                                    $this->attachUserIfPossible($varie, ['comercializado', 'users'], $user->id);
                                 }
                             }
                         }
@@ -430,17 +416,36 @@ class RecepcionController extends Controller
 
         $rf=Recepcion::all();
         $total=$rf->count()-$ri->count();
-        Sync::create([
-            'tipo'=>'MANUAL',
-            'entidad'=>'RECEPCIONES',
-            'fecha'=>Carbon::now(),
-            'cantidad'=>$total
-        ]);
+        // Sync::create([
+        //     'tipo'=>'MANUAL',
+        //     'entidad'=>'RECEPCIONES',
+        //     'fecha'=>Carbon::now(),
+        //     'cantidad'=>$total
+        // ]);
 
         return redirect()->route('recepciones.index');
 
         //return view('productors.production',compact('productions'));
 
 
+    }
+
+    private function attachUserIfPossible($model, array $relationNames, int $userId): void
+    {
+        if (! $model) {
+            return;
+        }
+
+        foreach ($relationNames as $relation) {
+            if (! method_exists($model, $relation)) {
+                continue;
+            }
+
+            $relationInstance = $model->{$relation}();
+            if ($relationInstance instanceof BelongsToMany) {
+                $relationInstance->syncWithoutDetaching([$userId]);
+                return;
+            }
+        }
     }
 }
