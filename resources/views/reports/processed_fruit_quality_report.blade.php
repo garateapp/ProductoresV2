@@ -22,7 +22,7 @@
         .subtle { background: #f9fafb; border: 1px solid #e5e7eb; border-radius: 8px; padding: 10px; }
         .spacer { height: 10px; }
     </style>
-    
+
 </head>
 <body>
     <div class="header">
@@ -41,7 +41,7 @@
             <div><strong>Especie:</strong> {{ $proceso->especie }}</div>
             <div><strong>Variedad:</strong> {{ $proceso->variedad }}</div>
             <div><strong>Kilos Netos:</strong> {{ number_format((float)($proceso->kilos_netos ?? 0), 0, ',', '.') }} kg</div>
-            <div><strong>Temporada:</strong> {{ $proceso->temporada ?? 'N/A' }}</div>
+            <div><strong>Temporada:</strong> 2025-2026</div>
         </div>
     </div>
 
@@ -61,7 +61,7 @@
                         <div><strong>Destino:</strong> {{ $q->destino ?? 'N/A' }}</div>
                         <div><strong>Calibre:</strong> {{ $q->calibre ?? 'N/A' }}</div>
                         <div><strong>Tamaño Muestra:</strong> {{ $q->t_muestra ?? 'N/A' }}</div>
-                        <div><strong>Color Cubrimiento:</strong> {{ $q->color_cubrimiento ?? 'N/A' }}</div>
+                        {{-- <div><strong>Color Cubrimiento:</strong> {{ $q->color_cubrimiento ?? 'N/A' }}</div> --}}
                         <div><strong>Color Fondo:</strong> {{ $q->color_fondo ?? 'N/A' }}</div>
                     </div>
                     @if(!empty($q->observaciones))

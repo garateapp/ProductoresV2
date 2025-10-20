@@ -85,6 +85,7 @@ Route::middleware('auth')->group(function () {
     // Processed Fruit Quality Control Routes
     Route::get('processed-fruit-quality', [App\Http\Controllers\ProcessedFruitQualityController::class, 'index'])->name('processed-fruit-quality.index');
     Route::post('processed-fruit-quality/quality', [App\Http\Controllers\ProcessedFruitQualityController::class, 'storeQuality'])->name('processed-fruit-quality.storeQuality');
+    Route::put('processed-fruit-quality/quality/{quality}', [App\Http\Controllers\ProcessedFruitQualityController::class, 'updateQuality'])->name('processed-fruit-quality.updateQuality');
     Route::post('processed-fruit-quality/detail', [App\Http\Controllers\ProcessedFruitQualityController::class, 'storeDetail'])->name('processed-fruit-quality.storeDetail');
     Route::patch('processed-fruit-quality/{quality}/tolerance', [App\Http\Controllers\ProcessedFruitQualityController::class, 'updateToleranceLabel'])->name('processed-fruit-quality.updateTolerance');
     Route::patch('processed-fruit-quality/{quality}/status', [App\Http\Controllers\ProcessedFruitQualityController::class, 'updateStatus'])->name('processed-fruit-quality.updateStatus');

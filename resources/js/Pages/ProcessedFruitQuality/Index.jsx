@@ -134,6 +134,7 @@ export default function Index({
     const qualityData = qualityFormState.data;
     const setQualityData = qualityFormState.setData;
     const postQuality = qualityFormState.post;
+    const putQuality = qualityFormState.put;
     const processingQuality = qualityFormState.processing;
     const errorsQuality = qualityFormState.errors;
     const resetQuality = qualityFormState.reset;
@@ -391,12 +392,16 @@ export default function Index({
 
     const submitQuality = (e) => {
         e.preventDefault();
-        postQuality(route('processed-fruit-quality.storeQuality'), {
+        if (!selectedProceso) {
+            return;
+        }
+
+        const payload = {
             data: { ...qualityData, proceso_id: selectedProceso.id },
             onSuccess: () => {
-                toast.success('Operación exitosa.');
-                // Re-cargar desde backend el último registro guardado
-                fetchQualityData(selectedProceso);
+                toast.success('Operaci�n exitosa.');
+                fetchQualityData(selectedProceso, qualityId || undefined);
+                router.reload({ only: ['procesos'] });
             },
             onError: (errors) => {
                 console.error(
@@ -407,7 +412,16 @@ export default function Index({
             },
             preserveState: true,
             preserveScroll: true,
-        });
+        };
+
+        if (qualityId) {
+            putQuality(
+                route('processed-fruit-quality.updateQuality', qualityId),
+                payload
+            );
+        } else {
+            postQuality(route('processed-fruit-quality.storeQuality'), payload);
+        }
     };
 
     // Mantener modal con datos actualizados tras guardar Info General
@@ -1097,7 +1111,7 @@ export default function Index({
                                                     }
                                                 />
                                             </div>
-                                            <div>
+                                            <div style={{ display: 'none' }}>
                                                 <Label htmlFor="color_cubrimiento">
                                                     Color de Cubrimiento
                                                 </Label>

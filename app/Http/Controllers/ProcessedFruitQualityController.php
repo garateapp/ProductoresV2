@@ -108,6 +108,47 @@ class ProcessedFruitQualityController extends Controller
         return redirect()->back()->with('quality_id', $quality->id)->with('success', 'Calidad de proceso guardada exitosamente.');
     }
 
+    public function updateQuality(Request $request, ProcessedFruitQuality $quality)
+    {
+        $validated = $request->validate([
+            'proceso_id' => 'required|exists:procesos,id',
+            'numero_de_caja' => 'nullable|string|max:255',
+            'numero_embaladora_mano' => 'nullable|string|max:255',
+            'peso_exacto_caja' => 'nullable|numeric',
+            'codigo_embalaje' => 'nullable|string|max:255',
+            'categoria' => 'nullable|string|max:255',
+            'tolerance_label' => 'nullable|in:1S,1-2,3,4',
+            'destino' => 'nullable|string|max:255',
+            'calibre' => 'nullable|string|max:255',
+            'color_cubrimiento' => 'nullable|string|max:255',
+            'color_fondo' => 'nullable|string|max:255',
+            't_muestra' => 'nullable|integer',
+            'observaciones' => 'nullable|string',
+            'responsable' => 'nullable|string',
+            'estado' => 'nullable|in:Aprobada,Rechazada',
+            'materia_vegetal' => 'boolean',
+            'piedras' => 'boolean',
+            'barro' => 'boolean',
+            'pedicelo_largo' => 'boolean',
+            'racimo' => 'boolean',
+            'esponjas' => 'boolean',
+            'h_esponjas' => 'nullable|string',
+            'llenado_tottes' => 'nullable|string',
+            'embalaje' => 'nullable|integer',
+            'obs_ext' => 'nullable|string',
+        ]);
+
+        foreach (['materia_vegetal', 'piedras', 'barro', 'pedicelo_largo', 'racimo', 'esponjas'] as $field) {
+            if (isset($validated[$field])) {
+                $validated[$field] = $validated[$field] ? 'SI' : 'NO';
+            }
+        }
+
+        $quality->update($validated);
+
+        return redirect()->back()->with('quality_id', $quality->id)->with('success', 'Calidad de proceso actualizada exitosamente.');
+    }
+
     public function updateToleranceLabel(ProcessedFruitQuality $quality, Request $request)
     {
         $data = $request->validate([
@@ -313,6 +354,8 @@ class ProcessedFruitQualityController extends Controller
 
             $shot =  Browsershot::html($html)
                 ->setTemporaryDirectory($tmpDir)
+                ->setChromePath('/usr/bin/chromium-browser') // ← Usa el que ya tienes
+                ->setOption('executablePath', '/usr/bin/chromium-browser') // ← Clave para Puppeteer
                 ->setOption('headless', true)
                 ->noSandbox()
                 ->addChromiumArguments([
