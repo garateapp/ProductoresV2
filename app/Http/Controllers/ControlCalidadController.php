@@ -1659,7 +1659,7 @@ class ControlCalidadController extends Controller
         try {
             $shot = Browsershot::html($html)
                 ->setTemporaryDirectory($tmpDir)
-                 ->setChromePath('/usr/bin/chromium-browser') // ← Usa el que ya tienes
+                ->setChromePath('/usr/bin/chromium-browser') // ← Usa el que ya tienes
                 ->setOption('executablePath', '/usr/bin/chromium-browser') // ← Clave para Puppeteer
                 ->setOption('headless', true)
                 ->noSandbox()
