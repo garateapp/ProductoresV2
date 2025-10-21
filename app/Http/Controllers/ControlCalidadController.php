@@ -252,6 +252,12 @@ class ControlCalidadController extends Controller
     {
         $calidad = $recepcion->calidad;
 
+        if ($calidad && $calidad->relationLoaded('photos') && $calidad->photos->isNotEmpty()) {
+            $calidad->photos->each(function ($photo) {
+                $photo->inline_url = $this->resolveInlinePhotoSrc($photo->path);
+            });
+        }
+
         if (! $calidad) {
             return response()->json(['defectos' => [], 'desordenFisiologico' => []]);
         }
@@ -1383,6 +1389,49 @@ public function previewPage(Recepcion $recepcion)
             'solubleSolids',
             'isPreview'
         );
+    }
+
+    private function resolveInlinePhotoSrc(?string $path): ?string
+    {
+        if (! $path) {
+            return null;
+        }
+
+        $candidates = [$path];
+
+        if (Str::startsWith($path, 'public/')) {
+            $candidates[] = Str::after($path, 'public/');
+        }
+
+        foreach ($candidates as $candidate) {
+            try {
+                if (Storage::exists($candidate)) {
+                    $mime = Storage::mimeType($candidate) ?: 'image/jpeg';
+                    $contents = Storage::get($candidate);
+
+                    if ($contents !== false && $contents !== null) {
+                        return 'data:' . $mime . ';base64,' . base64_encode($contents);
+                    }
+                }
+            } catch (\Throwable $e) {
+                // Continue trying other candidates/disks if the file is missing on this attempt.
+            }
+
+            try {
+                if (Storage::disk('public')->exists($candidate)) {
+                    $mime = Storage::disk('public')->mimeType($candidate) ?: 'image/jpeg';
+                    $contents = Storage::disk('public')->get($candidate);
+
+                    if ($contents !== false && $contents !== null) {
+                        return 'data:' . $mime . ';base64,' . base64_encode($contents);
+                    }
+                }
+            } catch (\Throwable $e) {
+                // Ignore and try next candidate.
+            }
+        }
+
+        return null;
     }
 
     public function approveReport(Recepcion $recepcion, ReportNotificationService $notificationService)

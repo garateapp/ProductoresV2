@@ -6738,8 +6738,8 @@
             <div class="photo-grid">
                 @foreach ($photos as $photo)
                     <div class="photo-card">
-                        <img src="{{ $photo->url }}" alt="{{ $photo->photoType->name ?? 'Fotografia' }}">
-                        {{-- <div class="photo-info">
+                        <img src="{{ $photo->inline_url ?? $photo->url }}" alt="{{ $photo->photoType->name ?? 'Fotografia' }}">
+                        <div class="photo-info">
                             <strong>{{ $photo->photoType->name ?? 'Sin clasificacion' }}</strong>
                             @if (!empty($photo->observations))
                                 <p>{{ $photo->observations }}</p>
@@ -6747,7 +6747,7 @@
                             @if ($photo->created_at)
                                 <span>{{ optional($photo->created_at)->format('d-m-Y H:i') }}</span>
                             @endif
-                        </div> --}}
+                        </div>
                     </div>
                 @endforeach
             </div>
@@ -6759,4 +6759,3 @@
 
 
 </html>
-
