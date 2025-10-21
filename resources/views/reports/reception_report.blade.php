@@ -6736,7 +6736,7 @@
         <div class="photo-page">
             <h2 class="photo-title">Registro Fotográfico</h2>
             <div class="photo-grid">
-                console.log('photos:', {{$photos }});
+
                 @foreach ($photos as $photo)
 
                     <div class="photo-card">
