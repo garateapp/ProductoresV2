@@ -6734,9 +6734,11 @@
     @if ($photos->count())
         <div class="page-break"></div>
         <div class="photo-page">
-            <h2 class="photo-title">Registro Fotografico</h2>
+            <h2 class="photo-title">Registro Fotográfico</h2>
             <div class="photo-grid">
+
                 @foreach ($photos as $photo)
+
                     <div class="photo-card">
                         <img src="{{ $photo->inline_url ?? $photo->url }}" alt="{{ $photo->photoType->name ?? 'Fotografia' }}">
                         <div class="photo-info">
@@ -6744,6 +6746,8 @@
                             @if (!empty($photo->observations))
                                 <p>{{ $photo->observations }}</p>
                             @endif
+                            <span>{{ $photo->url ?? 'url' }}</span>
+                            <span>{{ $photo->inline_url ?? 'inlineurl' }}</span>
                             @if ($photo->created_at)
                                 <span>{{ optional($photo->created_at)->format('d-m-Y H:i') }}</span>
                             @endif
