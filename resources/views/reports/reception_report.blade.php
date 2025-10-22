@@ -23,23 +23,70 @@
 
 
     <style>
-
-
-
         @import url('https://fonts.googleapis.com/css2?family=Roboto:wght@300;400;700&display=swap');
 
 
 
-        .page-break { page-break-before: always; }
-        .photo-page { padding: 20px 10px; }
-        .photo-title { font-size: 16px; font-weight: 700; text-transform: uppercase; margin-bottom: 16px; color: #2c3e50; }
-        .photo-grid { display: flex; flex-wrap: wrap; gap: 16px; }
-        .photo-card { width: calc(50% - 8px); border: 1px solid #e5e7eb; border-radius: 8px; overflow: hidden; background: #ffffff; box-shadow: 0 2px 4px rgba(149, 157, 165, 0.2); }
-        .photo-card img { width: 100%; height: 100%; object-fit: cover; display: block; }
-        .photo-info { padding: 10px; font-size: 10px; color: #374151; }
-        .photo-info strong { display: block; margin-bottom: 4px; font-size: 11px; }
-        .photo-info p { margin: 0; }
-        .photo-info span { display: block; margin-top: 4px; font-size: 9px; color: #6b7280; }
+        .page-break {
+            page-break-before: always;
+        }
+
+        .photo-page {
+            padding: 20px 10px;
+        }
+
+        .photo-title {
+            font-size: 16px;
+            font-weight: 700;
+            text-transform: uppercase;
+            margin-bottom: 16px;
+            color: #2c3e50;
+        }
+
+        .photo-grid {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 16px;
+        }
+
+        .photo-card {
+            width: calc(50% - 8px);
+            border: 1px solid #e5e7eb;
+            border-radius: 8px;
+            overflow: hidden;
+            background: #ffffff;
+            box-shadow: 0 2px 4px rgba(149, 157, 165, 0.2);
+        }
+
+        .photo-card img {
+            width: 100%;
+            height: 100%;
+            object-fit: cover;
+            display: block;
+        }
+
+        .photo-info {
+            padding: 10px;
+            font-size: 10px;
+            color: #374151;
+        }
+
+        .photo-info strong {
+            display: block;
+            margin-bottom: 4px;
+            font-size: 11px;
+        }
+
+        .photo-info p {
+            margin: 0;
+        }
+
+        .photo-info span {
+            display: block;
+            margin-top: 4px;
+            font-size: 9px;
+            color: #6b7280;
+        }
 
         body {
 
@@ -1102,15 +1149,10 @@
             margin: 8px 0;
 
         }
-
-
-
-
-
     </style>
 
 
-{{--
+    {{--
                                     @if ($photo->created_at)
                                 <span>{{ optional($photo->created_at)->format('d-m-Y H:i') }}</span>
                             @endif
@@ -1121,137 +1163,69 @@
         </div>
     @endif --}}
 
-<script>
-
-
-
+    <script>
         {!! @file_get_contents(public_path('vendor/chart.js/chart.umd.min.js')) !!}
-
-
-
     </script>
 
 
 
     <script>
-
-
-
         {!! @file_get_contents(public_path('vendor/chartjs-plugin-datalabels/chartjs-plugin-datalabels.min.js')) !!}
-
-
-
     </script>
 
 
 
     @php
 
-
-
         // Para Cherries: precomputar matrices desde FirmPro (color x calibre)
 
-
-
         if ($recepcion->n_especie === 'Cherries') {
-
-
-
             try {
-
-
-
                 $colors = ['Rojo', 'Rojo Caoba', 'Santina', 'Caoba Oscuro', 'Negro'];
-
-
 
                 $grades = ['L', 'XL', 'J', '2J', '3J', '4J', '5J', '6J', '7J'];
 
-
-
                 // 1) Tablas inline (UNION ALL) para colores y calibres - usar conexión firmpro (SQL Server)
-
-
 
                 $conexion = DB::connection('firmpro');
 
-
-
                 $coloresQuery = $conexion
 
-
-
                     ->query()
-
-
 
                     ->selectRaw("'Rojo' AS nombre_color")
 
-
-
                     ->unionAll($conexion->query()->selectRaw("'Rojo Caoba' AS nombre_color"))
-
-
 
                     ->unionAll($conexion->query()->selectRaw("'Santina' AS nombre_color"))
 
-
-
                     ->unionAll($conexion->query()->selectRaw("'Caoba Oscuro' AS nombre_color"))
-
-
 
                     ->unionAll($conexion->query()->selectRaw("'Negro' AS nombre_color"));
 
-
-
                 $calibresQuery = $conexion
-
-
 
                     ->query()
 
-
-
                     ->selectRaw("'L' AS categoria_calibres")
-
-
 
                     ->unionAll($conexion->query()->selectRaw("'XL' AS categoria_calibres"))
 
-
-
                     ->unionAll($conexion->query()->selectRaw("'J' AS categoria_calibres"))
-
-
 
                     ->unionAll($conexion->query()->selectRaw("'2J' AS categoria_calibres"))
 
-
-
                     ->unionAll($conexion->query()->selectRaw("'3J' AS categoria_calibres"))
-
-
 
                     ->unionAll($conexion->query()->selectRaw("'4J' AS categoria_calibres"))
 
-
-
                     ->unionAll($conexion->query()->selectRaw("'5J' AS categoria_calibres"))
-
-
 
                     ->unionAll($conexion->query()->selectRaw("'6J' AS categoria_calibres"))
 
-
-
                     ->unionAll($conexion->query()->selectRaw("'7J' AS categoria_calibres"));
 
-
-
                 // 2) CASE reutilizable (mismas reglas que tu SQL)
-
-
 
                 $caseCategoria = "
 
@@ -1307,24 +1281,13 @@
 
                 ";
 
-
-
                 // 3) Subconsulta "datos" (agregada por color + categoría)
-
-
 
                 $datosSub = $conexion
 
-
-
                     ->table('fruitcloud.dbo.fpdatos AS fpd')
 
-
-
                     ->selectRaw(
-
-
-
                         "
 
 
@@ -1342,24 +1305,13 @@
 
 
                     ",
-
-
-
                     )
-
-
 
                     ->where('fpd.numero_recepcion', (string) ($recepcion->numero_g_recepcion ?? ''))
 
-
-
                     ->groupBy('fpd.nombre_color', DB::raw($caseCategoria));
 
-
-
                 // 4) Subconsulta "hay_6y7": 1 si existe algo en 6J/7J, 0 en caso contrario
-
-
 
                 $hay6y7Sub = $conexion->query()->fromSub($datosSub, 'd')->selectRaw("
 
@@ -1383,144 +1335,63 @@
 
                     ");
 
-
-
                 $hay6y7 = (int) $conexion->query()->fromSub($hay6y7Sub, 'x')->value('hay');
 
-
-
                 $grades = $hay6y7
-
-
-
                     ? ['L', 'XL', 'J', '2J', '3J', '4J', '5J', '6J', '7J']
-
-
-
                     : ['L', 'XL', 'J', '2J', '3J', '4J', '5J'];
-
-
 
                 // 5) Subconsulta "calibres_filtrados":
 
-
-
                 //    - De la lista completa de calibres
-
-
 
                 //    - JOIN al flag hay_6y7
 
-
-
                 //    - Filtro: siempre incluir no-6J/7J; incluir 6J/7J SOLO si hay=1
-
-
 
                 $calibresFiltrados = $conexion
 
-
-
                     ->query()
-
-
 
                     ->fromSub($calibresQuery, 'f')
 
-
-
                     ->joinSub($hay6y7Sub, 'h', function ($join) {
-
-
-
                         $join->whereRaw('1=1');
-
-
-
                     }) // CROSS JOIN (1=1)
 
-
-
                     ->where(function ($q) {
-
-
-
                         $q->whereNotIn('f.categoria_calibres', ['6J', '7J'])->orWhere('h.hay', 1);
-
-
-
                     })
-
-
 
                     ->select('f.categoria_calibres');
 
-
-
                 // 6) Query final:
-
-
 
                 //    - "colores" como tabla base
 
-
-
                 //    - CROSS JOIN a "calibres_filtrados" (joinSub con 1=1)
-
-
 
                 //    - LEFT JOIN a "datos"
 
-
-
                 $resultado = $conexion
-
-
 
                     ->query()
 
-
-
                     ->fromSub($coloresQuery, 'c') // c
 
-
-
                     ->joinSub($calibresFiltrados, 'f', function ($join) {
-
-
-
                         $join->whereRaw('1=1');
-
-
-
                     }) // CROSS JOIN
 
-
-
                     ->leftJoinSub($datosSub, 'd', function ($join) {
-
-
-
                         $join
-
-
 
                             ->on('d.nombre_color', '=', 'c.nombre_color')
 
-
-
                             ->on('d.categoria_calibres', '=', 'f.categoria_calibres');
-
-
-
                     })
 
-
-
                     ->selectRaw(
-
-
-
                         "
 
 
@@ -1538,245 +1409,106 @@
 
 
                     ",
-
-
-
                     )
-
-
 
                     ->orderBy('c.nombre_color')
 
-
-
                     ->orderBy('f.categoria_calibres')
-
-
 
                     ->get();
 
-
-
                 $countsByGradeColor = [];
-
-
 
                 $totalsByGrade = [];
 
-
-
                 $countsByColorGrade = [];
-
-
 
                 $totalsByColor = [];
 
-
-
                 foreach ($resultado as $r) {
-
-
-
                     $countsByGradeColor[$r->categoria_calibres][$r->nombre_color] =
-
-
-
                         ($countsByGradeColor[$r->categoria_calibres][$r->nombre_color] ?? 0) + (int) $r->cantidad;
 
-
-
                     $totalsByGrade[$r->categoria_calibres] =
-
-
-
                         ($totalsByGrade[$r->categoria_calibres] ?? 0) + (int) $r->cantidad;
 
-
-
                     $countsByColorGrade[$r->nombre_color][$r->categoria_calibres] =
-
-
-
                         ($countsByColorGrade[$r->nombre_color][$r->categoria_calibres] ?? 0) + (int) $r->cantidad;
 
-
-
                     $totalsByColor[$r->nombre_color] = ($totalsByColor[$r->nombre_color] ?? 0) + (int) $r->cantidad;
-
-
-
                 }
-
-
 
                 // Calibres: categories=grades; series por color (porcentaje y conteos)
 
-
-
                 $ch_calibre_categories = $grades;
-
-
 
                 $ch_calibre_series = [];
 
-
-
                 $ch_calibre_counts_series = [];
 
-
-
                 foreach ($colors as $c) {
-
-
-
                     $pctData = [];
-
-
 
                     $absData = [];
 
-
-
                     foreach ($grades as $g) {
-
-
-
                         $val = $countsByGradeColor[$g][$c] ?? 0;
-
-
 
                         $tot = $totalsByGrade[$g] ?? 0;
 
-
-
                         $pctData[] = $tot > 0 ? round(($val / $tot) * 100, 2) : 0.0;
 
-
-
                         $absData[] = $val;
-
-
-
                     }
-
-
 
                     $ch_calibre_series[] = ['name' => $c, 'data' => $pctData];
 
-
-
                     $ch_calibre_counts_series[] = ['name' => $c, 'data' => $absData];
-
-
-
                 }
-
-
 
                 // Colores: categories=colors; series por calibre (porcentaje y conteos)
 
-
-
                 $ch_color_categories = $colors;
-
-
 
                 $ch_color_series = [];
 
-
-
                 $ch_color_counts_series = [];
 
-
-
                 foreach ($grades as $g) {
-
-
-
                     $pctData = [];
-
-
 
                     $absData = [];
 
-
-
                     foreach ($colors as $c) {
-
-
-
                         $val = $countsByColorGrade[$c][$g] ?? 0;
-
-
 
                         $tot = $totalsByColor[$c] ?? 0;
 
-
-
                         $pctData[] = $tot > 0 ? round(($val / $tot) * 100, 2) : 0.0;
 
-
-
                         $absData[] = $val;
-
-
-
                     }
-
-
 
                     $ch_color_series[] = ['name' => $g, 'data' => $pctData];
 
-
-
                     $ch_color_counts_series[] = ['name' => $g, 'data' => $absData];
-
-
-
                 }
-
-
-
             } catch (\Throwable $e) {
-
-
-
                 dd($e);
-
-
 
                 $ch_calibre_categories = [];
 
-
-
                 $ch_calibre_series = [];
-
-
 
                 $ch_calibre_counts_series = [];
 
-
-
                 $ch_color_categories = [];
-
-
 
                 $ch_color_series = [];
 
-
-
                 $ch_color_counts_series = [];
-
-
-
             }
-
-
-
         }
-
-
-
     @endphp
 
 
@@ -1787,167 +1519,53 @@
 
 @php
 
-
-
     if ($recepcion->calidad->detalles->where('tipo_item', 'COLOR DE CUBRIMIENTO')) {
-
-
-
         $col = 0;
 
-
-
         foreach ($recepcion->calidad->detalles->where('tipo_item', 'COLOR DE CUBRIMIENTO') as $item) {
-
-
-
             if ($recepcion->n_especie == 'Apples') {
-
-
-
                 if ($recepcion->n_variedad == 'Pink Lady' || $recepcion->n_variedad == 'Rossy Glo') {
-
-
-
                     if ($item->detalle_item == '<40') {
-
-
-
                         $col += $item->porcentaje_muestra;
-
-
-
                     }
-
-
-
                 }
-
-
 
                 if ($item->detalle_item == '<50') {
-
-
-
                     $col += $item->porcentaje_muestra;
-
-
-
                 }
-
-
-
             }
-
-
 
             if ($recepcion->n_especie == 'Mandarinas') {
-
-
-
                 if ($item->detalle_item == '<30') {
-
-
-
                     $col += $item->porcentaje_muestra;
-
-
-
                 }
-
-
-
             }
-
-
 
             if ($recepcion->n_especie == 'Membrillos') {
-
-
-
                 if ($item->detalle_item == '<7' || $item->detalle_item == '>9') {
-
-
-
                     $col += $item->porcentaje_muestra;
-
-
-
                 }
-
-
-
             }
-
-
 
             if ($recepcion->n_especie == 'Orange') {
-
-
-
                 if ($item->detalle_item == '<30') {
-
-
-
                     $col += $item->porcentaje_muestra;
-
-
-
                 }
-
-
-
             }
-
-
 
             if ($recepcion->n_especie == 'Cherries') {
-
-
-
                 if ($item->detalle_item == 'Fuera de Color') {
-
-
-
                     $col += $item->valor_ss;
-
-
-
                 }
-
-
-
             }
-
-
 
             if ($recepcion->n_especie == 'Pears') {
-
-
-
                 if ($item->detalle_item == '<40') {
-
-
-
                     $col += $item->porcentaje_muestra;
-
-
-
                 }
-
-
-
             }
-
-
-
         }
-
-
-
     }
-
-
 
 @endphp
 
@@ -1970,68 +1588,33 @@
 
 
     <script>
-
-
-
         // Defaults to avoid undefined when controller doesn't pass datasets
 
 
 
         @php
 
-
-
             $sizeDistribution = $sizeDistribution ?? [];
-
-
 
             $coverageColor = $coverageColor ?? [];
 
-
-
             $averageFirmness = $averageFirmness ?? [];
-
-
 
             $firmnessDistribution = $firmnessDistribution ?? [];
 
-
-
             $solubleSolids = $solubleSolids ?? [];
 
-
-
             $precalibrePercentage =
-
-
-
                 (float) (optional(
-
-
-
                     optional(optional($recepcion->calidad)->detalles)
-
-
-
                         ->where('tipo_item', 'DEFECTOS DE CALIDAD')
-
-
 
                         ->where('detalle_item', 'PRECALIBRE')
 
-
-
                         ->first(),
-
-
-
                 )->porcentaje_muestra ?? 0);
 
-
-
             //dd($coverageColor, $averageFirmness, $firmnessDistribution, $coverageColor,$sizeDistribution);
-
-
 
         @endphp
 
@@ -2634,18 +2217,21 @@
                 return;
             }
 
-            const percentFormatter = (typeof Intl !== 'undefined')
-                ? new Intl.NumberFormat('es-CL', { minimumFractionDigits: 0, maximumFractionDigits: 1 })
-                : null;
+            const percentFormatter = (typeof Intl !== 'undefined') ?
+                new Intl.NumberFormat('es-CL', {
+                    minimumFractionDigits: 0,
+                    maximumFractionDigits: 1
+                }) :
+                null;
             const total = safeCounts.reduce((acc, value) => acc + (Number(value) || 0), 0);
             let html = '';
 
             safeLabels.forEach((label, index) => {
                 const rawValue = Number(safeCounts[index]) || 0;
                 const percentValue = total > 0 ? (rawValue / total) * 100 : 0;
-                const formattedPercent = percentFormatter
-                    ? percentFormatter.format(percentValue)
-                    : percentValue.toFixed(percentValue % 1 === 0 ? 0 : 1);
+                const formattedPercent = percentFormatter ?
+                    percentFormatter.format(percentValue) :
+                    percentValue.toFixed(percentValue % 1 === 0 ? 0 : 1);
 
                 html += `
                     <div class="legend-item">
@@ -2880,133 +2466,37 @@
 
 
             if (ctx) {
-
-
-
                 const exportable = {{ $porcentaje_exportable }};
-
-
-
                 const defectosCalidad = {{ $defectos_calidad_sum }};
-
-
-
                 const defectosCondicion = {{ $defectos_condicion_sum }};
-
-
-
                 const danosPlaga = {{ $danos_plaga_sum }};
-
-
-
                 const species = "{{ $recepcion->n_especie }}";
-
-
-
                 const precalibre = Number(@json($precalibrePercentage));
-
-
-
                 const exportableAdjusted = Math.max(exportable - precalibre, 0);
-
-
-
                 const colors = getChartColors(species);
-
-
-
                 const doughnutData = [
-
-
-
                     exportableAdjusted,
-
-
-
                     defectosCalidad,
-
-
-
                     defectosCondicion,
-
-
-
                     danosPlaga,
-
-
-
                     precalibre
-
-
-
                 ];
-
-
-
                 const exportableChart = new Chart(ctx, {
-
-
-
                     type: 'doughnut',
-
-
-
                     data: {
-
-
-
                         labels: ['Exportable', 'Defectos de Calidad', 'Defectos de Condición',
-
-
-
                             'Daños de Plaga', 'Precalibre'
-
-
-
                         ],
-
-
-
                         datasets: [{
-
-
-
                             data: doughnutData,
-
-
-
                             backgroundColor: [
-
-
-
                                 colors.exportable,
-
-
-
                                 colors.defectosCalidad,
-
-
-
                                 colors.defectosCondicion,
-
-
-
                                 colors.danosPlaga,
-
-
-
                                 colors.precalibre
-
-
-
                             ],
-
-
-
                             borderColor: colors.borderColor
-
-
-
                         }]
 
 
@@ -3079,7 +2569,7 @@
 
                                     color: '#333',
 
-                                     family: 'Sans-Serif',
+                                    family: 'Sans-Serif',
 
                                 },
 
@@ -3424,15 +2914,15 @@
                                     text: '% de Distribución de Calibre',
                                     font: {
 
-                                    size: 10,
+                                        size: 10,
 
-                                    weight: 'bold',
+                                        weight: 'bold',
 
-                                    color: '#333',
+                                        color: '#333',
 
-                                     family: 'Sans-Serif',
+                                        family: 'Sans-Serif',
 
-                                },
+                                    },
 
 
 
@@ -3471,13 +2961,13 @@
                                         text: 'Porcentaje (%)',
                                         font: {
 
-                                        size: 10,
+                                            size: 10,
 
-                                        weight: 'bold',
+                                            weight: 'bold',
 
-                                        color: '#333',
+                                            color: '#333',
 
-                                         family: 'Sans-Serif',
+                                            family: 'Sans-Serif',
                                         }
 
 
@@ -3516,7 +3006,7 @@
 
 
                                             size: 8,
-                                            family:'Sans-Serif',
+                                            family: 'Sans-Serif',
 
 
 
@@ -3577,7 +3067,7 @@
 
 
                                             size: 8,
-                                            family:'Sans-Serif',
+                                            family: 'Sans-Serif',
 
 
 
@@ -3613,17 +3103,17 @@
 
 
 
-                                       font: {
+                                        font: {
 
-                                    size: 10,
+                                            size: 10,
 
-                                    weight: 'bold',
+                                            weight: 'bold',
 
-                                    color: '#333',
+                                            color: '#333',
 
-                                    family: 'Roboto',
+                                            family: 'Roboto',
 
-                                },
+                                        },
 
 
 
@@ -3672,9 +3162,6 @@
 
 
                     })();
-
-
-
                 @else
 
 
@@ -3812,17 +3299,17 @@
 
 
                                     text: 'Distribución de Calibres por Color',
-                                     font: {
+                                    font: {
 
-                                    size: 10,
+                                        size: 10,
 
-                                    weight: 'bold',
+                                        weight: 'bold',
 
-                                    color: '#333',
+                                        color: '#333',
 
-                                    family: 'Roboto',
+                                        family: 'Roboto',
 
-                                },
+                                    },
 
 
 
@@ -3855,17 +3342,17 @@
 
 
                                         text: 'Cantidad',
-                                         font: {
+                                        font: {
 
-                                    size: 10,
+                                            size: 10,
 
-                                    weight: 'bold',
+                                            weight: 'bold',
 
-                                    color: '#333',
+                                            color: '#333',
 
-                                    family: 'Sans-Serif',
+                                            family: 'Sans-Serif',
 
-                                },
+                                        },
 
 
 
@@ -3898,7 +3385,7 @@
 
 
                                             size: 8,
-                                            family:'Sans-Serif',
+                                            family: 'Sans-Serif',
 
 
 
@@ -3955,7 +3442,7 @@
 
 
                                             size: 8,
-                                            family:'Sans-Serif',
+                                            family: 'Sans-Serif',
 
 
 
@@ -3988,17 +3475,17 @@
 
 
                                         text: 'Calibre',
-                                         font: {
+                                        font: {
 
-                                    size: 10,
+                                            size: 10,
 
-                                    weight: 'bold',
+                                            weight: 'bold',
 
-                                    color: '#333',
+                                            color: '#333',
 
-                                    family: 'Sans-Serif',
+                                            family: 'Sans-Serif',
 
-                                },
+                                        },
 
 
 
@@ -4043,9 +3530,6 @@
 
 
                     })();
-
-
-
                 @endif
 
 
@@ -4145,17 +3629,17 @@
                                     display: true,
 
                                     text: '% de Distribución de Color',
-                                     font: {
+                                    font: {
 
-                                    size: 10,
+                                        size: 10,
 
-                                    weight: 'bold',
+                                        weight: 'bold',
 
-                                    color: '#333',
+                                        color: '#333',
 
-                                    family: 'Sans-Serif',
+                                        family: 'Sans-Serif',
 
-                                },
+                                    },
 
                                 }
 
@@ -4321,7 +3805,7 @@
 
 
                                 text: '% Distribución de Firmezas por Segregación de Color',
-                                  font: {
+                                font: {
 
                                     size: 10,
 
@@ -4364,17 +3848,17 @@
 
 
                                     text: 'Promedio',
-                                     font: {
+                                    font: {
 
-                                    size: 10,
+                                        size: 10,
 
-                                    weight: 'bold',
+                                        weight: 'bold',
 
-                                    color: '#333',
+                                        color: '#333',
 
-                                    family: 'Sans-Serif',
+                                        family: 'Sans-Serif',
 
-                                },
+                                    },
 
 
 
@@ -4407,7 +3891,7 @@
 
 
                                         size: 8,
-                                        family:'Sans-Serif',
+                                        family: 'Sans-Serif',
 
 
 
@@ -4448,17 +3932,17 @@
 
 
                                     text: 'Color',
-                                     font: {
+                                    font: {
 
-                                    size: 10,
+                                        size: 10,
 
-                                    weight: 'bold',
+                                        weight: 'bold',
 
-                                    color: '#333',
+                                        color: '#333',
 
-                                    family: 'Sans-Serif',
+                                        family: 'Sans-Serif',
 
-                                },
+                                    },
 
 
 
@@ -4491,7 +3975,7 @@
 
 
                                         size: 8,
-                                        family:'Sans-Serif',
+                                        family: 'Sans-Serif',
 
 
 
@@ -4697,7 +4181,7 @@
 
 
                                 text: 'Promedio de Brix',
-                                 font: {
+                                font: {
 
                                     size: 10,
 
@@ -4740,17 +4224,17 @@
 
 
                                     text: 'Promedio',
-                                     font: {
+                                    font: {
 
-                                    size: 10,
+                                        size: 10,
 
-                                    weight: 'bold',
+                                        weight: 'bold',
 
-                                    color: '#333',
+                                        color: '#333',
 
-                                    family: 'Sans-Serif',
+                                        family: 'Sans-Serif',
 
-                                },
+                                    },
 
 
 
@@ -4783,7 +4267,7 @@
 
 
                                         size: 8,
-                                        family:'Sans-Serif',
+                                        family: 'Sans-Serif',
 
 
 
@@ -4824,17 +4308,17 @@
 
 
                                     text: 'Color',
-                                     font: {
+                                    font: {
 
-                                    size: 10,
+                                        size: 10,
 
-                                    weight: 'bold',
+                                        weight: 'bold',
 
-                                    color: '#333',
+                                        color: '#333',
 
-                                    family: 'Sans-Serif',
+                                        family: 'Sans-Serif',
 
-                                },
+                                    },
 
 
 
@@ -4867,7 +4351,7 @@
 
 
                                         size: 8,
-                                        family:'Sans-Serif',
+                                        family: 'Sans-Serif',
 
 
 
@@ -4917,15 +4401,9 @@
 
             @php
 
-
-
                 $categories = [];
 
-
-
                 $series = [];
-
-
 
             @endphp
 
@@ -4945,24 +4423,12 @@
 
                         @php
 
-
-
                             $categories[] = $detalle->detalle_item;
-
-
 
                             $series[] = $detalle->porcentaje_muestra;
 
-
-
                         @endphp
-
-
-
                     @endforeach
-
-
-
                 @else
 
 
@@ -4973,16 +4439,9 @@
 
                         @php
 
-
-
                             $l[] = $detalle->valor_ss;
 
-
-
                         @endphp
-
-
-
                     @endforeach
 
 
@@ -4993,16 +4452,9 @@
 
                         @php
 
-
-
                             $d[] = $detalle->valor_ss;
 
-
-
                         @endphp
-
-
-
                     @endforeach
 
 
@@ -5013,24 +4465,11 @@
 
                         @php
 
-
-
                             $b[] = $detalle->valor_ss;
 
-
-
                         @endphp
-
-
-
                     @endforeach
-
-
-
                 @endif
-
-
-
             @endif
 
 
@@ -5041,80 +4480,45 @@
 
                 @php
 
-
-
                     $colors = ['#2b1d16', '#71160e', '#dc0c15'];
 
-
-
                 @endphp
-
-
-
             @elseif ($recepcion->n_especie == 'Apples')
 
 
 
                 @php
 
-
-
                     $colors = ['#831816'];
 
-
-
                 @endphp
-
-
-
             @elseif ($recepcion->n_especie == 'Pears')
 
 
 
                 @php
 
-
-
                     $colors = ['#788527'];
 
-
-
                 @endphp
-
-
-
             @elseif ($recepcion->n_variedad == 'Dagen')
 
 
 
                 @php
 
-
-
                     $colors = ['#9817BB'];
 
-
-
                 @endphp
-
-
-
             @else
 
 
 
                 @php
 
-
-
                     $colors = ['#24a745'];
 
-
-
                 @endphp
-
-
-
             @endif
 
 
@@ -5236,7 +4640,7 @@
 
 
                                 text: 'Promedio de Firmezas',
-                                 font: {
+                                font: {
 
                                     size: 10,
 
@@ -5324,17 +4728,17 @@
 
 
                                     text: 'Valor',
-                                     font: {
+                                    font: {
 
-                                    size: 10,
+                                        size: 10,
 
-                                    weight: 'bold',
+                                        weight: 'bold',
 
-                                    color: '#333',
+                                        color: '#333',
 
-                                    family: 'Sans-Serif',
+                                        family: 'Sans-Serif',
 
-                                },
+                                    },
 
 
 
@@ -5367,7 +4771,7 @@
 
 
                                         size: 8,
-                                        family:'Sans-Serif',
+                                        family: 'Sans-Serif',
 
 
 
@@ -5408,17 +4812,17 @@
 
 
                                     text: 'Color',
-                                     font: {
+                                    font: {
 
-                                    size: 10,
+                                        size: 10,
 
-                                    weight: 'bold',
+                                        weight: 'bold',
 
-                                    color: '#333',
+                                        color: '#333',
 
-                                    family: 'Sans-Serif',
+                                        family: 'Sans-Serif',
 
-                                },
+                                    },
 
 
 
@@ -5451,7 +4855,7 @@
 
 
                                         size: 8,
-                                        family:'Sans-Serif',
+                                        family: 'Sans-Serif',
 
 
 
@@ -5501,9 +4905,6 @@
 
 
         });
-
-
-
     </script>
 
 
@@ -5684,24 +5085,15 @@
 
                         $calibres = [];
 
-
-
                         foreach ($countsSeries as $serie) {
-
                             $name = $serie['name'] ?? '';
 
                             if ($name !== '' && !in_array($name, $calibres, true)) {
-
                                 $calibres[] = $name;
-
                             }
-
                         }
 
-
-
                         $colorGroupMap = [
-
                             'ROJO' => ['code' => '2', 'label' => 'Rojo', 'group' => 'Light'],
 
                             'ROJO CAOBA' => ['code' => '3', 'label' => 'Rojo Caoba', 'group' => 'Dark'],
@@ -5711,39 +5103,34 @@
                             'CAOBA OSCURO' => ['code' => '4', 'label' => 'Caoba Oscuro', 'group' => 'Black'],
 
                             'NEGRO' => ['code' => '5', 'label' => 'Negro', 'group' => 'Black'],
-
                         ];
-
-
 
                         $matrixRows = [];
 
                         foreach ($colorCategories as $index => $colorName) {
-
                             $upper = mb_strtoupper($colorName ?? '', 'UTF-8');
 
-                            $mapping = $colorGroupMap[$upper] ?? ['code' => $colorName, 'label' => $colorName, 'group' => 'Otros'];
+                            $mapping = $colorGroupMap[$upper] ?? [
+                                'code' => $colorName,
+                                'label' => $colorName,
+                                'group' => 'Otros',
+                            ];
 
                             $rowCounts = [];
 
                             foreach ($countsSeries as $serie) {
-
                                 $calName = $serie['name'] ?? '';
 
                                 if ($calName === '') {
-
                                     continue;
-
                                 }
 
                                 $serieData = $serie['data'] ?? [];
 
                                 $rowCounts[$calName] = isset($serieData[$index]) ? (int) $serieData[$index] : 0;
-
                             }
 
                             $matrixRows[] = [
-
                                 'group' => $mapping['group'],
 
                                 'code' => $mapping['code'],
@@ -5753,126 +5140,81 @@
                                 'counts' => $rowCounts,
 
                                 'total' => array_sum($rowCounts),
-
                             ];
-
                         }
 
                         $groupOrder = ['Light', 'Dark', 'Black', 'Otros'];
 
-
-
                         usort($matrixRows, function ($a, $b) use ($groupOrder) {
-
                             $groupPosA = array_search($a['group'], $groupOrder, true);
 
                             $groupPosB = array_search($b['group'], $groupOrder, true);
-
-
 
                             $groupPosA = $groupPosA === false ? PHP_INT_MAX : $groupPosA;
 
                             $groupPosB = $groupPosB === false ? PHP_INT_MAX : $groupPosB;
 
-
-
                             if ($groupPosA === $groupPosB) {
-
                                 return strcmp((string) $a['code'], (string) $b['code']);
-
                             }
 
-
-
                             return $groupPosA <=> $groupPosB;
-
                         });
-
-
 
                         $columnTotals = [];
 
-
-
                         foreach ($matrixRows as $row) {
-
                             foreach ($row['counts'] as $calibre => $value) {
-
                                 $columnTotals[$calibre] = ($columnTotals[$calibre] ?? 0) + $value;
-
                             }
-
                         }
 
-
-
                         $overallTotal = array_sum($columnTotals);
-
-
 
                         $columnPercentages = [];
 
                         if ($overallTotal > 0) {
-
                             foreach ($columnTotals as $calibre => $value) {
-
                                 $columnPercentages[$calibre] = ($value / $overallTotal) * 100;
-
                             }
-
                         }
 
                         foreach ($matrixRows as $idx => $row) {
-
                             $percentages = [];
 
                             foreach ($calibres as $calibre) {
-
                                 $countValue = $row['counts'][$calibre] ?? 0;
 
                                 $percentages[$calibre] = $overallTotal > 0 ? ($countValue / $overallTotal) * 100 : 0;
-
                             }
 
                             $matrixRows[$idx]['percentages'] = $percentages;
 
-                            $matrixRows[$idx]['total_percentage'] = $overallTotal > 0 ? ($row['total'] / $overallTotal) * 100 : 0;
-
+                            $matrixRows[$idx]['total_percentage'] =
+                                $overallTotal > 0 ? ($row['total'] / $overallTotal) * 100 : 0;
                         }
-
-
-
-
 
                         $groupedRows = [];
 
                         foreach ($matrixRows as $row) {
-
                             $groupedRows[$row['group']][] = $row;
-
                         }
 
                         $groupTotals = [];
 
                         $groupTotalsPercent = [];
 
-
-
                         foreach ($groupedRows as $group => $rows) {
-
-                            $groupTotal = array_sum(array_map(static function ($row) {
-
-                                return $row['total'];
-
-                            }, $rows));
+                            $groupTotal = array_sum(
+                                array_map(static function ($row) {
+                                    return $row['total'];
+                                }, $rows),
+                            );
 
                             $groupTotals[$group] = $groupTotal;
 
                             $groupTotalsPercent[$group] = $overallTotal > 0 ? ($groupTotal / $overallTotal) * 100 : 0;
-
                         }
-
-
 
                         $overallTotalPercent = $overallTotal > 0 ? 100 : 0;
 
@@ -5882,7 +5224,8 @@
 
                     <div class="color-matrix-wrapper">
 
-                        <p style="text-align: center;font-weight: 700;font-family:Sans-Serif;color:#666;font-size:10px">Distribuci&oacute;n de Colores por Calibre</p>
+                        <p style="text-align: center;font-weight: 700;font-family:Sans-Serif;color:#666;font-size:10px">
+                            Distribuci&oacute;n de Colores por Calibre</p>
 
                         @if (!empty($calibres) && !empty($matrixRows))
 
@@ -5904,17 +5247,14 @@
                                 <tbody>
 
                                     @foreach ($groupOrder as $orderGroup)
-
                                         @if (!empty($groupedRows[$orderGroup]))
-
                                             @foreach ($groupedRows[$orderGroup] as $index => $row)
-
                                                 <tr>
 
                                                     @if ($index === 0)
-
-                                                        <td class="color-group-cell" rowspan="{{ count($groupedRows[$orderGroup]) }}">{{ $orderGroup }}</td>
-
+                                                        <td class="color-group-cell"
+                                                            rowspan="{{ count($groupedRows[$orderGroup]) }}">
+                                                            {{ $orderGroup }}</td>
                                                     @endif
 
                                                     <td>
@@ -5925,19 +5265,16 @@
 
 
                                                     @foreach ($calibres as $calibre)
-
-                                                        <td>{{ number_format($row['percentages'][$calibre] ?? 0, 1, ',', '.') }}%</td>
-
+                                                        <td>{{ number_format($row['percentages'][$calibre] ?? 0, 1, ',', '.') }}%
+                                                        </td>
                                                     @endforeach
 
-                                                    <td>{{ number_format($row['total_percentage'], 1, ',', '.') }}%</td>
+                                                    <td>{{ number_format($row['total_percentage'], 1, ',', '.') }}%
+                                                    </td>
 
                                                 </tr>
-
                                             @endforeach
-
                                         @endif
-
                                     @endforeach
 
                                 </tbody>
@@ -5949,9 +5286,8 @@
                                         <th colspan="2">Total (%)</th>
 
                                         @foreach ($calibres as $calibre)
-
-                                            <th>{{ number_format($columnPercentages[$calibre] ?? 0, 1, ',', '.') }}%</th>
-
+                                            <th>{{ number_format($columnPercentages[$calibre] ?? 0, 1, ',', '.') }}%
+                                            </th>
                                         @endforeach
 
                                         <th>{{ number_format($overallTotalPercent, 1, ',', '.') }}%</th>
@@ -5965,27 +5301,20 @@
                             <div class="color-matrix-summary">
 
                                 @foreach ($groupOrder as $orderGroup)
-
                                     @if (!empty($groupTotals[$orderGroup]))
-
-                                        <span><strong>{{ $orderGroup }}:</strong> {{ number_format($groupTotalsPercent[$orderGroup] ?? 0, 1, ',', '.') }}%</span>
-
+                                        <span><strong>{{ $orderGroup }}:</strong>
+                                            {{ number_format($groupTotalsPercent[$orderGroup] ?? 0, 1, ',', '.') }}%</span>
                                     @endif
-
                                 @endforeach
 
                             </div>
-
                         @else
-
                             <p class="color-matrix-empty">Sin datos de color disponibles.</p>
 
                         @endif
 
                     </div>
-
                 @else
-
                     <div style="position: relative; height:150px; width:75%;">
 
                         <canvas id="color-pie-chart-canvas"></canvas>
@@ -6133,36 +5462,14 @@
 
 
                     @foreach ($recepcion->calidad->detalles as $detalle)
-
-
-
                         @if (
-
-
-
                             $detalle->tipo_item == 'DEFECTOS DE CALIDAD' &&
-
-
-
                                 isset($detalle->porcentaje_muestra) &&
-
-
-
                                 $detalle->porcentaje_muestra > 0)
-
-
-                            @if($detalle->detalle_item!='PRECALIBRE')
+                            @if ($detalle->detalle_item != 'PRECALIBRE')
                                 <li>{{ $detalle->detalle_item }}: {{ $detalle->porcentaje_muestra }} %</li>
-                           @else
-                                {{$defectos_calidad_sum = $defectos_calidad_sum -$detalle->porcentaje_muestra}}
                             @endif
-
-
-
                         @endif
-
-
-
                     @endforeach
 
 
@@ -6200,18 +5507,16 @@
 
 
                     @foreach ($recepcion->calidad->detalles as $detalle)
-
-
-
                         @if ($detalle->tipo_item == 'DEFECTOS DE CONDICIÓN' && isset($detalle->detalle_item) && $detalle->detalle_item > 0)
-
-
-
                             @php
                                 $detalleItem = $detalle->detalle_item ?? '';
                                 $porcentajeMuestra = (float) ($detalle->porcentaje_muestra ?? 0);
-                                $detalleLower = function_exists('mb_strtolower') ? mb_strtolower($detalleItem, 'UTF-8') : strtolower($detalleItem);
-                                $tienePudricion = str_contains($detalleLower, 'pudrición') || str_contains($detalleLower, 'pudricion');
+                                $detalleLower = function_exists('mb_strtolower')
+                                    ? mb_strtolower($detalleItem, 'UTF-8')
+                                    : strtolower($detalleItem);
+                                $tienePudricion =
+                                    str_contains($detalleLower, 'pudrición') ||
+                                    str_contains($detalleLower, 'pudricion');
                             @endphp
 
 
@@ -6223,13 +5528,7 @@
                                     {{ $detalleItem }}: {{ $detalle->porcentaje_muestra }} %
                                 @endif
                             </li>
-
-
-
                         @endif
-
-
-
                     @endforeach
 
 
@@ -6264,11 +5563,7 @@
 
                 @php
 
-
-
                     $danos_plaga_sumfinal = 0;
-
-
 
                 @endphp
 
@@ -6279,25 +5574,13 @@
 
 
                     @foreach ($recepcion->calidad->detalles as $detalle)
-
-
-
                         @if ($detalle->tipo_item == 'DAÑO DE PLAGA' && isset($detalle->porcentaje_muestra) && $detalle->porcentaje_muestra > 0)
-
-
-
                             <li>{{ $detalle->detalle_item }}: {{ $detalle->porcentaje_muestra }} %</li>
 
 
 
                             @php $danos_plaga_sumfinal += $detalle->porcentaje_muestra; @endphp
-
-
-
                         @endif
-
-
-
                     @endforeach
 
 
@@ -6336,64 +5619,30 @@
 
                     @php
 
-
-
                         $calidad_fields = [
-
-
-
                             'materia_vegetal' => 'Materia Vegetal',
-
-
 
                             'piedras' => 'Piedras',
 
-
-
                             'barro' => 'Barro',
-
-
 
                             'pedicelo_largo' => 'Pedicelo Largo',
 
-
-
                             'racimo' => 'Racimo',
-
-
 
                             'esponjas' => 'Esponjas',
 
-
-
                             'llenado_tottes' => 'Llenado Tottes',
-
-
-
                         ];
-
-
 
                     @endphp
 
 
 
                     @foreach ($calidad_fields as $field_key => $field_name)
-
-
-
                         @if (isset($recepcion->calidad->$field_key) && $recepcion->calidad->$field_key > 0)
-
-
-
                             <li>{{ $field_name }}: {{ $recepcion->calidad->$field_key }}</li>
-
-
-
                         @endif
-
-
-
                     @endforeach
 
 
@@ -6422,7 +5671,8 @@
 
 
 
-            <span>TOTAL DEFECTOS:{{ $danos_plaga_sumfinal + $defectos_calidad_sum + $defectos_condicion_sum }}</span>
+            <span>TOTAL
+                DEFECTOS:{{ $danos_plaga_sumfinal + $defectos_calidad_sum + $defectos_condicion_sum + $defectos_calidad_precalibre_sum }}</span>
 
 
 
@@ -6502,7 +5752,7 @@
 
 
 
-        {{--<div class="section-column">
+        {{-- <div class="section-column">
 
 
 
@@ -6694,7 +5944,7 @@
 
 
 
-        </div>--}}
+        </div> --}}
 
 
 
@@ -6707,21 +5957,9 @@
 
 
         @if (isset($recepcion->calidad->obs_ext) && !empty($recepcion->calidad->obs_ext))
-
-
-
             <p> <b>OBSERVACIONES: </b> {{ $recepcion->calidad->obs_ext }}</p>
-
-
-
         @else
-
-
-
             <p>No hay observaciones adicionales.</p>
-
-
-
         @endif
 
 
@@ -6741,9 +5979,9 @@
             <div class="photo-grid">
 
                 @foreach ($photos as $photo)
-
                     <div class="photo-card">
-                        <img src="{{ $photo->inline_url ?? $photo->url }}" alt="{{ $photo->photoType->name ?? 'Fotografia' }}">
+                        <img src="{{ $photo->inline_url ?? $photo->url }}"
+                            alt="{{ $photo->photoType->name ?? 'Fotografia' }}">
                         <div class="photo-info">
                             <strong>{{ $photo->photoType->name ?? 'Sin clasificacion' }}</strong>
                             @if (!empty($photo->observations))

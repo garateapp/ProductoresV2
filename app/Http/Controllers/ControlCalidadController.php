@@ -1426,7 +1426,7 @@ public function previewPage(Recepcion $recepcion)
                 ->where('detalle_item', 'PRECALIBRE')
                 ->sum('porcentaje_muestra');
 
-                $defectos_calidad_sum=$defectos_calidad_sum-$defectos_calidad_precalibre;
+            $defectos_calidad_sum=$defectos_calidad_sum-$defectos_calidad_precalibre;
             $total_defectos_sum = $defectos_calidad_sum + $defectos_condicion_sum + $danos_plaga_sum+$defectos_calidad_precalibre;
             $porcentaje_exportable = max(0, 100 - $total_defectos_sum);
         }
