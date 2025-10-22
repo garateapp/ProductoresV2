@@ -6153,8 +6153,8 @@
 
                             @if($detalle->detalle_item!='PRECALIBRE')
                                 <li>{{ $detalle->detalle_item }}: {{ $detalle->porcentaje_muestra }} %</li>
-                            @else
-                                $defectos_calidad_sum = $defectos_calidad_sum -$detalle->porcentaje_muestra
+                           @else
+                                {{$defectos_calidad_sum = $defectos_calidad_sum -$detalle->porcentaje_muestra}}
                             @endif
 
 
