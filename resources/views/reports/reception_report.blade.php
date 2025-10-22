@@ -5672,7 +5672,7 @@
 
 
             <span>TOTAL
-                DEFECTOS:{{ $danos_plaga_sumfinal + $defectos_calidad_sum + $defectos_condicion_sum + $pre }}</span>
+                DEFECTOS:{{ $danos_plaga_sumfinal + $defectos_calidad_sum + $defectos_condicion_sum + $precalibrePercentage }}</span>
 
 
 
