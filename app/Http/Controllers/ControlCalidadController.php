@@ -1564,7 +1564,7 @@ public function previewPage(Recepcion $recepcion)
 
     public function sendPreviewEmail(Recepcion $recepcion)
     {
-         if (!User::role('Administrador')->exists()) {
+         if (!Auth::user()->role('Administrador')->exists()) {
             if ($recepcion->informe) {
                 return response()->json([
                     'status' => 'error',
@@ -1626,13 +1626,14 @@ public function previewPage(Recepcion $recepcion)
 
 public function sendPreviewWhatsapp(Recepcion $recepcion, ReportNotificationService $notificationService)
     {
-        if ($recepcion->informe) {
-            return response()->json([
-                'status' => 'error',
-                'message' => 'El reporte ya fue aprobado, utiliza la opción de reenviar.',
-            ], 422);
+        if (!Auth::user()->role('Administrador')->exists()) {
+            if ($recepcion->informe) {
+                return response()->json([
+                    'status' => 'error',
+                    'message' => 'El reporte ya fue aprobado, utiliza la opción de reenviar.',
+                ], 422);
+            }
         }
-
         $phones = array_values(array_filter(config('reports.preview_phones', [])));
         if (empty($phones)) {
             return response()->json([
