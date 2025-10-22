@@ -1580,6 +1580,7 @@ public function previewPage(Recepcion $recepcion)
             if ($recepcion->n_emisor === 'Greenex SpA') {
                 $recipients[] = 'claudio.jorquera@greenex.cl';
             }
+            Log::debug('Preview report recipients', ['recipients' => $recipients]);
         }
 
         if (empty($recipients)) {
