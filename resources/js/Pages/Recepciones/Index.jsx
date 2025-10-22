@@ -165,7 +165,7 @@ export default function Index({ recepciones, especies, variedades = [], filters,
             <TableBody>
               {recepciones.data.map(recepcion => (
                 <TableRow key={recepcion.id}>
-                  <TableCell>{recepcion.id_g_recepcion}</TableCell>
+                  <TableCell>{recepcion.numero_g_recepcion}</TableCell>
                   <TableCell>{recepcion.n_emisor}</TableCell>
                   <TableCell>{recepcion.n_especie}</TableCell>
                   <TableCell>{recepcion.n_variedad}</TableCell>

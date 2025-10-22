@@ -2013,7 +2013,7 @@
 
 
 
-                        ->where('tipo_item', 'DISTRIBUCIÓN DE CALIBRES')
+                        ->where('tipo_item', 'DEFECTOS DE CALIDAD')
 
 
 
@@ -5604,7 +5604,7 @@
 
 
 
-                <p><strong>Seteo Camión:</strong></p>
+                <p><strong>Seteo Camión:</strong> {{ $recepcion->seteo_camion ?? 'N/A' }}</p>
 
 
 
@@ -6151,8 +6151,9 @@
                                 $detalle->porcentaje_muestra > 0)
 
 
-
-                            <li>{{ $detalle->detalle_item }}: {{ $detalle->porcentaje_muestra }} %</li>
+                            @if($detalle->detalle_item!='PRECALIBRE')
+                                <li>{{ $detalle->detalle_item }}: {{ $detalle->porcentaje_muestra }} %</li>
+                            @endif
 
 
 
