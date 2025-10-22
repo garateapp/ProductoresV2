@@ -5466,9 +5466,9 @@
                             $detalle->tipo_item == 'DEFECTOS DE CALIDAD' &&
                                 isset($detalle->porcentaje_muestra) &&
                                 $detalle->porcentaje_muestra > 0)
-                            @if ($detalle->detalle_item != 'PRECALIBRE')
-                                <li>{{ $detalle->detalle_item }}: {{ $detalle->porcentaje_muestra }} %</li>
-                            @endif
+                                @if ($detalle->detalle_item != 'PRECALIBRE')
+                                    <li>{{ $detalle->detalle_item }}: {{ $detalle->porcentaje_muestra }} %</li>
+                                @endif
                         @endif
                     @endforeach
 
@@ -5672,7 +5672,7 @@
 
 
             <span>TOTAL
-                DEFECTOS:{{ $danos_plaga_sumfinal + $defectos_calidad_sum + $defectos_condicion_sum + $defectos_calidad_precalibre_sum }}</span>
+                DEFECTOS:{{ $danos_plaga_sumfinal + $defectos_calidad_sum + $defectos_condicion_sum + $pre }}</span>
 
 
 
