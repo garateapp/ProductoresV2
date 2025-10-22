@@ -4975,7 +4975,7 @@
 
 
 
-                    {{ \Carbon\Carbon::parse($recepcion->fecha_g_recepcion)->format('d/m/Y H:i') }}</p>
+                    {{ \Carbon\Carbon::parse($recepcion->fecha_g_recepcion)->format('d/m/Y') }}</p>
 
 
 
