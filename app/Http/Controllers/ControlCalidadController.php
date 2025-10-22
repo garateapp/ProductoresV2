@@ -1598,34 +1598,56 @@ public function previewPage(Recepcion $recepcion)
             ], 500);
         }
 
-        try {
-            Mail::to($recipients)->send(new ReceptionReportPreview(
-                $recepcion->fresh(),
-                route('control-calidad.preview-report', $recepcion->id),
-                $tempPath,
-                $filename
-            ));
-        } catch (\Throwable $e) {
-            Log::error('Preview report email send failed', [
-                'recepcion_id' => $recepcion->id,
-                'error' => $e->getMessage(),
-            ]);
-            @unlink($tempPath);
 
-            return response()->json([
-                'status' => 'error',
-                'message' => 'No se pudo enviar el correo de previsualizaciÃ³n.',
-            ], 500);
+
+        $uniqueRecipients = collect($recipients)->filter()->unique()->values();
+        $failedRecipients = collect();
+
+        foreach ($uniqueRecipients as $recipient) {
+            try {
+                Mail::to($recipient)->send(new ReceptionReportPreview(
+                    $recepcion->fresh(),
+                    route('control-calidad.preview-report', $recepcion->id),
+                    $tempPath,
+                    $filename
+                ));
+            } catch (\Throwable $e) {
+                Log::error('Preview report email send failed', [
+                    'recepcion_id' => $recepcion->id,
+                    'recipient' => $recipient,
+                    'error' => $e->getMessage(),
+                ]);
+                $failedRecipients->push([
+                    'recipient' => $recipient,
+                    'error' => $e->getMessage(),
+                ]);
+            }
         }
 
         @unlink($tempPath);
+
+        if ($failedRecipients->isNotEmpty()) {
+            if ($failedRecipients->count() === $uniqueRecipients->count()) {
+                return response()->json([
+                    'status' => 'error',
+                    'message' => 'No se pudo enviar el correo de previsualización a ninguno de los destinatarios.',
+                    'failed' => $failedRecipients,
+                ], 500);
+            }
+
+            return response()->json([
+                'status' => 'partial',
+                'message' => 'El reporte se envió solo a algunos destinatarios. Revisa los registros para detalles.',
+                'failed' => $failedRecipients,
+            ]);
+        }
 
         return response()->json([
             'status' => 'sent',
         ]);
     }
 
-public function sendPreviewWhatsapp(Recepcion $recepcion, ReportNotificationService $notificationService)
+    public function sendPreviewWhatsapp(Recepcion $recepcion, ReportNotificationService $notificationService)
     {
         if (!Auth::user()->role('Administrador')->exists()) {
             if ($recepcion->informe) {

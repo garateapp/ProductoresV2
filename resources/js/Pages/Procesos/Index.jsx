@@ -499,7 +499,7 @@ export default function Index({ procesos, especies, variedades = [], filters, is
                 </p>
               </div>
               <div>
-                <nav className="relative z-0 inline-flex rounded-md shadow-sm -space-x-px" aria-label="Pagination">
+                {/* <nav className="relative z-0 inline-flex rounded-md shadow-sm -space-x-px" aria-label="Pagination">
                   {procesos.links.map((link, index) => (
                     <Link
                       key={`${link.url}-${index}`}
@@ -514,7 +514,7 @@ export default function Index({ procesos, especies, variedades = [], filters, is
                       dangerouslySetInnerHTML={{ __html: link.label }}
                     />
                   ))}
-                </nav>
+                </nav> */}
               </div>
             </div>
           </div>

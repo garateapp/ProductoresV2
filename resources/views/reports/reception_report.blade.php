@@ -4971,7 +4971,7 @@
 
 
 
-                <p><strong>Fecha/Hora recepción:</strong>
+                <p><strong>Fecha Recepción:</strong>
 
 
 

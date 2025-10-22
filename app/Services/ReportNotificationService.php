@@ -380,7 +380,7 @@ class ReportNotificationService
     ): void {
         $token = config('process_notifications.whatsapp.token');
         $phoneId = config('process_notifications.whatsapp.phone_id');
-        $apiVersion = config('process_notifications.whatsapp.api_version', 'v18.0');
+        $apiVersion = config('process_notifications.whatsapp.api_version', 'v16.0');
         $templateToUse = $templateName ?: config('process_notifications.whatsapp.templates.process', 'proceso');
 
         if (empty($token) || empty($phoneId)) {
