@@ -1361,6 +1361,10 @@ public function previewPage(Recepcion $recepcion)
             $danos_plaga_sum = $calidad->detalles()
                 ->where('tipo_item', 'DAÑOS DE PLAGA')
                 ->sum('porcentaje_muestra');
+
+             $defectos_calidad_precalibre = $calidad->detalles()
+                ->where('tipo_item', 'DEFECTOS DE CALIDAD')
+                ->sum('PRECALIBRE');
             $defectos_calidad_sum=$defectos_calidad_sum-$defectos_calidad_precalibre;
 
             $total_defectos_sum = $defectos_calidad_sum + $defectos_condicion_sum + $danos_plaga_sum+$defectos_calidad_precalibre;
@@ -1416,6 +1420,9 @@ public function previewPage(Recepcion $recepcion)
             $danos_plaga_sum = $calidad->detalles()
                 ->where('tipo_item', 'DAÑOS DE PLAGA')
                 ->sum('porcentaje_muestra');
+                 $defectos_calidad_precalibre = $calidad->detalles()
+                ->where('tipo_item', 'DEFECTOS DE CALIDAD')
+                ->sum('PRECALIBRE');
 
                 $defectos_calidad_sum=$defectos_calidad_sum-$defectos_calidad_precalibre;
             $total_defectos_sum = $defectos_calidad_sum + $defectos_condicion_sum + $danos_plaga_sum+$defectos_calidad_precalibre;
