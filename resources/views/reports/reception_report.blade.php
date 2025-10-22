@@ -1608,9 +1608,7 @@
                 (float) (optional(
                     optional(optional($recepcion->calidad)->detalles)
                         ->where('tipo_item', 'DEFECTOS DE CALIDAD')
-
                         ->where('detalle_item', 'PRECALIBRE')
-
                         ->first(),
                 )->porcentaje_muestra ?? 0);
 
@@ -2472,7 +2470,7 @@
                 const danosPlaga = {{ $danos_plaga_sum }};
                 const species = "{{ $recepcion->n_especie }}";
                 const precalibre = Number(@json($precalibrePercentage));
-                const exportableAdjusted = Math.max(exportable - precalibre, 0);
+                const exportableAdjusted = Math.max(exportable, 0);
                 const colors = getChartColors(species);
                 const doughnutData = [
                     exportableAdjusted,
