@@ -69,7 +69,7 @@ export default function Preview({ recepcionId, numero, htmlUrl, approveUrl, appr
   };
 
   const handleSendPreview = async () => {
-    if (!sendPreviewUrl) return;
+    if (!isAdmin || !approved || !sendPreviewUrl) return;
     try {
       setSendingPreview(true);
       const token = document.querySelector('meta[name="csrf-token"]').getAttribute('content');
@@ -94,7 +94,7 @@ export default function Preview({ recepcionId, numero, htmlUrl, approveUrl, appr
   };
 
   const handleSendPreviewWhatsapp = async () => {
-    if (!sendPreviewWhatsappUrl) return;
+    if (!isAdmin || !approved || !sendPreviewWhatsappUrl) return;
     try {
       setSendingWhatsapp(true);
       const token = document.querySelector('meta[name="csrf-token"]').getAttribute('content');
@@ -133,7 +133,7 @@ export default function Preview({ recepcionId, numero, htmlUrl, approveUrl, appr
                   type="button"
                   variant="outline"
                   onClick={handleSendPreview}
-                  disabled={!isAdmin || !sendPreviewUrl || approved || approving || sendingPreview}
+                  disabled={!isAdmin || !approved || !sendPreviewUrl || approving || sendingPreview}
                 >
                   <Send className="h-4 w-4 mr-2" /> {sendingPreview ? "Enviando..." : "Enviar previsualización"}
                 </Button>
@@ -141,7 +141,7 @@ export default function Preview({ recepcionId, numero, htmlUrl, approveUrl, appr
                   type="button"
                   variant="outline"
                   onClick={handleSendPreviewWhatsapp}
-                  disabled={!isAdmin || !sendPreviewWhatsappUrl || approved || approving || sendingWhatsapp}
+                  disabled={!isAdmin || !approved || !sendPreviewWhatsappUrl || approving || sendingWhatsapp}
                 >
                   <MessageCircle className="h-4 w-4 mr-2" /> {sendingWhatsapp ? "Enviando..." : "Enviar por WhatsApp"}
                 </Button>
