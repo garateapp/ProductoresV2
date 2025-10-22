@@ -1361,8 +1361,9 @@ public function previewPage(Recepcion $recepcion)
             $danos_plaga_sum = $calidad->detalles()
                 ->where('tipo_item', 'DAÑOS DE PLAGA')
                 ->sum('porcentaje_muestra');
+            $defectos_calidad_sum=$defectos_calidad_sum-$defectos_calidad_precalibre;
 
-            $total_defectos_sum = $defectos_calidad_sum + $defectos_condicion_sum + $danos_plaga_sum;
+            $total_defectos_sum = $defectos_calidad_sum + $defectos_condicion_sum + $danos_plaga_sum+$defectos_calidad_precalibre;
             $porcentaje_exportable = max(0, 100 - $total_defectos_sum);
         }
 
@@ -1386,6 +1387,7 @@ public function previewPage(Recepcion $recepcion)
             'firmnessDistribution',
             'solubleSolids',
             'isPreview'
+
         );
     }
 
@@ -1415,7 +1417,8 @@ public function previewPage(Recepcion $recepcion)
                 ->where('tipo_item', 'DAÑOS DE PLAGA')
                 ->sum('porcentaje_muestra');
 
-            $total_defectos_sum = $defectos_calidad_sum + $defectos_condicion_sum + $danos_plaga_sum;
+                $defectos_calidad_sum=$defectos_calidad_sum-$defectos_calidad_precalibre;
+            $total_defectos_sum = $defectos_calidad_sum + $defectos_condicion_sum + $danos_plaga_sum+$defectos_calidad_precalibre;
             $porcentaje_exportable = max(0, 100 - $total_defectos_sum);
         }
 
