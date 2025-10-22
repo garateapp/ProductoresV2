@@ -1564,12 +1564,14 @@ public function previewPage(Recepcion $recepcion)
 
     public function sendPreviewEmail(Recepcion $recepcion)
     {
-        if ($recepcion->informe) {
-            return response()->json([
-                'status' => 'error',
-                'message' => 'El reporte ya fue aprobado, utiliza la opción de reenviar.',
-            ], 422);
-        }
+         if (!User::role('Administrador')->exists()) {
+            if ($recepcion->informe) {
+                return response()->json([
+                    'status' => 'error',
+                    'message' => 'El reporte ya fue aprobado, utiliza la opción de reenviar.',
+                ], 422);
+            }
+         }
 
         if (app()->environment('local')) {
             $recipients = array_filter(['carlos.alvarez@greenex.cl']);

@@ -4989,7 +4989,7 @@
 
                 <p><strong>N° Lote:</strong> {{ $recepcion->numero_g_recepcion }}</p>
 
-                <p><strong>Guía</strong> {{ $recepcion->numero_documento_recepcion }}</p>
+                <p><strong>Guía:</strong> {{ $recepcion->numero_documento_recepcion }}</p>
 
                 <p><strong>T° Pulpa(°C):</strong> {{ $temperatura_pulpa ?? 'N/A' }}</p>
 
