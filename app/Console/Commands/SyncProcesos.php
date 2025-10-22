@@ -47,9 +47,7 @@ class SyncProcesos extends Command
             //7
             $id_empresa=Null;//8
             $c_productor=Null;
-            if($proceso->n_proceso==1339){
-                dd($proceso);
-            }
+
             $m=1;
             foreach ($proceso as $item){
 
