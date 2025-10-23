@@ -14,7 +14,7 @@ export default function Preview({ recepcionId, numero, htmlUrl, approveUrl, appr
   const [sendingWhatsapp, setSendingWhatsapp] = useState(false);
   const { auth } = usePage().props;
   const userRoles = auth?.user?.roles ?? [];
-  const isAdmin = userRoles.some((role) => ['Administrador', 'Admin'].includes(role.name));
+  const isAdmin = userRoles.some((role) => ['Administrador', 'Admin','calidad'].includes(role.name));
 
   const handleApprove = async (value) => {
     if (!value) return; // one-way approve only
