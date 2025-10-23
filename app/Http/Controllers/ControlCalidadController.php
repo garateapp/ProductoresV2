@@ -123,6 +123,7 @@ class ControlCalidadController extends Controller
             'h_esponjas' => 'nullable|string',
             'llenado_tottes' => 'nullable|string',
             'embalaje' => 'nullable|integer',
+            'seteo_termo' => 'nullable|string|max:255',
             'nota_calidad' => 'nullable|numeric',
             'obs_ext' => 'nullable|string',
         ]);
@@ -1346,7 +1347,10 @@ public function previewPage(Recepcion $recepcion)
         $defectos_condicion_sum = 0;
         $danos_plaga_sum = 0;
 
+        $recepcion->setAttribute('seteo_camion', null);
+
         if ($calidad) {
+            $recepcion->setAttribute('seteo_camion', $calidad->seteo_termo);
             $temperatura_pulpa_detalle = $calidad->detalles()->where('tipo_detalle', 'ss')->first();
             if ($temperatura_pulpa_detalle) {
                 $temperatura_pulpa = $temperatura_pulpa_detalle->temperatura;

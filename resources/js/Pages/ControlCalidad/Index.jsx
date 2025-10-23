@@ -83,6 +83,7 @@ export default function Index({ recepciones, especies, variedades = [], filters,
     h_esponjas: 'BUENO',
     llenado_tottes: 'CORRECTO',
     embalaje: '',
+    seteo_termo: '',
     obs_ext: '',
   });
 
@@ -150,6 +151,7 @@ export default function Index({ recepciones, especies, variedades = [], filters,
             pedicelo_largo: existingCalidad.pedicelo_largo === 'SI',
             racimo: existingCalidad.racimo === 'SI',
             esponjas: existingCalidad.esponjas === 'SI',
+            seteo_termo: existingCalidad.seteo_termo ?? '',
             nota_calidad: recepcion?.nota_calidad ?? '',
           };
         setCalidadData(transformedCalidad);
@@ -768,6 +770,15 @@ export default function Index({ recepciones, especies, variedades = [], filters,
                             <SelectItem value="INCORRECTO">Incorrecto</SelectItem>
                           </SelectContent>
                         </Select>
+                      </div>
+                      <div className="flex items-center space-x-2">
+                        <Label htmlFor="seteo_termo">Seteo Camion</Label>
+                        <Input
+                          id="seteo_termo"
+                          value={calidadData.seteo_termo ?? ''}
+                          onChange={(e) => setCalidadData('seteo_termo', e.target.value)}
+                          className="w-[180px]"
+                        />
                       </div>
                     </div>
                     <div className="mt-4">

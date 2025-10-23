@@ -21,6 +21,7 @@ class Calidad extends Model
         'llenado_tottes',
         'embalaje',
         'obs_ext',
+        'seteo_termo',
     ];
 
     public function recepcion(): BelongsTo
