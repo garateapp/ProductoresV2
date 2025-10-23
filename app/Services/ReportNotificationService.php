@@ -457,7 +457,7 @@ class ReportNotificationService
                         'components' => $components,
                     ],
                 ]);
-
+                Log::info('Respuesta WhatsApp: ' . $response);
             if (! $response->successful()) {
                 Log::error('Report notification: WhatsApp template send failed', $context + [
                     'status' => $response->status(),
