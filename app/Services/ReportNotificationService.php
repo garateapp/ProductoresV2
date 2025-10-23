@@ -63,6 +63,7 @@ class ReportNotificationService
             Log::info('Report notification: no WhatsApp numbers found', $context);
         } else {
             $message = $this->buildProcessWhatsappBody($producer->name, $proceso->n_proceso, $formattedDate, $reportUrl);
+
             $this->sendWhatsappNotifications(
                 $phones,
                 [
@@ -133,7 +134,7 @@ class ReportNotificationService
             'numero_g_recepcion' => $recepcion->numero_g_recepcion,
             'report_url' => $publicUrl,
         ];
-
+        Log::info('Reception notification: sending report', $context);
         $phones = $this->gatherPhones($producer);
         $emailRecipient = $this->gatherEmail($producer);
         [$phones, $emailRecipient] = $this->applyLocalOverrides($phones, $emailRecipient, (bool) $producer->emnotification, $context);
@@ -146,7 +147,7 @@ class ReportNotificationService
                 $phones,
                 [
                     'template' => config('process_notifications.whatsapp.templates.reception', 'recepcion'),
-                    'document_link' => $publicUrl,
+                    'document_link' => "storage/"+$publicUrl,
                     'filename' => $safeFilename,
                     'body' => $message,
                 ],
@@ -361,7 +362,7 @@ class ReportNotificationService
                 'phone_original' => $phone,
                 'phone_normalized' => $normalized,
             ];
-
+            Log::info('DocumentLink: ' . $documentLink, $phoneContext);
             if ($documentLink) {
                 $this->sendWhatsappTemplateMessage($normalized, $template, $documentLink, $filename, $body, $phoneContext);
             } else {
