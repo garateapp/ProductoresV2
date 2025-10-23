@@ -420,7 +420,11 @@ class ReportNotificationService
                     'parameters'=>[
                         [
                             'type'=>'text',
-                            'text'=> "2"
+                            'text'=> "1"
+                        ],
+                        [
+                            'type'=>'text',
+                            'text'=> 'Cherries'
                         ]
                     ]
                 ]
