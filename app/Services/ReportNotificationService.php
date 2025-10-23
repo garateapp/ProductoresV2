@@ -348,6 +348,7 @@ class ReportNotificationService
         $documentLink = $payload['document_link'] ?? null;
         $filename = $payload['filename'] ?? 'documento.pdf';
         $body = $payload['body'] ?? '';
+        $bodyParams = $payload['body_params'] ?? null;
 
         foreach ($phones as $phone) {
             $normalized = $this->normalizePhone($phone);
@@ -365,7 +366,15 @@ class ReportNotificationService
             ];
             Log::info('DocumentLink: ' . $documentLink, $phoneContext);
             if ($documentLink) {
-                $this->sendWhatsappTemplateMessage($normalized, $template, $documentLink, $filename, $body, $phoneContext);
+                $this->sendWhatsappTemplateMessage(
+                    $normalized,
+                    $template,
+                    $documentLink,
+                    $filename,
+                    $body,
+                    $phoneContext,
+                    is_array($bodyParams) ? $bodyParams : null
+                );
             } else {
                 $this->sendWhatsappTextMessage($normalized, $body, $phoneContext);
             }
@@ -378,7 +387,8 @@ class ReportNotificationService
         string $documentLink,
         string $filename,
         string $body,
-        array $context
+        array $context,
+        ?array $bodyParams = null
     ): void {
         $token = config('process_notifications.whatsapp.token');
         $phoneId = config('process_notifications.whatsapp.phone_id');
@@ -392,6 +402,47 @@ class ReportNotificationService
         }
 
         try {
+            $components = [
+                [
+                    'type' => 'header',
+                    'parameters' => [
+                        [
+                            'type' => 'document',
+                            'document' => [
+                                'link' => $documentLink,
+                                'filename' => $filename,
+                            ],
+                        ],
+                    ],
+                ],
+            ];
+
+            $bodyParameters = [];
+            if (is_array($bodyParams) && ! empty($bodyParams)) {
+                foreach ($bodyParams as $param) {
+                    if ($param === null) {
+                        continue;
+                    }
+
+                    $bodyParameters[] = [
+                        'type' => 'text',
+                        'text' => (string) $param,
+                    ];
+                }
+            } elseif ($body !== '') {
+                $bodyParameters[] = [
+                    'type' => 'text',
+                    'text' => $body,
+                ];
+            }
+
+            if (! empty($bodyParameters)) {
+                $components[] = [
+                    'type' => 'body',
+                    'parameters' => $bodyParameters,
+                ];
+            }
+
             $response = Http::withToken($token)
                 ->acceptJson()
                 ->post("https://graph.facebook.com/{$apiVersion}/{$phoneId}/messages", [
@@ -403,29 +454,7 @@ class ReportNotificationService
                         'language' => [
                             'code' => 'es',
                         ],
-                        'components' => [
-                            [
-                                'type' => 'header',
-                                'parameters' => [
-                                    [
-                                        'type' => 'document',
-                                        'document' => [
-                                            'link' => $documentLink,
-                                            'filename' => $filename,
-                                        ],
-                                    ],
-                                ],
-                            ],
-                            [
-                                'type' => 'body',
-                                'parameters' => [
-                                    [
-                                        'type' => 'text',
-                                        'text' => $body,
-                                    ],
-                                ],
-                            ],
-                        ],
+                        'components' => $components,
                     ],
                 ]);
 
@@ -584,17 +613,17 @@ class ReportNotificationService
         );
 
         $documentLink = null;
+        $storedRelativePath = null;
         if ($pdfAbsolutePath && is_file($pdfAbsolutePath)) {
-            $relativePath = 'preview_reports/' . Carbon::now()->format('YmdHis') . '_' . uniqid('preview_', false) . '_' . $safeFilename;
+            $storedRelativePath = 'preview_reports/' . Carbon::now()->format('YmdHis') . '_' . uniqid('preview_', false) . '_' . $safeFilename;
             try {
                 $contents = @file_get_contents($pdfAbsolutePath);
                 if ($contents === false) {
                     throw new \RuntimeException('No fue posible leer el archivo temporal del reporte.');
                 }
 
-                Storage::disk('public')->put($relativePath, $contents);
-                $documentLink = $this->resolvePublicUrlFromDisk($relativePath);
-
+                Storage::disk('public')->put($storedRelativePath, $contents);
+                $documentLink = $this->resolvePublicUrlFromDisk($storedRelativePath);
             } catch (\Throwable $e) {
                 Log::error('Preview report WhatsApp: failed to prepare PDF attachment', $context + [
                     'source_path' => $pdfAbsolutePath,
@@ -617,17 +646,32 @@ class ReportNotificationService
                 'document_link' => $documentLink,
                 'filename' => $safeFilename,
                 'body' => $message,
+                'body_params' => array_values(array_filter([
+                    $recepcion->numero_g_recepcion ? 'Recepción #' . $recepcion->numero_g_recepcion : null,
+                    $previewUrl,
+                ])),
             ],
             $context + [
                 'preview_url' => $previewUrl,
                 'document_link' => $documentLink,
             ]
-
         );
-         Log::info('Preview report WhatsApp: message sent', $context + [
-                'preview_url' => $previewUrl,
-                'document_link' => $documentLink,
-            ],$phoneCollection);
+
+        Log::info('Preview report WhatsApp: message sent', $context + [
+            'preview_url' => $previewUrl,
+            'document_link' => $documentLink,
+        ], $phoneCollection);
+
+        if ($storedRelativePath) {
+            try {
+                Storage::disk('public')->delete($storedRelativePath);
+            } catch (\Throwable $e) {
+                Log::warning('Preview report WhatsApp: failed to delete temporary WhatsApp attachment', $context + [
+                    'stored_path' => $storedRelativePath,
+                    'error' => $e->getMessage(),
+                ]);
+            }
+        }
     }
 
     private function buildReceptionWhatsappBody(?string $producerName, ?string $numeroRecepcion, ?string $formattedDate, ?string $reportUrl): string
