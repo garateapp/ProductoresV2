@@ -1072,7 +1072,7 @@ export default function Index({
                                                     <SelectTrigger className="w-full">
                                                         <SelectValue placeholder="Seleccionar categoría" />
                                                     </SelectTrigger>
-                                                    <SelectContent>
+                                                    <SelectContent className="max-h-60 overflow-y-auto">
                                                         {['CAT 1','CAT 2','COMERCIAL','VEGA','SUPERMERCADO','DESECHO'].map(opt => (
                                                             <SelectItem key={opt} value={opt}>{opt}</SelectItem>
                                                         ))}
@@ -1215,7 +1215,7 @@ export default function Index({
                                                     <SelectTrigger className="w-full">
                                                         <SelectValue placeholder="Seleccionar etiqueta" />
                                                     </SelectTrigger>
-                                                    <SelectContent>
+                                                    <SelectContent className="max-h-60 overflow-y-auto">
                                                         {['1S','1-2','3','4'].map(opt => (
                                                             <SelectItem key={opt} value={opt}>{opt}</SelectItem>
                                                         ))}
@@ -1245,7 +1245,7 @@ export default function Index({
                                                     <SelectTrigger className="w-full">
                                                         <SelectValue placeholder="Seleccionar Parámetro" />
                                                     </SelectTrigger>
-                                                    <SelectContent>
+                                                    <SelectContent className="max-h-60 overflow-y-auto">
                                                         {parametros
                                                             .filter((p) =>
                                                                 [
@@ -1286,7 +1286,7 @@ export default function Index({
                                                     <SelectTrigger className="w-full">
                                                         <SelectValue placeholder="Seleccionar Valor" />
                                                     </SelectTrigger>
-                                                    <SelectContent>
+                                                    <SelectContent className="max-h-60 overflow-y-auto">
                                                         {parametros
                                                             .find(
                                                                 (p) =>
@@ -1549,7 +1549,7 @@ export default function Index({
                                                     <SelectTrigger className="w-full">
                                                         <SelectValue placeholder="Seleccionar Parámetro" />
                                                     </SelectTrigger>
-                                                    <SelectContent>
+                                                    <SelectContent className="max-h-60 overflow-y-auto">
                                                         {parametros
                                                             .filter((p) =>
                                                                 [
@@ -1590,7 +1590,7 @@ export default function Index({
                                                     <SelectTrigger className="w-full">
                                                         <SelectValue placeholder="Seleccionar Valor" />
                                                     </SelectTrigger>
-                                                    <SelectContent>
+                                                    <SelectContent className="max-h-60 overflow-y-auto">
                                                         {parametros
                                                             .find(
                                                                 (p) =>
@@ -1772,7 +1772,7 @@ export default function Index({
                                                     <SelectTrigger className="w-full">
                                                         <SelectValue placeholder="Seleccionar Parámetro" />
                                                     </SelectTrigger>
-                                                    <SelectContent>
+                                                    <SelectContent className="max-h-60 overflow-y-auto">
                                                         {parametros
                                                             .filter((p) =>
                                                                 (p.nombre || '')
@@ -1939,7 +1939,7 @@ export default function Index({
                                                         <SelectTrigger>
                                                             <SelectValue placeholder="Seleccionar tipo..." />
                                                         </SelectTrigger>
-                                                        <SelectContent>
+                                                        <SelectContent className="max-h-60 overflow-y-auto">
                                                             {photoTypesState.map(
                                                                 (type) => (
                                                                     <SelectItem
