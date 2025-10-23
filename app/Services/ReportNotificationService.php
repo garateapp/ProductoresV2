@@ -415,47 +415,33 @@ class ReportNotificationService
                         ],
                     ],
                 ],
-                [
-                    'type'=>'body',
-                    'parameters'=>[
-                        [
-                            'type'=>'text',
-                            'text'=> "1"
-                        ],
-                        [
-                            'type'=>'text',
-                            'text'=> 'Cherries'
-                        ]
-                    ]
-                ]
-
             ];
 
             $bodyParameters = [];
-            // if (is_array($bodyParams) && ! empty($bodyParams)) {
-            //     foreach ($bodyParams as $param) {
-            //         if ($param === null) {
-            //             continue;
-            //         }
+            if (is_array($bodyParams) && ! empty($bodyParams)) {
+                foreach ($bodyParams as $param) {
+                    if ($param === null) {
+                        continue;
+                    }
 
-            //         $bodyParameters[] = [
-            //             'type' => 'text',
-            //             'text' => (string) $param,
-            //         ];
-            //     }
-            // } elseif ($body !== '') {
-            //     $bodyParameters[] = [
-            //         'type' => 'text',
-            //         'text' => $body,
-            //     ];
-            // }
+                    $bodyParameters[] = [
+                        'type' => 'text',
+                        'text' => (string) $param,
+                    ];
+                }
+            } elseif ($body !== '') {
+                $bodyParameters[] = [
+                    'type' => 'text',
+                    'text' => $body,
+                ];
+            }
 
-            // if (! empty($bodyParameters)) {
-            //     $components[] = [
-            //         'type' => 'body',
-            //         'parameters' => $bodyParameters,
-            //     ];
-            // }
+            if (! empty($bodyParameters)) {
+                $components[] = [
+                    'type' => 'body',
+                    'parameters' => $bodyParameters,
+                ];
+            }
 
             $response = Http::withToken($token)
                 ->acceptJson()
