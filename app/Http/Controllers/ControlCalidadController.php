@@ -1630,14 +1630,14 @@ public function previewPage(Recepcion $recepcion)
             if ($failedRecipients->count() === $uniqueRecipients->count()) {
                 return response()->json([
                     'status' => 'error',
-                    'message' => 'No se pudo enviar el correo de previsualización a ninguno de los destinatarios.',
+                    'message' => 'No se pudo enviar el correo de previsualizaciï¿½n a ninguno de los destinatarios.',
                     'failed' => $failedRecipients,
                 ], 500);
             }
 
             return response()->json([
                 'status' => 'partial',
-                'message' => 'El reporte se envió solo a algunos destinatarios. Revisa los registros para detalles.',
+                'message' => 'El reporte se enviï¿½ solo a algunos destinatarios. Revisa los registros para detalles.',
                 'failed' => $failedRecipients,
             ]);
         }
@@ -1665,9 +1665,30 @@ public function previewPage(Recepcion $recepcion)
             ], 500);
         }
 
-        $previewUrl = route('control-calidad.preview-report', $recepcion->id);
+        [$tempPath, $filename, $error] = $this->generatePreviewReportPdf($recepcion);
+        if ($error !== null) {
+            return response()->json([
+                'status' => 'error',
+                'message' => 'No se pudo generar el PDF del reporte.',
+            ], 500);
+        }
 
-        $notificationService->sendPreviewReportWhatsapp($recepcion->fresh(), $phones, $previewUrl);
+        $previewUrl = route('control-calidad.preview-report', $recepcion->id);
+        Log::info('Preview report WhatsApp send', [
+            'recepcion_id' => $recepcion->id,
+            'phones' => $phones,
+            'preview_url' => $previewUrl,
+        ]);
+
+        $notificationService->sendPreviewReportWhatsapp(
+            $recepcion->fresh(),
+            $phones,
+            $previewUrl,
+            $tempPath,
+            $filename
+        );
+
+        @unlink($tempPath);
 
         return response()->json([
             'status' => 'sent',

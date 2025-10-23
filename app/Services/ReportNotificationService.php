@@ -98,6 +98,7 @@ class ReportNotificationService
 
     public function notifyReceptionReport(Recepcion $recepcion, string $publicUrl, ?string $absolutePath = null, ?string $originalFilename = null): void
     {
+        Log::debug("notifyReception report:", $recepcion->id." - ".$recepcion->numero_g_recepcion);
         if (empty($recepcion->id_emisor)) {
             Log::warning('Reception notification skipped: missing id_emisor', [
                 'recepcion_id' => $recepcion->id,
@@ -548,15 +549,24 @@ class ReportNotificationService
         return $message;
     }
 
-    public function sendPreviewReportWhatsapp(Recepcion $recepcion, array $phones, ?string $previewUrl): void
+    public function sendPreviewReportWhatsapp(
+        Recepcion $recepcion,
+        array $phones,
+        ?string $previewUrl,
+        ?string $pdfAbsolutePath = null,
+        ?string $pdfFilename = null
+    ): void
     {
+
         $context = [
             'channel' => 'reception_preview',
             'recepcion_id' => $recepcion->id,
             'numero_g_recepcion' => $recepcion->numero_g_recepcion,
         ];
 
-        if (empty($phones)) {
+        $phoneCollection = collect($phones);
+
+        if ($phoneCollection->isEmpty()) {
             Log::info('Preview report WhatsApp: no phone numbers provided', $context);
             return;
         }
@@ -569,15 +579,49 @@ class ReportNotificationService
             $previewUrl
         );
 
-        foreach ($phones as $phone) {
-            $normalized = $this->normalizePhone($phone);
-            if (! $normalized) {
-                Log::warning('Preview report WhatsApp: could not normalize phone', $context + ['phone' => $phone]);
-                continue;
-            }
+        $safeFilename = $this->sanitizeFilename(
+            $pdfFilename ?: ('reporte_recepcion_' . $recepcion->numero_g_recepcion . '_preview.pdf')
+        );
 
-            $this->sendWhatsappTextMessage($normalized, $message, $context + ['phone' => $normalized]);
+        $documentLink = null;
+        if ($pdfAbsolutePath && is_file($pdfAbsolutePath)) {
+            $relativePath = 'preview_reports/' . Carbon::now()->format('YmdHis') . '_' . uniqid('preview_', false) . '_' . $safeFilename;
+            try {
+                $contents = @file_get_contents($pdfAbsolutePath);
+                if ($contents === false) {
+                    throw new \RuntimeException('No fue posible leer el archivo temporal del reporte.');
+                }
+
+                Storage::disk('public')->put($relativePath, $contents);
+                $documentLink = $this->resolvePublicUrlFromDisk($relativePath);
+            } catch (\Throwable $e) {
+                Log::error('Preview report WhatsApp: failed to prepare PDF attachment', $context + [
+                    'source_path' => $pdfAbsolutePath,
+                    'error' => $e->getMessage(),
+                ]);
+            }
         }
+
+        if (! $documentLink) {
+            Log::warning('Preview report WhatsApp: document link unavailable, falling back to text only message', $context);
+        }
+
+        $template = config('process_notifications.whatsapp.templates.preview')
+            ?: config('process_notifications.whatsapp.templates.reception', 'recepcion');
+
+        $this->sendWhatsappNotifications(
+            $phoneCollection,
+            [
+                'template' => $template,
+                'document_link' => $documentLink,
+                'filename' => $safeFilename,
+                'body' => $message,
+            ],
+            $context + [
+                'preview_url' => $previewUrl,
+                'document_link' => $documentLink,
+            ]
+        );
     }
 
     private function buildReceptionWhatsappBody(?string $producerName, ?string $numeroRecepcion, ?string $formattedDate, ?string $reportUrl): string
@@ -595,4 +639,3 @@ class ReportNotificationService
         return $message;
     }
 }
-

@@ -8,6 +8,7 @@ return [
         'templates' => [
             'process' => env('WS_TEMPLATE_PROCESS', 'proceso'),
             'reception' => env('WS_TEMPLATE_RECEPTION', 'recepcion'),
+            'preview' => env('WS_TEMPLATE_PREVIEW', 'recepcion_preview'),
         ],
     ],
 
