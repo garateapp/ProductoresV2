@@ -5003,7 +5003,7 @@
 
 
 
-                <p><strong>Seteo Camión:</strong> {{ $recepcion->seteo_camion ?? 'N/A' }}</p>
+                <p><strong>Seteo Camión:</strong> {{ $recepcion->seteo_termo ?? 'N/A' }}</p>
 
 
 
