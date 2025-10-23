@@ -1574,7 +1574,7 @@ public function previewPage(Recepcion $recepcion)
          }
 
         if (app()->environment('local')) {
-            $recipients = array_filter(['carlos.alvarez@greenex.cl']);
+            $recipients = array_filter(['carlos.alvarez@greenex.cl','fabian.garay@greenex.cl','nadia.lell@greenex.cl']);
         } else {
             $recipients = array_values(array_filter(config('reports.preview_recipients', [])));
             if ($recepcion->n_emisor === 'Greenex SpA') {
