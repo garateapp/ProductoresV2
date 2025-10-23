@@ -127,7 +127,7 @@ class ReportNotificationService
         $reportDiskPath = $this->validateAbsolutePath($absolutePath);
 
         $context = [
-            'channel' => 'reception',
+            'channel' => 'recepcion',
             'producer_id' => $producer->id,
             'producer_name' => $producer->name,
             'id_emisor' => $recepcion->id_emisor,
@@ -559,7 +559,7 @@ class ReportNotificationService
     {
 
         $context = [
-            'channel' => 'reception_preview',
+            'channel' => 'recepcion',
             'recepcion_id' => $recepcion->id,
             'numero_g_recepcion' => $recepcion->numero_g_recepcion,
         ];
@@ -594,6 +594,7 @@ class ReportNotificationService
 
                 Storage::disk('public')->put($relativePath, $contents);
                 $documentLink = $this->resolvePublicUrlFromDisk($relativePath);
+
             } catch (\Throwable $e) {
                 Log::error('Preview report WhatsApp: failed to prepare PDF attachment', $context + [
                     'source_path' => $pdfAbsolutePath,
