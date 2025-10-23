@@ -1347,10 +1347,10 @@ public function previewPage(Recepcion $recepcion)
         $defectos_condicion_sum = 0;
         $danos_plaga_sum = 0;
 
-        $recepcion->setAttribute('seteo_camion', null);
+        $recepcion->setAttribute('seteo_termo', null);
 
         if ($calidad) {
-            $recepcion->setAttribute('seteo_camion', $calidad->seteo_termo);
+            $recepcion->setAttribute('seteo_termo', $calidad->seteo_termo);
             $temperatura_pulpa_detalle = $calidad->detalles()->where('tipo_detalle', 'ss')->first();
             if ($temperatura_pulpa_detalle) {
                 $temperatura_pulpa = $temperatura_pulpa_detalle->temperatura;
