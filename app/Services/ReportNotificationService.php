@@ -384,7 +384,7 @@ class ReportNotificationService
         $phoneId = config('process_notifications.whatsapp.phone_id');
         $apiVersion = config('process_notifications.whatsapp.api_version', 'v16.0');
         $templateToUse = $templateName ?: config('process_notifications.whatsapp.templates.process', 'proceso');
-
+        Log::info('Template: ' . $templateToUse, $context,$documentLink,$filename,$body);
         if (empty($token) || empty($phoneId)) {
             Log::warning('Report notification: WhatsApp credentials missing', $context);
 
@@ -570,7 +570,7 @@ class ReportNotificationService
             Log::info('Preview report WhatsApp: no phone numbers provided', $context);
             return;
         }
-
+        Log::info('Preview report WhatsApp: sending', $context);
         $formattedDate = $this->formatDate($recepcion->fecha_g_recepcion);
         $message = $this->buildReceptionPreviewWhatsappBody(
             $recepcion->n_emisor,
@@ -622,7 +622,12 @@ class ReportNotificationService
                 'preview_url' => $previewUrl,
                 'document_link' => $documentLink,
             ]
+
         );
+         Log::info('Preview report WhatsApp: message sent', $context + [
+                'preview_url' => $previewUrl,
+                'document_link' => $documentLink,
+            ],$phoneCollection);
     }
 
     private function buildReceptionWhatsappBody(?string $producerName, ?string $numeroRecepcion, ?string $formattedDate, ?string $reportUrl): string
