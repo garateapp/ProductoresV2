@@ -240,7 +240,7 @@ class ProcesoController extends Controller
                 DB::raw("GETDATE() AS FechaConsulta")
             )
             ->where('ppc.tipo_proceso', 'PRN')
-            ->where('ppc.Estado', 'En Proceso')
+            //->where('ppc.Estado', 'En Proceso')
             ->groupBy(
                 'n_productor_proceso',
                 'c_productor',
