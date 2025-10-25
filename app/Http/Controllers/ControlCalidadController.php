@@ -9,6 +9,7 @@ use App\Models\Especie;
 use App\Models\Parametro;
 use App\Models\PhotoType;
 use App\Models\Recepcion;
+use App\Models\Service;
 use App\Models\Valor;
 use App\Models\Variedad;
 use App\Mail\ReceptionReportPreview;
@@ -1337,7 +1338,9 @@ public function previewPage(Recepcion $recepcion)
 
     private function buildPreviewReportViewData(Recepcion $recepcion, bool $isPreview = false): array
     {
-        $recepcion->loadMissing(['calidad.photos.photoType']);
+        $recepcion->loadMissing([
+            'calidad.photos.photoType',
+        ]);
 
         $calidad = $recepcion->calidad;
 
@@ -1346,12 +1349,28 @@ public function previewPage(Recepcion $recepcion)
         $defectos_calidad_sum = 0;
         $defectos_condicion_sum = 0;
         $danos_plaga_sum = 0;
+        $exporterName = 'Greenex SpA';
+        $seteo_termo = 'N/A';
 
-        //$recepcion->setAttribute('seteo_termo', null);
+        if (! empty($recepcion->n_emisor)) {
+            $service = Service::query()
+                ->whereHas('users', function ($query) use ($recepcion) {
+                    $query->where('name', $recepcion->n_emisor);
+
+                    if (! empty($recepcion->id_emisor)) {
+                        $query->orWhere('idprod', $recepcion->id_emisor);
+                    }
+                })
+                ->with('owner')
+                ->first();
+
+            if ($service && $service->owner) {
+                $exporterName = $service->owner->name;
+            }
+        }
 
         if ($calidad) {
-            $seteo_termo=$calidad->seteo_termo ?? 'N/A';
-            //$recepcion->setAttribute('seteo_termo', $calidad->seteo_termo);
+            $seteo_termo = $calidad->seteo_termo ?? 'N/A';
             $temperatura_pulpa_detalle = $calidad->detalles()->where('tipo_detalle', 'ss')->first();
             if ($temperatura_pulpa_detalle) {
                 $temperatura_pulpa = $temperatura_pulpa_detalle->temperatura;
@@ -1397,6 +1416,7 @@ public function previewPage(Recepcion $recepcion)
             'firmnessDistribution',
             'solubleSolids',
             'isPreview',
+            'exporterName',
             'seteo_termo'
 
         );

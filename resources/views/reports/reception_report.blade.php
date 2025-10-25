@@ -4951,7 +4951,7 @@
 
 
 
-                <p><strong>Exportadora:</strong> Greenex Spa</p>
+                <p><strong>Exportadora:</strong> {{ $exporterName }}</p>
 
 
 
