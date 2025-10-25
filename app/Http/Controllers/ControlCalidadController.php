@@ -1365,7 +1365,7 @@ public function previewPage(Recepcion $recepcion)
                 ->first();
 
             if ($service && $service->owner) {
-                $exporterName = $service->owner->name;
+                $exporterName = $service->name;
             }
             Log::Info(Service::query()
                 ->whereHas('users', function ($query) use ($recepcion) {
