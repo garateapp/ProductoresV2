@@ -133,7 +133,7 @@ export default function Preview({ recepcionId, numero, htmlUrl, approveUrl, appr
                   type="button"
                   variant="outline"
                   onClick={handleSendPreview}
-                  disabled={!isAdmin || !sendPreviewUrl || approving || sendingPreview}
+                //   disabled={!isAdmin || !sendPreviewUrl || approving || sendingPreview}
                 >
                   <Send className="h-4 w-4 mr-2" /> {sendingPreview ? "Enviando..." : "Enviar previsualización"}
                 </Button>
@@ -141,7 +141,7 @@ export default function Preview({ recepcionId, numero, htmlUrl, approveUrl, appr
                   type="button"
                   variant="outline"
                   onClick={handleSendPreviewWhatsapp}
-                  disabled={!isAdmin || !sendPreviewWhatsappUrl || approving || sendingWhatsapp}
+                //   disabled={!isAdmin || !sendPreviewWhatsappUrl || approving || sendingWhatsapp}
                 >
                   <MessageCircle className="h-4 w-4 mr-2" /> {sendingWhatsapp ? "Enviando..." : "Enviar por WhatsApp"}
                 </Button>
