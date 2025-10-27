@@ -104,12 +104,12 @@ export default function Index({ producers, filters }) {
             <Button
               variant="secondary"
               onClick={() => {
-                if (!confirm('¿Ejecutar sincronización de estados de productores?')) return;
+                if (!confirm('¿Ejecutar sincronización de productores (agrega nuevos y actualiza estados)?')) return;
                 router.post(route('producers.sync-active'), {}, { preserveScroll: true });
               }}
-              title="Sincroniza estados (activos/inactivos) desde SQL Server"
+              title="Agrega productores faltantes y sincroniza estados desde SQL Server"
             >
-              Sincronizar estados
+              Sincronizar productores
             </Button>
             <Button
               variant="outline"
@@ -117,7 +117,7 @@ export default function Index({ producers, filters }) {
                 if (!confirm('¿Ejecutar sincronización de prueba (sin aplicar cambios)?')) return;
                 router.post(route('producers.sync-active'), { dry_run: true }, { preserveScroll: true });
               }}
-              title="Ejecuta una simulación de la sincronización (dry-run)"
+              title="Simula la sincronización (agrega y actualiza estados sin guardar)"
             >
               Prueba (dry-run)
             </Button>

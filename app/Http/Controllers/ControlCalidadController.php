@@ -1412,6 +1412,39 @@ public function previewPage(Recepcion $recepcion)
         $solubleSolids = QualityChartsService::getSolidosSolublesData($receptions);
         $coverageColor = QualityChartsService::getColorCubrimientoData($receptions);
 
+        $tabulatedIds = [6955, 8557, 8558, 8559, 8560, 8561, 8563, 8564, 8630, 8657, 8665, 8666, 8683];
+        $shouldTabulateCharts = in_array((int) $recepcion->id_emisor, $tabulatedIds, true);
+
+        $html_tabla_distribucion_calibre = '';
+        $html_tabla_color = '';
+        $html_tabla_firmeza_grande = '';
+        $html_tabla_firmeza_mediana = '';
+        $html_tabla_firmeza_pequena = '';
+        $html_tabla_color_fondo = '';
+        $html_tabla_calibrix = '';
+        $html_tabla_porc_firmeza = '';
+        $html_tabla_porcentaje_firmeza = '';
+
+        if ($shouldTabulateCharts) {
+            $html_tabla_distribucion_calibre = $this->buildCalibreDistributionTable($sizeDistribution);
+            $html_tabla_color = $this->buildColorCoverageTable($coverageColor);
+
+            if ($calidad && ! in_array($recepcion->n_especie, ['Cherries', 'Dagen'], true)) {
+                $html_tabla_firmeza_grande = $this->buildFirmnessSizeTable($calidad, 'GRANDE', 'Firmeza (Grande)');
+                $html_tabla_firmeza_mediana = $this->buildFirmnessSizeTable($calidad, 'MEDIANO', 'Firmeza (Mediana)');
+                $html_tabla_firmeza_pequena = $this->buildFirmnessSizeTable($calidad, 'CHICO', 'Firmeza (Pequeña)');
+                $html_tabla_color_fondo = $this->buildDetallePercentageTable($calidad, 'COLOR DE FONDO', 'Color', 'Porcentaje');
+            }
+
+            if ($calidad) {
+                $html_tabla_calibrix = $this->buildCalibrixTable($calidad);
+                $html_tabla_porcentaje_firmeza = $this->buildPresionesTable($calidad);
+            }
+
+            $html_tabla_porc_firmeza = $this->buildAverageFirmnessTable($averageFirmness);
+            $html_tabla_color = $html_tabla_color ?: $this->buildColorCoverageTable($coverageColor);
+        }
+
         return compact(
             'recepcion',
             'temperatura_pulpa',
@@ -1426,7 +1459,16 @@ public function previewPage(Recepcion $recepcion)
             'solubleSolids',
             'isPreview',
             'exporterName',
-            'seteo_termo'
+            'seteo_termo',
+            'html_tabla_distribucion_calibre',
+            'html_tabla_color',
+            'html_tabla_firmeza_grande',
+            'html_tabla_firmeza_mediana',
+            'html_tabla_firmeza_pequena',
+            'html_tabla_color_fondo',
+            'html_tabla_calibrix',
+            'html_tabla_porc_firmeza',
+            'html_tabla_porcentaje_firmeza'
 
         );
     }
@@ -1440,8 +1482,38 @@ public function previewPage(Recepcion $recepcion)
         $defectos_calidad_sum = 0;
         $defectos_condicion_sum = 0;
         $danos_plaga_sum = 0;
+         $exporterName = 'Greenex SpA';
+        $seteo_termo = 'N/A';
+
+        if (! empty($recepcion->n_emisor)) {
+            $service = Service::query()
+                ->whereHas('users', function ($query) use ($recepcion) {
+                    $query->where('name', $recepcion->n_emisor);
+
+                    if (! empty($recepcion->id_emisor)) {
+                        $query->orWhere('idprod', $recepcion->id_emisor);
+                    }
+                })
+                ->with('owner')
+                ->first();
+
+            if ($service && $service->owner) {
+                $exporterName = $service->name;
+            }
+            Log::Info(Service::query()
+                ->whereHas('users', function ($query) use ($recepcion) {
+                    $query->where('name', $recepcion->n_emisor);
+
+                    if (! empty($recepcion->id_emisor)) {
+                        $query->orWhere('idprod', $recepcion->id_emisor);
+                    }
+                })
+                ->with('owner')->toSql());
+        }
 
         if ($calidad) {
+             $seteo_termo = $calidad->seteo_termo ?? 'N/A';
+
             $temperatura_pulpa_detalle = $calidad->detalles()->where('tipo_detalle', 'ss')->first();
             if ($temperatura_pulpa_detalle) {
                 $temperatura_pulpa = $temperatura_pulpa_detalle->temperatura;
@@ -1774,5 +1846,303 @@ public function resendReport(Recepcion $recepcion, ReportNotificationService $no
         return response()->json([
             'status' => 'resent',
         ]);
+    }
+
+    private function renderTabularTable(array $headers, array $rows): string
+    {
+        if (empty($rows)) {
+            return '<p style="font-size:10px; margin:6px 0;">Sin datos.</p>';
+        }
+
+        $html = '<table style="width:100%; border-collapse:collapse; font-size:10px; margin:6px 0;">';
+        $html .= '<thead><tr>';
+        foreach ($headers as $header) {
+            $html .= '<th style="border:1px solid #d1d5db; padding:4px; background-color:#f3f4f6; text-align:left;">'
+                . e($header) . '</th>';
+        }
+        $html .= '</tr></thead><tbody>';
+
+        foreach ($rows as $row) {
+            $html .= '<tr>';
+            $values = array_values($row);
+            foreach ($values as $index => $cell) {
+                $align = $index === 0 ? 'left' : 'right';
+                $html .= '<td style="border:1px solid #d1d5db; padding:4px; text-align:' . $align . ';">'
+                    . $this->formatTableCell($cell, $index === 0) . '</td>';
+            }
+            $html .= '</tr>';
+        }
+
+        $html .= '</tbody></table>';
+
+        return $html;
+    }
+
+    private function formatTableCell($value, bool $isLabel = false): string
+    {
+        if ($value === null || $value === '') {
+            return $isLabel ? '&nbsp;' : '0';
+        }
+
+        if (is_string($value) && str_contains($value, '%')) {
+            return e($value);
+        }
+
+        if (is_numeric($value)) {
+            $floatValue = (float) $value;
+            $decimals = abs($floatValue - round($floatValue)) > 0.01 ? 2 : 0;
+
+            return number_format($floatValue, $decimals, ',', '.');
+        }
+
+        return e((string) $value);
+    }
+
+    private function buildCalibreDistributionTable(array $sizeDistribution): string
+    {
+        if (isset($sizeDistribution['categories'], $sizeDistribution['countsSeries'])) {
+            $categories = $sizeDistribution['categories'];
+            $series = $sizeDistribution['countsSeries'];
+
+            if (empty($categories) || empty($series)) {
+                return '<p style="font-size:10px; margin:6px 0;">Sin datos.</p>';
+            }
+
+            $headers = array_merge(['Color'], array_map(static function ($serie) {
+                return $serie['name'] ?? '';
+            }, $series), ['Total']);
+
+            $columnTotals = array_fill(0, count($series), 0);
+            $rows = [];
+
+            foreach ($categories as $index => $category) {
+                $row = [$category];
+                $rowTotal = 0;
+
+                foreach ($series as $serieIndex => $serie) {
+                    $value = (float) ($serie['data'][$index] ?? 0);
+                    $row[] = $value;
+                    $rowTotal += $value;
+                    $columnTotals[$serieIndex] += $value;
+                }
+
+                $row[] = $rowTotal;
+                $rows[] = $row;
+            }
+
+            $totalRow = ['Total'];
+            foreach ($columnTotals as $total) {
+                $totalRow[] = $total;
+            }
+            $totalRow[] = array_sum($columnTotals);
+            $rows[] = $totalRow;
+
+            return $this->renderTabularTable($headers, $rows);
+        }
+
+        if (empty($sizeDistribution)) {
+            return '<p style="font-size:10px; margin:6px 0;">Sin datos.</p>';
+        }
+
+        $total = array_sum(array_map(static function ($item) {
+            return (float) ($item['count'] ?? 0);
+        }, $sizeDistribution));
+
+        $rows = [];
+        foreach ($sizeDistribution as $item) {
+            $calibre = $item['calibre'] ?? $item['name'] ?? 'N/A';
+            $count = (float) ($item['count'] ?? 0);
+            $percentage = $total > 0 ? ($count / $total) * 100 : 0;
+            $rows[] = [
+                $calibre,
+                $count,
+                number_format($percentage, 2, ',', '.') . ' %',
+            ];
+        }
+
+        $rows[] = [
+            'Total',
+            $total,
+            $total > 0 ? '100 %' : '0 %',
+        ];
+
+        return $this->renderTabularTable(['Calibre', 'Cantidad', 'Porcentaje'], $rows);
+    }
+
+    private function buildColorCoverageTable($coverageColor): string
+    {
+        if (is_array($coverageColor) && isset($coverageColor['categories'], $coverageColor['countsSeries'])) {
+            $categories = $coverageColor['categories'];
+            $series = $coverageColor['countsSeries'];
+
+            if (empty($categories) || empty($series)) {
+                return '<p style="font-size:10px; margin:6px 0;">Sin datos.</p>';
+            }
+
+            $headers = array_merge(['Color'], array_map(static function ($serie) {
+                return $serie['name'] ?? '';
+            }, $series), ['Total']);
+
+            $columnTotals = array_fill(0, count($series), 0);
+            $rows = [];
+
+            foreach ($categories as $index => $category) {
+                $row = [$category];
+                $rowTotal = 0;
+
+                foreach ($series as $serieIndex => $serie) {
+                    $value = (float) ($serie['data'][$index] ?? 0);
+                    $row[] = $value;
+                    $rowTotal += $value;
+                    $columnTotals[$serieIndex] += $value;
+                }
+
+                $row[] = $rowTotal;
+                $rows[] = $row;
+            }
+
+            $totalRow = ['Total'];
+            foreach ($columnTotals as $total) {
+                $totalRow[] = $total;
+            }
+            $totalRow[] = array_sum($columnTotals);
+            $rows[] = $totalRow;
+
+            return $this->renderTabularTable($headers, $rows);
+        }
+
+        if (! is_array($coverageColor) || empty($coverageColor)) {
+            return '<p style="font-size:10px; margin:6px 0;">Sin datos.</p>';
+        }
+
+        $rows = [];
+        foreach ($coverageColor as $item) {
+            $color = $item['color'] ?? 'N/A';
+            $percentage = (float) ($item['percentage'] ?? 0);
+            $rows[] = [$color, number_format($percentage, 2, ',', '.') . ' %'];
+        }
+
+        return $this->renderTabularTable(['Color', 'Porcentaje'], $rows);
+    }
+
+    private function buildFirmnessSizeTable(?Calidad $calidad, string $tipoItem, string $titulo): string
+    {
+        if (! $calidad) {
+            return '<p style="font-size:10px; margin:6px 0;">Sin datos.</p>';
+        }
+
+        $details = $calidad->detalles->where('tipo_item', strtoupper($tipoItem));
+        if ($details->isEmpty()) {
+            $details = $calidad->detalles->where('tipo_item', ucfirst(strtolower($tipoItem)));
+        }
+
+        if ($details->isEmpty()) {
+            return '<p style="font-size:10px; margin:6px 0;">Sin datos.</p>';
+        }
+
+        $rows = $details->map(function ($detail) {
+            $label = $detail->detalle_item ?? 'N/A';
+            $value = $detail->valor_ss ?? $detail->porcentaje_muestra ?? 0;
+
+            return [$label, $value];
+        })->values()->all();
+
+        return $this->renderTabularTable(['Medición', 'Valor'], $rows);
+    }
+
+    private function buildDetallePercentageTable(?Calidad $calidad, string $tipoItem, string $labelTitle, string $valueTitle): string
+    {
+        if (! $calidad) {
+            return '<p style="font-size:10px; margin:6px 0;">Sin datos.</p>';
+        }
+
+        $details = $calidad->detalles->where('tipo_item', $tipoItem);
+        if ($details->isEmpty()) {
+            return '<p style="font-size:10px; margin:6px 0;">Sin datos.</p>';
+        }
+
+        $rows = $details->map(function ($detail) {
+            $label = $detail->detalle_item ?? 'N/A';
+            $percentage = (float) ($detail->porcentaje_muestra ?? $detail->valor_ss ?? 0);
+
+            return [$label, number_format($percentage, 2, ',', '.') . ' %'];
+        })->values()->all();
+
+        return $this->renderTabularTable([$labelTitle, $valueTitle], $rows);
+    }
+
+    private function buildCalibrixTable(?Calidad $calidad): string
+    {
+        if (! $calidad) {
+            return '<p style="font-size:10px; margin:6px 0;">Sin datos.</p>';
+        }
+
+        $rows = [];
+        $mapping = [
+            'GRANDE' => 'Grande',
+            'MEDIANO' => 'Mediana',
+            'CHICO' => 'Pequeña',
+        ];
+
+        foreach ($mapping as $tipo => $label) {
+            $detail = $calidad->detalles
+                ->where('tipo_item', $tipo)
+                ->firstWhere('detalle_item', 'Solidos Solubles');
+
+            if ($detail) {
+                $rows[] = [$label, $detail->valor_ss ?? 0];
+            }
+        }
+
+        return $this->renderTabularTable(['Categoría', 'Solidos Solubles (°Brix)'], $rows);
+    }
+
+    private function buildAverageFirmnessTable(array $averageFirmness): string
+    {
+        $categories = $averageFirmness['categories'] ?? [];
+        $series = $averageFirmness['series'] ?? [];
+
+        if (empty($categories) || empty($series)) {
+            return '<p style="font-size:10px; margin:6px 0;">Sin datos.</p>';
+        }
+
+        $headers = array_merge(['Segmento'], array_map(static function ($serie) {
+            return $serie['name'] ?? '';
+        }, $series));
+
+        $rows = [];
+        foreach ($categories as $index => $category) {
+            $label = is_array($category) ? implode(' / ', array_filter($category, static fn ($item) => $item !== null && $item !== '')) : (string) $category;
+            $row = [$label];
+
+            foreach ($series as $serie) {
+                $row[] = $serie['data'][$index] ?? 0;
+            }
+
+            $rows[] = $row;
+        }
+
+        return $this->renderTabularTable($headers, $rows);
+    }
+
+    private function buildPresionesTable(?Calidad $calidad): string
+    {
+        if (! $calidad) {
+            return '<p style="font-size:10px; margin:6px 0;">Sin datos.</p>';
+        }
+
+        $details = $calidad->detalles->where('tipo_item', 'PRESIONES');
+        if ($details->isEmpty()) {
+            return '<p style="font-size:10px; margin:6px 0;">Sin datos.</p>';
+        }
+
+        $rows = $details->map(function ($detail) {
+            $label = $detail->detalle_item ?? 'N/A';
+            $value = $detail->valor_ss ?? $detail->porcentaje_muestra ?? 0;
+
+            return [$label, $value];
+        })->values()->all();
+
+        return $this->renderTabularTable(['Segmento', 'Valor'], $rows);
     }
 }
