@@ -9,14 +9,18 @@ export default function ServiceIndex({ auth, services, availableUsers, filters }
     const [selectedService, setSelectedService] = useState(null);
     const [processingAttach, setProcessingAttach] = useState(false);
 
+    const serviceList = Array.isArray(services?.data)
+        ? services.data
+        : (Array.isArray(services) ? services : []);
+
     useEffect(() => {
         if (selectedService) {
-            const updatedService = services.find(s => s.id === selectedService.id);
+            const updatedService = serviceList.find(s => s.id === selectedService.id);
             if (updatedService) {
                 setSelectedService(updatedService);
             }
         }
-    }, [services]);
+    }, [serviceList, services]);
 
     const handleDelete = (id) => {
         if (confirm('Estás seguro de que quieres eliminar este servicio?')) {
@@ -87,6 +91,7 @@ export default function ServiceIndex({ auth, services, availableUsers, filters }
                                 </Link>
                             </div>
 
+                            <div className="overflow-x-auto">
                             <table className="min-w-full divide-y divide-gray-200">
                                 <thead className="bg-gray-50">
                                     <tr>
@@ -99,43 +104,46 @@ export default function ServiceIndex({ auth, services, availableUsers, filters }
                                     </tr>
                                 </thead>
                                 <tbody className="bg-white divide-y divide-gray-200">
-                                    {services.map((service) => (
+                                    {serviceList.map((service) => (
                                         <tr key={service.id}>
-                                            <td className="px-6 py-4 whitespace-nowrap">{service.name}</td>
-                                            <td className="px-6 py-4 whitespace-nowrap">{service.description}</td>
-                                            <td className="px-6 py-4 whitespace-nowrap">{service.owner?.name}</td>
-                                            <td className="px-6 py-4 whitespace-nowrap">{service.phones.map(p => p.phone).join(', ')}</td>
-                                            <td className="px-6 py-4 whitespace-nowrap">{service.emails.map(e => e.email).join(', ')}</td>
-                                            <td className="px-6 py-4 whitespace-nowrap">
-                                                <Link
-                                                    href={route('services.show', service.id)}
-                                                    className="text-indigo-600 hover:text-indigo-900 mr-4"
-                                                >
-                                                    Ver
-                                                </Link>
-                                                <Link
-                                                    href={route('services.edit', service.id)}
-                                                    className="text-green-600 hover:text-green-900 mr-4"
-                                                >
-                                                    Editar
-                                                </Link>
-                                                <button
-                                                    onClick={() => handleDelete(service.id)}
-                                                    className="text-red-600 hover:text-red-900 mr-4"
-                                                >
-                                                    Eliminar
-                                                </button>
-                                                <button
-                                                    onClick={() => openModal(service)}
-                                                    className="text-blue-600 hover:text-blue-900"
-                                                >
-                                                    Administrar Productores
-                                                </button>
+                                            <td className="px-6 py-4"><div className="max-w-xs truncate" title={service.name}>{service.name}</div></td>
+                                            <td className="px-6 py-4"><div className="max-w-sm truncate" title={service.description}>{service.description}</div></td>
+                                            <td className="px-6 py-4"><div className="max-w-xs truncate" title={service.owner?.name}>{service.owner?.name}</div></td>
+                                            <td className="px-6 py-4"><div className="max-w-sm truncate" title={service.phones.map(p => p.phone).join(', ')}>{service.phones.map(p => p.phone).join(', ')}</div></td>
+                                            <td className="px-6 py-4"><div className="max-w-sm truncate" title={service.emails.map(e => e.email).join(', ')}>{service.emails.map(e => e.email).join(', ')}</div></td>
+                                            <td className="px-6 py-4">
+                                                <div className="flex flex-wrap gap-2">
+                                                    <Link
+                                                        href={route('services.show', service.id)}
+                                                        className="text-indigo-600 hover:text-indigo-900"
+                                                    >
+                                                        Ver
+                                                    </Link>
+                                                    <Link
+                                                        href={route('services.edit', service.id)}
+                                                        className="text-green-600 hover:text-green-900"
+                                                    >
+                                                        Editar
+                                                    </Link>
+                                                    <button
+                                                        onClick={() => handleDelete(service.id)}
+                                                        className="text-red-600 hover:text-red-900"
+                                                    >
+                                                        Eliminar
+                                                    </button>
+                                                    <button
+                                                        onClick={() => openModal(service)}
+                                                        className="text-blue-600 hover:text-blue-900"
+                                                    >
+                                                        Administrar Productores
+                                                    </button>
+                                                </div>
                                             </td>
                                         </tr>
                                     ))}
                                 </tbody>
                             </table>
+                            </div>
                         </div>
                     </div>
                 </div>
