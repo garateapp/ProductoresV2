@@ -69,7 +69,7 @@ export default function Preview({ recepcionId, numero, htmlUrl, approveUrl, appr
   };
 
   const handleSendPreview = async () => {
-    if (!isAdmin || !sendPreviewUrl) return;
+    //if (!isAdmin || !sendPreviewUrl) return;
     try {
       setSendingPreview(true);
       const token = document.querySelector('meta[name="csrf-token"]').getAttribute('content');
@@ -82,19 +82,19 @@ export default function Preview({ recepcionId, numero, htmlUrl, approveUrl, appr
       });
       const data = await res.json();
       if (!res.ok || data?.status !== 'sent') {
-        alert(data?.message || 'No se pudo enviar el reporte de previsualizaci�n.');
+        alert(data?.message || 'No se pudo enviar el reporte de previsualización.');
       } else {
-        alert('Reporte de previsualizaci�n enviado correctamente.');
+        alert('Reporte de previsualización enviado correctamente.');
       }
     } catch (e) {
-      alert('Error al enviar el reporte de previsualizaci�n.');
+      alert('Error al enviar el reporte de previsualización.');
     } finally {
       setSendingPreview(false);
     }
   };
 
   const handleSendPreviewWhatsapp = async () => {
-    if (!isAdmin || !sendPreviewWhatsappUrl) return;
+    //if (!isAdmin || !sendPreviewWhatsappUrl) return;
     try {
       setSendingWhatsapp(true);
       const token = document.querySelector('meta[name="csrf-token"]').getAttribute('content');
