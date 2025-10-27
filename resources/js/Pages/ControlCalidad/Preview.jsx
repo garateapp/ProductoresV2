@@ -14,7 +14,7 @@ export default function Preview({ recepcionId, numero, htmlUrl, approveUrl, appr
   const [sendingWhatsapp, setSendingWhatsapp] = useState(false);
   const { auth } = usePage().props;
   const userRoles = auth?.user?.roles ?? [];
-  const isAdmin = userRoles.some((role) => ['Administrador', 'Admin','calidad'].includes(role.name));
+  const isAdmin = userRoles.some((role) => ['Administrador', 'Admin','Calidad'].includes(role.name));
 
   const handleApprove = async (value) => {
     if (!value) return; // one-way approve only
@@ -69,7 +69,7 @@ export default function Preview({ recepcionId, numero, htmlUrl, approveUrl, appr
   };
 
   const handleSendPreview = async () => {
-    if (!isAdmin || !approved || !sendPreviewUrl) return;
+    if (!isAdmin || !sendPreviewUrl) return;
     try {
       setSendingPreview(true);
       const token = document.querySelector('meta[name="csrf-token"]').getAttribute('content');
@@ -94,7 +94,7 @@ export default function Preview({ recepcionId, numero, htmlUrl, approveUrl, appr
   };
 
   const handleSendPreviewWhatsapp = async () => {
-    if (!isAdmin || !approved || !sendPreviewWhatsappUrl) return;
+    if (!isAdmin || !sendPreviewWhatsappUrl) return;
     try {
       setSendingWhatsapp(true);
       const token = document.querySelector('meta[name="csrf-token"]').getAttribute('content');
