@@ -1553,6 +1553,8 @@ public function previewPage(Recepcion $recepcion)
             'defectos_calidad_sum',
             'defectos_condicion_sum',
             'danos_plaga_sum',
+            'exporterName',
+            'seteo_termo',
             'sizeDistribution',
             'coverageColor',
             'averageFirmness',
