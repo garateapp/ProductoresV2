@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useState, useMemo } from 'react';
 import AuthenticatedLayout from '@/Layouts/AuthenticatedLayout';
 import { Head, useForm } from '@inertiajs/react';
 import { Button } from '@/Components/ui/button';
@@ -6,6 +6,8 @@ import { Input } from '@/Components/ui/input';
 import { Label } from '@/Components/ui/label';
 
 export default function ServiceEdit({ auth, service, users }) {
+    const [ownerSearch, setOwnerSearch] = useState('');
+
     const { data, setData, put, processing, errors } = useForm({
         name: service.name || '',
         description: service.description || '',
@@ -43,6 +45,23 @@ export default function ServiceEdit({ auth, service, users }) {
         const newEmails = data.emails.filter((_, i) => i !== index);
         setData('emails', newEmails);
     };
+
+    const filteredUsers = useMemo(() => {
+        const term = ownerSearch.trim().toLowerCase();
+        if (!term) {
+            return users;
+        }
+
+        return users.filter((user) => {
+            const values = [
+                user.name,
+                user.email,
+                user.idprod ? String(user.idprod) : null,
+            ].filter(Boolean);
+
+            return values.some((value) => value.toLowerCase().includes(term));
+        });
+    }, [ownerSearch, users]);
 
     const submit = (e) => {
         e.preventDefault();
@@ -87,15 +106,26 @@ export default function ServiceEdit({ auth, service, users }) {
 
                                 <div>
                                     <Label htmlFor="owner_id">Dueño del Servicio</Label>
+                                    <Input
+                                        type="text"
+                                        placeholder="Buscar dueño..."
+                                        value={ownerSearch}
+                                        onChange={(e) => setOwnerSearch(e.target.value)}
+                                        className="mt-1 block w-full"
+                                    />
                                     <select
                                         id="owner_id"
                                         value={data.owner_id}
                                         onChange={(e) => setData('owner_id', e.target.value)}
                                         className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-300 focus:ring focus:ring-indigo-200 focus:ring-opacity-50"
                                         required
+                                        size={Math.min(filteredUsers.length || 1, 8)}
+                                        style={{ overflowY: filteredUsers.length > 8 ? 'auto' : undefined }}
                                     >
-                                        {users.map(user => (
-                                            <option key={user.id} value={user.id}>{user.name}</option>
+                                        {filteredUsers.map(user => (
+                                            <option key={user.id} value={user.id}>
+                                                {user.name} {user.email ? `(${user.email})` : ''}
+                                            </option>
                                         ))}
                                     </select>
                                     {errors.owner_id && <div className="text-red-600 text-sm mt-1">{errors.owner_id}</div>}
