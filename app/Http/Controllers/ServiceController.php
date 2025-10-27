@@ -163,7 +163,7 @@ class ServiceController extends Controller
             'emails' => 'present|array',
             'emails.*' => 'nullable|email|max:255',
         ]);
-
+        Log::info('Update Service Request:', $validated);
         DB::transaction(function () use ($validated, $service) {
             $service->update([
                 'name' => $validated['name'],

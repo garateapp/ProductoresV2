@@ -1,17 +1,16 @@
-import React, { useState, useMemo } from 'react';
+import React, { useMemo } from 'react';
 import AuthenticatedLayout from '@/Layouts/AuthenticatedLayout';
 import { Head, useForm } from '@inertiajs/react';
 import { Button } from '@/Components/ui/button';
 import { Input } from '@/Components/ui/input';
 import { Label } from '@/Components/ui/label';
+import Combobox from '@/Components/ui/combobox';
 
 export default function ServiceCreate({ auth, users }) {
-    const [ownerSearch, setOwnerSearch] = useState('');
-
     const { data, setData, post, processing, errors } = useForm({
         name: '',
         description: '',
-        owner_id: users[0]?.id || '',
+        owner_id: users[0] ? String(users[0].id) : '',
         phones: [''],
         emails: [''],
     });
@@ -48,20 +47,27 @@ export default function ServiceCreate({ auth, users }) {
 
     const submit = (e) => {
         e.preventDefault();
-        post(route('services.store'));
+        const payload = {
+            ...data,
+            owner_id: data.owner_id ? Number(data.owner_id) : null,
+        };
+        post(route('services.store'), { data: payload });
     };
 
-    const filteredUsers = useMemo(() => {
-        const term = ownerSearch.trim().toLowerCase();
-        if (!term) {
-            return users;
-        }
-        return users.filter(user =>
-            [user.name, user.email, user.idprod?.toString()]
-                .filter(Boolean)
-                .some(value => value.toLowerCase().includes(term))
-        );
-    }, [ownerSearch, users]);
+    const ownerOptions = useMemo(
+        () =>
+            users.map((user) => {
+                const tokens = [user.name, user.email, user.idprod && String(user.idprod)].filter(Boolean).join(' ');
+                return {
+                    value: String(user.id),
+                    label: [user.name, user.email && `(${user.email})`, user.idprod && `ID:${user.idprod}`]
+                        .filter(Boolean)
+                        .join(' '),
+                    searchValue: tokens,
+                };
+            }),
+        [users],
+    );
 
     return (
         <AuthenticatedLayout
@@ -89,45 +95,35 @@ export default function ServiceCreate({ auth, users }) {
                                 </div>
 
                                 <div>
-                                    <Label htmlFor="description">Descripción</Label>
+                                    <Label htmlFor="description">Descripcion</Label>
                                     <textarea
                                         id="description"
                                         value={data.description}
                                         onChange={(e) => setData('description', e.target.value)}
                                         className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-300 focus:ring focus:ring-indigo-200 focus:ring-opacity-50"
                                     ></textarea>
-                                    {errors.description && <div className="text-red-600 text-sm mt-1">{errors.description}</div>}
+                                    {errors.description && (
+                                        <div className="text-red-600 text-sm mt-1">{errors.description}</div>
+                                    )}
                                 </div>
 
                                 <div>
-                                    <Label htmlFor="owner_id">Dueño del Servicio</Label>
-                                    <Input
-                                        type="text"
-                                        placeholder="Buscar dueño..."
-                                        value={ownerSearch}
-                                        onChange={(e) => setOwnerSearch(e.target.value)}
-                                        className="mt-1 block w-full"
-                                    />
-                                    <select
-                                        id="owner_id"
-                                        value={data.owner_id}
-                                        onChange={(e) => setData('owner_id', e.target.value)}
-                                        className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-300 focus:ring focus:ring-indigo-200 focus:ring-opacity-50"
-                                        required
-                                        size={Math.min(8, filteredUsers.length || 1)}
-                                        style={{ overflowY: filteredUsers.length > 8 ? 'auto' : undefined }}
-                                    >
-                                        {filteredUsers.map(user => (
-                                            <option key={user.id} value={user.id}>
-                                                {user.name} {user.email ? `(${user.email})` : ''}
-                                            </option>
-                                        ))}
-                                    </select>
+                                    <Label htmlFor="owner_id">Dueno del Servicio</Label>
+                                    <div className="mt-1">
+                                        <Combobox
+                                            value={data.owner_id}
+                                            onChange={(value) => setData('owner_id', value)}
+                                            options={ownerOptions}
+                                            placeholder="Seleccionar dueno"
+                                            searchPlaceholder="Buscar dueno..."
+                                            className="w-full"
+                                        />
+                                    </div>
                                     {errors.owner_id && <div className="text-red-600 text-sm mt-1">{errors.owner_id}</div>}
                                 </div>
 
                                 <div>
-                                    <Label>Teléfonos</Label>
+                                    <Label>Telefonos</Label>
                                     {data.phones.map((phone, index) => (
                                         <div key={index} className="flex items-center space-x-2 mt-1">
                                             <Input
@@ -136,10 +132,14 @@ export default function ServiceCreate({ auth, users }) {
                                                 onChange={(e) => handlePhoneChange(index, e.target.value)}
                                                 className="block w-full"
                                             />
-                                            <Button type="button" variant="destructive" onClick={() => removePhoneInput(index)}>Quitar</Button>
+                                            <Button type="button" variant="destructive" onClick={() => removePhoneInput(index)}>
+                                                Quitar
+                                            </Button>
                                         </div>
                                     ))}
-                                    <Button type="button" onClick={addPhoneInput} className="mt-2">Añadir Teléfono</Button>
+                                    <Button type="button" onClick={addPhoneInput} className="mt-2">
+                                        Anadir Telefono
+                                    </Button>
                                     {errors.phones && <div className="text-red-600 text-sm mt-1">{errors.phones}</div>}
                                 </div>
 
@@ -153,15 +153,19 @@ export default function ServiceCreate({ auth, users }) {
                                                 onChange={(e) => handleEmailChange(index, e.target.value)}
                                                 className="block w-full"
                                             />
-                                            <Button type="button" variant="destructive" onClick={() => removeEmailInput(index)}>Quitar</Button>
+                                            <Button type="button" variant="destructive" onClick={() => removeEmailInput(index)}>
+                                                Quitar
+                                            </Button>
                                         </div>
                                     ))}
-                                    <Button type="button" onClick={addEmailInput} className="mt-2">Añadir Email</Button>
+                                    <Button type="button" onClick={addEmailInput} className="mt-2">
+                                        Anadir Email
+                                    </Button>
                                     {errors.emails && <div className="text-red-600 text-sm mt-1">{errors.emails}</div>}
                                 </div>
 
                                 <div className="flex items-center justify-end">
-                                    <Button type="submit" disabled={processing}>
+                                    <Button type="submit" disabled={processing || !data.owner_id}>
                                         Crear Servicio
                                     </Button>
                                 </div>
