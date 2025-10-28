@@ -67,7 +67,7 @@ class ContractController extends Controller
     public function update(Request $request, Contract $contract)
     {
         $validatedData = $request->validate([
-            'contract_file' => ['nullable', 'file', 'mimes:pdf,doc,docx,jpg,jpeg,png', 'max:5120'],
+            'contract_file' => ['nullable', 'file', 'mimes:pdf,doc,docx,jpg,jpeg,png', 'max:55120'],
             'fecha_contrato' => ['required', 'date'],
             'vencimiento' => ['required', 'date', 'after_or_equal:fecha_contrato'],
             'comision' => ['required', 'numeric'],
