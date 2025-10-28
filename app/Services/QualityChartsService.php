@@ -4,6 +4,7 @@ namespace App\Services;
 
 use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Log;
 
 class QualityChartsService
 {
@@ -59,7 +60,7 @@ class QualityChartsService
             // --- 4) Subconsulta datos ---
             $datosSub = $conexion->table('fruitcloud.dbo.fpdatos AS fpd')
                 ->selectRaw("fpd.nombre_color, {$caseCategoria} AS categoria_calibres, COUNT(*) AS cantidad")
-                ->where('fpd.numero_recepcion', '74') // <-- si quieres, cambia por ->whereIn('fpd.numero_recepcion', $reception_numbers)
+                //->where('fpd.numero_recepcion', '74') // <-- si quieres, cambia por ->whereIn('fpd.numero_recepcion', $reception_numbers)
                 ->groupBy('fpd.nombre_color', DB::raw($caseCategoria));
 
             // --- 5) Flag 6J/7J ---
@@ -94,7 +95,17 @@ class QualityChartsService
                 ->orderBy('c.nombre_color')
                 ->orderBy('f.categoria_calibres')
                 ->get();
-
+                Log::info( $conexion->query()
+                ->fromSub($coloresQ, 'c')
+                ->joinSub($calibresFiltrados, 'f', function($j){ $j->whereRaw('1=1'); }) // CROSS JOIN
+                ->leftJoinSub($datosSub, 'd', function ($join) {
+                    $join->on('d.nombre_color', '=', 'c.nombre_color')
+                        ->on('d.categoria_calibres', '=', 'f.categoria_calibres');
+                })
+                ->selectRaw("c.nombre_color, f.categoria_calibres, COALESCE(d.cantidad, 0) AS cantidad")
+                ->orderBy('c.nombre_color')
+                ->orderBy('f.categoria_calibres')
+                ->toSql());
             // --- 8) Ajusta el orden de categorías según el flag ---
             $hay6y7 = (int) $conexion->query()->fromSub($hay6y7Sub, 'x')->value('hay');
             $grades = $hay6y7
