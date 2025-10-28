@@ -6018,7 +6018,7 @@
     @if ($photos->count())
         <div class="page-break"></div>
         <div class="photo-page">
-            <h2 class="photo-title">Registro Fotográfico</h2>
+            <h2 class="photo-title">Registro Fotográfico DE DEFECTOS</h2>
             <div class="photo-grid">
 
                 @foreach ($photos as $photo)

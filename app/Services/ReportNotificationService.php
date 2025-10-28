@@ -378,6 +378,7 @@ class ReportNotificationService
             } else {
                 $this->sendWhatsappTextMessage($normalized, $body, $phoneContext);
             }
+             sleep(3);
         }
     }
 
