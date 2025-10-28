@@ -671,10 +671,10 @@ class ReporteriaController extends Controller
                 ? (float) $detalles->where('tipo_item', 'DEFECTOS DE CALIDAD')->sum('cantidad')
                 : 0.0;
             $defectosCondicion = $detalles
-                ? (float) $detalles->where('tipo_item', 'DEFECTOS DE CONDICI�N')->sum('cantidad')
+                ? (float) $detalles->where('tipo_item', 'DEFECTOS DE CONDICIÓN')->sum('cantidad')
                 : 0.0;
             $danosPlaga = $detalles
-                ? (float) $detalles->where('tipo_item', 'DA�O PLAGA')->sum('cantidad')
+                ? (float) $detalles->where('tipo_item', 'DAÑO PLAGA')->sum('cantidad')
                 : 0.0;
 
             $exportablePct = max(0.0, 100.0 - ($defectosCalidad + $defectosCondicion + $danosPlaga));
