@@ -32,7 +32,7 @@ class SyncProducersActive extends Command
             ->where('tipo_juridico', 1)
             ->where('codigo_sag', '!=', null)
             ->where('codigo_sag', '!=', '')
-            ->where('E.CP1', '1')
+            ->where('CP1', '1')
             ->get();
 
         $normalizeRut = static function ($rut) {
