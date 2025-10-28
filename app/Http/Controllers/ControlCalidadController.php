@@ -1720,6 +1720,10 @@ public function previewPage(Recepcion $recepcion)
                     $tempPath,
                     $filename
                 ));
+                Log::info('Preview report email sent', [
+                    'recepcion_id' => $recepcion->id,
+                    'recipient' => $recipient,
+                ]);
             } catch (\Throwable $e) {
                 Log::error('Preview report email send failed', [
                     'recepcion_id' => $recepcion->id,

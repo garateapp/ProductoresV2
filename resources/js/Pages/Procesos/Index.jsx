@@ -15,6 +15,21 @@ import { FileText, RefreshCw, Upload as UploadIcon, X } from 'lucide-react';
 import Chart from 'react-apexcharts';
 import AuthenticatedLayout from '@/Layouts/AuthenticatedLayout';
 
+const formatProcessDate = (dateString) => {
+  if (!dateString) {
+    return '-';
+  }
+
+  const normalized = `${dateString}T00:00:00`;
+  const date = new Date(normalized);
+
+  if (Number.isNaN(date.getTime())) {
+    return '-';
+  }
+
+  return date.toLocaleDateString('es-CL');
+};
+
 export default function Index({ procesos, especies, variedades = [], filters, isProducer, totalProcesos, totalKgProcesados, totalExportacion, totalComercial, totalMerma, chartData }) {
   const { props } = usePage();
   const { data, setData, get } = useForm({
@@ -470,7 +485,7 @@ export default function Index({ procesos, especies, variedades = [], filters, is
                   <TableCell>{proceso.n_proceso}</TableCell>
                   <TableCell>{proceso.especie}</TableCell>
                   <TableCell>{proceso.variedad}</TableCell>
-                  <TableCell>{new Date(proceso.fecha).toLocaleDateString('es-CL')}</TableCell>
+                  <TableCell>{formatProcessDate(proceso.fecha)}</TableCell>
                   <TableCell>{(proceso.kilos_netos ?? 0).toLocaleString('es-CL')}</TableCell>
                   <TableCell>{calculatePercentage(proceso.exp ?? 0, proceso.kilos_netos ?? 0)}</TableCell>
                   <TableCell>{calculatePercentage(proceso.comercial ?? 0, proceso.kilos_netos ?? 0)}</TableCell>
@@ -546,4 +561,3 @@ function SyncButton() {
 }
 
 Index.layout = page => <AuthenticatedLayout children={page} header={<h2 className="font-semibold text-xl text-gray-800 leading-tight">Procesos</h2>} />;
-
