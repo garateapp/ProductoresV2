@@ -7,10 +7,12 @@ use App\Exports\ConsolidatedExport;
 use App\Models\Calidad;
 use App\Models\Especie;
 use App\Models\Recepcion;
+use App\Models\Variedad;
 use App\Models\User;
 use App\Services\QualityChartsService;
 use Carbon\Carbon;
 use Illuminate\Http\Request;
+use Illuminate\Support\Collection;
 use Inertia\Inertia;
 use Maatwebsite\Excel\Facades\Excel;
 
@@ -24,7 +26,7 @@ class ReporteriaController extends Controller
     public function index(Request $request)
     {
         $filters = $request->only(['especie_id', 'variedad_id', 'productor_id', 'lote', 'lotes', 'from_date', 'to_date']);
-        $ready = $request->filled('especie_id') && $request->filled('lote');
+        $ready = $request->filled('especie_id');
 
         $especies = Especie::with('variedads')->get();
         $producers = User::whereNotNull('idprod')->get();
@@ -37,6 +39,61 @@ class ReporteriaController extends Controller
             }
         }
         $lotes = $lotesQuery->select('id', 'numero_g_recepcion')->get();
+
+        $filterBaseQuery = Recepcion::query()
+            ->when($request->filled('from_date'), function ($query) use ($request) {
+                $query->whereDate('fecha_g_recepcion', '>=', $request->input('from_date'));
+            })
+            ->when($request->filled('to_date'), function ($query) use ($request) {
+                $query->whereDate('fecha_g_recepcion', '<=', $request->input('to_date'));
+            });
+
+        $filterRecords = $filterBaseQuery
+            ->select('n_especie', 'n_variedad', 'id_emisor', 'numero_g_recepcion')
+            ->distinct()
+            ->get();
+
+        $speciesMap = Especie::whereIn('name', $filterRecords->pluck('n_especie')->filter()->unique())
+            ->get(['id', 'name'])
+            ->keyBy('name');
+
+        $varietyMap = Variedad::whereIn('name', $filterRecords->pluck('n_variedad')->filter()->unique())
+            ->get(['id', 'name', 'especie_id'])
+            ->keyBy('name');
+
+        $producerMap = $producers->keyBy('idprod');
+
+        $filterMatrix = $filterRecords
+            ->map(function ($record) use ($speciesMap, $varietyMap, $producerMap) {
+                $especie = $speciesMap->get($record->n_especie);
+                $variedad = $varietyMap->get($record->n_variedad);
+                if (! $especie || ! $variedad || ! $record->numero_g_recepcion) {
+                    return null;
+                }
+
+                $productorId = $record->id_emisor ? (string) $record->id_emisor : null;
+                $productor = $productorId ? $producerMap->get($record->id_emisor) : null;
+
+                return [
+                    'especie_id' => (string) $especie->id,
+                    'especie_name' => $especie->name,
+                    'variedad_id' => (string) $variedad->id,
+                    'variedad_name' => $variedad->name,
+                    'productor_id' => $productorId,
+                    'productor_name' => $productor?->name ?? $productorId,
+                    'lote' => (string) $record->numero_g_recepcion,
+                ];
+            })
+            ->filter()
+            ->unique(function ($row) {
+                return implode('|', [
+                    $row['especie_id'],
+                    $row['variedad_id'],
+                    $row['productor_id'] ?? '',
+                    $row['lote'],
+                ]);
+            })
+            ->values();
 
         $receptions = collect();
         $query = null;
@@ -98,12 +155,22 @@ class ReporteriaController extends Controller
             });
         }
 
+        $kpiSummaryData = $this->summarizeReceptions($ready ? $receptions : collect());
+        $kpiSummary = $this->formatKpiSummary($kpiSummaryData);
+        $kpiTrend = $ready ? $this->buildKpiTrend($receptions) : [
+            'categories' => [],
+            'series' => [],
+        ];
+
         return Inertia::render('Reporteria/Index', [
             'especies' => $especies,
             'producers' => $producers,
             'lotes' => $lotes,
             'filters' => $filters,
             'ready' => $ready,
+            'filterMatrix' => $filterMatrix,
+            'kpiSummary' => $kpiSummary,
+            'kpiTrend' => $kpiTrend,
             'sizeDistribution' => $sizeDistribution,
             'averageFirmness' => $averageFirmness,
             'firmnessDistribution' => $firmnessDistribution,
@@ -573,6 +640,135 @@ class ReporteriaController extends Controller
         }
 
         return array_values($chartData);
+    }
+
+    private function summarizeReceptions(Collection $receptions): array
+    {
+        $summary = [
+            'count' => $receptions->count(),
+            'peso_sum' => 0.0,
+            'cantidad_sum' => 0,
+            'quality_sum' => 0.0,
+            'quality_count' => 0,
+            'exportable' => ['kilos' => 0.0, 'weighted_percent' => 0.0],
+            'comercial' => ['kilos' => 0.0, 'weighted_percent' => 0.0],
+            'merma' => ['kilos' => 0.0, 'weighted_percent' => 0.0],
+        ];
+
+        foreach ($receptions as $reception) {
+            $peso = (float) ($reception->peso_neto ?? 0);
+            $summary['peso_sum'] += $peso;
+            $summary['cantidad_sum'] += (int) ($reception->cantidad ?? 0);
+
+            if (! is_null($reception->nota_calidad)) {
+                $summary['quality_sum'] += (float) $reception->nota_calidad;
+                $summary['quality_count']++;
+            }
+
+            $detalles = $reception->calidad?->detalles;
+
+            $defectosCalidad = $detalles
+                ? (float) $detalles->where('tipo_item', 'DEFECTOS DE CALIDAD')->sum('cantidad')
+                : 0.0;
+            $defectosCondicion = $detalles
+                ? (float) $detalles->where('tipo_item', 'DEFECTOS DE CONDICI�N')->sum('cantidad')
+                : 0.0;
+            $danosPlaga = $detalles
+                ? (float) $detalles->where('tipo_item', 'DA�O PLAGA')->sum('cantidad')
+                : 0.0;
+
+            $exportablePct = max(0.0, 100.0 - ($defectosCalidad + $defectosCondicion + $danosPlaga));
+            $comercialPct = max(0.0, min(100.0, $defectosCondicion));
+            $mermaPct = max(0.0, min(100.0, $defectosCalidad + $danosPlaga));
+
+            $totalPct = $exportablePct + $comercialPct + $mermaPct;
+            if ($totalPct > 100.0) {
+                $scale = 100.0 / $totalPct;
+                $exportablePct *= $scale;
+                $comercialPct *= $scale;
+                $mermaPct *= $scale;
+            }
+
+            if ($peso > 0) {
+                $summary['exportable']['kilos'] += $peso * ($exportablePct / 100);
+                $summary['exportable']['weighted_percent'] += $exportablePct * $peso;
+
+                $summary['comercial']['kilos'] += $peso * ($comercialPct / 100);
+                $summary['comercial']['weighted_percent'] += $comercialPct * $peso;
+
+                $summary['merma']['kilos'] += $peso * ($mermaPct / 100);
+                $summary['merma']['weighted_percent'] += $mermaPct * $peso;
+            }
+        }
+
+        return $summary;
+    }
+
+    private function formatKpiSummary(array $summary): array
+    {
+        $pesoSum = $summary['peso_sum'] > 0 ? $summary['peso_sum'] : 0.0;
+
+        return [
+            'total_receptions' => $summary['count'],
+            'total_kilos' => round($summary['peso_sum'], 2),
+            'total_cantidad' => $summary['cantidad_sum'],
+            'exportable' => [
+                'kilos' => round($summary['exportable']['kilos'], 2),
+                'percentage' => $pesoSum > 0 ? round($summary['exportable']['weighted_percent'] / $pesoSum, 2) : 0.0,
+            ],
+            'comercial' => [
+                'kilos' => round($summary['comercial']['kilos'], 2),
+                'percentage' => $pesoSum > 0 ? round($summary['comercial']['weighted_percent'] / $pesoSum, 2) : 0.0,
+            ],
+            'merma' => [
+                'kilos' => round($summary['merma']['kilos'], 2),
+                'percentage' => $pesoSum > 0 ? round($summary['merma']['weighted_percent'] / $pesoSum, 2) : 0.0,
+            ],
+            'promedio_calidad' => $summary['quality_count'] > 0
+                ? round($summary['quality_sum'] / $summary['quality_count'], 2)
+                : null,
+        ];
+    }
+
+    private function buildKpiTrend(Collection $receptions): array
+    {
+        if ($receptions->isEmpty()) {
+            return [
+                'categories' => [],
+                'series' => [],
+            ];
+        }
+
+        $grouped = $receptions
+            ->groupBy(function ($reception) {
+                return Carbon::parse($reception->fecha_g_recepcion)->format('Y-m-d');
+            })
+            ->sortKeys();
+
+        $categories = [];
+        $exportableSeries = [];
+        $comercialSeries = [];
+        $mermaSeries = [];
+        $kilosSeries = [];
+
+        foreach ($grouped as $date => $items) {
+            $summary = $this->summarizeReceptions($items);
+            $categories[] = Carbon::parse($date)->format('d/m');
+            $exportableSeries[] = round($summary['exportable']['kilos'], 2);
+            $comercialSeries[] = round($summary['comercial']['kilos'], 2);
+            $mermaSeries[] = round($summary['merma']['kilos'], 2);
+            $kilosSeries[] = round($summary['peso_sum'], 2);
+        }
+
+        return [
+            'categories' => $categories,
+            'series' => [
+                ['name' => 'Exportable', 'data' => $exportableSeries],
+                ['name' => 'Comercial', 'data' => $comercialSeries],
+                ['name' => 'Merma', 'data' => $mermaSeries],
+                ['name' => 'Kilos Recepcionados', 'data' => $kilosSeries],
+            ],
+        ];
     }
 
     public function exportConsolidated(Request $request)
