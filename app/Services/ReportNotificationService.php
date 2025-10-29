@@ -27,8 +27,13 @@ class ReportNotificationService
 
             return;
         }
-
-        $producer = $this->resolveProducerByCsg($proceso->c_productor);
+          if($recepcion->n_emisor!=$reception->n_productor_rotulado){
+           $producer = $this->resolveProducerByCsg($proceso->c_productor_rotulado);
+        }
+        else{
+           $producer = $this->resolveProducerByCsg($proceso->c_productor);
+        }
+        // $producer = $this->resolveProducerByCsg($proceso->c_productor);
 
         if (! $producer) {
             Log::warning('Report notification skipped: producer not found for c_productor', [
@@ -107,8 +112,13 @@ class ReportNotificationService
 
             return;
         }
+        if($recepcion->n_emisor!=$reception->n_productor_rotulado){
+            $producer = $this->resolveProducerByIdprod($recepcion->n_productor_rotulado);
+        }
+        else{
+            $producer = $this->resolveProducerByIdprod($recepcion->id_emisor);
+        }
 
-        $producer = $this->resolveProducerByIdprod($recepcion->id_emisor);
 
         if (! $producer) {
             Log::warning('Reception notification skipped: producer not found for id_emisor', [

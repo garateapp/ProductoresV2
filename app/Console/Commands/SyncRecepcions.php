@@ -7,6 +7,7 @@ use App\Models\Especie;
 use App\Models\Recepcion;
 use App\Models\Sync;
 use App\Models\Variedad;
+use App\Models\User;
 use Carbon\Carbon;
 use Illuminate\Console\Command;
 use Illuminate\Database\Eloquent\Relations\BelongsToMany;
@@ -40,10 +41,18 @@ class SyncRecepcions extends Command
         
         $productions=Http::post('https://api.greenexweb.cl/api/ObtenerRecepcion');
         $productions = $productions->json();
+        if (! is_array($productions)) {
+            $this->error('Formato inesperado desde la API de recepciones.');
+            return Command::FAILURE;
+        }
         $ri=Recepcion::all();
         $totali=$ri->count();
 
         foreach ($productions as $production){
+            if (! is_array($production)) {
+                $this->warn('Fila de recepcion omitida por formato inválido');
+                continue;
+            }
             $id_g_recepcion=Null;//1
             $tipo_g_recepcion=Null;//2
             $numero_g_recepcion=Null;//3
@@ -61,6 +70,9 @@ class SyncRecepcions extends Command
             $peso_neto=Null;//15
             $nota_calidad=Null;//16
             $n_estado=Null;//17
+            $id_productor_rotulado=Null;
+            $n_productor_rotulado=Null;
+            $csg_productor_rotulado=Null;
          
             $m=1;
             foreach ($production as $item){
@@ -235,9 +247,31 @@ class SyncRecepcions extends Command
                         }
                     
                 }
+                if($m==19){
+                    $id_productor_rotulado=$item;
+                }
+                if($m==20){
+                    $n_productor_rotulado=$item;
+                }
+                if($m==21){
+                    $csg_productor_rotulado=$item;
+                }
                 $m+=1;
                 
             } 
+
+            if (
+                $id_g_recepcion &&
+                ($id_productor_rotulado !== null || $n_productor_rotulado !== null || $csg_productor_rotulado !== null)
+            ) {
+                Recepcion::where('id_g_recepcion', $id_g_recepcion)
+                    ->where('temporada', 'actual')
+                    ->update([
+                        'id_productor_rotulado' => $id_productor_rotulado,
+                        'n_productor_rotulado' => $n_productor_rotulado,
+                        'csg_productor_rotulado' => $csg_productor_rotulado,
+                    ]);
+            }
         }
 
         

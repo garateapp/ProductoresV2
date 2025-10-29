@@ -8,12 +8,13 @@ use App\Models\Recepcion;
 use App\Models\Calidad;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Database\Eloquent\Relations\BelongsToMany;
-use Illuminate\Support\Facades\Http;
 use App\Models\Service;
 use App\Models\Variedad; // Add this line
 use App\Models\User;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
+use Illuminate\Support\Facades\DB;
+use Carbon\Carbon;
 use Inertia\Inertia;
 
 class RecepcionController extends Controller
@@ -123,313 +124,328 @@ class RecepcionController extends Controller
     public function recepction_sync(Request $request)
     {
         try {
+            $rows = $this->fetchReceptionRows();
+
             if ($request->boolean('dry_run')) {
-                $output = [];
-                $created = 0; $updated = 0; $skipped = 0; $total = 0;
-                $speciesStats = [];// [name => ['total'=>n,'create'=>n,'update'=>n]]
-                $dateStats = [];// ['Y-m-d' => ['total'=>n,'create'=>n,'update'=>n]]
-                // Obtener data origen (mismo endpoint que production_refresh)
-                $resp = Http::post('https://api.greenexweb.cl/api/ObtenerRecepcion');
-                $rows = $resp->json() ?? [];
-                foreach ($rows as $items) {
-                    $total++;
-                    $i = 0;
-                    $id_g_recepcion = null; $tipo_g_recepcion = null; $numero_g_recepcion = null; $fecha_g_recepcion = null; $id_emisor = null; $r_emisor = null; $n_emisor = null; $Codigo_Sag_emisor = null; $tipo_documento_recepcion = null; $numero_documento_recepcion = null; $n_especie = null; $n_variedad = null; $cantidad = 0; $peso_neto = 0; $nota_calidad = 0; $n_estado = null;
-                    foreach ($items as $item) {
-                        $i++;
-                        switch ($i) {
-                            case 1: $id_g_recepcion = $item; break;
-                            case 2: $tipo_g_recepcion = $item; break;
-                            case 3: $numero_g_recepcion = $item; break;
-                            case 4: $fecha_g_recepcion = $item; break;
-                            case 5: $id_emisor = $item; break;
-                            case 6: $r_emisor = $item; break;
-                            case 8: $n_emisor = $item; break;
-                            case 9: $Codigo_Sag_emisor = $item; break;
-                            case 10: $tipo_documento_recepcion = $item; break;
-                            case 11: $numero_documento_recepcion = $item; break;
-                            case 12: $n_especie = $item; break;
-                            case 13: $n_variedad = $item; break;
-                            case 14: $cantidad = (int) $item; break;
-                            case 15: $peso_neto = (int) $item; break;
-                            case 16: $nota_calidad = (int) $item; break;
-                            case 17: $n_estado = $item; break;
-                        }
-                    }
-                    if ($id_g_recepcion) {
-                        $exists = Recepcion::where('id_g_recepcion', $id_g_recepcion)->where('temporada', 'actual')->exists();
-                        // Especie stats
-                        $sp = $n_especie ?: 'DESCONOCIDA';
-                        if (!isset($speciesStats[$sp])) { $speciesStats[$sp] = ['total'=>0,'create'=>0,'update'=>0]; }
-                        $speciesStats[$sp]['total']++;
-                        // Fecha stats (normalizar a Y-m-d)
-                        $dateKey = $fecha_g_recepcion ? (date('Y-m-d', strtotime($fecha_g_recepcion))) : 'SIN_FECHA';
-                        if (!isset($dateStats[$dateKey])) { $dateStats[$dateKey] = ['total'=>0,'create'=>0,'update'=>0]; }
-                        $dateStats[$dateKey]['total']++;
+                $stats = $this->processReceptionRows($rows, true);
 
-                        if ($exists) {
-                            $updated++;
-                            $speciesStats[$sp]['update']++;
-                            $dateStats[$dateKey]['update']++;
-                            $output[] = "Actualizar: #{$numero_g_recepcion} ({$n_especie} {$n_variedad})";
-                        } else {
-                            $created++;
-                            $speciesStats[$sp]['create']++;
-                            $dateStats[$dateKey]['create']++;
-                            $output[] = "Crear: #{$numero_g_recepcion} ({$n_especie} {$n_variedad})";
-                        }
-                    } else {
-                        $skipped++; $output[] = 'Fila sin id_g_recepcion - omitida';
-                    }
-                }
-                // Ordenar stats por total desc
-                uasort($speciesStats, function($a,$b){ return $b['total'] <=> $a['total']; });
-                ksort($dateStats);
                 $speciesLines = [];
-                foreach ($speciesStats as $name => $st) {
-                    $speciesLines[] = sprintf('%s: total %d (crear %d, actualizar %d)', $name, $st['total'], $st['create'], $st['update']);
-                }
-                $dateLines = [];
-                foreach ($dateStats as $d => $st) {
-                    $dateLines[] = sprintf('%s: total %d (crear %d, actualizar %d)', $d, $st['total'], $st['create'], $st['update']);
+                foreach ($stats['species'] as $name => $data) {
+                    $speciesLines[] = sprintf('%s: total %d (crear %d, actualizar %d)', $name, $data['total'], $data['create'], $data['update']);
                 }
 
-                $summary = "Total filas: {$total}\nA crear: {$created}\nA actualizar: {$updated}\nOmitidas: {$skipped}\n\nResumen por especie:\n".
-                    implode("\n", $speciesLines).
-                    "\n\nResumen por fecha:\n".
-                    implode("\n", $dateLines).
-                    "\n\nDetalles (máx 200):\n".
-                    implode("\n", array_slice($output,0,200));
-                return redirect()->route('recepciones.index')->with('success', 'Dry-run ejecutado. No se aplicaron cambios.')->with('sync_output', $summary);
+                $dateLines = [];
+                foreach ($stats['dates'] as $date => $data) {
+                    $dateLines[] = sprintf('%s: total %d (crear %d, actualizar %d)', $date, $data['total'], $data['create'], $data['update']);
+                }
+
+                $summary = sprintf(
+                    "Total filas: %d\nA crear: %d\nA actualizar: %d\nOmitidas: %d\n\nResumen por especie:\n%s\n\nResumen por fecha:\n%s\n\nDetalles (máx 200):\n%s",
+                    $stats['total'],
+                    $stats['created'],
+                    $stats['updated'],
+                    $stats['skipped'],
+                    implode("\n", $speciesLines),
+                    implode("\n", $dateLines),
+                    implode("\n", array_slice($stats['details'], 0, 200))
+                );
+
+                return redirect()->route('recepciones.index')
+                    ->with('success', 'Dry-run ejecutado. No se aplicaron cambios.')
+                    ->with('sync_output', $summary);
             }
-            return $this->production_refresh();
+
+            $stats = $this->processReceptionRows($rows, false);
+
+            return redirect()->route('recepciones.index')
+                ->with('success', sprintf(
+                    'Recepciones sincronizadas. Creadas: %d, actualizadas: %d.',
+                    $stats['created'],
+                    $stats['updated']
+                ));
         } catch (\Throwable $e) {
-            Log::error('Recepciones sync error: '.$e->getMessage());
+            Log::error('Recepciones sync error: ' . $e->getMessage());
             Log::error($e->getTraceAsString());
             return redirect()->route('recepciones.index')->with('error', 'Error al sincronizar recepciones');
         }
     }
+
     public function production_refresh()
     {
-        $productions=Http::post('https://api.greenexweb.cl/api/ObtenerRecepcion');
-        $productions = $productions->json();
-        $ri=Recepcion::all();
-        $totali=$ri->count();
+        $beforeCount = Recepcion::count();
+        $rows = $this->fetchReceptionRows();
 
-        foreach ($productions as $production){
-            $id_g_recepcion=Null;//1
-            $tipo_g_recepcion=Null;//2
-            $numero_g_recepcion=Null;//3
-            $fecha_g_recepcion=Null;//4
-            $id_emisor=Null;//5
-            $r_emisor=Null;//6
-            //7
-            $n_emisor=Null;//8
-            $Codigo_Sag_emisor=Null;//9
-            $tipo_documento_recepcion=Null;//10
-            $numero_documento_recepcion=Null;//11
-            $n_especie=Null;//12
-            $n_variedad=Null;//13
-            $cantidad=Null;//14
-            $peso_neto=Null;//15
-            $nota_calidad=Null;//16
-            $n_estado=Null;//17
+        $stats = $this->processReceptionRows($rows, false);
 
-            $m=1;
-            foreach ($production as $item){
+        $afterCount = Recepcion::count();
+        $difference = $afterCount - $beforeCount;
 
+        return redirect()->route('recepciones.index')
+            ->with('success', sprintf(
+                'Recepciones sincronizadas. Creadas: %d, actualizadas: %d. Diferencia total: %d.',
+                $stats['created'],
+                $stats['updated'],
+                $difference
+            ));
+    }
 
+    private function fetchReceptionRows()
+    {
+        return DB::connection('sqlsrv')
+            ->table('V_PKG_Recepcion_FG')
+            ->selectRaw("
+                id_empresa,
+                id_g_recepcion,
+                tipo_g_recepcion,
+                numero_g_recepcion,
+                fecha_g_recepcion,
+                id_emisor,
+                r_emisor,
+                c_emisor,
+                n_emisor,
+                Codigo_Sag_emisor,
+                tipo_documento_recepcion,
+                numero_documento_recepcion,
+                n_especie,
+                n_variedad,
+                SUM(COALESCE(cantidad, 0)) AS total_cantidad,
+                SUM(COALESCE(peso_neto, 0)) AS total_peso_neto,
+                nota_calidad,
+                n_estado,
+                Id_productor_rotulado AS id_productor_rotulado,
+                n_productor_rotulado,
+                csg_productor_rotulado
+            ")
+            ->groupBy(
+                'id_empresa',
+                'id_g_recepcion',
+                'tipo_g_recepcion',
+                'numero_g_recepcion',
+                'fecha_g_recepcion',
+                'id_emisor',
+                'r_emisor',
+                'c_emisor',
+                'n_emisor',
+                'Codigo_Sag_emisor',
+                'tipo_documento_recepcion',
+                'numero_documento_recepcion',
+                'n_especie',
+                'n_variedad',
+                'nota_calidad',
+                'n_estado',
+                'Id_productor_rotulado',
+                'n_productor_rotulado',
+                'csg_productor_rotulado'
+            )
+            ->orderBy('id_g_recepcion', 'ASC')
+            ->get();
+    }
 
-                if($m==2){
-                    $id_g_recepcion=$item;
+    private function normalizeReceptionRow($row): array
+    {
+        $data = (array) $row;
+
+        return [
+            'id_g_recepcion' => $data['id_g_recepcion'] ?? null,
+            'tipo_g_recepcion' => $data['tipo_g_recepcion'] ?? null,
+            'numero_g_recepcion' => $data['numero_g_recepcion'] ?? null,
+            'fecha_g_recepcion' => $this->normalizeDate($data['fecha_g_recepcion'] ?? null),
+            'id_emisor' => $data['id_emisor'] ?? null,
+            'r_emisor' => $data['r_emisor'] ?? null,
+            'n_emisor' => $data['n_emisor'] ?? null,
+            'Codigo_Sag_emisor' => $data['Codigo_Sag_emisor'] ?? null,
+            'tipo_documento_recepcion' => $data['tipo_documento_recepcion'] ?? null,
+            'numero_documento_recepcion' => $data['numero_documento_recepcion'] ?? null,
+            'n_especie' => $data['n_especie'] ?? null,
+            'n_variedad' => $data['n_variedad'] ?? null,
+            'cantidad' => (int) ($data['total_cantidad'] ?? $data['cantidad'] ?? 0),
+            'peso_neto' => (int) ($data['total_peso_neto'] ?? $data['peso_neto'] ?? 0),
+            'nota_calidad' => isset($data['nota_calidad']) ? (int) $data['nota_calidad'] : 0,
+            'n_estado' => $data['n_estado'] ?? null,
+            'id_productor_rotulado' => $data['id_productor_rotulado'] ?? null,
+            'n_productor_rotulado' => $data['n_productor_rotulado'] ?? null,
+            'csg_productor_rotulado' => $data['csg_productor_rotulado'] ?? null,
+        ];
+    }
+
+    private function normalizeDate($value): ?string
+    {
+        if (! $value) {
+            return null;
+        }
+
+        try {
+            return Carbon::parse($value)->format('Y-m-d H:i:s');
+        } catch (\Exception $e) {
+            return is_string($value) ? $value : null;
+        }
+    }
+
+    private function processReceptionRows($rows, bool $dryRun): array
+    {
+        $stats = [
+            'total' => 0,
+            'created' => 0,
+            'updated' => 0,
+            'skipped' => 0,
+            'species' => [],
+            'dates' => [],
+            'details' => [],
+        ];
+
+        foreach ($rows as $rowData) {
+            $row = $this->normalizeReceptionRow($rowData);
+            $stats['total']++;
+
+            if (! $row['id_g_recepcion']) {
+                $stats['skipped']++;
+                $stats['details'][] = 'Fila sin id_g_recepcion - omitida';
+                continue;
+            }
+
+            $speciesKey = $row['n_especie'] ?: 'DESCONOCIDA';
+            if (! isset($stats['species'][$speciesKey])) {
+                $stats['species'][$speciesKey] = ['total' => 0, 'create' => 0, 'update' => 0];
+            }
+            $stats['species'][$speciesKey]['total']++;
+
+            $dateKey = 'SIN_FECHA';
+            if ($row['fecha_g_recepcion']) {
+                try {
+                    $dateKey = Carbon::parse($row['fecha_g_recepcion'])->format('Y-m-d');
+                } catch (\Exception $e) {
+                    $dateKey = (string) $row['fecha_g_recepcion'];
                 }
-                if($m==3){
-                    $tipo_g_recepcion=$item;
+            }
+            if (! isset($stats['dates'][$dateKey])) {
+                $stats['dates'][$dateKey] = ['total' => 0, 'create' => 0, 'update' => 0];
+            }
+            $stats['dates'][$dateKey]['total']++;
+
+            $existing = Recepcion::where('id_g_recepcion', $row['id_g_recepcion'])
+                ->where('temporada', 'actual')
+                ->first();
+
+            if ($existing) {
+                $stats['updated']++;
+                $stats['species'][$speciesKey]['update']++;
+                $stats['dates'][$dateKey]['update']++;
+                $stats['details'][] = sprintf(
+                    'Actualizar: #%s (%s %s)',
+                    $row['numero_g_recepcion'] ?? 'N/A',
+                    $row['n_especie'] ?? 'N/A',
+                    $row['n_variedad'] ?? 'N/A'
+                );
+
+                if (! $dryRun) {
+                    $this->updateReceptionRecord($existing, $row);
                 }
-                if($m==4){
-                    $numero_g_recepcion=$item;
+            } else {
+                $stats['created']++;
+                $stats['species'][$speciesKey]['create']++;
+                $stats['dates'][$dateKey]['create']++;
+                $stats['details'][] = sprintf(
+                    'Crear: #%s (%s %s)',
+                    $row['numero_g_recepcion'] ?? 'N/A',
+                    $row['n_especie'] ?? 'N/A',
+                    $row['n_variedad'] ?? 'N/A'
+                );
+
+                if (! $dryRun) {
+                    $this->createReceptionRecord($row);
                 }
-                if($m==5){
-                    $fecha_g_recepcion=$item;
-                }
-                if($m==6){
-                    $id_emisor=$item;
-                }
-                if($m==7){
-                    $r_emisor=$item;
-                }
-                if($m==8){
-                    $Codigo_Sag_emisor=$item;
-                }
-                if($m==9){
-                    $n_emisor=$item;
-                }
-                if($m==11){
-                    $tipo_documento_recepcion=$item;
-                }
-                if($m==12){
-                    $numero_documento_recepcion=$item;
-                }
-                if($m==13){
-                    $n_especie=$item;
-
-                }
-                if($m==14){
-                    $n_variedad=$item;
-                }
-                if($m==15){
-                    $cantidad=$item;
-                }
-                if($m==16){
-                    $peso_neto=$item;
-                }
-                if($m==17){
-                    $nota_calidad=$item;
-                }
-               if($m==18){
-                    $n_estado=$item;
-
-                        $espec=Especie::where('name',$n_especie)->first();
-                        if($espec){
-                            $espec->forceFill([
-                                'name'=> $n_especie
-                            ]);
-
-                            $user=User::where('csg',$Codigo_Sag_emisor)->first();
-                            if(!IS_NULL($user)){
-                                $this->attachUserIfPossible($espec, ['comercializado', 'users'], $user->id);
-                            }
-
-                            $varie=Variedad::where('name',$n_variedad)->first();
-                            if($varie){
-                                $varie->forceFill([
-                                    'name'=> $n_variedad,
-                                    'especie_id='=> $espec->id
-                                ]);
-
-                            }else{
-                                $varie=Variedad::create([
-                                    'name'=> $n_variedad,
-                                    'especie_id'=>$espec->id
-                                ]);
-
-                            }
-
-                            if(!IS_NULL($user)){
-                                if($varie){
-                                    $this->attachUserIfPossible($varie, ['comercializado', 'users'], $user->id);
-                                }
-                            }
-
-                        }else{
-                            $especie=Especie::create([
-                            'name'=> $n_especie
-                            ]);
-                            $user=User::where('csg',$Codigo_Sag_emisor)->first();
-
-                            if(!IS_NULL($user)){
-                                $this->attachUserIfPossible($especie, ['comercializado', 'users'], $user->id);
-                            }
-                            $varie=Variedad::where('name',$n_variedad)->first();
-                            if($varie){
-                                $varie->forceFill([
-                                    'name'=> $n_variedad,
-                                    'especie_id='=> $especie->id
-                                ]);
-                            }else{
-                                $varie=Variedad::create([
-                                    'name'=> $n_variedad,
-                                    'especie_id'=>$especie->id
-                                ]);
-                            }
-
-                            if(!IS_NULL($user)){
-                                if($varie){
-                                    $this->attachUserIfPossible($varie, ['comercializado', 'users'], $user->id);
-                                }
-                            }
-                        }
-
-                        $cont=Recepcion::where('id_g_recepcion',$id_g_recepcion)->where('temporada','actual')->first();
-
-                        if($cont){
-
-                            $cont->forceFill([
-                                'id_g_recepcion' => $id_g_recepcion,//1
-                                'tipo_g_recepcion' => $tipo_g_recepcion,//2
-                                'numero_g_recepcion' => $numero_g_recepcion,//3
-                                'fecha_g_recepcion' => $fecha_g_recepcion,//4
-                                'id_emisor' => $id_emisor,//5
-                                'r_emisor' => $r_emisor,//6
-                                'n_emisor' => $n_emisor,//8
-                                'Codigo_Sag_emisor' => $Codigo_Sag_emisor,//9
-                                'tipo_documento_recepcion' => $tipo_documento_recepcion,//10
-                                'numero_documento_recepcion' => $numero_documento_recepcion,//11
-                                'n_especie' => $n_especie,//12
-                                'n_variedad' => $n_variedad,
-                                'cantidad' => $cantidad,
-                                'peso_neto' => $peso_neto,
-                                'nota_calidad' => $nota_calidad,
-                                'temporada'=>'actual'
-
-                            ])->save();
-                          /*  if(IS_NULL($cont->calidad)){
-                                Calidad::create([
-                                    'recepcion_id'=>$cont->id
-                                ]);
-                            }*/
-                            }
-                        else{
-
-                                $rec=Recepcion::create([
-                                    'id_g_recepcion' => $id_g_recepcion,//1
-                                    'tipo_g_recepcion' => $tipo_g_recepcion,//2
-                                    'numero_g_recepcion' => $numero_g_recepcion,//3
-                                    'fecha_g_recepcion' => $fecha_g_recepcion,//4
-                                    'id_emisor' => $id_emisor,//5
-                                    'r_emisor' => $r_emisor,//6
-                                    'n_emisor' => $n_emisor,//8
-                                    'Codigo_Sag_emisor' => $Codigo_Sag_emisor,//9
-                                    'tipo_documento_recepcion' => $tipo_documento_recepcion,//10
-                                    'numero_documento_recepcion' => $numero_documento_recepcion,//11
-                                    'n_especie' => $n_especie,//12
-                                    'n_variedad' => $n_variedad,
-                                    'cantidad' => $cantidad,
-                                    'peso_neto' => $peso_neto,
-                                    'nota_calidad' => $nota_calidad,
-                                    'n_estado' => $n_estado,
-                                    'temporada'=>'actual'
-
-                                ]);
-                                Calidad::create([
-                                    'recepcion_id'=>$rec->id
-                                ]);
-
-                        }
-
-                }
-                $m+=1;
-
             }
         }
 
+        ksort($stats['dates']);
+        uasort($stats['species'], function ($a, $b) {
+            return $b['total'] <=> $a['total'];
+        });
 
-        $rf=Recepcion::all();
-        $total=$rf->count()-$ri->count();
-        // Sync::create([
-        //     'tipo'=>'MANUAL',
-        //     'entidad'=>'RECEPCIONES',
-        //     'fecha'=>Carbon::now(),
-        //     'cantidad'=>$total
-        // ]);
-
-        return redirect()->route('recepciones.index');
-
-        //return view('productors.production',compact('productions'));
-
-
+        return $stats;
     }
 
+    private function ensureSpeciesAndVariety(array $row): void
+    {
+        if (! $row['n_especie']) {
+            return;
+        }
+
+        $especie = Especie::firstOrCreate(['name' => $row['n_especie']], ['name' => $row['n_especie']]);
+        if ($especie->name !== $row['n_especie']) {
+            $especie->forceFill(['name' => $row['n_especie']])->save();
+        }
+
+        $user = null;
+        if (! empty($row['Codigo_Sag_emisor'])) {
+            $user = User::where('csg', $row['Codigo_Sag_emisor'])->first();
+        }
+
+        if ($user) {
+            $this->attachUserIfPossible($especie, ['comercializado', 'users'], $user->id);
+        }
+
+        if ($row['n_variedad']) {
+            $varie = Variedad::firstOrCreate(
+                ['name' => $row['n_variedad']],
+                ['especie_id' => $especie->id]
+            );
+
+            if ($varie->especie_id !== $especie->id) {
+                $varie->forceFill(['especie_id' => $especie->id])->save();
+            }
+
+            if ($user) {
+                $this->attachUserIfPossible($varie, ['comercializado', 'users'], $user->id);
+            }
+        }
+    }
+
+    private function buildReceptionPayload(array $row): array
+    {
+        return [
+            'id_g_recepcion' => $row['id_g_recepcion'],
+            'tipo_g_recepcion' => $row['tipo_g_recepcion'],
+            'numero_g_recepcion' => $row['numero_g_recepcion'],
+            'fecha_g_recepcion' => $this->normalizeDate($row['fecha_g_recepcion']),
+            'id_emisor' => $row['id_emisor'],
+            'r_emisor' => $row['r_emisor'],
+            'n_emisor' => $row['n_emisor'],
+            'Codigo_Sag_emisor' => $row['Codigo_Sag_emisor'],
+            'id_productor_rotulado' => $row['id_productor_rotulado'],
+            'n_productor_rotulado' => $row['n_productor_rotulado'],
+            'csg_productor_rotulado' => $row['csg_productor_rotulado'],
+            'tipo_documento_recepcion' => $row['tipo_documento_recepcion'],
+            'numero_documento_recepcion' => $row['numero_documento_recepcion'],
+            'n_especie' => $row['n_especie'],
+            'n_variedad' => $row['n_variedad'],
+            'cantidad' => $row['cantidad'],
+            'peso_neto' => $row['peso_neto'],
+            'nota_calidad' => $row['nota_calidad'],
+        ];
+    }
+
+    private function updateReceptionRecord(Recepcion $recepcion, array $row): void
+    {
+        $this->ensureSpeciesAndVariety($row);
+
+        $payload = $this->buildReceptionPayload($row);
+        $recepcion->forceFill($payload)->save();
+    }
+
+    private function createReceptionRecord(array $row): Recepcion
+    {
+        $this->ensureSpeciesAndVariety($row);
+
+        $payload = $this->buildReceptionPayload($row);
+        $payload['n_estado'] = $row['n_estado'];
+        $payload['temporada'] = 'actual';
+
+        $recepcion = Recepcion::create($payload);
+        Calidad::create(['recepcion_id' => $recepcion->id]);
+
+        return $recepcion;
+    }
     private function attachUserIfPossible($model, array $relationNames, int $userId): void
     {
         if (! $model) {
@@ -449,3 +465,4 @@ class RecepcionController extends Controller
         }
     }
 }
+
