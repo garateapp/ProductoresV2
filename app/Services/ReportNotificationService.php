@@ -59,7 +59,7 @@ class ReportNotificationService
             'n_proceso' => $proceso->n_proceso,
             'report_path' => $storedPath,
         ];
-
+        Log::warning("contexto",$context);
         $phones = $this->gatherPhones($producer);
         $emailRecipient = $this->gatherEmail($producer);
         [$phones, $emailRecipient] = $this->applyLocalOverrides($phones, $emailRecipient, (bool) $producer->emnotification, $context);
@@ -135,7 +135,7 @@ class ReportNotificationService
         );
         $formattedDate = $this->formatDate($recepcion->fecha_g_recepcion);
         $reportDiskPath = $this->validateAbsolutePath($absolutePath);
-
+        Log::info("productor",$producer);
         $context = [
             'channel' => 'recepcion',
             'producer_id' => $producer->id,
