@@ -27,8 +27,8 @@ class ReportNotificationService
 
             return;
         }
-          if($recepcion->n_emisor!=$reception->n_productor_rotulado){
-           $producer = $this->resolveProducerByCsg($proceso->c_productor_rotulado);
+         if($recepcion->n_emisor!=$reception->n_productor_rotulado){
+           $producer = $this->resolveProducerByIdprod($proceso->id_productor_rotulado);
         }
         else{
            $producer = $this->resolveProducerByCsg($proceso->c_productor);
@@ -113,7 +113,7 @@ class ReportNotificationService
             return;
         }
         if($recepcion->n_emisor!=$reception->n_productor_rotulado){
-            $producer = $this->resolveProducerByIdprod($recepcion->n_productor_rotulado);
+            $producer = $this->resolveProducerByIdprod($recepcion->id_productor_rotulado);
         }
         else{
             $producer = $this->resolveProducerByIdprod($recepcion->id_emisor);
