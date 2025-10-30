@@ -298,6 +298,7 @@ class ControlCalidadController extends Controller
 
     public function cargarFirmpro(Recepcion $recepcion)
     {
+
         $calidad = $recepcion->calidad;
         $embalaje='';
         $fecha=date('Y-m-d H:i:s');
@@ -306,6 +307,20 @@ class ControlCalidadController extends Controller
             return response()->json(['message' => 'No se encontró registro de calidad para esta recepción.'], 404);
         }
 
+        try{
+       Detalle::where('calidad_id', $calidad->id)
+            ->whereIn('tipo_item', [
+                'FIRMEZAS',
+                'DISTRIBUCIÓN DE FIRMEZA',
+                'DISTRIBUCIÓN DE CALIBRES',
+                'COLOR DE CUBRIMIENTO'
+            ])
+            ->delete();
+            Log::info("borrado");
+        }
+        catch (\Throwable $e) {
+            Log::error($e->getMessage());
+        }
         $firmpro1 = Http::post('https://api.greenexweb.cl/api/BuscarRecepcionCloud?filter[numero_recepcion][eq]='.$recepcion->numero_g_recepcion);
 
         $firmpro1 = $firmpro1->json();
@@ -1409,6 +1424,7 @@ public function previewPage(Recepcion $recepcion)
         $sizeDistribution = QualityChartsService::getSizeDistributionData($receptions);
         $averageFirmness = QualityChartsService::getPromedioFirmezasData($receptions);
         $firmnessDistribution = QualityChartsService::getDistribucionFirmezasData($receptions);
+        Log::info("fimeza ".$firmnessDistribution);
         $solubleSolids = QualityChartsService::getSolidosSolublesData($receptions);
         $coverageColor = QualityChartsService::getColorCubrimientoData($receptions);
 
