@@ -159,13 +159,21 @@ class ReportNotificationService
             Log::info('Reception notification: no WhatsApp numbers found', $context);
         } else {
             $message = $this->buildReceptionWhatsappBody($producer->name, $recepcion->numero_g_recepcion, $formattedDate, $publicUrl);
+            $documentLink = $this->buildDocumentLink($publicUrl);
+            $bodyParams = [
+                $recepcion->numero_g_recepcion
+                    ? 'Recepción #' . $recepcion->numero_g_recepcion
+                    : 'Informe de recepción',
+                $documentLink,
+            ];
             $this->sendWhatsappNotifications(
                 $phones,
                 [
                     'template' => config('process_notifications.whatsapp.templates.reception', 'recepcion'),
-                    'document_link' => $this->buildDocumentLink($publicUrl),
+                    'document_link' => $documentLink,
                     'filename' => $safeFilename,
                     'body' => $message,
+                    'body_params' => $bodyParams,
                 ],
                 $context
             );
