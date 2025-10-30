@@ -95,7 +95,7 @@ class ProcesoController extends Controller
 
         // Calculate totals for the chart
         $chartDataQuery = clone $query; // Clone the query
-         $query->orderBy('fecha', 'desc');
+         $query->orderBy('n_proceso', 'desc');
         $chartData = $chartDataQuery->selectRaw('especie, SUM(exp) as exportacion, SUM(comercial) as comercial, SUM(desecho) as desecho, SUM(merma) as merma')
             ->groupBy('especie')
             ->get();
