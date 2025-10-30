@@ -153,8 +153,8 @@ export default function Preview({ recepcionId, numero, htmlUrl, approveUrl, appr
               )}
             </div>
             <div className="flex items-center gap-2">
-              <a href={approved ? generateUrl : undefined} target="_blank" rel="noopener noreferrer">
-                <Button disabled={!approved || approving} variant="outline">
+              <a href={ generateUrl } target="_blank" rel="noopener noreferrer">
+                <Button variant="outline">
                   <FileText className="h-4 w-4 mr-2" /> {approving ? 'Generando...' : 'Ver informe'}
                 </Button>
               </a>
