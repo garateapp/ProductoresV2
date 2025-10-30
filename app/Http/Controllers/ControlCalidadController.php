@@ -1424,7 +1424,7 @@ public function previewPage(Recepcion $recepcion)
         $sizeDistribution = QualityChartsService::getSizeDistributionData($receptions);
         $averageFirmness = QualityChartsService::getPromedioFirmezasData($receptions);
         $firmnessDistribution = QualityChartsService::getDistribucionFirmezasData($receptions);
-        Log::info("fimeza ".$firmnessDistribution);
+
         $solubleSolids = QualityChartsService::getSolidosSolublesData($receptions);
         $coverageColor = QualityChartsService::getColorCubrimientoData($receptions);
 
