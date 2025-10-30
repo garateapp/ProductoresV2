@@ -19,6 +19,8 @@ class Contract extends Model
         'tarifa_premium',
         'comparativa',
         'descuento_fruta_comercial',
+        'descuento_hidrocooler',
+        'porcentaje_descuento_fruta_comercial',
     ];
 
     public function user(): BelongsTo

@@ -156,11 +156,13 @@ export default function ContractsIndex({ auth, contracts }) {
                                             <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Estado</th>
                                             <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Comisión</th>
                                             <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Flete a Huerto</th>
+                                            <th onClick={() => toggleSort('descuento_hidrocooler')} className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider cursor-pointer">Desc. Hidrocooler {sortBy==='descuento_hidrocooler' ? (sortOrder==='asc'?'':'') : ''}</th>
                                             <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Rebate</th>
                                             <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Bonificación</th>
                                             <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Tarifa Premium</th>
                                             <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Comparativa</th>
                                             <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Descuento Fruta Comercial</th>
+                                            <th onClick={() => toggleSort('porcentaje_descuento_fruta_comercial')} className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider cursor-pointer">Porcentaje Desc. Comercial {sortBy==='porcentaje_descuento_fruta_comercial' ? (sortOrder==='asc'?'':'') : ''}</th>
                                             <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Archivo de Contrato</th>
                                             <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Acciones</th>
                                         </tr>
@@ -175,11 +177,19 @@ export default function ContractsIndex({ auth, contracts }) {
                                                     <td className="px-6 py-4 whitespace-nowrap">{(() => { const st = getStatus(contract); return (<Badge className={st.color}>{st.label}</Badge>); })()}</td>
                                                     <td className="px-6 py-4 whitespace-nowrap">{contract.comision}</td>
                                                     <td className="px-6 py-4 whitespace-nowrap">{contract.flete_a_huerto}</td>
+                                                    <td className="px-6 py-4 whitespace-nowrap">{contract.descuento_hidrocooler ?? '-'}</td>
                                                     <td className="px-6 py-4 whitespace-nowrap">{contract.rebate ? 'SI' : 'NO'}</td>
                                                     <td className="px-6 py-4 whitespace-nowrap">{contract.bonificacion ? 'SI' : 'NO'}</td>
                                                     <td className="px-6 py-4 whitespace-nowrap">{contract.tarifa_premium ? 'SI' : 'NO'}</td>
                                                     <td className="px-6 py-4 whitespace-nowrap">{contract.comparativa}</td>
                                                     <td className="px-6 py-4 whitespace-nowrap">{contract.descuento_fruta_comercial ? 'SI' : 'NO'}</td>
+                                                    <td className="px-6 py-4 whitespace-nowrap">
+                                                        {contract.descuento_fruta_comercial &&
+                                                        contract.porcentaje_descuento_fruta_comercial !== null &&
+                                                        contract.porcentaje_descuento_fruta_comercial !== undefined
+                                                            ? `${contract.porcentaje_descuento_fruta_comercial}%`
+                                                            : '-'}
+                                                    </td>
                                                     <td className="px-6 py-4 whitespace-nowrap">
                                                         {contract.contract_file_path ? (
                                                             <a

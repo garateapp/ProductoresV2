@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useEffect } from 'react';
 import AuthenticatedLayout from '@/Layouts/AuthenticatedLayout';
 import { Head, useForm, Link } from '@inertiajs/react';
 import Select from 'react-select';
@@ -18,6 +18,9 @@ export default function Create({ auth, producers }) {
     tarifa_premium: false,
     comparativa: '',
     descuento_fruta_comercial: false,
+    aplica_descuento_hidrocooler: false,
+    descuento_hidrocooler: '',
+    porcentaje_descuento_fruta_comercial: '',
   });
 
   const producerOptions = (producers || [])
@@ -55,6 +58,18 @@ export default function Create({ auth, producers }) {
       ? 'border-red-500 focus:border-red-500 focus:ring-red-200'
       : 'border-gray-300 focus:border-indigo-300 focus:ring focus:ring-indigo-200',
   ].join(' ');
+
+  useEffect(() => {
+    if (!data.descuento_fruta_comercial) {
+      setData('porcentaje_descuento_fruta_comercial', '');
+    }
+  }, [data.descuento_fruta_comercial]);
+
+  useEffect(() => {
+    if (!data.aplica_descuento_hidrocooler) {
+      setData('descuento_hidrocooler', '');
+    }
+  }, [data.aplica_descuento_hidrocooler]);
 
   return (
     <AuthenticatedLayout user={auth.user} header={<h2 className="font-semibold text-xl text-gray-800 leading-tight">Crear Contrato</h2>}>
@@ -203,6 +218,54 @@ export default function Create({ auth, producers }) {
                   <Label htmlFor="descuento_fruta_comercial">Descuento Fruta Comercial</Label>
                   {errors.descuento_fruta_comercial && <div className="text-red-600 text-sm mt-1">{errors.descuento_fruta_comercial}</div>}
                 </div>
+
+                <div className="flex items-center gap-3">
+                  <Switch
+                    id="aplica_descuento_hidrocooler"
+                    checked={data.aplica_descuento_hidrocooler}
+                    onCheckedChange={(v) => setData('aplica_descuento_hidrocooler', !!v)}
+                  />
+                  <Label htmlFor="aplica_descuento_hidrocooler">Descuento por Hidrocooler</Label>
+                </div>
+                      {data.descuento_fruta_comercial && (
+                  <div>
+                    <Label htmlFor="porcentaje_descuento_fruta_comercial">Porcentaje Descuento Fruta Comercial (%)</Label>
+                    <input
+                      type="number"
+                      id="porcentaje_descuento_fruta_comercial"
+                      name="porcentaje_descuento_fruta_comercial"
+                      min="0"
+                      max="100"
+                      step="0.01"
+                      value={data.porcentaje_descuento_fruta_comercial}
+                      onChange={(e) => setData('porcentaje_descuento_fruta_comercial', e.target.value)}
+                      className={inputClass(!!errors.porcentaje_descuento_fruta_comercial)}
+                      aria-invalid={!!errors.porcentaje_descuento_fruta_comercial}
+                    />
+                    {errors.porcentaje_descuento_fruta_comercial && (
+                      <div className="text-red-600 text-sm mt-1">{errors.porcentaje_descuento_fruta_comercial}</div>
+                    )}
+                  </div>
+                )}
+
+                {data.aplica_descuento_hidrocooler && (
+                  <div>
+                    <Label htmlFor="descuento_hidrocooler">Monto Descuento Hidrocooler</Label>
+                    <input
+                      type="number"
+                      id="descuento_hidrocooler"
+                      name="descuento_hidrocooler"
+                      min="0"
+                      step="0.01"
+                      value={data.descuento_hidrocooler}
+                      onChange={(e) => setData('descuento_hidrocooler', e.target.value)}
+                      className={inputClass(!!errors.descuento_hidrocooler)}
+                      aria-invalid={!!errors.descuento_hidrocooler}
+                    />
+                    {errors.descuento_hidrocooler && <div className="text-red-600 text-sm mt-1">{errors.descuento_hidrocooler}</div>}
+                  </div>
+                )}
+
 
                 <div className="md:col-span-2 sticky bottom-0 bg-white/80 backdrop-blur border-t py-3 flex justify-between px-2 mt-2">
                   <Link href={route('contracts.index')} className="inline-flex items-center px-4 py-2 border rounded-md">Volver</Link>

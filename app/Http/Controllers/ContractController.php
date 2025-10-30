@@ -42,11 +42,23 @@ class ContractController extends Controller
             'tarifa_premium' => ['required', 'boolean'],
             'comparativa' => ['nullable', 'string', 'max:1000'],
             'descuento_fruta_comercial' => ['required', 'boolean'],
+            'descuento_hidrocooler' => ['nullable', 'numeric'],
+            'porcentaje_descuento_fruta_comercial' => ['nullable', 'numeric', 'between:0,100', 'required_if:descuento_fruta_comercial,true'],
         ]);
 
         if ($request->hasFile('contract_file')) {
             $filePath = $request->file('contract_file')->store('contracts', 'public');
             $validatedData['contract_file_path'] = $filePath;
+        }
+
+        $validatedData['descuento_hidrocooler'] = $request->filled('descuento_hidrocooler')
+            ? (float) $request->input('descuento_hidrocooler')
+            : null;
+
+        if ($validatedData['descuento_fruta_comercial']) {
+            $validatedData['porcentaje_descuento_fruta_comercial'] = (float) $request->input('porcentaje_descuento_fruta_comercial');
+        } else {
+            $validatedData['porcentaje_descuento_fruta_comercial'] = null;
         }
 
         Contract::create($validatedData);
@@ -77,6 +89,8 @@ class ContractController extends Controller
             'tarifa_premium' => ['required', 'boolean'],
             'comparativa' => ['nullable', 'string', 'max:1000'],
             'descuento_fruta_comercial' => ['required', 'boolean'],
+            'descuento_hidrocooler' => ['nullable', 'numeric'],
+            'porcentaje_descuento_fruta_comercial' => ['nullable', 'numeric', 'between:0,100', 'required_if:descuento_fruta_comercial,true'],
         ]);
 
         if ($request->hasFile('contract_file')) {
@@ -86,6 +100,17 @@ class ContractController extends Controller
 
         // Enforce non-editable producer: keep original user_id
         $validatedData['user_id'] = $contract->user_id;
+
+        $validatedData['descuento_hidrocooler'] = $request->filled('descuento_hidrocooler')
+            ? (float) $request->input('descuento_hidrocooler')
+            : null;
+
+        if ($validatedData['descuento_fruta_comercial']) {
+            $validatedData['porcentaje_descuento_fruta_comercial'] = (float) $request->input('porcentaje_descuento_fruta_comercial');
+        } else {
+            $validatedData['porcentaje_descuento_fruta_comercial'] = null;
+        }
+
         $contract->update($validatedData);
 
         return redirect()->route('contracts.index')->with('success', 'Contrato actualizado exitosamente.');

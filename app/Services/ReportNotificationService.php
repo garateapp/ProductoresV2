@@ -59,7 +59,7 @@ class ReportNotificationService
             'n_proceso' => $proceso->n_proceso,
             'report_path' => $storedPath,
         ];
-        Log::warning("contexto",$context);
+
         $phones = $this->gatherPhones($producer);
         $emailRecipient = $this->gatherEmail($producer);
         [$phones, $emailRecipient] = $this->applyLocalOverrides($phones, $emailRecipient, (bool) $producer->emnotification, $context);
@@ -118,7 +118,7 @@ class ReportNotificationService
         else{
             $producer = $this->resolveProducerByIdprod($recepcion->id_emisor);
         }
-
+        Log::info("productor",$producer);
 
         if (! $producer) {
             Log::warning('Reception notification skipped: producer not found for id_emisor', [
