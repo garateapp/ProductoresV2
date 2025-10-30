@@ -28,8 +28,8 @@ class ReportNotificationService
 
             return;
         }
-         if($recepcion->n_emisor!=$reception->n_productor_rotulado){
-           $producer = $this->resolveProducerByIdprod($proceso->id_productor_rotulado);
+         if($proceso->agricola!=$proceso->LLP_recepcion){
+           $producer = $this->resolveProducerByName($proceso->LLP_recepcion);
         }
         else{
            $producer = $this->resolveProducerByCsg($proceso->c_productor);
@@ -215,6 +215,14 @@ class ReportNotificationService
         }
 
         return User::where('idprod', $idprod)->first();
+    }
+      private function resolveProducerByNAme(?string $nombre): ?User
+    {
+        if (empty($nombre)) {
+            return null;
+        }
+
+        return User::where('name', $nombre)->first();
     }
 
     private function resolvePublicUrlFromDisk(string $storedPath): ?string

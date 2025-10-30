@@ -469,6 +469,7 @@ export default function Index({ procesos, especies, variedades = [], filters, is
                 <TableHead>N° Proceso</TableHead>
                 <TableHead>Especie</TableHead>
                 <TableHead>Variedad</TableHead>
+                <TableHead>LPP Recepción</TableHead>
                 <TableHead>Fecha</TableHead>
                 <TableHead>Kg Procesados</TableHead>
                 <TableHead>Exportación</TableHead>
@@ -485,6 +486,7 @@ export default function Index({ procesos, especies, variedades = [], filters, is
                   <TableCell>{proceso.n_proceso}</TableCell>
                   <TableCell>{proceso.especie}</TableCell>
                   <TableCell>{proceso.variedad}</TableCell>
+                  <TableCell>{proceso.LPP_recepcion ?? '-'}</TableCell>
                   <TableCell>{formatProcessDate(proceso.fecha)}</TableCell>
                   <TableCell>{(proceso.kilos_netos ?? 0).toLocaleString('es-CL')}</TableCell>
                   <TableCell>{calculatePercentage(proceso.exp ?? 0, proceso.kilos_netos ?? 0)}</TableCell>

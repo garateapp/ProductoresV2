@@ -231,6 +231,7 @@ class ProcesoController extends Controller
                 'numero_proceso AS n_proceso',
                 'ppc.n_especie_proceso AS especie',
                 'ppc.n_variedad_proceso AS variedad',
+                'ppc.LPP_recepcion',
                 DB::raw("CAST(ppc.fecha_proceso AS DATE) AS fecha"), // Asegurar que es solo fecha
                 'id_empresa',
                 DB::raw("SUM(CASE WHEN t_categoria = 'Exportacion' THEN ppc.peso_neto ELSE 0 END) AS exp"),
@@ -248,7 +249,8 @@ class ProcesoController extends Controller
                 'ppc.n_especie_proceso',
                 'ppc.n_variedad_proceso',
                 'ppc.fecha_proceso',
-                'id_empresa'
+                'id_empresa',
+                'ppc.LPP_recepcion',
             )
             ->get();
 
@@ -275,6 +277,7 @@ class ProcesoController extends Controller
                 'desecho' => $proceso->desecho,
                 'kilos_netos' => $proceso->kilos_netos,
                 'c_productor' => $proceso->c_productor,
+                'LPP_recepcion' => $proceso->LPP_recepcion,
                 // Puedes añadir 'merma' aquí si quieres que siempre sea 0 o calcularla.
                 // 'merma' => 0,
             ];

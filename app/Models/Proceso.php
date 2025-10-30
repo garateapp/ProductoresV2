@@ -26,6 +26,7 @@ class Proceso extends Model
         'merma',
         'temporada',
         'c_productor',
+        'LPP_recepcion',
     ];
 
     public function recepcion()
