@@ -1841,6 +1841,7 @@ public function resendReport(Recepcion $recepcion, ReportNotificationService $no
                 'recepcion_id' => $recepcion->id,
                 'numero_g_recepcion' => $recepcion->numero_g_recepcion,
                 'error' => $e->getMessage(),
+                 'stacktrace' => $e->getTraceAsString(),
             ]);
 
             return response()->json([
