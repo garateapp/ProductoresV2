@@ -19,6 +19,7 @@ class ReportNotificationService
 {
     public function notifyProcessReport(Proceso $proceso, string $storedPath, string $originalFilename): void
     {
+
         if (empty($proceso->c_productor)) {
             Log::warning('Report notification skipped: process without c_productor', [
                 'proceso_id' => $proceso->id,
@@ -103,7 +104,7 @@ class ReportNotificationService
 
     public function notifyReceptionReport(Recepcion $recepcion, string $publicUrl, ?string $absolutePath = null, ?string $originalFilename = null): void
     {
-        Log::debug("notifyReception report:", $recepcion->id." - ".$recepcion->numero_g_recepcion);
+
         if (empty($recepcion->id_emisor)) {
             Log::warning('Reception notification skipped: missing id_emisor', [
                 'recepcion_id' => $recepcion->id,
@@ -112,13 +113,17 @@ class ReportNotificationService
 
             return;
         }
-        if($recepcion->n_emisor!=$reception->n_productor_rotulado){
+        if($recepcion->n_emisor!=$recepcion->n_productor_rotulado){
+
+
             $producer = $this->resolveProducerByIdprod($recepcion->id_productor_rotulado);
+
         }
         else{
             $producer = $this->resolveProducerByIdprod($recepcion->id_emisor);
+
         }
-        Log::info("productor",$producer);
+
 
         if (! $producer) {
             Log::warning('Reception notification skipped: producer not found for id_emisor', [
