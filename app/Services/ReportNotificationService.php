@@ -140,7 +140,7 @@ class ReportNotificationService
         );
         $formattedDate = $this->formatDate($recepcion->fecha_g_recepcion);
         $reportDiskPath = $this->validateAbsolutePath($absolutePath);
-        Log::info("productor",$producer);
+
         $context = [
             'channel' => 'recepcion',
             'producer_id' => $producer->id,
