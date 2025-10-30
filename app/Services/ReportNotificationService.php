@@ -163,7 +163,7 @@ class ReportNotificationService
                 $phones,
                 [
                     'template' => config('process_notifications.whatsapp.templates.reception', 'recepcion'),
-                    'document_link' => "storage/"+$publicUrl,
+                    'document_link' => $this->buildDocumentLink($publicUrl),
                     'filename' => $safeFilename,
                     'body' => $message,
                 ],
@@ -268,6 +268,21 @@ class ReportNotificationService
         }
 
         return $absolutePath;
+    }
+
+    private function buildDocumentLink(string $publicUrl): string
+    {
+        if (filter_var($publicUrl, FILTER_VALIDATE_URL)) {
+            return $publicUrl;
+        }
+
+        $trimmed = ltrim($publicUrl, '/');
+
+        if (str_starts_with($trimmed, 'storage/')) {
+            return asset($trimmed);
+        }
+
+        return asset('storage/' . $trimmed);
     }
 
     private function sanitizeFilename(string $filename): string
