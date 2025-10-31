@@ -1396,7 +1396,7 @@ public function previewPage(Recepcion $recepcion)
         if ($calidad) {
             $seteo_termo = $calidad->seteo_termo ?? 'N/A';
             $temperatura_pulpa_detalle = $calidad->detalles()->where('tipo_item', 'SOLIDOS SOLUBLES')->first();
-            dd($temperatura_pulpa_detalle);
+            //dd($temperatura_pulpa_detalle);
             if ($temperatura_pulpa_detalle) {
                 $temperatura_pulpa = $temperatura_pulpa_detalle->temperatura;
             }
