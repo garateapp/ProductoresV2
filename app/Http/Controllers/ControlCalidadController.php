@@ -1407,7 +1407,7 @@ public function previewPage(Recepcion $recepcion)
                 ->where('tipo_item', 'DEFECTOS DE CONDICION')
                 ->sum('porcentaje_muestra');
             $danos_plaga_sum = $calidad->detalles()
-                ->where('tipo_item', 'DAÑOS DE PLAGA')
+                ->where('tipo_item', 'DAÑO DE PLAGA')
                 ->sum('porcentaje_muestra');
 
              $defectos_calidad_precalibre = $calidad->detalles()
