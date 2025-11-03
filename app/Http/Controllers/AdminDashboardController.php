@@ -16,9 +16,33 @@ class AdminDashboardController extends Controller
     public function index()
     {
         $services = Service::withCount('users')->get(['id','name','owner_id']);
-        $producers = User::role('Productor')
+        $producerRecords = User::role('Productor')
             ->where('is_active', true)
-            ->get(['id','name','idprod','csg']);
+            ->get(['id','name','rut','idprod','csg']);
+
+        $producers = $producerRecords
+            ->groupBy(fn ($producer) => $producer->rut ?: 'id:'.$producer->id)
+            ->map(function ($group) {
+                /** @var \Illuminate\Support\Collection<int, \App\Models\User> $group */
+                $primary = $group->firstWhere('idprod') ?? $group->first();
+
+                $names = $group->pluck('name')->filter()->unique()->values();
+                $idprods = $group->pluck('idprod')->filter()->unique()->values();
+                $csgs = $group->pluck('csg')->filter()->unique()->values();
+
+                return [
+                    'key' => $primary->rut ?: 'id:'.$primary->id,
+                    'rut' => $primary->rut,
+                    'name' => $names->first() ?? $primary->name,
+                    'names' => $names,
+                    'primary_id' => $primary->id,
+                    'producer_ids' => $group->pluck('id')->values(),
+                    'idprods' => $idprods,
+                    'csgs' => $csgs,
+                    'count' => $group->count(),
+                ];
+            })
+            ->values();
 
         $recepcionesTotal = Recepcion::count();
         $procesosTotal = Proceso::count();
@@ -73,7 +97,7 @@ class AdminDashboardController extends Controller
             'contracts' => $contracts,
             'stats' => [
                 'services' => $services->count(),
-                'producers' => $producers->count(),
+                'producers' => $producerRecords->count(),
                 'recepciones' => $recepcionesTotal,
                 'procesos' => $procesosTotal,
                 'certifications' => ProducerCertification::count(),

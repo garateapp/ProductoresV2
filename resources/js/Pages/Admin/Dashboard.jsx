@@ -13,7 +13,22 @@ export default function AdminDashboard({ auth, services = [], producers = [], re
   const filteredProducers = useMemo(() => {
     const term = producerFilter.trim().toLowerCase();
     if (!term) return producers;
-    return producers.filter(p => `${p.name} ${p.idprod ?? ''} ${p.csg ?? ''}`.toLowerCase().includes(term));
+    return producers.filter((p) => {
+      const names = Array.isArray(p.names) ? p.names : [];
+      const idprods = Array.isArray(p.idprods) ? p.idprods : [];
+      const csgs = Array.isArray(p.csgs) ? p.csgs : [];
+      const haystack = [
+        p.name,
+        p.rut,
+        ...names,
+        ...idprods,
+        ...csgs,
+      ]
+        .filter(Boolean)
+        .map((value) => String(value).toLowerCase())
+        .join(' ');
+      return haystack.includes(term);
+    });
   }, [producerFilter, producers]);
   const filteredRecep = useMemo(() => {
     const term = recepFilter.trim().toLowerCase();
@@ -275,11 +290,23 @@ export default function AdminDashboard({ auth, services = [], producers = [], re
               {filteredProducers.length ? (
                 <div className="max-h-[250px] overflow-y-auto rounded border">
                   <ul className="divide-y">
-                    {filteredProducers.map(p => (
-                      <li key={p.id} className="py-2 px-2 flex items-center justify-between">
-                        <span>{p.name} <span className="text-xs text-gray-500">({p.idprod || p.csg || '—'})</span></span>
+                    {filteredProducers.map((p) => (
+                      <li key={p.key ?? p.primary_id} className="py-2 px-2 flex items-center justify-between">
+                        <div className="mr-2">
+                          <div className="font-medium text-sm text-gray-800">{p.name}</div>
+                          <div className="text-xs text-gray-500">
+                            {p.rut || 'Sin RUT'}{p.count > 1 ? ` · ${p.count} registros` : ''}
+                          </div>
+                          {(p.idprods?.length || p.csgs?.length) && (
+                            <div className="text-[11px] text-gray-500">
+                              {p.idprods?.length ? `ID Prod: ${p.idprods.join(', ')}` : ''}
+                              {p.idprods?.length && p.csgs?.length ? ' · ' : ''}
+                              {p.csgs?.length ? `CSG: ${p.csgs.join(', ')}` : ''}
+                            </div>
+                          )}
+                        </div>
                         <Link
-                          href={route('producers.dashboard', p.id)}
+                          href={route('producers.dashboard', p.primary_id)}
                           aria-label={`Ver dashboard del productor ${p.name}`}
                           className="inline-flex h-8 w-8 items-center justify-center rounded-full border border-indigo-100 bg-indigo-50 text-indigo-600 transition hover:bg-indigo-100"
                         >

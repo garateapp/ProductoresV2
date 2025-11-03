@@ -283,15 +283,54 @@ class ProducerController extends Controller
         $producer->load(['services']);
         $code = $producer->idprod;
         $name = $producer->name;
+        $rut = $producer->rut;
+
+        $relatedCodes = collect();
+
+        if (! empty($rut)) {
+            $relatedCodes = User::role('Productor')
+                ->where('rut', $rut)
+                ->pluck('idprod')
+                ->filter()
+                ->unique();
+        }
+
+        if (! empty($code)) {
+            $relatedCodes->push($code);
+        }
+
+        $relatedCodes = $relatedCodes->filter()->unique()->values();
+        $hasProcessFilter = $relatedCodes->isNotEmpty() || ! empty($name);
+
+        $applyProcessFilters = function ($query) use ($relatedCodes, $name) {
+            $query->where(function ($inner) use ($relatedCodes, $name) {
+                if ($relatedCodes->isNotEmpty()) {
+                    $inner->whereIn('c_productor', $relatedCodes);
+                }
+
+                if (! empty($name)) {
+                    if ($relatedCodes->isNotEmpty()) {
+                        $inner->orWhere('agricola', $name);
+                    } else {
+                        $inner->where('agricola', $name);
+                    }
+                }
+            });
+        };
 
         $recepciones = \App\Models\Recepcion::query()
-            ->when($code, fn($q) => $q->where('id_emisor', $code))
+            ->when($relatedCodes->isNotEmpty(), fn ($q) => $q->whereIn('id_emisor', $relatedCodes))
+            ->when($relatedCodes->isEmpty() && ! empty($code), fn ($q) => $q->where('id_emisor', $code))
             ->orderByDesc('fecha_g_recepcion')
             ->limit(50)
             ->get(['id','numero_g_recepcion','fecha_g_recepcion','n_especie','n_variedad','cantidad','peso_neto','informe']);
 
-        $procesos = \App\Models\Proceso::query()
-            ->when($name, fn($q) => $q->where('agricola', $name))
+        $procesosQuery = \App\Models\Proceso::query();
+        if ($hasProcessFilter) {
+            $applyProcessFilters($procesosQuery);
+        }
+
+        $procesos = $procesosQuery
             ->orderByDesc('fecha')
             ->limit(50)
             ->get(['id','n_proceso','fecha','especie','variedad','kilos_netos','informe','exp','comercial','merma']);
@@ -316,16 +355,16 @@ class ProducerController extends Controller
         $recepWeeklyBySpecies = ['weeks' => [], 'series' => []];
         $procCategoryTotals = null;
 
-        if ($code) {
+        if ($relatedCodes->isNotEmpty()) {
             $recepBySpecies = \App\Models\Recepcion::selectRaw('n_especie as especie, SUM(peso_neto) as kilos')
-                ->where('id_emisor', $code)
+                ->whereIn('id_emisor', $relatedCodes)
                 ->groupBy('n_especie')
                 ->orderByDesc('kilos')
                 ->limit(10)
                 ->get();
 
             $recepWeeklyRaw = \App\Models\Recepcion::selectRaw("DATE_FORMAT(fecha_g_recepcion, '%x-%v') as semana, n_especie as especie, SUM(peso_neto) as kilos, MIN(fecha_g_recepcion) as min_fecha")
-                ->where('id_emisor', $code)
+                ->whereIn('id_emisor', $relatedCodes)
                 ->groupBy(DB::raw("DATE_FORMAT(fecha_g_recepcion, '%x-%v')"), 'n_especie')
                 ->orderBy('min_fecha')
                 ->limit(200)
@@ -351,18 +390,18 @@ class ProducerController extends Controller
             ];
         }
 
-        if ($code || $name) {
-            $procStackBySpecies = \App\Models\Proceso::selectRaw('especie, SUM(exp) as exp, SUM(comercial) as comercial, SUM(merma) as merma, SUM(desecho) as desecho')
-                ->when($code, fn ($query) => $query->where('c_productor', $code))
-                ->when($name, fn ($query) => $code ? $query->orWhere('agricola', $name) : $query->where('agricola', $name))
+        if ($hasProcessFilter) {
+            $procStackQuery = \App\Models\Proceso::selectRaw('especie, SUM(exp) as exp, SUM(comercial) as comercial, SUM(merma) as merma, SUM(desecho) as desecho');
+            $applyProcessFilters($procStackQuery);
+            $procStackBySpecies = $procStackQuery
                 ->groupBy('especie')
                 ->orderByDesc(DB::raw('SUM(exp)+SUM(comercial)+SUM(merma)+SUM(desecho)'))
                 ->limit(10)
                 ->get();
 
-            $procCategoryTotals = \App\Models\Proceso::selectRaw('SUM(exp) as exp, SUM(comercial) as comercial, SUM(merma) as merma, SUM(desecho) as desecho')
-                ->when($code, fn ($query) => $query->where('c_productor', $code))
-                ->when($name, fn ($query) => $code ? $query->orWhere('agricola', $name) : $query->where('agricola', $name))
+            $procTotalsQuery = \App\Models\Proceso::selectRaw('SUM(exp) as exp, SUM(comercial) as comercial, SUM(merma) as merma, SUM(desecho) as desecho');
+            $applyProcessFilters($procTotalsQuery);
+            $procCategoryTotals = $procTotalsQuery
                 ->first();
         }
 
@@ -388,6 +427,5 @@ class ProducerController extends Controller
         ]);
     }
 }
-
 
 
