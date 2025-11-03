@@ -324,13 +324,6 @@ class ProducerController extends Controller
                 ->limit(10)
                 ->get();
 
-            $procStackBySpecies = \App\Models\Proceso::selectRaw('especie, SUM(exp) as exp, SUM(comercial) as comercial, SUM(merma) as merma, SUM(desecho) as desecho')
-                ->where('c_productor', $code)
-                ->groupBy('especie')
-                ->orderByDesc(DB::raw('SUM(exp)+SUM(comercial)+SUM(merma)+SUM(desecho)'))
-                ->limit(10)
-                ->get();
-
             $recepWeeklyRaw = \App\Models\Recepcion::selectRaw("DATE_FORMAT(fecha_g_recepcion, '%x-%v') as semana, n_especie as especie, SUM(peso_neto) as kilos, MIN(fecha_g_recepcion) as min_fecha")
                 ->where('id_emisor', $code)
                 ->groupBy(DB::raw("DATE_FORMAT(fecha_g_recepcion, '%x-%v')"), 'n_especie')
@@ -356,9 +349,20 @@ class ProducerController extends Controller
                 'weeks' => $weeks,
                 'series' => $series,
             ];
+        }
+
+        if ($code || $name) {
+            $procStackBySpecies = \App\Models\Proceso::selectRaw('especie, SUM(exp) as exp, SUM(comercial) as comercial, SUM(merma) as merma, SUM(desecho) as desecho')
+                ->when($code, fn ($query) => $query->where('c_productor', $code))
+                ->when($name, fn ($query) => $code ? $query->orWhere('agricola', $name) : $query->where('agricola', $name))
+                ->groupBy('especie')
+                ->orderByDesc(DB::raw('SUM(exp)+SUM(comercial)+SUM(merma)+SUM(desecho)'))
+                ->limit(10)
+                ->get();
 
             $procCategoryTotals = \App\Models\Proceso::selectRaw('SUM(exp) as exp, SUM(comercial) as comercial, SUM(merma) as merma, SUM(desecho) as desecho')
-                ->where('c_productor', $code)
+                ->when($code, fn ($query) => $query->where('c_productor', $code))
+                ->when($name, fn ($query) => $code ? $query->orWhere('agricola', $name) : $query->where('agricola', $name))
                 ->first();
         }
 
@@ -384,8 +388,6 @@ class ProducerController extends Controller
         ]);
     }
 }
-
-
 
 
 
