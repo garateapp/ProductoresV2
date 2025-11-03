@@ -5964,26 +5964,23 @@
 
     </div>
 
-      @if(in_array($recepcion->id_emisor,[7155,
-7023,
-8557,
-8558,
-8559,
-8563,
-8564,
-8657,
-8561,
-8666,
-8913,
-8881,
-8895,
-8897,
-8898,
-8899,
-8900,
-8901,
-8910,
-8911]))
+      @if(in_array($recepcion->id_emisor,[
+                                            8557,
+                                            8558,
+                                            8559,
+                                            8563,
+                                            8564,
+                                            8657,
+                                            8561,
+                                            8666,
+                                            8881,
+                                            8895,
+                                            8897,
+                                            8898,
+                                            8899,
+                                            8900,
+                                            8901
+                                            ]))
             <div class="page-break"></div>
 
                                     <div style="text-align: center; font-size: 12px; padding-left: 3px; padding-right: 3px;">
