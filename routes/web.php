@@ -76,6 +76,7 @@ Route::middleware('auth')->group(function () {
     Route::delete('control-calidad/detalles/{detalle}', [App\Http\Controllers\ControlCalidadController::class, 'destroyDetalle'])->name('control-calidad.destroy-detalle');
     Route::get('control-calidad/{recepcion}/detalles', [App\Http\Controllers\ControlCalidadController::class, 'getDetalles'])->name('control-calidad.get-detalles');
     Route::get('control-calidad/{recepcion}/calidad', [App\Http\Controllers\ControlCalidadController::class, 'getCalidad'])->name('control-calidad.get-calidad');
+    Route::get('control-calidad/{recepcion}/validate-kilos', [App\Http\Controllers\ControlCalidadController::class, 'validateKilos'])->name('control-calidad.validate-kilos');
     Route::post('control-calidad/{recepcion}/cargar-firmpro', [App\Http\Controllers\ControlCalidadController::class, 'cargarFirmpro'])->name('control-calidad.cargar-firmpro');
     Route::get('control-calidad/{recepcion}/report', [App\Http\Controllers\ControlCalidadController::class, 'generateReport'])->name('control-calidad.generate-report');
     // React preview page with shadcn switch

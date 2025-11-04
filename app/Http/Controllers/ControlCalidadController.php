@@ -18,6 +18,7 @@ use App\Services\ReportNotificationService;
 use Carbon\Carbon;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Storage;
@@ -294,6 +295,36 @@ class ControlCalidadController extends Controller
         $calidad = Calidad::with('photos.photoType')->find($recepcion->calidad->id);
 
         return response()->json($calidad);
+    }
+
+    public function validateKilos(Recepcion $recepcion)
+    {
+        try {
+            $remote = DB::connection('sqlsrv')
+                ->table('V_PKG_Recepcion_FG')
+                ->selectRaw('SUM(COALESCE(peso_neto, 0)) as total_peso_neto')
+                ->where('numero_g_recepcion', $recepcion->numero_g_recepcion)
+                ->groupBy('numero_g_recepcion')
+                ->first();
+
+            $localKilos = (int) ($recepcion->peso_neto ?? 0);
+            $sourceKilos = $remote ? (int) ($remote->total_peso_neto ?? 0) : null;
+
+            return response()->json([
+                'found' => (bool) $remote,
+                'needs_sync' => $remote ? $sourceKilos !== $localKilos : false,
+                'source_kilos' => $sourceKilos,
+                'local_kilos' => $localKilos,
+            ]);
+        } catch (\Throwable $e) {
+            Log::error('Error validating reception kilos', [
+                'recepcion_id' => $recepcion->id,
+                'numero_g_recepcion' => $recepcion->numero_g_recepcion,
+                'error' => $e->getMessage(),
+            ]);
+
+            return response()->json(['error' => 'validation_failed'], 500);
+        }
     }
 
     public function cargarFirmpro(Recepcion $recepcion)

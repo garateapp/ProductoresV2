@@ -19,6 +19,7 @@ import { Switch } from '@/Components/ui/switch';
 import { Label } from '@/Components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/Components/ui/select';
 import AuthenticatedLayout from '@/Layouts/AuthenticatedLayout';
+import { Toaster, toast } from 'sonner';
 
 const Paginator = ({ links }) => {
   if (!links || links.length <= 1) {
@@ -137,6 +138,14 @@ export default function Index({ recepciones, especies, variedades = [], filters,
   const [indiceMadurezAgregados, setIndiceMadurezAgregados] = useState([]);
   const [hasFirmproDetails, setHasFirmproDetails] = useState(false);
   const [loadingFirmproId, setLoadingFirmproId] = useState(null);
+  const formatKg = (value) => `${Number(value ?? 0).toLocaleString('es-CL')} kg`;
+  const [kilosMismatch, setKilosMismatch] = useState(null);
+
+  const dismissKilosWarning = useCallback(() => setKilosMismatch(null), []);
+  const showKilosMismatchWarning = useCallback(
+    (local, source) => setKilosMismatch({ local, source }),
+    []
+  );
 
   const fetchCalidadData = async (recepcion) => {
     try {
@@ -165,7 +174,41 @@ export default function Index({ recepciones, especies, variedades = [], filters,
     }
   };
 
-  const handleOpenModal = (recepcion) => {
+  const revalidateReceptionKilos = useCallback(async (recepcion) => {
+    if (!recepcion) return true;
+    try {
+      const response = await fetch(route('control-calidad.validate-kilos', recepcion.id), {
+        headers: {
+          'Accept': 'application/json',
+        },
+      });
+
+      if (!response.ok) {
+        throw new Error('Validation request failed');
+      }
+
+      const data = await response.json();
+
+      if (data?.needs_sync) {
+        showKilosMismatchWarning(data.local_kilos, data.source_kilos);
+        return false;
+      } else {
+        dismissKilosWarning();
+        return true;
+      }
+    } catch (error) {
+      console.error('Error validating reception kilos', error);
+      dismissKilosWarning();
+      toast.error('No se pudo validar los kilos con el sistema origen. Intenta nuevamente.');
+      return false;
+    }
+  }, [dismissKilosWarning, showKilosMismatchWarning]);
+
+  const handleOpenModal = async (recepcion) => {
+    const isValid = await revalidateReceptionKilos(recepcion);
+    if (!isValid) {
+      return;
+    }
     setSelectedRecepcion(recepcion);
     setActiveTab('condiciones');
     resetCalidad();
@@ -178,6 +221,15 @@ export default function Index({ recepciones, especies, variedades = [], filters,
     setDesordenFisiologicoAgregados([]);
     fetchCalidadData(recepcion);
     setIsModalOpen(true);
+  };
+
+  const handlePreviewReport = async (recepcion) => {
+    const isValid = await revalidateReceptionKilos(recepcion);
+    if (!isValid) {
+      return;
+    }
+    const url = route('control-calidad.preview-report', recepcion.id);
+    window.open(url, '_blank', 'noopener,noreferrer');
   };
 
   const handleCargarFirmpro = async (recepcion) => {
@@ -275,7 +327,7 @@ export default function Index({ recepciones, especies, variedades = [], filters,
         console.log('submitPhoto finally block reached. processingPhoto set to false.');
         }
       };
-    
+
       const handleDeleteDetalle = async (detalleId) => {
         if (confirm('¿Estás seguro de que quieres eliminar este detalle?')) {
             try {
@@ -287,9 +339,9 @@ export default function Index({ recepciones, especies, variedades = [], filters,
                         'Accept': 'application/json',
                     },
                 });
-    
+
                 const data = await response.json();
-    
+
                 if (response.ok) {
                     console.log('handleDeleteDetalle fetch success. Response data:', data);
                     fetchDetalles();
@@ -308,8 +360,8 @@ export default function Index({ recepciones, especies, variedades = [], filters,
             }
         }
       };
-    
-    
+
+
       const handleDeletePhoto = async (photoId) => {
     if (confirm('¿Estás seguro de que quieres eliminar esta foto?')) {
         try {
@@ -478,6 +530,21 @@ export default function Index({ recepciones, especies, variedades = [], filters,
 
   return (
     <div className="container mx-auto py-10">
+      <Toaster richColors position="top-right" />
+      {kilosMismatch && (
+        <div className="fixed inset-0 z-[1200] flex items-center justify-center bg-black/50 px-4">
+          <div className="w-full max-w-md rounded-2xl border border-slate-200 bg-white p-6 text-center shadow-2xl">
+            <h3 className="text-lg font-semibold text-slate-800 mb-2">Sincronizaci&oacute;n requerida</h3>
+            <p className="text-sm text-slate-600">
+              Los kilos importados ({formatKg(kilosMismatch.local)}) no coinciden con FX ({formatKg(kilosMismatch.source)}).
+            </p>
+            <p className="text-sm text-slate-600 mt-2">Sincroniza la recepci&oacute;n antes de continuar con la evaluaci&oacute;n.</p>
+            <div className="mt-5 flex justify-center">
+              <Button onClick={dismissKilosWarning}>Entendido</Button>
+            </div>
+          </div>
+        </div>
+      )}
       <Card>
         <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
           <CardTitle className="text-2xl font-bold">Control de Calidad</CardTitle>
@@ -601,16 +668,14 @@ export default function Index({ recepciones, especies, variedades = [], filters,
                       </Button>
 
                       {/* Previsualizar (vista HTML) */}
-                      <a
-                        href={route('control-calidad.preview-report', recepcion.id)}
-                        target="_blank"
-                        rel="noopener noreferrer"
+                      <Button
+                        variant="ghost"
+                        size="icon"
                         title="Previsualizar"
+                        onClick={() => handlePreviewReport(recepcion)}
                       >
-                        <Button variant="ghost" size="icon">
-                          <Eye className="h-4 w-4" />
-                        </Button>
-                      </a>
+                        <Eye className="h-4 w-4" />
+                      </Button>
 
                       {/* Ver Informe: habilitado solo si está aprobado (informe) */}
                       {recepcion.informe ? (
