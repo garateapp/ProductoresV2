@@ -29,7 +29,12 @@ export default function MassCommunicationsCreate({ services }) {
         subject: '',
         body: '',
         attachment: null,
+        manual_recipients: '',
     });
+
+    const hasRecipientsTarget =
+        (data.service_id && data.service_id !== '') ||
+        (data.manual_recipients && data.manual_recipients.trim().length > 0);
 
     const getMissingLabel = (item) => {
         if (item?.name) {
@@ -187,13 +192,14 @@ export default function MassCommunicationsCreate({ services }) {
                                 <div>
                                     <Label htmlFor="service_id">Servicio</Label>
                                     <Select
-                                        value={data.service_id}
-                                        onValueChange={(value) => setData('service_id', value)}
+                                        value={data.service_id !== '' ? data.service_id : '__none'}
+                                        onValueChange={(value) => setData('service_id', value === '__none' ? '' : value)}
                                     >
                                         <SelectTrigger id="service_id" className="mt-1">
                                             <SelectValue placeholder="Selecciona un servicio" />
                                         </SelectTrigger>
                                         <SelectContent>
+                                            <SelectItem value="__none">Sin servicio</SelectItem>
                                             {services.map((service) => (
                                                 <SelectItem key={service.id} value={String(service.id)}>
                                                     {service.name}
@@ -203,6 +209,24 @@ export default function MassCommunicationsCreate({ services }) {
                                     </Select>
                                     {errors.service_id && (
                                         <p className="mt-1 text-sm text-red-600">{errors.service_id}</p>
+                                    )}
+                                </div>
+
+                                <div>
+                                    <Label htmlFor="manual_recipients">Correos específicos (opcional)</Label>
+                                    <Textarea
+                                        id="manual_recipients"
+                                        className="mt-1 min-h-[120px]"
+                                        placeholder="Ingresa correos separados por comas, punto y coma o saltos de línea"
+                                        value={data.manual_recipients}
+                                        onChange={(event) => setData('manual_recipients', event.target.value)}
+                                    />
+                                    <p className="mt-1 text-xs text-gray-500">
+                                        Usa este campo para enviar el comunicado directamente a una lista de correos sin asociarlo a un
+                                        servicio.
+                                    </p>
+                                    {errors.manual_recipients && (
+                                        <p className="mt-1 text-sm text-red-600">{errors.manual_recipients}</p>
                                     )}
                                 </div>
 
@@ -252,7 +276,7 @@ export default function MassCommunicationsCreate({ services }) {
                                 <div className="flex items-center justify-end space-x-3">
                                     <Button
                                         type="submit"
-                                        disabled={processing || !data.service_id || !data.subject || !data.body}
+                                        disabled={processing || !hasRecipientsTarget || !data.subject || !data.body}
                                     >
                                         {processing ? 'Enviando…' : 'Enviar comunicado'}
                                     </Button>

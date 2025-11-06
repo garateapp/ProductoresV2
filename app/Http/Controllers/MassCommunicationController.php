@@ -31,19 +31,37 @@ class MassCommunicationController extends Controller
         $this->ensureUserCanSend();
 
         $validated = $request->validate([
-            'service_id' => ['required', 'exists:services,id'],
+            'service_id' => ['nullable', 'required_without:manual_recipients', 'exists:services,id'],
             'subject' => ['required', 'string', 'max:255'],
             'body' => ['required', 'string'],
             'attachment' => ['nullable', 'file', 'max:10240'], // 10 MB
+            'manual_recipients' => ['nullable', 'string'],
         ]);
 
-        $service = Service::with([
-            'users' => function ($query) {
-                $query->orderBy('name');
-            },
-            'owner',
-            'emails',
-        ])->findOrFail($validated['service_id']);
+        $service = null;
+        $serviceName = 'Envío manual';
+        $mailServiceName = 'Destinatarios seleccionados';
+        $logContextBase = [
+            'service_id' => null,
+            'service_name' => $serviceName,
+        ];
+
+        if (! empty($validated['service_id'])) {
+            $service = Service::with([
+                'users' => function ($query) {
+                    $query->orderBy('name');
+                },
+                'owner',
+                'emails',
+            ])->findOrFail($validated['service_id']);
+
+            $serviceName = $service->name;
+            $mailServiceName = $serviceName;
+            $logContextBase = [
+                'service_id' => $service->id,
+                'service_name' => $serviceName,
+            ];
+        }
 
         $recipientEmails = collect();
         $missingRecipients = [];
@@ -77,116 +95,92 @@ class MassCommunicationController extends Controller
             return 'added';
         };
 
-        foreach ($service->users as $serviceUser) {
-            if (! ($serviceUser->is_active ?? true)) {
-                continue;
-            }
-
-            $status = $pushEmail($serviceUser->email);
+        $handleStatus = function (string $status, array $meta) use (&$missingRecipients, &$duplicateRecipients, $logContextBase) {
+            $type = $meta['type'] ?? 'contact';
+            $label = $meta['label'] ?? ($meta['name'] ?? $meta['email'] ?? 'Contacto');
 
             if ($status === 'missing' || $status === 'invalid') {
                 $reason = $status === 'missing' ? 'Sin correo registrado' : 'Correo inválido';
+
                 $missingRecipients[] = [
-                    'type' => 'user',
-                    'id' => $serviceUser->id,
-                    'name' => $serviceUser->name,
+                    'type' => $type,
+                    'id' => $meta['id'] ?? null,
+                    'name' => $meta['name'] ?? $label,
+                    'email' => $meta['email'] ?? null,
                     'reason' => $reason,
                 ];
 
-                Log::warning('Mass communication recipient without valid email', [
-                    'service_id' => $service->id,
-                    'service_name' => $service->name,
-                    'user_id' => $serviceUser->id,
-                    'user_name' => $serviceUser->name,
+                Log::warning('Mass communication recipient without valid email', $logContextBase + [
+                    'recipient_type' => $type,
+                    'recipient_id' => $meta['id'] ?? null,
+                    'recipient_name' => $meta['name'] ?? null,
+                    'recipient_email' => $meta['email'] ?? null,
                     'reason' => $reason,
                 ]);
             } elseif ($status === 'duplicate') {
                 $duplicateRecipients[] = [
+                    'type' => $type,
+                    'id' => $meta['id'] ?? null,
+                    'name' => $meta['name'] ?? $label,
+                    'email' => $meta['email'] ?? null,
+                ];
+
+                Log::info('Mass communication duplicate email skipped', $logContextBase + [
+                    'recipient_type' => $type,
+                    'recipient_id' => $meta['id'] ?? null,
+                    'recipient_name' => $meta['name'] ?? null,
+                    'recipient_email' => $meta['email'] ?? null,
+                ]);
+            }
+        };
+
+        if ($service) {
+            foreach ($service->users as $serviceUser) {
+                if (! ($serviceUser->is_active ?? true)) {
+                    continue;
+                }
+
+                $status = $pushEmail($serviceUser->email);
+                $handleStatus($status, [
                     'type' => 'user',
                     'id' => $serviceUser->id,
                     'name' => $serviceUser->name,
                     'email' => $serviceUser->email,
-                ];
-
-                Log::info('Mass communication duplicate email skipped', [
-                    'service_id' => $service->id,
-                    'service_name' => $service->name,
-                    'source' => 'user',
-                    'user_id' => $serviceUser->id,
-                    'email' => $serviceUser->email,
                 ]);
             }
-        }
 
-        if ($service->owner) {
-            $status = $pushEmail($service->owner->email);
-
-            if ($status === 'missing' || $status === 'invalid') {
-                $reason = $status === 'missing' ? 'Sin correo registrado' : 'Correo inválido';
-                $missingRecipients[] = [
-                    'type' => 'owner',
-                    'id' => $service->owner->id,
-                    'name' => $service->owner->name,
-                    'reason' => $reason,
-                ];
-
-                Log::warning('Mass communication skipped owner without valid email', [
-                    'service_id' => $service->id,
-                    'service_name' => $service->name,
-                    'owner_id' => $service->owner->id,
-                    'owner_name' => $service->owner->name,
-                    'reason' => $reason,
-                ]);
-            } elseif ($status === 'duplicate') {
-                $duplicateRecipients[] = [
+            if ($service->owner) {
+                $status = $pushEmail($service->owner->email);
+                $handleStatus($status, [
                     'type' => 'owner',
                     'id' => $service->owner->id,
                     'name' => $service->owner->name,
                     'email' => $service->owner->email,
-                ];
+                ]);
+            }
 
-                Log::info('Mass communication duplicate email skipped', [
-                    'service_id' => $service->id,
-                    'service_name' => $service->name,
-                    'source' => 'owner',
-                    'owner_id' => $service->owner->id,
-                    'email' => $service->owner->email,
+            foreach ($service->emails as $serviceEmail) {
+                $status = $pushEmail($serviceEmail->email);
+                $handleStatus($status, [
+                    'type' => 'service_email',
+                    'id' => $serviceEmail->id,
+                    'email' => $serviceEmail->email,
+                    'label' => 'Correo de servicio',
                 ]);
             }
         }
 
-        foreach ($service->emails as $serviceEmail) {
-            $status = $pushEmail($serviceEmail->email);
+        if (! empty($validated['manual_recipients'])) {
+            $manualEmails = collect(preg_split('/[\s,;,\n\r]+/', $validated['manual_recipients'], -1, PREG_SPLIT_NO_EMPTY))
+                ->map(fn ($email) => trim($email))
+                ->filter();
 
-            if ($status === 'missing' || $status === 'invalid') {
-                $reason = $status === 'missing' ? 'Sin correo registrado' : 'Correo inválido';
-                $missingRecipients[] = [
-                    'type' => 'service_email',
-                    'id' => $serviceEmail->id,
-                    'email' => $serviceEmail->email,
-                    'reason' => $reason,
-                ];
-
-                Log::warning('Mass communication service email invalid', [
-                    'service_id' => $service->id,
-                    'service_name' => $service->name,
-                    'service_email_id' => $serviceEmail->id,
-                    'email' => $serviceEmail->email,
-                    'reason' => $reason,
-                ]);
-            } elseif ($status === 'duplicate') {
-                $duplicateRecipients[] = [
-                    'type' => 'service_email',
-                    'id' => $serviceEmail->id,
-                    'email' => $serviceEmail->email,
-                ];
-
-                Log::info('Mass communication duplicate email skipped', [
-                    'service_id' => $service->id,
-                    'service_name' => $service->name,
-                    'source' => 'service_email',
-                    'service_email_id' => $serviceEmail->id,
-                    'email' => $serviceEmail->email,
+            foreach ($manualEmails as $email) {
+                $status = $pushEmail($email);
+                $handleStatus($status, [
+                    'type' => 'manual',
+                    'email' => $email,
+                    'label' => $email,
                 ]);
             }
         }
@@ -209,15 +203,11 @@ class MassCommunicationController extends Controller
                         'original' => $email,
                     ]);
 
-                    Log::info('Mass communication using MASS_SEND_EMAIL override', [
-                        'service_id' => $service->id,
-                        'service_name' => $service->name,
+                    Log::info('Mass communication using MASS_SEND_EMAIL override', $logContextBase + [
                         'override_recipients' => $overrideEmails->all(),
                     ]);
                 } else {
-                    Log::warning('MASS_SEND_EMAIL configured but contains no valid addresses', [
-                        'service_id' => $service->id,
-                        'service_name' => $service->name,
+                    Log::warning('MASS_SEND_EMAIL configured but contains no valid addresses', $logContextBase + [
                         'raw_value' => $overrideRaw,
                     ]);
                 }
@@ -229,9 +219,7 @@ class MassCommunicationController extends Controller
             : $recipientEmails;
 
         if ($finalRecipients->isEmpty()) {
-            Log::warning('Mass communication aborted: no valid recipients', [
-                'service_id' => $service->id,
-                'service_name' => $service->name,
+            Log::warning('Mass communication aborted: no valid recipients', $logContextBase + [
                 'subject' => $validated['subject'],
                 'missing_count' => count($missingRecipients),
                 'duplicate_count' => count($duplicateRecipients),
@@ -240,6 +228,7 @@ class MassCommunicationController extends Controller
             return back()
                 ->withErrors([
                     'service_id' => 'No hay correos disponibles para enviar el comunicado.',
+                    'manual_recipients' => 'No se encontraron correos válidos para enviar.',
                 ])
                 ->with('missing_recipients', $missingRecipients)
                 ->with('duplicate_recipients', $duplicateRecipients)
@@ -262,9 +251,7 @@ class MassCommunicationController extends Controller
         $sentRecipients = [];
         $failedRecipients = [];
 
-        Log::info('Mass communication dispatch started', [
-            'service_id' => $service->id,
-            'service_name' => $service->name,
+        Log::info('Mass communication dispatch started', $logContextBase + [
             'subject' => $validated['subject'],
             'intended_recipient_count' => $recipientEmails->count(),
             'effective_recipient_count' => $finalRecipients->count(),
@@ -278,7 +265,7 @@ class MassCommunicationController extends Controller
 
             try {
                 $mailable = new MassCommunicationMail(
-                    serviceName: $service->name,
+                    serviceName: $mailServiceName,
                     subjectLine: $validated['subject'],
                     messageBody: $validated['body'],
                     attachmentPath: $attachmentPath,
@@ -290,9 +277,7 @@ class MassCommunicationController extends Controller
 
                 $sentRecipients[] = $emailAddress;
 
-                Log::info('Mass communication email sent', [
-                    'service_id' => $service->id,
-                    'service_name' => $service->name,
+                Log::info('Mass communication email sent', $logContextBase + [
                     'recipient' => $emailAddress,
                 ]);
             } catch (\Throwable $exception) {
@@ -301,9 +286,7 @@ class MassCommunicationController extends Controller
                     'error' => $exception->getMessage(),
                 ];
 
-                Log::error('Mass communication email failed', [
-                    'service_id' => $service->id,
-                    'service_name' => $service->name,
+                Log::error('Mass communication email failed', $logContextBase + [
                     'recipient' => $emailAddress,
                     'error' => $exception->getMessage(),
                 ]);
@@ -314,9 +297,7 @@ class MassCommunicationController extends Controller
             Storage::delete($attachmentPath);
         }
 
-        Log::info('Mass communication dispatch finished', [
-            'service_id' => $service->id,
-            'service_name' => $service->name,
+        Log::info('Mass communication dispatch finished', $logContextBase + [
             'subject' => $validated['subject'],
             'sent_count' => count($sentRecipients),
             'failed_count' => count($failedRecipients),
@@ -325,9 +306,10 @@ class MassCommunicationController extends Controller
         ]);
 
         $flashKey = count($sentRecipients) > 0 ? 'success' : 'error';
+        $targetDescriptor = $service ? 'del servicio '.$serviceName : 'indicados manualmente';
 
         $message = count($sentRecipients) > 0
-            ? 'Comunicado enviado a '.count($sentRecipients).' destinatarios del servicio '.$service->name.'.'
+            ? 'Comunicado enviado a '.count($sentRecipients).' destinatarios '.$targetDescriptor.'.'
             : 'No se pudo enviar el comunicado. Revisa los errores registrados.';
 
         if (count($failedRecipients) > 0) {
