@@ -14,6 +14,7 @@ use Inertia\Inertia;
 use Illuminate\Support\Facades\Storage;
 use App\Services\ReportNotificationService;
 use Illuminate\Support\Facades\DB;
+
 use Illuminate\Support\Collection;
 use DateTime;
 use Carbon\Carbon;
@@ -23,40 +24,78 @@ class ProcesoController extends Controller
     public function index(Request $request)
     {
         $user = Auth::user();
-        $isProducer = false;
-
-        if (!empty($user->idprod)) {
-            $isProducer = true;
-        }
+        $isProducer = ! empty($user->idprod);
+        $isAdmin = method_exists($user, 'hasRole') && ($user->hasRole('Admin') || $user->hasRole('Administrador'));
 
         $query = Proceso::query();
 
-        // Base access scope: producer's own + service-associated producers (owner or member)
-        $allowedProducerIds = collect();
-        if (!empty($user->idprod)) {
-            $allowedProducerIds->push($user->idprod);
+        $serviceProducerNames = collect();
+        $serviceProducerCodes = collect();
+        $isServiceUser = false;
+        $normalizeProducerCode = function ($value) {
+            if ($value === null) {
+                return null;
+            }
+
+            $onlyDigits = preg_replace('/[^0-9]/', '', (string) $value);
+
+            return $onlyDigits !== '' ? $onlyDigits : null;
+        };
+
+        if (! $isAdmin) {
+            $ownedServiceProducers = Service::where('owner_id', $user->id)
+                ->with(['users:id,idprod,name,csg'])
+                ->get()
+                ->pluck('users')
+                ->flatten();
+
+            $memberServiceProducers = $user->services()
+                ->with(['users:id,idprod,name,csg'])
+                ->get()
+                ->pluck('users')
+                ->flatten();
+
+            $allServiceProducers = $ownedServiceProducers->merge($memberServiceProducers);
+
+            $serviceProducerNames = $allServiceProducers->pluck('name')->filter()->unique();
+            $serviceProducerCodes = $allServiceProducers->pluck('csg')
+                ->map($normalizeProducerCode)
+                ->filter()
+                ->unique();
+            $isServiceUser = $serviceProducerNames->isNotEmpty();
         }
-        // Services the user owns
-       $ownedServiceUserIds = Service::where('owner_id', $user->id)
-            ->with(['users:id,idprod'])
-            ->get()
-            ->pluck('users')
-            ->flatten()
-            ->pluck('idprod')
-            ->filter();
-        // Services the user belongs to
-        $memberServiceUserIds = $user->services()->with(['users:name'])->get()
-            ->pluck('users')
-            ->flatten();
 
+        if (! $isAdmin) {
+            $allowedProducerNames = collect();
+            $allowedProducerCodes = collect();
 
-        $allowedProducerIds = $memberServiceUserIds->map(function ($id) {
-            return $id->name;
-        });
+            if ($isServiceUser) {
+                $allowedProducerNames = $serviceProducerNames;
+                $allowedProducerCodes = $serviceProducerCodes;
+            } elseif ($isProducer) {
+                $allowedProducerNames = collect([$user->name])->filter();
+                $allowedProducerCodes = collect([$normalizeProducerCode($user->csg)])->filter();
+            }
 
+            if ($allowedProducerNames->isNotEmpty() || $allowedProducerCodes->isNotEmpty()) {
+                $query->where(function ($q) use ($allowedProducerNames, $allowedProducerCodes) {
+                    if ($allowedProducerNames->isNotEmpty()) {
+                        $q->whereIn('agricola', $allowedProducerNames->all());
+                    }
 
-        if ($allowedProducerIds->isNotEmpty()) {
-            $query->whereIn('agricola', $allowedProducerIds->all());
+                    // if ($allowedProducerCodes->isNotEmpty()) {
+                    //     if ($allowedProducerNames->isNotEmpty()) {
+                    //         $q->orWhereIn('agricola', $allowedProducerNames->all());
+                    //     } else {
+                    //         $q->whereIn('agricola', $allowedPrallowedProducerNamesoducerCodes->all());
+                    //     }
+                    // }
+                });
+            } else {
+                // User has no associated producers, so restrict the result set.
+                $query->whereRaw('1 = 0');
+            }
+
         }
 
         // General search filter
@@ -96,6 +135,7 @@ class ProcesoController extends Controller
         // Calculate totals for the chart
         $chartDataQuery = clone $query; // Clone the query
          $query->orderBy('n_proceso', 'desc');
+         Log::info($query->toSql());
         $chartData = $chartDataQuery->selectRaw('especie, SUM(exp) as exportacion, SUM(comercial) as comercial, SUM(desecho) as desecho, SUM(merma) as merma')
             ->groupBy('especie')
             ->get();
