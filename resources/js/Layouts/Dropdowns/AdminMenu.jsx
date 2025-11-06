@@ -50,6 +50,11 @@ export default function AdminMenu() {
           </Link>
         </DropdownMenuItem>
         <DropdownMenuItem asChild>
+          <Link href={route("mass-communications.create")} className="w-full">
+            Envío masivo
+          </Link>
+        </DropdownMenuItem>
+        <DropdownMenuItem asChild>
           <Link href={route("weekly-harvest-estimates.index")} className="w-full">
             Estimaciones Semanales
           </Link>

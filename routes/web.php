@@ -7,6 +7,7 @@ use Illuminate\Support\Facades\Route;
 use Inertia\Inertia;
 use App\Models\Service;
 use App\Http\Controllers\AdminDashboardController;
+use App\Http\Controllers\MassCommunicationController;
 
 Route::get('/', function () {
     return redirect()->route('login');
@@ -61,6 +62,9 @@ Route::middleware('auth')->group(function () {
     Route::get('producers/{producer}/dashboard', [App\Http\Controllers\ProducerController::class, 'dashboard'])->name('producers.dashboard');
 
     Route::resource('telefonos', App\Http\Controllers\TelefonoController::class)->only(['store', 'update', 'destroy'])->names('telefonos');
+
+    Route::get('admin/mass-communications', [MassCommunicationController::class, 'create'])->name('mass-communications.create');
+    Route::post('admin/mass-communications', [MassCommunicationController::class, 'store'])->name('mass-communications.store');
 
     Route::resource('recepciones', App\Http\Controllers\RecepcionController::class)->only(['index'])->names('recepciones');
     Route::post('recepciones/sync', [App\Http\Controllers\RecepcionController::class, 'recepction_sync'])->name('recepciones.sync');

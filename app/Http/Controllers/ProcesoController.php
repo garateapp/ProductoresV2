@@ -25,7 +25,7 @@ class ProcesoController extends Controller
     {
         $user = Auth::user();
         $isProducer = ! empty($user->idprod);
-        $isAdmin = method_exists($user, 'hasRole') && ($user->hasRole('Admin') || $user->hasRole('Administrador'));
+       $isAdmin = method_exists($user, 'hasRole') && ($user->hasRole('Admin') || $user->hasRole('Administrador') || ($user->hasRole('Calidad') || $user->hasRole('Gerencia')));
 
         $query = Proceso::query();
 

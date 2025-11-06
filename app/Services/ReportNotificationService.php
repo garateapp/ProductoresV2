@@ -197,6 +197,7 @@ class ReportNotificationService
                 Log::info('Reception notification: email enabled but no recipient resolved', $context);
             }
         }
+
     }
 
     private function resolveProducerByCsg(?string $csg): ?User
