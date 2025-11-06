@@ -75,6 +75,7 @@ class RecepcionController extends Controller
                 $allowedProducerCodes = $serviceProducerCodes;
                 $allowedProducerIds = $serviceProducerIds;
             } elseif ($isProducer) {
+
                 $allowedProducerNames = collect([$user->name])->filter();
                 $allowedProducerCodes = collect([$normalizeProducerCode($user->csg)])->filter();
                 $allowedProducerIds = collect([$user->idprod])->filter();
@@ -82,24 +83,35 @@ class RecepcionController extends Controller
 
             if ($allowedProducerNames->isNotEmpty() || $allowedProducerCodes->isNotEmpty() || $allowedProducerIds->isNotEmpty()) {
                 $query->where(function ($q) use ($allowedProducerNames, $allowedProducerCodes, $allowedProducerIds) {
+                    $hasCondition = false;
+
                     if ($allowedProducerNames->isNotEmpty()) {
                         $q->whereIn('n_emisor', $allowedProducerNames->all());
+                        $hasCondition = true;
+
+                        $q->orWhereIn('n_productor_rotulado', $allowedProducerNames->all());
                     }
 
                     if ($allowedProducerCodes->isNotEmpty()) {
-                        if ($allowedProducerNames->isNotEmpty()) {
+                        if ($hasCondition) {
                             $q->orWhereIn('Codigo_Sag_emisor', $allowedProducerCodes->all());
                         } else {
                             $q->whereIn('Codigo_Sag_emisor', $allowedProducerCodes->all());
+                            $hasCondition = true;
                         }
+
+                        $q->orWhereIn('csg_productor_rotulado', $allowedProducerCodes->all());
                     }
 
                     if ($allowedProducerIds->isNotEmpty()) {
-                        if ($allowedProducerNames->isNotEmpty() || $allowedProducerCodes->isNotEmpty()) {
+                        if ($hasCondition) {
                             $q->orWhereIn('id_emisor', $allowedProducerIds->all());
                         } else {
                             $q->whereIn('id_emisor', $allowedProducerIds->all());
+                            $hasCondition = true;
                         }
+
+                        $q->orWhereIn('id_productor_rotulado', $allowedProducerIds->all());
                     }
                 });
             } else {
@@ -141,6 +153,7 @@ class RecepcionController extends Controller
         }
        // dd($query->toSql(), $query->getBindings());
        $query->orderBy('fecha_g_recepcion', 'desc');
+       Log::info($query->toSql(), $query->getBindings());
         // Calculate totals before pagination
         $totalRecepciones = $query->count();
         $totalKilos = (int) $query->sum('peso_neto');
@@ -514,4 +527,3 @@ class RecepcionController extends Controller
         }
     }
 }
-
