@@ -23,7 +23,7 @@ class RecepcionController extends Controller
     {
         $user = Auth::user();
         $isProducer = ! empty($user->idprod);
-        $isAdmin = method_exists($user, 'hasRole') && ($user->hasRole('Admin') || $user->hasRole('Administrador') || ($user->hasRole('Calidad') || $user->hasRole('Gerencia'));
+        $isAdmin = method_exists($user, 'hasRole') && ($user->hasRole('Admin') || $user->hasRole('Administrador') || ($user->hasRole('Calidad') || $user->hasRole('Gerencia')));
         $isCC=method_exists($user, 'hasRole') && ($user->hasRole('Calidad') || $user->hasRole('Gerencia'));
         $query = Recepcion::query();
 
