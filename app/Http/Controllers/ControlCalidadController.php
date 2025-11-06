@@ -1460,7 +1460,7 @@ public function previewPage(Recepcion $recepcion)
         $solubleSolids = QualityChartsService::getSolidosSolublesData($receptions);
         $coverageColor = QualityChartsService::getColorCubrimientoData($receptions);
 
-        $tabulatedIds = [6955, 8557, 8558, 8559, 8560, 8561, 8563, 8564, 8630, 8657, 8665, 8666, 8683];
+        $tabulatedIds = [6955, 8557, 8558, 8559, 8560, 8561, 8563, 8564, 8630, 8657, 8665, 8666, 8683,8899];
         $shouldTabulateCharts = in_array((int) $recepcion->id_emisor, $tabulatedIds, true);
 
         $html_tabla_distribucion_calibre = '';
@@ -1689,8 +1689,8 @@ public function previewPage(Recepcion $recepcion)
         try {
             $shot = Browsershot::html($html)
                 ->setTemporaryDirectory($tmpDir)
-                ->setChromePath($chrome)
-                ->setOption('executablePath', $chrome)
+                // ->setChromePath($chrome)
+                // ->setOption('executablePath', $chrome)
                 ->setOption('headless', true)
                 ->noSandbox()
                 ->addChromiumArguments([
@@ -1952,6 +1952,7 @@ public function resendReport(Recepcion $recepcion, ReportNotificationService $no
 
         return e((string) $value);
     }
+
 
     private function buildCalibreDistributionTable(array $sizeDistribution): string
     {
