@@ -22,42 +22,91 @@ class RecepcionController extends Controller
     public function index(Request $request)
     {
         $user = Auth::user();
-        $isProducer = false;
-
-        if (!empty($user->idprod)) {
-            $isProducer = true;
-        }
+        $isProducer = ! empty($user->idprod);
+        $isAdmin = method_exists($user, 'hasRole') && ($user->hasRole('Admin') || $user->hasRole('Administrador'));
 
         $query = Recepcion::query();
 
-        // Base access scope: producer's own + service-associated producers (owner or member)
-        $allowedProducerIds = collect();
-        if (!empty($user->idprod)) {
-            $allowedProducerIds->push($user->idprod);
+        $serviceProducerNames = collect();
+        $serviceProducerCodes = collect();
+        $serviceProducerIds = collect();
+        $isServiceUser = false;
+        $normalizeProducerCode = function ($value) {
+            if ($value === null) {
+                return null;
+            }
+
+            $onlyDigits = preg_replace('/[^0-9]/', '', (string) $value);
+
+            return $onlyDigits !== '' ? $onlyDigits : null;
+        };
+
+        if (! $isAdmin) {
+            $ownedServiceProducers = Service::where('owner_id', $user->id)
+                ->with(['users:id,idprod,name,csg'])
+                ->get()
+                ->pluck('users')
+                ->flatten();
+
+            $memberServiceProducers = $user->services()
+                ->with(['users:id,idprod,name,csg'])
+                ->get()
+                ->pluck('users')
+                ->flatten();
+
+            $allServiceProducers = $ownedServiceProducers->merge($memberServiceProducers);
+
+            $serviceProducerNames = $allServiceProducers->pluck('name')->filter()->unique();
+            $serviceProducerCodes = $allServiceProducers->pluck('csg')
+                ->map($normalizeProducerCode)
+                ->filter()
+                ->unique();
+            $serviceProducerIds = $allServiceProducers->pluck('idprod')->filter()->unique();
+            $isServiceUser = $serviceProducerNames->isNotEmpty() || $serviceProducerCodes->isNotEmpty() || $serviceProducerIds->isNotEmpty();
         }
-        // Services the user owns
-        $ownedServiceUserIds = Service::where('owner_id', $user->id)
-            ->with(['users:id,idprod'])
-            ->get()
-            ->pluck('users')
-            ->flatten()
-            ->pluck('idprod')
-            ->filter();
-        // Services the user belongs to
-        $memberServiceUserIds = $user->services()->with(['users:name'])->get()
-            ->pluck('users')
-            ->flatten();
 
+        if (! $isAdmin) {
+            $allowedProducerNames = collect();
+            $allowedProducerCodes = collect();
+            $allowedProducerIds = collect();
 
-        $allowedProducerIds = $memberServiceUserIds->map(function ($id) {
-            return $id->name;
-        });
+            if ($isServiceUser) {
+                $allowedProducerNames = $serviceProducerNames;
+                $allowedProducerCodes = $serviceProducerCodes;
+                $allowedProducerIds = $serviceProducerIds;
+            } elseif ($isProducer) {
+                $allowedProducerNames = collect([$user->name])->filter();
+                $allowedProducerCodes = collect([$normalizeProducerCode($user->csg)])->filter();
+                $allowedProducerIds = collect([$user->idprod])->filter();
+            }
 
+            if ($allowedProducerNames->isNotEmpty() || $allowedProducerCodes->isNotEmpty() || $allowedProducerIds->isNotEmpty()) {
+                $query->where(function ($q) use ($allowedProducerNames, $allowedProducerCodes, $allowedProducerIds) {
+                    if ($allowedProducerNames->isNotEmpty()) {
+                        $q->whereIn('n_emisor', $allowedProducerNames->all());
+                    }
 
-        if ($allowedProducerIds->isNotEmpty()) {
-            $query->whereIn('n_emisor', $allowedProducerIds->all());
+                    if ($allowedProducerCodes->isNotEmpty()) {
+                        if ($allowedProducerNames->isNotEmpty()) {
+                            $q->orWhereIn('Codigo_Sag_emisor', $allowedProducerCodes->all());
+                        } else {
+                            $q->whereIn('Codigo_Sag_emisor', $allowedProducerCodes->all());
+                        }
+                    }
+
+                    if ($allowedProducerIds->isNotEmpty()) {
+                        if ($allowedProducerNames->isNotEmpty() || $allowedProducerCodes->isNotEmpty()) {
+                            $q->orWhereIn('id_emisor', $allowedProducerIds->all());
+                        } else {
+                            $q->whereIn('id_emisor', $allowedProducerIds->all());
+                        }
+                    }
+                });
+            } else {
+                $query->whereRaw('1 = 0');
+            }
         }
-        //dd($query->toSql(), $query->getBindings());
+
         // Filtro por variedad, especie o lote
         if ($request->has('search') && $request->input('search') !== '' && $request->input('search') !== null) {
             $searchTerm = $request->input('search');
