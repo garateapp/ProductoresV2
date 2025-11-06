@@ -81,6 +81,9 @@ class ProcesoController extends Controller
                 $query->where(function ($q) use ($allowedProducerNames, $allowedProducerCodes) {
                     if ($allowedProducerNames->isNotEmpty()) {
                         $q->whereIn('agricola', $allowedProducerNames->all());
+                          $hasCondition = true;
+
+                        $q->orWhereIn('LPP_recepcion', $allowedProducerNames->all());
                     }
 
                     // if ($allowedProducerCodes->isNotEmpty()) {
