@@ -20,6 +20,7 @@
         .muted { color: #6b7280; }
         .chip { display: inline-block; padding: 2px 6px; border-radius: 6px; font-size: 11px; background: #eef2ff; color: #3730a3; border: 1px solid #c7d2fe; }
         .subtle { background: #f9fafb; border: 1px solid #e5e7eb; border-radius: 8px; padding: 10px; }
+        .evaluation-card { page-break-inside: avoid; break-inside: avoid; margin-bottom: 12px; }
         .spacer { height: 10px; }
     </style>
 
@@ -51,7 +52,7 @@
             <p class="muted">No existen evaluaciones para este proceso.</p>
         @else
             @foreach($proceso->processedFruitQualities as $idx => $q)
-                <div class="subtle" style="margin-bottom: 12px;">
+                <div class="subtle evaluation-card">
                     <div class="meta" style="margin-bottom:6px;">
                         <div><strong>N° Caja:</strong> {{ $q->numero_de_caja ?? 'N/A' }}</div>
                         <div><strong>Fecha:</strong> {{ $q->fecha ? \Carbon\Carbon::parse($q->fecha)->format('d/m/Y') : ($q->created_at?->format('d/m/Y') ?? 'N/A') }}</div>
