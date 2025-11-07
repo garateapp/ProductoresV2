@@ -45,6 +45,9 @@ export default function ControlCalidadMenu() {
           <Link href={route('valores.index')} className="w-full">Valores</Link>
         </DropdownMenuItem>
 
+        <DropdownMenuItem asChild>
+          <Link href={route('commercial-discards.index')} className="w-full">Descarte Comercial</Link>
+        </DropdownMenuItem>
 
 
       </DropdownMenuContent>

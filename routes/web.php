@@ -8,6 +8,7 @@ use Inertia\Inertia;
 use App\Models\Service;
 use App\Http\Controllers\AdminDashboardController;
 use App\Http\Controllers\MassCommunicationController;
+use App\Http\Controllers\CommercialDiscardController;
 
 Route::get('/', function () {
     return redirect()->route('login');
@@ -78,6 +79,11 @@ Route::middleware('auth')->group(function () {
     Route::post('control-calidad/store-calidad', [App\Http\Controllers\ControlCalidadController::class, 'storeCalidad'])->name('control-calidad.store-calidad');
     Route::post('control-calidad/store-detalle', [App\Http\Controllers\ControlCalidadController::class, 'storeDetalle'])->name('control-calidad.store-detalle');
     Route::delete('control-calidad/detalles/{detalle}', [App\Http\Controllers\ControlCalidadController::class, 'destroyDetalle'])->name('control-calidad.destroy-detalle');
+    Route::get('control-calidad/descarte-comercial', [CommercialDiscardController::class, 'index'])->name('commercial-discards.index');
+    Route::get('control-calidad/descarte-comercial/crear', [CommercialDiscardController::class, 'create'])->name('commercial-discards.create');
+    Route::post('control-calidad/descarte-comercial', [CommercialDiscardController::class, 'store'])->name('commercial-discards.store');
+    Route::get('control-calidad/descarte-comercial/{commercialDiscard}/pdf', [CommercialDiscardController::class, 'pdf'])->name('commercial-discards.pdf');
+    Route::get('control-calidad/descarte-comercial/process/{n_proceso}', [CommercialDiscardController::class, 'lookupProcess'])->name('commercial-discards.lookup-process');
     Route::get('control-calidad/{recepcion}/detalles', [App\Http\Controllers\ControlCalidadController::class, 'getDetalles'])->name('control-calidad.get-detalles');
     Route::get('control-calidad/{recepcion}/calidad', [App\Http\Controllers\ControlCalidadController::class, 'getCalidad'])->name('control-calidad.get-calidad');
     Route::get('control-calidad/{recepcion}/validate-kilos', [App\Http\Controllers\ControlCalidadController::class, 'validateKilos'])->name('control-calidad.validate-kilos');

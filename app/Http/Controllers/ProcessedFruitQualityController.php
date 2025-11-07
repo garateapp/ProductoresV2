@@ -103,6 +103,11 @@ class ProcessedFruitQualityController extends Controller
             }
         }
 
+        if (empty($validated['numero_de_caja'])) {
+            $count = ProcessedFruitQuality::where('proceso_id', $validated['proceso_id'])->count();
+            $validated['numero_de_caja'] = ($count + 1);
+        }
+
         $quality = ProcessedFruitQuality::create($validated);
 
         return redirect()->back()->with('quality_id', $quality->id)->with('success', 'Calidad de proceso guardada exitosamente.');

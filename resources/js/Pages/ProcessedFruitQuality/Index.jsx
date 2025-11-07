@@ -70,6 +70,7 @@ export default function Index({
     };
 
     const [photoTypesState, setPhotoTypesState] = useState(photoTypes || []);
+    const [boxCounters, setBoxCounters] = useState({});
     const { data: filterData, setData: setFilterData } = useForm({
         search: filters.search || '',
         especie_id: filters.especie_id || '',
@@ -362,6 +363,18 @@ export default function Index({
         []
     );
 
+    const getNextBoxLabel = useCallback(
+        (proceso) => {
+            if (! proceso) {
+                return '1';
+            }
+            const persisted = proceso?.processed_fruit_qualities?.length ?? 0;
+            const consumed = boxCounters[proceso.id] ?? persisted;
+            return `${consumed + 1}`;
+        },
+        [boxCounters]
+    );
+
     const handleOpenModal = async (proceso, qualityIdToEdit = null) => {
         setSelectedProceso(proceso);
         resetQuality();
@@ -375,6 +388,9 @@ export default function Index({
 
         // Establece el proceso y opcionalmente el ID a editar
         setQualityData("proceso_id", proceso.id);
+        if (! qualityIdToEdit) {
+            setQualityData("numero_de_caja", getNextBoxLabel(proceso));
+        }
         setQualityId(qualityIdToEdit);
 
         // Si estamos editando, precargar; si es nuevo, no precargar
@@ -399,8 +415,22 @@ export default function Index({
         const payload = {
             data: { ...qualityData, proceso_id: selectedProceso.id },
             onSuccess: () => {
-                toast.success('Operaci�n exitosa.');
-                fetchQualityData(selectedProceso, qualityId || undefined);
+                toast.success('Operación exitosa.');
+                if (qualityId) {
+                    fetchQualityData(selectedProceso, qualityId);
+                } else {
+                    const persisted = selectedProceso?.processed_fruit_qualities?.length ?? 0;
+                    const consumed = boxCounters[selectedProceso.id] ?? persisted;
+                    const updatedConsumed = consumed + 1;
+                    setBoxCounters((prev) => ({
+                        ...prev,
+                        [selectedProceso.id]: updatedConsumed,
+                    }));
+                    setQualityId(null);
+                    resetQuality();
+                    setQualityData('proceso_id', selectedProceso.id);
+                    setQualityData('numero_de_caja', `${updatedConsumed + 1}`);
+                }
                 router.reload({ only: ['procesos'] });
             },
             onError: (errors) => {
@@ -990,21 +1020,16 @@ export default function Index({
                                                 <Input
                                                     id="numero_de_caja"
                                                     type="text"
-                                                    value={
-                                                        qualityData.numero_de_caja
-                                                    }
-                                                    onChange={(e) =>
-                                                        setQualityData(
-                                                            "numero_de_caja",
-                                                            e.target.value
-                                                        )
-                                                    }
+                                                    value={qualityData.numero_de_caja || ''}
+                                                    readOnly
+                                                    className="bg-gray-100 text-gray-700 cursor-not-allowed"
                                                 />
+                                                <p className="mt-1 text-xs text-gray-500">
+                                                    Se asigna automáticamente por proceso.
+                                                </p>
                                                 {errorsQuality.numero_de_caja && (
                                                     <p className="mt-1 text-sm text-red-600">
-                                                        {
-                                                            errorsQuality.numero_de_caja
-                                                        }
+                                                        {errorsQuality.numero_de_caja}
                                                     </p>
                                                 )}
                                             </div>
