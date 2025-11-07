@@ -41,7 +41,7 @@
             <div><strong>Fecha:</strong> {{ $proceso->fecha ? \Carbon\Carbon::parse($proceso->fecha)->format('d/m/Y') : 'N/A' }}</div>
             <div><strong>Especie:</strong> {{ $proceso->especie }}</div>
             <div><strong>Variedad:</strong> {{ $proceso->variedad }}</div>
-            <div><strong>Lote Recepción:</strong> {{ $proceso->lote_recepcion ?? $proceso->LPP_recepcion ?? 'N/A' }}</div>
+            <div><strong>Lote Recepción:</strong> {{ $proceso->lote_recepcion ?? 'N/A' }}</div>
             <div><strong>Kilos Netos:</strong> {{ number_format((float)($proceso->kilos_netos ?? 0), 0, ',', '.') }} kg</div>
             <div><strong>Temporada:</strong> 2025-2026</div>
         </div>

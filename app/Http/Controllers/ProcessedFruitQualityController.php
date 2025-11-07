@@ -474,7 +474,7 @@ class ProcessedFruitQualityController extends Controller
             return back()->with('error', 'No se encontraron defectos para consolidar en este proceso.');
         }
 
-        ksort($rows);
+        $boxLabels = array_values(array_unique($boxLabels));
         $boxLabels = array_values(array_unique($boxLabels));
         $orderedTables = [];
 
@@ -497,6 +497,7 @@ class ProcessedFruitQualityController extends Controller
 
         foreach ($orderedTables as $groupName => $data) {
             $rowsAssoc = $data['rows'];
+            ksort($rowsAssoc);
             $rowsList = array_values($rowsAssoc);
             $totals = [];
             foreach ($boxLabels as $label) {
