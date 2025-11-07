@@ -1474,23 +1474,325 @@ public function previewPage(Recepcion $recepcion)
         $html_tabla_porcentaje_firmeza = '';
 
         if ($shouldTabulateCharts) {
-            $html_tabla_distribucion_calibre = $this->buildCalibreDistributionTable($sizeDistribution);
-            $html_tabla_color = $this->buildColorCoverageTable($coverageColor);
+            if ($recepcion->calidad->detalles){
+                  $categories_distribucion_calibre = [];
+        $series_distribucion_calibre = [];
+        $cantidad_distribucion_calibre = 0;
 
-            if ($calidad && ! in_array($recepcion->n_especie, ['Cherries', 'Dagen'], true)) {
-                $html_tabla_firmeza_grande = $this->buildFirmnessSizeTable($calidad, 'GRANDE', 'Firmeza (Grande)');
-                $html_tabla_firmeza_mediana = $this->buildFirmnessSizeTable($calidad, 'MEDIANO', 'Firmeza (Mediana)');
-                $html_tabla_firmeza_pequena = $this->buildFirmnessSizeTable($calidad, 'CHICO', 'Firmeza (Pequeña)');
-                $html_tabla_color_fondo = $this->buildDetallePercentageTable($calidad, 'COLOR DE FONDO', 'Color', 'Porcentaje');
+                foreach ($recepcion->calidad->detalles->where('tipo_item', 'DISTRIBUCIÓN DE CALIBRES') as $detalle){
+
+                    if ($recepcion->n_especie == 'Cherries') {
+                        $cantidad_distribucion_calibre += $detalle->cantidad;
+                    } else {
+                        $cantidad_distribucion_calibre += $detalle->cantidad;
+                    }
+                }
+
+                foreach ($recepcion->calidad->detalles->where('tipo_item', 'DISTRIBUCIÓN DE CALIBRES') as $detalle){
+
+                    $categories_distribucion_calibre[] = $detalle->detalle_item;
+                    if ($recepcion->n_especie == 'Cherries') {
+                        $series_distribucion_calibre[] = $detalle->valor_ss;
+                    } else {
+                        if ($cantidad_distribucion_calibre > 0) {
+                            $series_distribucion_calibre[] = ($detalle->porcentaje_muestra * 100) / $cantidad_distribucion_calibre;
+                        } else {
+                            $series_distribucion_calibre[] = $detalle->porcentaje_muestra;
+                        }
+                    }
+                }
+
+    $html_tabla_distribucion_calibre = '<table border="1" cellpadding="5" cellspacing="0">';
+    $html_tabla_distribucion_calibre .= '<thead><tr><th>Calibre</th><th>Valor</th></tr></thead>';
+    $html_tabla_distribucion_calibre .= '<tbody>';
+
+    foreach ($categories_distribucion_calibre as $index => $categoria) {
+        $valor = $series_distribucion_calibre[$index] ?? '';
+        $html_tabla_distribucion_calibre .= '<tr>';
+        $html_tabla_distribucion_calibre .= '<td>' . htmlspecialchars($categoria) . '</td>';
+        $html_tabla_distribucion_calibre .= '<td>' . round($valor, 2) . '</td>';
+        $html_tabla_distribucion_calibre .= '</tr>';
+    }
+
+    $html_tabla_distribucion_calibre .= '</tbody></table>';
             }
 
-            if ($calidad) {
-                $html_tabla_calibrix = $this->buildCalibrixTable($calidad);
-                $html_tabla_porcentaje_firmeza = $this->buildPresionesTable($calidad);
+        foreach ($recepcion->calidad->detalles->where('tipo_item', 'COLOR DE CUBRIMIENTO') as $detalle) {
+             $name_color = $detalle->detalle_item;
+             if ($recepcion->n_especie == 'Cherries') {
+                    $series_color[] = ['name' => $name_color, 'y' => $detalle->valor_ss];
+                } else {
+                    $series_color[] = ['name' => $name_color, 'y' => $detalle->porcentaje_muestra];
+                }
+
+        }
+        $html_tabla_color='<table border="1" cellpadding="5" cellspacing="0">';
+        $html_tabla_color.='<thead><tr><th>Color</th><th>Valor</th></tr></thead>';
+        $html_tabla_color.='<tbody>';
+        foreach ($series_color as $serie) {
+            $html_tabla_color.='<tr>';
+            $html_tabla_color.='<td>'.$serie['name'].'</td>';
+            $html_tabla_color.='<td>'.$serie['y'].'</td>';
+            $html_tabla_color.='</tr>';
+        }
+        $html_tabla_color.='</tbody></table>';
+
+        if ($recepcion->calidad->detalles->where('tipo_item','COLOR DE FONDO')->count()) {
+            $distribucion_color_fondo=$this->generarGrafico($recepcion->id,'color/fondo','color_fondo',440,460);
+
+            foreach ($recepcion->calidad->detalles->where('tipo_item', 'COLOR DE FONDO') as $detalle) {
+                //$categories[]=$detalle->detalle_item;
+                //$series[]=$detalle->porcentaje_muestra;
+                $name_color_fondo = $detalle->detalle_item;
+
+                $series_color_fondo[] = ['name' => $name_color_fondo, 'y' => $detalle->porcentaje_muestra];
+            }
+            $html_tabla_color_fondo='<table border="1" cellpadding="5" cellspacing="0">';
+            $html_tabla_color_fondo.='<thead><tr><th>Color</th><th>Valor</th></tr></thead>';
+            $html_tabla_color_fondo.='<tbody>';
+            foreach ($series_color_fondo as $serie) {
+                $html_tabla_color_fondo.='<tr>';
+                $html_tabla_color_fondo.='<td>'.$serie['name'].'</td>';
+                $html_tabla_color_fondo.='<td>'.$serie['y'].'</td>';
+                $html_tabla_color_fondo.='</tr>';
+            }
+            $html_tabla_color_fondo.='</tbody></table>';
+        }
+
+             $html_tabla_firmeza_grande='';
+        $html_tabla_firmeza_mediana='';
+        $html_tabla_firmeza_pequena='';
+        if ($recepcion->n_especie!='Orange' || $recepcion->n_especie=="Cherries") {
+                   $categories_firmeza_grande = [];
+                   $series_firmeza_grande = [];
+                   $categories_firmeza_mediana = [];
+                   $series_firmeza_mediana = [];
+                   $categories_firmeza_pequena = [];
+                   $series_firmeza_pequena = [];
+
+
+            if ($recepcion->calidad->detalles){
+                foreach ($recepcion->calidad->detalles->where('tipo_item', 'GRANDE') as $detalle){
+                        $categories_firmeza_grande[] = $detalle->detalle_item;
+                        $series_firmeza_grande[] = ['name' => $detalle->detalle_item, 'y' => $detalle->valor_ss];
+                }
             }
 
-            $html_tabla_porc_firmeza = $this->buildAverageFirmnessTable($averageFirmness);
-            $html_tabla_color = $html_tabla_color ?: $this->buildColorCoverageTable($coverageColor);
+            if ($recepcion->calidad->detalles){
+                foreach ($recepcion->calidad->detalles->where('tipo_item', 'MEDIANO') as $detalle){
+                        $categories_firmeza_mediana[] = $detalle->detalle_item;
+                        $series_firmeza_mediana[] = ['name' => $detalle->detalle_item, 'y' => $detalle->valor_ss];
+                }
+            }
+
+            if ($recepcion->calidad->detalles){
+                foreach ($recepcion->calidad->detalles->where('tipo_item', 'CHICO') as $detalle){
+                        $categories_firmeza_pequena[] = $detalle->detalle_item;
+                        $series_firmeza_pequena[] = ['name' => $detalle->detalle_item, 'y' => $detalle->valor_ss];
+                }
+            }
+
+            $html_tabla_firmeza_grande='<table border="1" cellpadding="5" cellspacing="0">';
+            $html_tabla_firmeza_grande.='<thead><tr><th>Calibre</th><th>Valor</th></tr></thead>';
+            $html_tabla_firmeza_grande.='<tbody>';
+            foreach ($series_firmeza_grande as $serie) {
+                $html_tabla_firmeza_grande.='<tr>';
+                $html_tabla_firmeza_grande.='<td>'.$serie['name'].'</td>';
+                $html_tabla_firmeza_grande.='<td>'.$serie['y'].'</td>';
+                $html_tabla_firmeza_grande.='</tr>';
+            }
+            $html_tabla_firmeza_grande.='</tbody></table>';
+            $html_tabla_firmeza_mediana='<table border="1" cellpadding="5" cellspacing="0">';
+            $html_tabla_firmeza_mediana.='<thead><tr><th>Calibre</th><th>Valor</th></tr></thead>';
+            $html_tabla_firmeza_mediana.='<tbody>';
+            foreach ($series_firmeza_mediana as $serie) {
+                $html_tabla_firmeza_mediana.='<tr>';
+                $html_tabla_firmeza_mediana.='<td>'.$serie['name'].'</td>';
+                $html_tabla_firmeza_mediana.='<td>'.$serie['y'].'</td>';
+                $html_tabla_firmeza_mediana.='</tr>';
+            }
+            $html_tabla_firmeza_mediana.='</tbody></table>';
+
+            $html_tabla_firmeza_pequena='<table border="1" cellpadding="5" cellspacing="0">';
+            $html_tabla_firmeza_pequena.='<thead><tr><th>Calibre</th><th>Valor</th></tr></thead>';
+            $html_tabla_firmeza_pequena.='<tbody>';
+            foreach ($series_firmeza_pequena as $serie) {
+                $html_tabla_firmeza_pequena.='<tr>';
+                $html_tabla_firmeza_pequena.='<td>'.$serie['name'].'</td>';
+                $html_tabla_firmeza_pequena.='<td>'.$serie['y'].'</td>';
+                $html_tabla_firmeza_pequena.='</tr>';
+            }
+            $html_tabla_firmeza_pequena.='</tbody></table>';
+             if ($recepcion->n_variedad == 'Dagen'){
+            foreach ($recepcion->calidad->detalles->where('tipo_item', 'FIRMEZAS') as $detalle){
+
+                    $categories_porc_firmeza[] = $detalle->detalle_item;
+                    if ($recepcion->n_especie == 'Cherries') {
+                        $series_porc_firmeza[] = $detalle->valor_ss;
+                    } else {
+                        $series_porc_firmeza[] = $detalle->porcentaje_muestra;
+                    }
+
+
+                }
+            }else{
+            foreach ($recepcion->calidad->detalles->where('tipo_item', 'FIRMEZAS') as $detalle){
+                if ($detalle->detalle_item == 'LIGHT' || $detalle->detalle_item == 'DARK' || $detalle->detalle_item == 'BLACK'){
+
+                        $categories_porc_firmeza[] = $detalle->detalle_item;
+                        if ($recepcion->n_especie == 'Cherries') {
+                            $series_porc_firmeza[] = $detalle->valor_ss;
+                        } else {
+                            $series_porc_firmeza[] = $detalle->porcentaje_muestra;
+                        }
+
+                }
+            }
+            }
+                $html_tabla_porc_firmeza='<table border="1" cellpadding="5" cellspacing="0">';
+                $html_tabla_porc_firmeza.='<thead><tr><th>Color</th><th>Valor</th></tr></thead>';
+                $html_tabla_porc_firmeza.='<tbody>';
+                foreach ($categories_porc_firmeza as $key => $value) {
+                $valor = $series_porc_firmeza[$key] ?? 0;
+                $html_tabla_porc_firmeza .= '<tr>';
+                $html_tabla_porc_firmeza .= '<td>' . htmlspecialchars($value) . '</td>';
+                $html_tabla_porc_firmeza .= '<td>' . round($valor, 2) . '</td>';
+                $html_tabla_porc_firmeza .= '</tr>';
+                }
+                    $html_tabla_porc_firmeza.='</tbody>';
+                    $html_tabla_porc_firmeza.='</table>';
+                 $html_tabla_calibrix='';
+        $categories_calibrix=[];
+        $series_calibrix=[];
+        //$items=['LIGHT','DARK','BLACK'];
+
+
+        $cont=0;
+        if ($recepcion->calidad->detalles->where('tipo_item','SOLIDOS SOLUBLES')->count()>0){
+            foreach ($recepcion->calidad->detalles->where('tipo_item','SOLIDOS SOLUBLES') as $detalle){
+
+
+                        $categories_calibrix[]=$detalle->detalle_item;
+                        $series_calibrix[]=$detalle->valor_ss;
+            }
+                   $html_tabla_calibrix='<table border="1" cellpadding="5" cellspacing="0">';
+            $html_tabla_calibrix.='<thead><tr><th>Color</th><th>Valor</th></tr></thead>';
+            $html_tabla_calibrix.='<tbody>';
+            foreach ($series_calibrix as $serie) {
+                $html_tabla_calibrix.='<tr>';
+                $html_tabla_calibrix.='<td>'.$categories_calibrix[$cont].'</td>';
+                $html_tabla_calibrix.='<td>'.$serie.'</td>';
+                $html_tabla_calibrix.='</tr>';
+                $cont++;
+
+            }
+            $html_tabla_calibrix.='</tbody>';
+            $html_tabla_calibrix.='</table>';
+
+        }
+        else{
+
+                        $categories_calibrix[]='NONAME';
+                        $series_calibrix[]=0;
+
+
+        }
+
+        $categories_porcentaje_firmezas = [];
+        $series_porcentaje_firmezas = [];
+        $colores=[];
+        $html_tabla_porcentaje_firmeza='';
+
+   if ($recepcion->calidad->detalles) {
+    if ($recepcion->n_variedad == 'Dagen') {
+        foreach ($recepcion->calidad->detalles->where('tipo_item', 'DISTRIBUCIÓN DE FIRMEZA') as $detalle) {
+            $categories_porcentaje_firmezas[] = $detalle->detalle_item;
+            $series_porcentaje_firmezas[] = $detalle->porcentaje_muestra;
+        }
+
+        // Generar tabla HTML para Dagen (1 fila de datos)
+        $html_tabla_porcentaje_firmeza = '<table border="1" cellpadding="5" cellspacing="0">';
+        $html_tabla_porcentaje_firmeza .= '<tr><th></th>';
+        foreach ($categories_porcentaje_firmezas as $categoria) {
+            $html_tabla_porcentaje_firmeza .= '<th>' . $categoria . '</th>';
+        }
+        $html_tabla_porcentaje_firmeza .= '</tr>';
+
+        $html_tabla_porcentaje_firmeza .= '<tr><td>Porcentaje</td>';
+        foreach ($series_porcentaje_firmezas as $valor) {
+            $html_tabla_porcentaje_firmeza .= '<td>' . round($valor, 2) . '%</td>';
+        }
+        $html_tabla_porcentaje_firmeza .= '</tr>';
+        $html_tabla_porcentaje_firmeza .= '</table>';
+
+    } else {
+        // Otras variedades (tabla de 3 filas: LIGHT, DARK, BLACK)
+
+        $l = $d = $b = [];
+        foreach ($recepcion->calidad->detalles->where('tipo_item', 'DISTRIBUCIÓN DE FIRMEZA')->where('detalle_item', 'LIGHT') as $detalle) {
+            $l[] = $detalle->valor_ss;
+        }
+        foreach ($recepcion->calidad->detalles->where('tipo_item', 'DISTRIBUCIÓN DE FIRMEZA')->where('detalle_item', 'DARK') as $detalle) {
+            $d[] = $detalle->valor_ss;
+        }
+        foreach ($recepcion->calidad->detalles->where('tipo_item', 'DISTRIBUCIÓN DE FIRMEZA')->where('detalle_item', 'BLACK') as $detalle) {
+            $b[] = $detalle->valor_ss;
+        }
+
+        $categories_porcentaje_firmezas = [
+            'Muy Firme >280 - 1000<br>Durofel >75',
+            'Firme 200 - 279<br>Durofel 72 - 74.9',
+            'Sensible 180 - 199<br>Durofel 65 - 69.9',
+            'Blando 0,1 - 179<br>Durofel <65,4'
+        ];
+        $series_porcentaje_firmezas = [$l, $d, $b];
+        $colores = ['LIGHT', 'DARK', 'BLACK'];
+
+        // Generar tabla HTML
+        $html_tabla_porcentaje_firmeza = '<table border="1" cellpadding="5" cellspacing="0">';
+        $html_tabla_porcentaje_firmeza .= '<tr><th></th>';
+        foreach ($categories_porcentaje_firmezas as $categoria) {
+            $html_tabla_porcentaje_firmeza .= '<th>' . $categoria . '</th>';
+        }
+        $html_tabla_porcentaje_firmeza .= '</tr>';
+
+        foreach ($series_porcentaje_firmezas as $index => $fila) {
+            $html_tabla_porcentaje_firmeza .= '<tr><td>' . $colores[$index] . '</td>';
+            foreach ($fila as $valor) {
+                $html_tabla_porcentaje_firmeza .= '<td>' . round($valor, 2) . '%</td>';
+            }
+            $html_tabla_porcentaje_firmeza .= '</tr>';
+        }
+        $html_tabla_porcentaje_firmeza .= '</table>';
+    }
+}
+        }
+         else {
+                $html_tabla_distribucion_calibre = '<p style="font-size:10px; margin:6px 0;">Sin datos.</p>';
+                $html_tabla_firmeza_grande = '<p style="font-size:10px; margin:6px 0;">Sin datos.</p>';
+                $html_tabla_firmeza_mediana = '<p style="font-size:10px; margin:6px 0;">Sin datos.</p>';
+                $html_tabla_firmeza_pequena = '<p style="font-size:10px; margin:6px 0;">Sin datos.</p>';
+                $html_tabla_color_fondo = '<p style="font-size:10px; margin:6px 0;">Sin datos.</p>';
+                $html_tabla_calibrix = '<p style="font-size:10px; margin:6px 0;">Sin datos.</p>';
+                $html_tabla_porcentaje_firmeza = '<p style="font-size:10px; margin:6px 0;">Sin datos.</p>';
+            }
+
+            // $html_tabla_color = $this->buildColorCoverageTable($coverageColor);
+
+            // if ($calidad && ! in_array($recepcion->n_especie, ['Cherries', 'Dagen'], true)) {
+            //     $html_tabla_firmeza_grande = $this->buildFirmnessSizeTable($calidad, 'GRANDE', 'Firmeza (Grande)');
+            //     $html_tabla_firmeza_mediana = $this->buildFirmnessSizeTable($calidad, 'MEDIANO', 'Firmeza (Mediana)');
+            //     $html_tabla_firmeza_pequena = $this->buildFirmnessSizeTable($calidad, 'CHICO', 'Firmeza (Pequeña)');
+            //     $html_tabla_color_fondo = $this->buildDetallePercentageTable($calidad, 'COLOR DE FONDO', 'Color', 'Porcentaje');
+            // }
+
+            // if ($calidad) {
+            //     $html_tabla_calibrix = $this->buildCalibrixTable($calidad);
+            //     $html_tabla_porcentaje_firmeza = $this->buildPresionesTable($calidad);
+            // }
+
+            // $html_tabla_porc_firmeza = $this->buildAverageFirmnessTable($averageFirmness);
+            // $html_tabla_color = $html_tabla_color ?: $this->buildColorCoverageTable($coverageColor);
         }
 
         return compact(
@@ -1679,7 +1981,7 @@ public function previewPage(Recepcion $recepcion)
 
         $tmpDir = storage_path('app/tmp');
         if (! is_dir($tmpDir)) {
-            @mkdir($tmpDir, 0755, true);
+@mkdir($tmpDir, 0755, true);
         }
 
         $filename = 'reporte_recepcion_' . $recepcion->numero_g_recepcion . '_preview.pdf';
@@ -1785,7 +2087,7 @@ public function previewPage(Recepcion $recepcion)
             }
         }
 
-        @unlink($tempPath);
+@unlink($tempPath);
 
         if ($failedRecipients->isNotEmpty()) {
             if ($failedRecipients->count() === $uniqueRecipients->count()) {
@@ -1849,7 +2151,7 @@ public function previewPage(Recepcion $recepcion)
             $filename
         );
 
-        @unlink($tempPath);
+@unlink($tempPath);
 
         return response()->json([
             'status' => 'sent',
@@ -1956,6 +2258,8 @@ public function resendReport(Recepcion $recepcion, ReportNotificationService $no
 
     private function buildCalibreDistributionTable(array $sizeDistribution): string
     {
+
+
         if (isset($sizeDistribution['categories'], $sizeDistribution['countsSeries'])) {
             $categories = $sizeDistribution['categories'];
             $series = $sizeDistribution['countsSeries'];
