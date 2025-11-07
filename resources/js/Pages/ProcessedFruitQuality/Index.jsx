@@ -745,7 +745,7 @@ export default function Index({
                                             </span>
                                         </div>
                                         <div className="flex flex-col items-start text-sm text-gray-600">
-                                            <div>Lote: {proceso.lote_recepcion ?? proceso.LPP_recepcion ?? 'N/A'}</div>
+                                            <div>Lote: {proceso.lote_recepcion}</div>
                                         </div>
                                         <div className="flex items-center space-x-2">
                                             <Button
