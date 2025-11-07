@@ -632,8 +632,8 @@ class ProcesoController extends Controller
         'ppc.fecha_proceso AS Fecha',
         't_categoria AS Categoria',
         'id_empresa',
-        'Estado'
-        'lote_recepcion',
+        'Estado',
+        'ppc.lote_recepcion AS lote_recepcion',
     )
     ->selectRaw('SUM(ppc.peso_neto) AS Kilos_Netos')
     ->selectRaw('getdate() AS FechaConsulta') // Use selectRaw for SQL functions like GETDATE()
