@@ -426,7 +426,12 @@ class ProcessedFruitQualityController extends Controller
         }
 
         $defectParamIds = [3, 4, 5];
-        $rows = [];
+        $groupMap = [
+            3 => 'Defectos de Calidad',
+            4 => 'Defectos de Condición',
+            5 => 'Daño de Plaga',
+        ];
+        $tables = [];
         $boxLabels = [];
 
         foreach ($qualities as $index => $quality) {
@@ -443,31 +448,78 @@ class ProcessedFruitQualityController extends Controller
                     $defectName = $detail->tipo_item ?? $detail->parametro->nombre ?? 'Defecto';
                 }
 
-                if (! isset($rows[$defectName])) {
-                    $rows[$defectName] = [
+                $groupName = $groupMap[$detail->parametro_id] ?? 'Otros defectos';
+
+                if (! isset($tables[$groupName])) {
+                    $tables[$groupName] = [
+                        'rows' => [],
+                    ];
+                }
+
+                if (! isset($tables[$groupName]['rows'][$defectName])) {
+                    $tables[$groupName]['rows'][$defectName] = [
                         'label' => $defectName,
                         'values' => [],
                     ];
                 }
 
-                $rows[$defectName]['values'][$boxLabel] = [
+                $tables[$groupName]['rows'][$defectName]['values'][$boxLabel] = [
                     'cantidad' => $detail->cantidad_muestra,
                     'porcentaje' => $detail->porcentaje_muestra,
                 ];
             }
         }
 
-        if (empty($rows)) {
+        if (empty($tables)) {
             return back()->with('error', 'No se encontraron defectos para consolidar en este proceso.');
         }
 
         ksort($rows);
         $boxLabels = array_values(array_unique($boxLabels));
+        $orderedTables = [];
+
+        $groupOrder = [
+            'Defectos de Calidad',
+            'Defectos de Condición',
+            'Daño de Plaga',
+        ];
+
+        foreach ($groupOrder as $groupName) {
+            if (isset($tables[$groupName])) {
+                $orderedTables[$groupName] = $tables[$groupName];
+                unset($tables[$groupName]);
+            }
+        }
+
+        foreach ($tables as $groupName => $data) {
+            $orderedTables[$groupName] = $data;
+        }
+
+        foreach ($orderedTables as $groupName => $data) {
+            $rowsAssoc = $data['rows'];
+            $rowsList = array_values($rowsAssoc);
+            $totals = [];
+            foreach ($boxLabels as $label) {
+                $totals[$label] = ['cantidad' => 0, 'porcentaje' => 0];
+            }
+            foreach ($rowsList as $row) {
+                foreach ($boxLabels as $label) {
+                    if (isset($row['values'][$label])) {
+                        $totals[$label]['cantidad'] += (float) ($row['values'][$label]['cantidad'] ?? 0);
+                        $totals[$label]['porcentaje'] += (float) ($row['values'][$label]['porcentaje'] ?? 0);
+                    }
+                }
+            }
+            $orderedTables[$groupName] = [
+                'rows' => $rowsList,
+                'totals' => $totals,
+            ];
+        }
 
         $html = view('reports.processed_fruit_quality_consolidated_report', [
             'proceso' => $proceso,
             'boxLabels' => $boxLabels,
-            'rows' => $rows,
+            'tables' => $orderedTables,
         ])->render();
 
         try {

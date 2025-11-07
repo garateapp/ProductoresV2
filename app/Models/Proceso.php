@@ -27,6 +27,7 @@ class Proceso extends Model
         'temporada',
         'c_productor',
         'LPP_recepcion',
+        'lote_recepcion',
     ];
 
     public function recepcion()

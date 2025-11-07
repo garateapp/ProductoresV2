@@ -198,6 +198,7 @@ export default function Index({
 
     const mapToCanonicalDefect = (raw = '') => {
         const t = normalizeText(raw);
+                                    <div class="text-sm text-gray-700">Lote: {{$\{proceso.lote_recepcion ?? proceso.LPP_recepcion ?? "N/A"\}}</div>
         // coarse contains mappings
         if (t.includes('PUDRICION') && t.includes('PARDA')) return 'PUDRICIONES PARDAS';
         if (t.includes('PUDRICION') && t.includes('NEGRA')) return 'PUDRICIONES NEGRAS';
@@ -743,6 +744,9 @@ export default function Index({
                                                     {proceso.kilos_netos} Kgs
                                                 </span>
                                             </span>
+                                        </div>
+                                        <div className="flex flex-col items-start text-sm text-gray-600">
+                                            <div>Lote: {proceso.lote_recepcion ?? proceso.LPP_recepcion ?? 'N/A'}</div>
                                         </div>
                                         <div className="flex items-center space-x-2">
                                             <Button

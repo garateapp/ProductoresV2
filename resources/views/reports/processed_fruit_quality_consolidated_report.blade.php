@@ -37,40 +37,53 @@
         <div><strong>Agrícola:</strong> {{ $proceso->agricola ?? 'N/A' }}</div>
         <div><strong>Especie:</strong> {{ $proceso->especie ?? 'N/A' }}</div>
         <div><strong>Variedad:</strong> {{ $proceso->variedad ?? 'N/A' }}</div>
+        <div><strong>Lote Recepción:</strong> {{ $proceso->lote_recepcion ?? $proceso->LPP_recepcion ?? 'N/A' }}</div>
         <div><strong>Kilos Netos:</strong> {{ number_format((float)($proceso->kilos_netos ?? 0), 0, ',', '.') }} kg</div>
         <div><strong>Fecha Proceso:</strong> {{ $proceso->fecha ? \Carbon\Carbon::parse($proceso->fecha)->format('d/m/Y') : 'N/A' }}</div>
         <div><strong>Total Cajas:</strong> {{ count($boxLabels) }}</div>
     </div>
 
-    <h2>Defectos vs Cajas</h2>
-    <table>
-        <thead>
-            <tr>
-                <th class="defect-col">Defecto</th>
-                @foreach ($boxLabels as $label)
-                    <th class="box-cell">{{ $label }}</th>
-                @endforeach
-            </tr>
-        </thead>
-        <tbody>
-            @foreach ($rows as $row)
+    @foreach ($tables as $groupName => $table)
+        <h3 style="margin-top:24px;">{{ $groupName }}</h3>
+        <table>
+            <thead>
                 <tr>
-                    <td>{{ $row['label'] }}</td>
+                    <th class="defect-col">Defecto</th>
                     @foreach ($boxLabels as $label)
-                        @php $value = $row['values'][$label] ?? null; @endphp
+                        <th class="box-cell">{{ $label }}</th>
+                    @endforeach
+                </tr>
+            </thead>
+            <tbody>
+                @foreach ($table['rows'] as $row)
+                    <tr>
+                        <td>{{ $row['label'] }}</td>
+                        @foreach ($boxLabels as $label)
+                            @php $value = $row['values'][$label] ?? null; @endphp
+                            <td class="box-cell">
+                                @if ($value)
+                                    <div>{{ $value['cantidad'] ?? '-' }}</div>
+                                    <div class="muted">{{ isset($value['porcentaje']) ? number_format((float)$value['porcentaje'], 2, ',', '.') . ' %' : '-' }}</div>
+                                @else
+                                    -
+                                @endif
+                            </td>
+                        @endforeach
+                    </tr>
+                @endforeach
+                <tr>
+                    <td><strong>Totales</strong></td>
+                    @foreach ($boxLabels as $label)
+                        @php $total = $table['totals'][$label] ?? ['cantidad' => 0, 'porcentaje' => 0]; @endphp
                         <td class="box-cell">
-                            @if ($value)
-                                <div>{{ $value['cantidad'] ?? '-' }}</div>
-                                <div class="muted">{{ isset($value['porcentaje']) ? number_format((float)$value['porcentaje'], 2, ',', '.') . ' %' : '-' }}</div>
-                            @else
-                                -
-                            @endif
+                            <div><strong>{{ number_format((float)$total['cantidad'], 0, ',', '.') }}</strong></div>
+                            <div class="muted"><strong>{{ number_format((float)$total['porcentaje'], 2, ',', '.') }} %</strong></div>
                         </td>
                     @endforeach
                 </tr>
-            @endforeach
-        </tbody>
-    </table>
+            </tbody>
+        </table>
+    @endforeach
 
     <p class="muted" style="margin-top: 12px;">Notas: Los valores corresponden a la cantidad y porcentaje de muestra reportado por cada caja evaluada.</p>
 </body>
