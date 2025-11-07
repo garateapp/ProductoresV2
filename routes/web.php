@@ -110,6 +110,7 @@ Route::middleware('auth')->group(function () {
     Route::get('processed-fruit-quality/export', [App\Http\Controllers\ProcessedFruitQualityController::class, 'export'])->name('processed-fruit-quality.export');
     Route::get('processed-fruit-quality/{proceso}/report', [App\Http\Controllers\ProcessedFruitQualityController::class, 'generateReport'])->name('processed-fruit-quality.generate-report');
     Route::get('processed-fruit-quality/{proceso}/report/preview', [App\Http\Controllers\ProcessedFruitQualityController::class, 'previewReport'])->name('processed-fruit-quality.preview-report');
+    Route::get('processed-fruit-quality/{proceso}/report/consolidated', [App\Http\Controllers\ProcessedFruitQualityController::class, 'consolidatedReport'])->name('processed-fruit-quality.consolidated-report');
 
     Route::post('producers/{producer}/agronomists', [App\Http\Controllers\ProducerAgronomistController::class, 'store'])->name('producers.agronomists.store');
     Route::delete('producers/{producer}/agronomists', [App\Http\Controllers\ProducerAgronomistController::class, 'destroy'])->name('producers.agronomists.destroy');

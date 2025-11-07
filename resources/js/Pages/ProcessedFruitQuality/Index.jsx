@@ -11,7 +11,7 @@ import {
     TableRow,
 } from "@/Components/ui/table";
 import { Input } from "@/Components/ui/input";
-import { FileText, Trash2, UploadCloud, Eye, Send } from "lucide-react";
+import { FileText, Trash2, UploadCloud, Eye, Send, LayoutGrid } from "lucide-react";
 import {
     Dialog,
     DialogContent,
@@ -801,6 +801,17 @@ export default function Index({
                                                     </Button>
                                                 </a>
                                             )}
+                                            <a
+                                                href={route('processed-fruit-quality.consolidated-report', proceso.id)}
+                                                target="_blank"
+                                                rel="noopener noreferrer"
+                                                title="Reporte consolidado"
+                                                onClick={(e) => e.stopPropagation()}
+                                            >
+                                                <Button variant="ghost" size="icon">
+                                                    <LayoutGrid className="h-4 w-4" />
+                                                </Button>
+                                            </a>
                                             {/* Reenviar / Regenerar */}
                                             <a
                                                 href={route('processed-fruit-quality.generate-report', proceso.id)}

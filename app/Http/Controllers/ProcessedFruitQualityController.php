@@ -373,7 +373,7 @@ class ProcessedFruitQualityController extends Controller
                 ->waitUntilNetworkIdle()
                 ->wait(15)
                 ->setViewport(1920, 1080)
-                ->landscape(false)
+                ->landscape(true)
                 ->showBackground();
 
             // Allow overriding paths via env (both our custom and Browsershot's names)
@@ -412,6 +412,109 @@ class ProcessedFruitQualityController extends Controller
             return response()->file($pdfPath);
         } catch (\Exception $e) {
             Log::error('Browsershot (Proceso) error: ' . $e->getMessage());
+            throw $e;
+        }
+    }
+
+    public function consolidatedReport(Proceso $proceso)
+    {
+        $proceso->load(['processedFruitQualities.details.parametro', 'processedFruitQualities.details.valor']);
+        $qualities = $proceso->processedFruitQualities;
+
+        if ($qualities->isEmpty()) {
+            return back()->with('error', 'El proceso no tiene evaluaciones para consolidar.');
+        }
+
+        $defectParamIds = [3, 4, 5];
+        $rows = [];
+        $boxLabels = [];
+
+        foreach ($qualities as $index => $quality) {
+            $boxLabel = $quality->numero_de_caja ?: 'Caja '.($index + 1);
+            $boxLabels[] = $boxLabel;
+
+            foreach ($quality->details ?? [] as $detail) {
+                if (! in_array($detail->parametro_id, $defectParamIds, true)) {
+                    continue;
+                }
+
+                $defectName = trim(($detail->tipo_item ?? $detail->parametro->nombre ?? 'Defecto').' - '.($detail->detalle_item ?? $detail->valor->nombre ?? ''));
+                if ($defectName === '-' || $defectName === '') {
+                    $defectName = $detail->tipo_item ?? $detail->parametro->nombre ?? 'Defecto';
+                }
+
+                if (! isset($rows[$defectName])) {
+                    $rows[$defectName] = [
+                        'label' => $defectName,
+                        'values' => [],
+                    ];
+                }
+
+                $rows[$defectName]['values'][$boxLabel] = [
+                    'cantidad' => $detail->cantidad_muestra,
+                    'porcentaje' => $detail->porcentaje_muestra,
+                ];
+            }
+        }
+
+        if (empty($rows)) {
+            return back()->with('error', 'No se encontraron defectos para consolidar en este proceso.');
+        }
+
+        ksort($rows);
+        $boxLabels = array_values(array_unique($boxLabels));
+
+        $html = view('reports.processed_fruit_quality_consolidated_report', [
+            'proceso' => $proceso,
+            'boxLabels' => $boxLabels,
+            'rows' => $rows,
+        ])->render();
+
+        try {
+            $pdfRelative = 'reporte_consolidado_proceso_' . $proceso->n_proceso . '.pdf';
+            $pdfPath = storage_path('app/public/' . $pdfRelative);
+            $tmpDir = storage_path('app/browsershot-temp');
+            if (! is_dir($tmpDir)) {
+                @mkdir($tmpDir, 0755, true);
+            }
+
+            $shot = Browsershot::html($html)
+                ->setTemporaryDirectory($tmpDir)
+                ->setChromePath('/usr/bin/chromium-browser')
+                ->setOption('executablePath', '/usr/bin/chromium-browser')
+                ->setOption('headless', true)
+                ->noSandbox()
+                ->addChromiumArguments([
+                    '--no-sandbox',
+                    '--disable-dev-shm-usage',
+                    '--disable-gpu',
+                    '--font-render-hinting=none',
+                    '--headless=new',
+                ])
+                ->waitUntilNetworkIdle()
+                ->wait(15)
+                ->setViewport(1920, 1080)
+                ->landscape(false)
+                ->showBackground();
+
+            $chromePath = env('CHROME_PATH') ?: env('BROWSERSHOT_CHROME_PATH');
+            if (! empty($chromePath)) {
+                $shot->setOption('executablePath', $chromePath);
+            }
+            $nodePath = env('NODE_PATH') ?: env('BROWSERSHOT_NODE_PATH');
+            if (! empty($nodePath)) {
+                $shot->setNodeBinary($nodePath);
+            }
+            $npmPath = env('NPM_PATH') ?: env('BROWSERSHOT_NPM_PATH');
+            if (! empty($npmPath)) {
+                $shot->setNpmBinary($npmPath);
+            }
+
+            $shot->savePdf($pdfPath);
+
+            return response()->file($pdfPath);
+        } catch (\Exception $e) {
+            Log::error('Browsershot (Proceso consolidado) error: ' . $e->getMessage());
             throw $e;
         }
     }
