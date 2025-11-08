@@ -70,7 +70,6 @@ export default function Index({
     };
 
     const [photoTypesState, setPhotoTypesState] = useState(photoTypes || []);
-    const [boxCounters, setBoxCounters] = useState({});
     const { data: filterData, setData: setFilterData } = useForm({
         search: filters.search || '',
         especie_id: filters.especie_id || '',
@@ -103,34 +102,35 @@ export default function Index({
         }
     }, []);
 
-    const qualityFormState = useForm({
+    const initialQualityData = {
         proceso_id: null,
-        numero_de_caja: "",
-        numero_embaladora_mano: "",
-        peso_exacto_caja: "",
-        codigo_embalaje: "",
-        categoria: "",
+        numero_de_caja: '',
+        numero_embaladora_mano: '',
+        peso_exacto_caja: '',
+        codigo_embalaje: '',
+        categoria: '',
         tolerance_label: '1S',
         estado: 'Aprobada',
-        destino: "",
-        calibre: "",
-        color_cubrimiento: "",
-        color_fondo: "",
+        destino: '',
+        calibre: '',
+        color_cubrimiento: '',
+        color_fondo: '',
         t_muestra: 100,
-        observaciones: "",
-        responsable: "",
-        // Add fields from original Calidad model
+        observaciones: '',
+        responsable: '',
         materia_vegetal: false,
         piedras: false,
         barro: false,
         pedicelo_largo: false,
         racimo: false,
         esponjas: false,
-        h_esponjas: "BUENO",
-        llenado_tottes: "CORRECTO",
-        embalaje: "",
-        obs_ext: "",
-    });
+        h_esponjas: 'BUENO',
+        llenado_tottes: 'CORRECTO',
+        embalaje: '',
+        obs_ext: '',
+    };
+
+    const qualityFormState = useForm(initialQualityData);
 
     const qualityData = qualityFormState.data;
     const setQualityData = qualityFormState.setData;
@@ -363,21 +363,15 @@ export default function Index({
         []
     );
 
-    const getNextBoxLabel = useCallback(
-        (proceso) => {
-            if (! proceso) {
-                return '1';
-            }
-            const persisted = proceso?.processed_fruit_qualities?.length ?? 0;
-            const consumed = boxCounters[proceso.id] ?? persisted;
-            return `${consumed + 1}`;
-        },
-        [boxCounters]
-    );
+    const getNextBoxLabel = useCallback((proceso) => {
+        const existing = proceso?.processed_fruit_qualities?.length ?? 0;
+        return `${existing + 1}`;
+    }, []);
 
     const handleOpenModal = async (proceso, qualityIdToEdit = null) => {
         setSelectedProceso(proceso);
         resetQuality();
+        setQualityData(initialQualityData);
         resetDetail();
         resetPhoto();
         setPhotos([]);
@@ -387,7 +381,7 @@ export default function Index({
         setIndiceMadurezAgregados([]);
 
         // Establece el proceso y opcionalmente el ID a editar
-        setQualityData("proceso_id", proceso.id);
+        setQualityData('proceso_id', proceso.id);
         if (! qualityIdToEdit) {
             setQualityData("numero_de_caja", getNextBoxLabel(proceso));
         }
@@ -416,21 +410,7 @@ export default function Index({
             data: { ...qualityData, proceso_id: selectedProceso.id },
             onSuccess: () => {
                 toast.success('Operación exitosa.');
-                if (qualityId) {
-                    fetchQualityData(selectedProceso, qualityId);
-                } else {
-                    const persisted = selectedProceso?.processed_fruit_qualities?.length ?? 0;
-                    const consumed = boxCounters[selectedProceso.id] ?? persisted;
-                    const updatedConsumed = consumed + 1;
-                    setBoxCounters((prev) => ({
-                        ...prev,
-                        [selectedProceso.id]: updatedConsumed,
-                    }));
-                    setQualityId(null);
-                    resetQuality();
-                    setQualityData('proceso_id', selectedProceso.id);
-                    setQualityData('numero_de_caja', `${updatedConsumed + 1}`);
-                }
+                fetchQualityData(selectedProceso, qualityId || undefined);
                 router.reload({ only: ['procesos'] });
             },
             onError: (errors) => {
