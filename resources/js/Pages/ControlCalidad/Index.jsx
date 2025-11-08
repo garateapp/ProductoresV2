@@ -294,12 +294,23 @@ export default function Index({ recepciones, especies, variedades = [], filters,
         console.log('Before fetch call.');
         const response = await fetch(route('quality-control-photos.store', calidadId), {
             method: 'POST',
+            headers: {
+                'Accept': 'application/json',
+                'X-CSRF-TOKEN': csrfToken,
+            },
             body: formData,
         });
         console.log('After fetch call. Response object:', response);
 
         console.log('Before parsing JSON response.');
-        const data = await response.json();
+        let data;
+        const contentType = response.headers.get('content-type');
+        if (contentType && contentType.includes('application/json')) {
+            data = await response.json();
+        } else {
+            const text = await response.text();
+            throw new Error('Unexpected response: ' + text.substring(0, 200));
+        }
         console.log('After parsing JSON response. Data object:', data);
 
         if (response.ok) {
