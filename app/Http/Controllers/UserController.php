@@ -56,8 +56,8 @@ class UserController extends Controller
     public function store(Request $request)
     {
         $request->validate([
-            'name' => 'required|string|max:255',
-            'email' => 'required|string|email|max:255'.User::class,
+            'name' => 'required|string',
+            'email' => 'required|string'.User::class,
             'password' => ['required', 'confirmed', Rules\Password::defaults()],
         ]);
 
@@ -94,7 +94,7 @@ class UserController extends Controller
     public function update(Request $request, User $user)
     {
         $request->validate([
-            'name' => 'required|string|max:255',
+            //'name' => 'required|string|max:255',
             //'email' => 'required|string|email|max:255'.$user->id,
         ]);
 
