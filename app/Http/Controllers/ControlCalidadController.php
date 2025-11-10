@@ -1831,8 +1831,7 @@ public function previewPage(Recepcion $recepcion)
     }
     public function syncNotasCalidad()
     {
-        $recepciones = Recepcion::whereNotNull('nota_calidad')
-            ->whereNotNull('numero_g_recepcion')
+        $recepciones = Recepcion::whereNotNull('numero_g_recepcion')
             ->get(['numero_g_recepcion', 'nota_calidad']);
 
         if ($recepciones->isEmpty()) {
