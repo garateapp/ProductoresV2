@@ -110,7 +110,8 @@ export default function Index({ recepciones, especies, variedades = [], filters,
     variedad_id: filters.variedad_id || '',
   });
 
-  const [photoTypesState, setPhotoTypesState] = useState(photoTypes || []);
+    const [photoTypesState, setPhotoTypesState] = useState(photoTypes || []);
+    const [syncingNotas, setSyncingNotas] = useState(false);
   useEffect(() => {
     if (!photoTypes || photoTypes.length === 0) {
       fetch(route('photo-types.all'))
@@ -411,6 +412,45 @@ export default function Index({ recepciones, especies, variedades = [], filters,
     router.get(route('control-calidad.index', { ...filterData, search: e.target.value }), { preserveState: true, replace: true });
   };
 
+  const handleSyncNotasCalidad = async () => {
+    if (syncingNotas) {
+      return;
+    }
+
+    const csrfToken = document.querySelector('meta[name="csrf-token"]')?.getAttribute('content');
+    if (!csrfToken) {
+      alert('No se pudo obtener el token CSRF.');
+      return;
+    }
+
+    setSyncingNotas(true);
+    try {
+      const response = await fetch(route('control-calidad.sync-notas'), {
+        method: 'POST',
+        headers: {
+          'X-CSRF-TOKEN': csrfToken,
+          'Accept': 'application/json',
+        },
+      });
+
+      const contentType = response.headers.get('content-type');
+      const data = contentType && contentType.includes('application/json')
+        ? await response.json()
+        : { message: await response.text() };
+
+      if (response.ok) {
+        alert(data.message || `Notas sincronizadas (${data.updated ?? 0}).`);
+      } else {
+        alert(data.message || 'Error al sincronizar las notas.');
+      }
+    } catch (error) {
+      console.error('Error sincronizando notas de calidad:', error);
+      alert('Error de red o servidor al sincronizar las notas.');
+    } finally {
+      setSyncingNotas(false);
+    }
+  };
+
   const handleEspecieFilter = (especieId) => {
     setFilterData('especie_id', especieId);
     setFilterData('variedad_id', ''); // Reset variedad filter when specie changes
@@ -607,6 +647,16 @@ export default function Index({ recepciones, especies, variedades = [], filters,
               ))}
             </div>
           )}
+
+          <div className="mb-4 flex justify-end">
+            <Button
+              variant="outline"
+              onClick={handleSyncNotasCalidad}
+              disabled={syncingNotas}
+            >
+              {syncingNotas ? 'Sincronizando notas...' : 'Sincronizar notas SQL'}
+            </Button>
+          </div>
 
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
             <Card className="bg-green-100">

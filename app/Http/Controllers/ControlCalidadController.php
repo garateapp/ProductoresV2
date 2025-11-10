@@ -1520,7 +1520,7 @@ public function previewPage(Recepcion $recepcion)
     }
 
     $html_tabla_distribucion_calibre .= '</tbody></table>';
-            }
+
 
         foreach ($recepcion->calidad->detalles->where('tipo_item', 'COLOR DE CUBRIMIENTO') as $detalle) {
              $name_color = $detalle->detalle_item;
@@ -1658,11 +1658,11 @@ public function previewPage(Recepcion $recepcion)
                 $html_tabla_porc_firmeza.='<thead><tr><th>Color</th><th>Valor</th></tr></thead>';
                 $html_tabla_porc_firmeza.='<tbody>';
                 foreach ($categories_porc_firmeza as $key => $value) {
-                $valor = $series_porc_firmeza[$key] ?? 0;
-                $html_tabla_porc_firmeza .= '<tr>';
-                $html_tabla_porc_firmeza .= '<td>' . htmlspecialchars($value) . '</td>';
-                $html_tabla_porc_firmeza .= '<td>' . round($valor, 2) . '</td>';
-                $html_tabla_porc_firmeza .= '</tr>';
+                    $valor = $series_porc_firmeza[$key] ?? 0;
+                    $html_tabla_porc_firmeza .= '<tr>';
+                    $html_tabla_porc_firmeza .= '<td>' . htmlspecialchars($value) . '</td>';
+                    $html_tabla_porc_firmeza .= '<td>' . round($valor, 2) . '</td>';
+                    $html_tabla_porc_firmeza .= '</tr>';
                 }
                     $html_tabla_porc_firmeza.='</tbody>';
                     $html_tabla_porc_firmeza.='</table>';
@@ -1702,7 +1702,7 @@ public function previewPage(Recepcion $recepcion)
 
 
         }
-
+    }
         $categories_porcentaje_firmezas = [];
         $series_porcentaje_firmezas = [];
         $colores=[];
@@ -1770,8 +1770,10 @@ public function previewPage(Recepcion $recepcion)
         }
         $html_tabla_porcentaje_firmeza .= '</table>';
     }
+
+
 }
-        }
+
          else {
                 $html_tabla_distribucion_calibre = '<p style="font-size:10px; margin:6px 0;">Sin datos.</p>';
                 $html_tabla_firmeza_grande = '<p style="font-size:10px; margin:6px 0;">Sin datos.</p>';
@@ -1799,7 +1801,7 @@ public function previewPage(Recepcion $recepcion)
             // $html_tabla_porc_firmeza = $this->buildAverageFirmnessTable($averageFirmness);
             // $html_tabla_color = $html_tabla_color ?: $this->buildColorCoverageTable($coverageColor);
         }
-
+    }
         return compact(
             'recepcion',
             'temperatura_pulpa',
@@ -1826,6 +1828,37 @@ public function previewPage(Recepcion $recepcion)
             'html_tabla_porcentaje_firmeza'
 
         );
+    }
+    public function syncNotasCalidad()
+    {
+        $recepciones = Recepcion::whereNotNull('nota_calidad')
+            ->whereNotNull('numero_g_recepcion')
+            ->get(['numero_g_recepcion', 'nota_calidad']);
+
+        if ($recepciones->isEmpty()) {
+            return response()->json([
+                'updated' => 0,
+                'total' => 0,
+                'message' => 'No hay recepciones con nota de calidad para sincronizar.',
+            ]);
+        }
+
+        $updated = 0;
+
+        foreach ($recepciones as $recepcion) {
+            $affected = DB::connection('sqlsrv')
+                ->table('PKG_G_Recepcion')
+                ->where('numero_i', $recepcion->numero_g_recepcion)
+                ->update(['nota_calidad' => $recepcion->nota_calidad]);
+
+            $updated += $affected;
+        }
+
+        return response()->json([
+            'updated' => $updated,
+            'total' => $recepciones->count(),
+            'message' => 'Notas de calidad sincronizadas correctamente.',
+        ]);
     }
 
     public function approveReport(Recepcion $recepcion, ReportNotificationService $notificationService)

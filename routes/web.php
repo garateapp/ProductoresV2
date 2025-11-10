@@ -79,6 +79,7 @@ Route::middleware('auth')->group(function () {
     Route::post('control-calidad/store-calidad', [App\Http\Controllers\ControlCalidadController::class, 'storeCalidad'])->name('control-calidad.store-calidad');
     Route::post('control-calidad/store-detalle', [App\Http\Controllers\ControlCalidadController::class, 'storeDetalle'])->name('control-calidad.store-detalle');
     Route::delete('control-calidad/detalles/{detalle}', [App\Http\Controllers\ControlCalidadController::class, 'destroyDetalle'])->name('control-calidad.destroy-detalle');
+    Route::post('control-calidad/sync-notas-calidad', [App\Http\Controllers\ControlCalidadController::class, 'syncNotasCalidad'])->name('control-calidad.sync-notas');
     Route::get('control-calidad/descarte-comercial', [CommercialDiscardController::class, 'index'])->name('commercial-discards.index');
     Route::get('control-calidad/descarte-comercial/crear', [CommercialDiscardController::class, 'create'])->name('commercial-discards.create');
     Route::post('control-calidad/descarte-comercial', [CommercialDiscardController::class, 'store'])->name('commercial-discards.store');
