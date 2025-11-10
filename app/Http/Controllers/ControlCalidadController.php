@@ -146,9 +146,14 @@ class ControlCalidadController extends Controller
             $validated
         );
 
+
         $recepcion = Recepcion::find($recepcionId);
         if ($recepcion) {
             $recepcion->nota_calidad = ($nota_calidad === '' || $nota_calidad === null) ? null : $nota_calidad;
+            DB::connection('sqlsrv2')
+    ->table('PKG_G_Recepcion')
+    ->where('numero_i', $recepcion->numero_g_recepcion)
+    ->update(['nota_calidad' => $nota_calidad]);
             $recepcion->save();
         }
 
