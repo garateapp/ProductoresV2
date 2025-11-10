@@ -1831,7 +1831,8 @@ public function previewPage(Recepcion $recepcion)
     }
     public function syncNotasCalidad()
     {
-        $recepciones = Recepcion::whereNotNull('numero_g_recepcion')
+        $recepciones = Recepcion::whereNotNull('nota_calidad')
+            ->whereNotNull('numero_g_recepcion')
             ->get(['numero_g_recepcion', 'nota_calidad']);
 
         if ($recepciones->isEmpty()) {
@@ -1858,6 +1859,65 @@ public function previewPage(Recepcion $recepcion)
             'total' => $recepciones->count(),
             'message' => 'Notas de calidad sincronizadas correctamente.',
         ]);
+    }
+
+    public function exportablePercentages()
+    {
+        $results = [];
+
+        Recepcion::query()
+            ->whereHas('calidad')
+            ->with(['calidad.detalles' => function ($query) {
+                $query->select('id', 'calidad_id', 'tipo_item', 'detalle_item', 'porcentaje_muestra');
+            }])
+            ->orderBy('fecha_g_recepcion')
+            ->chunkById(250, function ($recepciones) use (&$results) {
+                foreach ($recepciones as $recepcion) {
+                    $percentage = $this->calculateExportablePercentage($recepcion);
+                    $results[] = [
+                        'numero_g_recepcion' => $recepcion->numero_g_recepcion,
+                        'productor' => $recepcion->n_emisor,
+                        'especie' => $recepcion->n_especie,
+                        'variedad' => $recepcion->n_variedad,
+                        'porcentaje_exportable' => $percentage,
+                    ];
+                }
+            });
+
+        return response()->json($results);
+    }
+
+    private function calculateExportablePercentage(Recepcion $recepcion): float
+    {
+        $calidad = $recepcion->calidad;
+
+        if (! $calidad) {
+            return 0;
+        }
+
+        $detalles = $calidad->detalles ?? collect();
+
+        $defectosCalidad = $detalles
+            ->where('tipo_item', 'DEFECTOS DE CALIDAD')
+            ->sum('porcentaje_muestra');
+
+        $defectosCondicion = $detalles
+            ->where('tipo_item', 'DEFECTOS DE CONDICION')
+            ->sum('porcentaje_muestra');
+
+        $danosPlaga = $detalles
+            ->where('tipo_item', 'DAÑO DE PLAGA')
+            ->sum('porcentaje_muestra');
+
+        $defectosCalidadPrecalibre = $detalles
+            ->where('tipo_item', 'DEFECTOS DE CALIDAD')
+            ->where('detalle_item', 'PRECALIBRE')
+            ->sum('porcentaje_muestra');
+
+        $defectosCalidadAjustado = $defectosCalidad - $defectosCalidadPrecalibre;
+        $totalDefectos = $defectosCalidadAjustado + $defectosCondicion + $danosPlaga + $defectosCalidadPrecalibre;
+
+        return max(0, 100 - $totalDefectos);
     }
 
     public function approveReport(Recepcion $recepcion, ReportNotificationService $notificationService)
