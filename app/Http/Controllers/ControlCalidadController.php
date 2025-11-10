@@ -1902,7 +1902,7 @@ public function previewPage(Recepcion $recepcion)
             ->sum('porcentaje_muestra');
 
         $defectosCondicion = $detalles
-            ->where('tipo_item', 'DEFECTOS DE CONDICION')
+            ->where('tipo_item', 'DEFECTOS DE CONDICIÓN')
             ->sum('porcentaje_muestra');
 
         $danosPlaga = $detalles
