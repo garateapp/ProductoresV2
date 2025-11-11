@@ -65,6 +65,21 @@ class ReportNotificationService
         $emailRecipient = $this->gatherEmail($producer);
         [$phones, $emailRecipient] = $this->applyLocalOverrides($phones, $emailRecipient, (bool) $producer->emnotification, $context);
 
+        if ($phones->isNotEmpty()) {
+            Log::info('Report notification: WhatsApp recipients resolved', $context + [
+                'phones' => $phones->values()->all(),
+                'phone_count' => $phones->count(),
+            ]);
+        } else {
+            Log::info('Report notification: no WhatsApp recipients resolved', $context);
+        }
+
+        if ($emailRecipient) {
+            Log::info('Report notification: email recipient resolved', $context + [
+                'email' => $emailRecipient,
+            ]);
+        }
+
         if ($phones->isEmpty()) {
             Log::info('Report notification: no WhatsApp numbers found', $context);
         } else {
@@ -154,6 +169,21 @@ class ReportNotificationService
         $phones = $this->gatherPhones($producer);
         $emailRecipient = $this->gatherEmail($producer);
         [$phones, $emailRecipient] = $this->applyLocalOverrides($phones, $emailRecipient, (bool) $producer->emnotification, $context);
+
+        if ($phones->isNotEmpty()) {
+            Log::info('Reception notification: WhatsApp recipients resolved', $context + [
+                'phones' => $phones->values()->all(),
+                'phone_count' => $phones->count(),
+            ]);
+        } else {
+            Log::info('Reception notification: no WhatsApp recipients resolved', $context);
+        }
+
+        if ($emailRecipient) {
+            Log::info('Reception notification: email recipient resolved', $context + [
+                'email' => $emailRecipient,
+            ]);
+        }
 
         if ($phones->isEmpty()) {
             Log::info('Reception notification: no WhatsApp numbers found', $context);
@@ -411,6 +441,10 @@ class ReportNotificationService
                 'phone_original' => $phone,
                 'phone_normalized' => $normalized,
             ];
+            Log::info('Report notification: sending WhatsApp message', $phoneContext + [
+                'has_document' => (bool) $documentLink,
+                'template' => $template,
+            ]);
             Log::info('DocumentLink: ' . $documentLink, $phoneContext);
             if ($documentLink) {
                 $this->sendWhatsappTemplateMessage(
@@ -647,6 +681,10 @@ class ReportNotificationService
             Log::info('Preview report WhatsApp: no phone numbers provided', $context);
             return;
         }
+        Log::info('Preview report WhatsApp: WhatsApp recipients resolved', $context + [
+            'phones' => $phoneCollection->values()->all(),
+            'phone_count' => $phoneCollection->count(),
+        ]);
         Log::info('Preview report WhatsApp: sending', $context);
         $formattedDate = $this->formatDate($recepcion->fecha_g_recepcion);
         $message = $this->buildReceptionPreviewWhatsappBody(
