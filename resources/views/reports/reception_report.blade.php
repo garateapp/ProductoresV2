@@ -4950,8 +4950,11 @@
             <div class="column">
 
 
-
+                @if($recepcion->id_emisor == 7023 && $recepcion->variedad=='Rainier')
+                <p><strong>Exportadora:</strong> Greenex SpA</p>
+                @else
                 <p><strong>Exportadora:</strong> {{ $exporterName }}</p>
+                @endif
 
 
 
