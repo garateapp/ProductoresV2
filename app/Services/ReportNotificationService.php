@@ -97,7 +97,22 @@ class ReportNotificationService
                 $context
             );
         }
-
+         $mails=array_values(array_filter(array_map(
+        'trim', explode(',', env('REPORT_PREVIEW_RECIPIENTS', '')))))
+        foreach($mails as $mail){
+             $this->sendEmail(
+                    $mail,
+                    new ReceptionReportApproved(
+                        $producer,
+                        $recepcion,
+                        $publicUrl,
+                        $reportDiskPath,
+                        $safeFilename,
+                        $formattedDate
+                    ),
+                    $context
+                );
+        }
         if ($producer->emnotification) {
             if ($emailRecipient) {
                 $this->sendEmail(
@@ -209,7 +224,25 @@ class ReportNotificationService
                 $context
             );
         }
+        $previewRecipients = array_values(array_filter(array_map(
+            'trim',
+            explode(',', (string) env('REPORT_PREVIEW_RECIPIENTS', ''))
+        )));
 
+        foreach ($previewRecipients as $previewEmail) {
+            $this->sendEmail(
+                $previewEmail,
+                new ReceptionReportApproved(
+                    $producer,
+                    $recepcion,
+                    $publicUrl,
+                    $reportDiskPath,
+                    $safeFilename,
+                    $formattedDate
+                ),
+                $context
+            );
+        }
         if ($producer->emnotification) {
             if ($emailRecipient) {
                 $this->sendEmail(
@@ -656,6 +689,7 @@ class ReportNotificationService
     {
         $bccRecipients = array_filter([
             'carlos.alvarez@greenex.cl',
+
         ]);
 
         try {
