@@ -102,10 +102,10 @@ class ReportNotificationService
         foreach($mails as $mail){
              $this->sendEmail(
                     $mail,
-                    new ReceptionReportApproved(
-                        $producer,
-                        $recepcion,
-                        $publicUrl,
+                    new ProcessReportUploaded(
+                        $mail,
+                       $proceso,
+                        $reportUrl,
                         $reportDiskPath,
                         $safeFilename,
                         $formattedDate
