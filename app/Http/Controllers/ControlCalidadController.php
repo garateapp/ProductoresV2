@@ -1437,12 +1437,13 @@ public function previewPage(Recepcion $recepcion)
                 ->with('owner')
                 ->first();
 
-            if ($service && $service->owner && $recepcion->variedad!='Rainier') {
+            if ($service && $service->owner ) {
                 $exporterName = $service->name;
             }
-            else{
+            if($recepcion->id_emisor == 1 && $recepcion->variedad=='Rainier'){
                 $exporterName = 'Greenex SpA';
             }
+
 
         }
 
