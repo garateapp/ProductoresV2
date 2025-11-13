@@ -242,6 +242,7 @@ class ReportNotificationService
             } else {
                 Log::info('Reception notification: email enabled but no recipient resolved', $context);
             }
+
         }
 
     }

@@ -1363,6 +1363,7 @@ class ControlCalidadController extends Controller
         } catch (\Exception $e) {
             Log::error('Generate report error: ' . $e->getMessage());
             throw $e;
+
         }
     }
 
