@@ -217,6 +217,8 @@ class ProcesoController extends Controller
 
 
 
+
+
             $sanitizedName = preg_replace('/[^A-Za-z0-9._-]/', '_', $originalName);
 
             $storedPath = $file->storeAs('pdf-procesos', $sanitizedName, 'public');

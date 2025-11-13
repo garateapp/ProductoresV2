@@ -500,6 +500,7 @@ export default function Index({ procesos, especies, variedades = [], filters, is
             />
           </div>
 
+
           <Table>
             <TableHeader>
               <TableRow>
@@ -507,7 +508,6 @@ export default function Index({ procesos, especies, variedades = [], filters, is
                 <TableHead>N° Proceso</TableHead>
                 <TableHead>Especie</TableHead>
                 <TableHead>Variedad</TableHead>
-
                 <TableHead>Fecha</TableHead>
                 <TableHead>Kg Procesados</TableHead>
                 <TableHead>Exportación</TableHead>

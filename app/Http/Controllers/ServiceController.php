@@ -32,6 +32,8 @@ class ServiceController extends Controller
         }
 
 
+
+
         $availableUsers = $availableUsersQuery->get();
 
         // If the authenticated user is a producer (idprod not null), load their recepciones and procesos

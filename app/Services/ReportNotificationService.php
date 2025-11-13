@@ -45,6 +45,8 @@ class ReportNotificationService
             return;
         }
 
+
+
         $reportUrl = $this->resolvePublicUrlFromDisk($storedPath);
         $reportDiskPath = $this->resolveAbsolutePathFromDisk($storedPath);
         $safeFilename = $this->sanitizeFilename($originalFilename ?: basename($storedPath));
