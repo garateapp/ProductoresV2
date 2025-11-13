@@ -112,6 +112,7 @@ export default function Index({ recepciones, especies, variedades = [], filters,
 
     const [photoTypesState, setPhotoTypesState] = useState(photoTypes || []);
     const [syncingNotas, setSyncingNotas] = useState(false);
+    const [resendingReceptionId, setResendingReceptionId] = useState(null);
   useEffect(() => {
     if (!photoTypes || photoTypes.length === 0) {
       fetch(route('photo-types.all'))
@@ -231,6 +232,42 @@ export default function Index({ recepciones, especies, variedades = [], filters,
     }
     const url = route('control-calidad.preview-report', recepcion.id);
     window.open(url, '_blank', 'noopener,noreferrer');
+  };
+
+  const handleResendReceptionReport = async (recepcion) => {
+    if (!recepcion?.id || !recepcion.informe) {
+      return;
+    }
+    const csrfToken = document.querySelector('meta[name="csrf-token"]')?.getAttribute('content');
+    if (!csrfToken) {
+      toast.error('No se pudo obtener el token de seguridad. Actualiza la página e inténtalo nuevamente.');
+      return;
+    }
+    if (!confirm(`¿Deseas reenviar el informe del lote ${recepcion.numero_g_recepcion}?`)) {
+      return;
+    }
+    setResendingReceptionId(recepcion.id);
+    try {
+      const response = await fetch(route('control-calidad.resend-report', recepcion.id), {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          Accept: 'application/json',
+          'X-CSRF-TOKEN': csrfToken,
+        },
+        body: JSON.stringify({}),
+      });
+      const payload = await response.json().catch(() => ({}));
+      if (!response.ok) {
+        throw new Error(payload?.message || 'No se pudo reenviar el informe.');
+      }
+      toast.success(payload?.message || 'Informe reenviado correctamente.');
+    } catch (error) {
+      console.error('Error al reenviar informe', error);
+      toast.error(error?.message || 'Ocurrió un error al reenviar el informe.');
+    } finally {
+      setResendingReceptionId(null);
+    }
   };
 
   const handleCargarFirmpro = async (recepcion) => {
@@ -753,16 +790,19 @@ export default function Index({ recepciones, especies, variedades = [], filters,
 
                       {/* Reenviar (misma lógica que Ver Informe: solo habilitado cuando aprobado) */}
                       {recepcion.informe ? (
-                        <a
-                          href={route('control-calidad.generate-report', recepcion.id)}
-                          target="_blank"
-                          rel="noopener noreferrer"
+                        <Button
+                          variant="ghost"
+                          size="icon"
                           title="Reenviar"
+                          onClick={() => handleResendReceptionReport(recepcion)}
+                          disabled={resendingReceptionId === recepcion.id}
                         >
-                          <Button variant="ghost" size="icon">
+                          {resendingReceptionId === recepcion.id ? (
+                            <Loader2 className="h-4 w-4 animate-spin" />
+                          ) : (
                             <Send className="h-4 w-4" />
-                          </Button>
-                        </a>
+                          )}
+                        </Button>
                       ) : (
                         <Button variant="ghost" size="icon" disabled title="Reenviar (no aprobado)">
                           <Send className="h-4 w-4" />

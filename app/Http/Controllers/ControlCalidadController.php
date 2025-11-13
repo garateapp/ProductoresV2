@@ -1335,11 +1335,13 @@ class ControlCalidadController extends Controller
                 mkdir($tmpDir, 0755, true);
             }
             $chrome = env('BROWSERSHOT_CHROME_PATH', '/home/forge/.cache/puppeteer/chrome/linux-139.0.7258.138/chrome-linux64/chrome');
+            if(config('app.env') === 'local') {
+
 
             Browsershot::html($html)
                 ->setTemporaryDirectory($tmpDir)
-                 ->setChromePath($chrome)
-                 ->setOption('executablePath', $chrome)
+                //  ->setChromePath($chrome)
+                //  ->setOption('executablePath', $chrome)
                 ->setOption('headless', true)
                 ->noSandbox()
                 ->addChromiumArguments([
@@ -1355,7 +1357,27 @@ class ControlCalidadController extends Controller
                 ->landscape(false)
                 ->showBackground()
                 ->savePdf($pdfPath);
-
+                } else {
+                    Browsershot::html($html)
+                    ->setTemporaryDirectory($tmpDir)
+                     ->setChromePath($chrome)
+                     ->setOption('executablePath', $chrome)
+                    ->setOption('headless', true)
+                    ->noSandbox()
+                    ->addChromiumArguments([
+                        '--no-sandbox',
+                        '--disable-dev-shm-usage',
+                        '--disable-gpu',
+                        '--font-render-hinting=none',
+                        '--headless=new',
+                    ])
+                    ->waitUntilNetworkIdle()
+                    ->wait(15)
+                    ->setViewport(1920, 1080)
+                    ->landscape(false)
+                    ->showBackground()
+                    ->savePdf($pdfPath);
+                }
             $recepcion->informe = asset('storage/' . $pdfRelative);
             $recepcion->save();
 
@@ -1976,8 +1998,31 @@ public function previewPage(Recepcion $recepcion)
             }
  $chrome = env('BROWSERSHOT_CHROME_PATH', '/home/forge/.cache/puppeteer/chrome/linux-139.0.7258.138/chrome-linux64/chrome');
 
+            if(config('app.env') === 'local') {
+
 
             Browsershot::html($html)
+                ->setTemporaryDirectory($tmpDir)
+                // ->setChromePath($chrome)
+                // ->setOption('executablePath', $chrome) // fuerza a puppeteer a usar ese binario
+                ->setOption('headless', true)
+                ->noSandbox()
+                ->addChromiumArguments([
+                    '--no-sandbox',
+                    '--disable-dev-shm-usage',
+                    '--disable-gpu',
+                    '--font-render-hinting=none',
+                    '--headless=new',
+                ])
+                ->waitUntilNetworkIdle()
+                ->wait(15)
+                ->setViewport(1920, 1080)
+                ->landscape(false)
+                ->showBackground()
+                ->savePdf($pdfPath);
+            } else {
+
+                Browsershot::html($html)
                 ->setTemporaryDirectory($tmpDir)
                 ->setChromePath($chrome)
                 ->setOption('executablePath', $chrome) // fuerza a puppeteer a usar ese binario
@@ -1996,6 +2041,7 @@ public function previewPage(Recepcion $recepcion)
                 ->landscape(false)
                 ->showBackground()
                 ->savePdf($pdfPath);
+            }
 
             // Save public URL in recepcion->informe so Index can show direct link
             $publicUrl = asset('storage/' . $pdfRelative);
@@ -2042,7 +2088,27 @@ public function previewPage(Recepcion $recepcion)
         $chrome = env('BROWSERSHOT_CHROME_PATH', env('CHROME_PATH', '/home/forge/.cache/puppeteer/chrome/linux-139.0.7258.138/chrome-linux64/chrome'));
 
         try {
+            if(config('app.env') === 'local') {
             $shot = Browsershot::html($html)
+                ->setTemporaryDirectory($tmpDir)
+                // ->setChromePath($chrome)
+                // ->setOption('executablePath', $chrome)
+                ->setOption('headless', true)
+                ->noSandbox()
+                ->addChromiumArguments([
+                    '--no-sandbox',
+                    '--disable-dev-shm-usage',
+                    '--disable-gpu',
+                    '--font-render-hinting=none',
+                    '--headless=new',
+                ])
+                ->waitUntilNetworkIdle()
+                ->wait(15)
+                ->setViewport(1920, 1080)
+                ->landscape(false)
+                ->showBackground();
+            } else {
+                $shot = Browsershot::html($html)
                 ->setTemporaryDirectory($tmpDir)
                 ->setChromePath($chrome)
                 ->setOption('executablePath', $chrome)
@@ -2060,6 +2126,7 @@ public function previewPage(Recepcion $recepcion)
                 ->setViewport(1920, 1080)
                 ->landscape(false)
                 ->showBackground();
+            }
 
             $shot->savePdf($tempPath);
         } catch (\Throwable $e) {
@@ -2233,6 +2300,10 @@ public function resendReport(Recepcion $recepcion, ReportNotificationService $no
         $absolutePath = $relativePath ? storage_path('app/public/' . ltrim($relativePath, '/')) : null;
 
         try {
+            Log::info('Reception notification resend', [
+                'recepcion_id' => $recepcion->id,
+                'numero_g_recepcion' => $recepcion->numero_g_recepcion,
+            ]);
             $notificationService->notifyReceptionReport(
                 $recepcion->fresh(),
                 $publicUrl,
