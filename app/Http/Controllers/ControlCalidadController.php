@@ -1444,15 +1444,7 @@ public function previewPage(Recepcion $recepcion)
             else{
                 $exporterName = 'Greenex SpA';
             }
-            // Log::Info(Service::query()
-            //     ->whereHas('users', function ($query) use ($recepcion) {
-            //         $query->where('name', $recepcion->n_emisor);
 
-            //         if (! empty($recepcion->id_emisor)) {
-            //             $query->orWhere('idprod', $recepcion->id_emisor);
-            //         }
-            //     })
-            //     ->with('owner')->toSql());
         }
 
         if ($calidad) {
