@@ -97,22 +97,22 @@ class ReportNotificationService
                 $context
             );
         }
-         $mails=array_values(array_filter(array_map(
-        'trim', explode(',', env('REPORT_PREVIEW_RECIPIENTS', '')))));
-        foreach($mails as $mail){
-             $this->sendEmail(
-                    $mail,
-                    new ProcessReportUploaded(
-                        $mail,
-                       $proceso,
-                        $reportUrl,
-                        $reportDiskPath,
-                        $safeFilename,
-                        $formattedDate
-                    ),
-                    $context
-                );
-        }
+        //  $mails=array_values(array_filter(array_map(
+        // 'trim', explode(',', env('REPORT_PREVIEW_RECIPIENTS', '')))));
+        // foreach($mails as $mail){
+        //      $this->sendEmail(
+        //             $mail,
+        //             new ProcessReportUploaded(
+        //                 $mail,
+        //                $proceso,
+        //                 $reportUrl,
+        //                 $reportDiskPath,
+        //                 $safeFilename,
+        //                 $formattedDate
+        //             ),
+        //             $context
+        //         );
+        // }
         if ($producer->emnotification) {
             if ($emailRecipient) {
                 $this->sendEmail(
