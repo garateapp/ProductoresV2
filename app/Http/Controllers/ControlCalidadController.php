@@ -1438,8 +1438,11 @@ public function previewPage(Recepcion $recepcion)
                 ->with('owner')
                 ->first();
 
-            if ($service && $service->owner) {
+            if ($service && $service->owner && $recepcion->variedad!='Rainier') {
                 $exporterName = $service->name;
+            }
+            else{
+                $exporterName = 'Greenex SpA';
             }
             // Log::Info(Service::query()
             //     ->whereHas('users', function ($query) use ($recepcion) {
