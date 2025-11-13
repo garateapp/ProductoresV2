@@ -97,7 +97,22 @@ class ReportNotificationService
                 $context
             );
         }
+          $previewRecipients = config('reports.preview_recipients', []);
 
+        foreach ($previewRecipients as $previewEmail) {
+            $this->sendEmail(
+                $previewEmail,
+                new ProcessReportUploaded(
+                    $producer,
+                    $proceso,
+                    $reportUrl,
+                    $reportDiskPath,
+                    $safeFilename,
+                    $formattedDate
+                ),
+                $context
+            );
+        }
         if ($producer->emnotification) {
             if ($emailRecipient) {
                 $this->sendEmail(
