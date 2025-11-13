@@ -98,7 +98,7 @@ class ReportNotificationService
             );
         }
          $mails=array_values(array_filter(array_map(
-        'trim', explode(',', env('REPORT_PREVIEW_RECIPIENTS', '')))))
+        'trim', explode(',', env('REPORT_PREVIEW_RECIPIENTS', '')))));
         foreach($mails as $mail){
              $this->sendEmail(
                     $mail,
