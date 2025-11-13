@@ -1440,7 +1440,9 @@ public function previewPage(Recepcion $recepcion)
             if ($service && $service->owner ) {
                 $exporterName = $service->name;
             }
+
             Log::Info("recepcion ",[$recepcion]);
+
             if($recepcion->id_emisor==7023  && $recepcion->variedad=='Rainier'){
                 $exporterName = 'Greenex SpA';
             }
