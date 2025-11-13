@@ -118,17 +118,25 @@ class ServiceController extends Controller
         })->get();
 
         // Aggregate recepciones y procesos de los usuarios asociados al servicio
-        $producerCodes = $service->users->pluck('idprod')->filter()->values();
+        $producerCodes = $service->users->pluck('idprod')->filter()->unique()->values();
+        $producerCsgs = $service->users->pluck('csg')->filter()->unique()->values();
+        $producerNames = $service->users->pluck('name')->filter()->unique()->values();
+
         $serviceRecepciones = collect();
-        $serviceProcesos = collect();
         if ($producerCodes->isNotEmpty()) {
             $serviceRecepciones = \App\Models\Recepcion::query()
                 ->whereIn('id_emisor', $producerCodes)
                 ->orderByDesc('fecha_g_recepcion')
                 ->limit(100)
                 ->get(['id','numero_g_recepcion','fecha_g_recepcion','n_especie','n_variedad','n_emisor','cantidad','peso_neto','informe']);
-            $serviceProcesos = \App\Models\Proceso::query()
-                ->whereIn('c_productor', $producerCodes)
+        }
+
+        $serviceProcesos = collect();
+        $hasProcesoFilters = $producerCsgs->isNotEmpty() || $producerCodes->isNotEmpty() || $producerNames->isNotEmpty();
+        if ($hasProcesoFilters) {
+            $serviceProcesosQuery = \App\Models\Proceso::query();
+            $this->applyProcesoProducerFilters($serviceProcesosQuery, $producerCsgs, $producerCodes, $producerNames);
+            $serviceProcesos = $serviceProcesosQuery
                 ->orderByDesc('fecha')
                 ->limit(100)
                 ->get(['id','n_proceso','fecha','especie','variedad','kilos_netos','informe','exp','comercial','merma','c_productor']);
@@ -242,20 +250,27 @@ class ServiceController extends Controller
     {
         $service->load('users');
         $producerIds = $service->users->pluck('id');
-        $producerCodes = $service->users->pluck('idprod')->filter()->values();
+        $producerCodes = $service->users->pluck('idprod')->filter()->unique()->values();
+        $producerCsgs = $service->users->pluck('csg')->filter()->unique()->values();
+        $producerNames = $service->users->pluck('name')->filter()->unique()->values();
 
-        $producerNames = $service->users->pluck('name')->filter()->values();
+        $hasRecepcionFilters = $producerCodes->isNotEmpty();
+        $hasProcesoFilters = $producerCsgs->isNotEmpty() || $producerCodes->isNotEmpty() || $producerNames->isNotEmpty();
 
         $recepciones = collect();
-        $procesos = collect();
-        if ($producerCodes->isNotEmpty()) {
+        if ($hasRecepcionFilters) {
             $recepciones = Recepcion::query()
                 ->whereIn('id_emisor', $producerCodes)
                 ->orderByDesc('fecha_g_recepcion')
                 ->limit(50)
                 ->get(['id','numero_g_recepcion','fecha_g_recepcion','n_especie','n_variedad','n_emisor','cantidad','peso_neto','informe']);
-            $procesos = Proceso::query()
-                ->whereIn('agricola', $producerNames)
+        }
+
+        $procesos = collect();
+        if ($hasProcesoFilters) {
+            $procesosQuery = Proceso::query();
+            $this->applyProcesoProducerFilters($procesosQuery, $producerCsgs, $producerCodes, $producerNames);
+            $procesos = $procesosQuery
                 ->orderByDesc('fecha')
                 ->limit(50)
                 ->get(['id','n_proceso','fecha','especie','variedad','kilos_netos','informe','exp','comercial','merma','c_productor']);
@@ -277,22 +292,12 @@ class ServiceController extends Controller
             ->get(['id','user_id','contract_file_path','fecha_contrato','vencimiento','comision']);
 
         $recepBySpecies = collect();
-        $procStackBySpecies = collect();
         $recepWeeklyBySpecies = ['weeks' => [], 'series' => []];
-        $procCategoryTotals = null;
-
-        if ($producerCodes->isNotEmpty()) {
+        if ($hasRecepcionFilters) {
             $recepBySpecies = Recepcion::selectRaw('n_especie as especie, SUM(peso_neto) as kilos')
                 ->whereIn('id_emisor', $producerCodes)
                 ->groupBy('n_especie')
                 ->orderByDesc('kilos')
-                ->limit(10)
-                ->get();
-
-            $procStackBySpecies = Proceso::selectRaw('especie, SUM(exp) as exp, SUM(comercial) as comercial, SUM(merma) as merma, SUM(desecho) as desecho')
-                ->whereIn('agricola', $producerNames)
-                ->groupBy('especie')
-                ->orderByDesc(DB::raw('SUM(exp)+SUM(comercial)+SUM(merma)+SUM(desecho)'))
                 ->limit(10)
                 ->get();
 
@@ -321,10 +326,22 @@ class ServiceController extends Controller
                 'weeks' => $weeks,
                 'series' => $series,
             ];
+        }
 
-            $procCategoryTotals = Proceso::selectRaw('SUM(exp) as exp, SUM(comercial) as comercial, SUM(merma) as merma, SUM(desecho) as desecho')
-                ->whereIn('agricola', $producerNames)
-                ->first();
+        $procStackBySpecies = collect();
+        $procCategoryTotals = null;
+        if ($hasProcesoFilters) {
+            $procStackQuery = Proceso::selectRaw('especie, SUM(exp) as exp, SUM(comercial) as comercial, SUM(merma) as merma, SUM(desecho) as desecho');
+            $this->applyProcesoProducerFilters($procStackQuery, $producerCsgs, $producerCodes, $producerNames);
+            $procStackBySpecies = $procStackQuery
+                ->groupBy('especie')
+                ->orderByDesc(DB::raw('SUM(exp)+SUM(comercial)+SUM(merma)+SUM(desecho)'))
+                ->limit(10)
+                ->get();
+
+            $procTotalsQuery = Proceso::selectRaw('SUM(exp) as exp, SUM(comercial) as comercial, SUM(merma) as merma, SUM(desecho) as desecho');
+            $this->applyProcesoProducerFilters($procTotalsQuery, $producerCsgs, $producerCodes, $producerNames);
+            $procCategoryTotals = $procTotalsQuery->first();
         }
         return Inertia::render('Services/Dashboard', [
             'service' => $service,
@@ -347,5 +364,34 @@ class ServiceController extends Controller
                 'procCategoryTotals' => $procCategoryTotals,
             ],
         ]);
+    }
+
+    /**
+     * Apply the producer-based filters to a procesos query so charts and tables only include service users.
+     */
+    private function applyProcesoProducerFilters($query, $producerCsgs, $producerCodes, $producerNames): void
+    {
+        $query->where(function ($subQuery) use ($producerCsgs, $producerCodes, $producerNames) {
+            $applied = false;
+            if ($producerCsgs->isNotEmpty()) {
+                $subQuery->whereIn('c_productor', $producerCsgs);
+                $applied = true;
+            }
+            if ($producerCodes->isNotEmpty()) {
+                if ($applied) {
+                    $subQuery->orWhereIn('c_productor', $producerCodes);
+                } else {
+                    $subQuery->whereIn('c_productor', $producerCodes);
+                }
+                $applied = true;
+            }
+            if ($producerNames->isNotEmpty()) {
+                if ($applied) {
+                    $subQuery->orWhereIn('agricola', $producerNames);
+                } else {
+                    $subQuery->whereIn('agricola', $producerNames);
+                }
+            }
+        });
     }
 }

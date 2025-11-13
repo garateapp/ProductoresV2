@@ -72,6 +72,7 @@ Route::middleware('auth')->group(function () {
 
     Route::resource('procesos', App\Http\Controllers\ProcesoController::class)->only(['index'])->names('procesos');
     Route::post('procesos/informes/upload', [App\Http\Controllers\ProcesoController::class, 'uploadInformes'])->name('procesos.informes.upload');
+    Route::post('procesos/{proceso}/resend-report', [App\Http\Controllers\ProcesoController::class, 'resendReport'])->name('procesos.resend-report');
     Route::post('procesos/sync', [App\Http\Controllers\ProcesoController::class, 'procesos_sync'])->name('procesos.sync');
 
     Route::resource('control-calidad', App\Http\Controllers\ControlCalidadController::class)->only(['index'])->names('control-calidad');

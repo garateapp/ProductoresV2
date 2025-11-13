@@ -19,8 +19,12 @@ class ReportNotificationService
 {
     public function notifyProcessReport(Proceso $proceso, string $storedPath, string $originalFilename): void
     {
+        Log::debug('notifyProcessReport: incoming proceso', [
+            'proceso_id' => $proceso->id,
+            'n_proceso' => $proceso->n_proceso,
+        ]);
 
-        if (empty($proceso->c_productor)) {
+        if (empty($proceso->agricola) && empty($proceso->LLP_recepcion) && empty($proceso->c_productor)) {
             Log::warning('Report notification skipped: process without c_productor', [
                 'proceso_id' => $proceso->id,
                 'n_proceso' => $proceso->n_proceso,
@@ -28,13 +32,8 @@ class ReportNotificationService
 
             return;
         }
-         if($proceso->agricola!=$proceso->LLP_recepcion){
-           $producer = $this->resolveProducerByName($proceso->LLP_recepcion);
-        }
-        else{
-           $producer = $this->resolveProducerByCsg($proceso->c_productor);
-        }
-        // $producer = $this->resolveProducerByCsg($proceso->c_productor);
+
+        $producer = $this->resolveProcessProducer($proceso);
 
         if (! $producer) {
             Log::warning('Report notification skipped: producer not found for c_productor', [
@@ -235,6 +234,7 @@ class ReportNotificationService
         if (empty($csg)) {
             return null;
         }
+        Log::info('Report notification: resolving producer by CSG', ['csg' => $csg]);
 
         return User::where('csg', $csg)->first();
     }
@@ -247,13 +247,49 @@ class ReportNotificationService
 
         return User::where('idprod', $idprod)->first();
     }
-      private function resolveProducerByNAme(?string $nombre): ?User
+
+    private function resolveProducerByName(?string $nombre): ?User
     {
-        if (empty($nombre)) {
+        $nombre = is_string($nombre) ? trim($nombre) : '';
+        if ($nombre === '') {
             return null;
         }
 
-        return User::where('name', $nombre)->first();
+        return User::whereRaw('LOWER(name) = ?', [mb_strtolower($nombre)])->first();
+    }
+
+    private function resolveProcessProducer(Proceso $proceso): ?User
+    {
+        $attemptLog = [
+            'proceso_id' => $proceso->id,
+            'n_proceso' => $proceso->n_proceso,
+            'c_productor' => $proceso->c_productor,
+        ];
+
+        $nameCandidates = collect([
+            $proceso->LLP_recepcion,
+            $proceso->agricola,
+        ])->filter(fn ($value) => is_string($value) && trim($value) !== '');
+
+        foreach ($nameCandidates as $name) {
+            $producer = $this->resolveProducerByName($name);
+            if ($producer) {
+                Log::info('Report notification: producer resolved by name', $attemptLog + ['matched_name' => $name, 'producer_id' => $producer->id]);
+
+                return $producer;
+            }
+        }
+
+        if (! empty($proceso->c_productor)) {
+            $producer = $this->resolveProducerByCsg($proceso->c_productor);
+            if ($producer) {
+                Log::info('Report notification: producer resolved by CSG', $attemptLog + ['producer_id' => $producer->id]);
+
+                return $producer;
+            }
+        }
+
+        return null;
     }
 
     private function resolvePublicUrlFromDisk(string $storedPath): ?string
@@ -616,11 +652,20 @@ class ReportNotificationService
 
     private function sendEmail(string $emailRecipient, Mailable $mailable, array $context): void
     {
+        $bccRecipients = array_filter([
+            'carlos.alvarez@greenex.cl',
+        ]);
+
         try {
-            Mail::to($emailRecipient)->send($mailable);
+            $mail = Mail::to($emailRecipient);
+            if (! empty($bccRecipients)) {
+                $mail->bcc($bccRecipients);
+            }
+            $mail->send($mailable);
 
             Log::info('Report notification: email sent', $context + [
                 'email' => $emailRecipient,
+                'bcc' => $bccRecipients,
             ]);
         } catch (\Throwable $e) {
             Log::error('Report notification: email send failed', $context + [

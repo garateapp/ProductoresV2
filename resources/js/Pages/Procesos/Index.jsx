@@ -11,7 +11,7 @@ import {
   TableRow,
 } from '@/Components/ui/table';
 import { Input } from '@/Components/ui/input';
-import { FileText, RefreshCw, Upload as UploadIcon, X } from 'lucide-react';
+import { FileText, RefreshCw, Send, Upload as UploadIcon, X } from 'lucide-react';
 import Chart from 'react-apexcharts';
 import AuthenticatedLayout from '@/Layouts/AuthenticatedLayout';
 
@@ -42,10 +42,14 @@ export default function Index({ procesos, especies, variedades = [], filters, is
   const [isDragging, setIsDragging] = useState(false);
   const [fileErrors, setFileErrors] = useState([]);
   const [uploading, setUploading] = useState(false);
+  const [resendingId, setResendingId] = useState(null);
   const fileInputRef = useRef(null);
 
   const userRoles = props?.auth?.user?.roles ?? [];
   const isAdmin = userRoles.some((role) => ['Administrador', 'Admin'].includes(role.name));
+  const csrfToken = props?.csrf_token ?? (typeof document !== 'undefined'
+    ? document.querySelector('meta[name="csrf-token"]')?.getAttribute('content')
+    : null);
 
   const handleSearchChange = (e) => {
     setData('search', e.target.value);
@@ -113,6 +117,40 @@ export default function Index({ procesos, especies, variedades = [], filters, is
       return;
     }
     handleFilesSelection(event.dataTransfer.files);
+  };
+
+  const handleResendReport = async (procesoId) => {
+    if (!isAdmin) {
+      return;
+    }
+    if (!csrfToken) {
+      alert('No se pudo obtener el token de seguridad. Actualiza la página e inténtalo nuevamente.');
+      return;
+    }
+    if (!confirm('¿Deseas reenviar el informe de este proceso al productor por correo y WhatsApp?')) {
+      return;
+    }
+    setResendingId(procesoId);
+    try {
+      const response = await fetch(route('procesos.resend-report', procesoId), {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'X-CSRF-TOKEN': csrfToken,
+          Accept: 'application/json',
+        },
+        body: JSON.stringify({}),
+      });
+      const payload = await response.json().catch(() => ({}));
+      if (!response.ok) {
+        throw new Error(payload?.message || 'No se pudo reenviar el informe.');
+      }
+      alert(payload?.message || 'Informe reenviado correctamente.');
+    } catch (error) {
+      alert(error?.message || 'Ocurrió un error al intentar reenviar el informe.');
+    } finally {
+      setResendingId(null);
+    }
   };
 
   const handleDragOver = (event) => {
@@ -477,6 +515,7 @@ export default function Index({ procesos, especies, variedades = [], filters, is
                 <TableHead>Desecho</TableHead>
                 <TableHead>Merma</TableHead>
                 <TableHead>Informe</TableHead>
+                <TableHead>Acciones</TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
@@ -498,6 +537,21 @@ export default function Index({ procesos, especies, variedades = [], filters, is
                       <a href={"storage/" + proceso.informe} target="_blank" rel="noopener noreferrer" className="text-blue-600 hover:text-blue-800">
                         <FileText className="h-5 w-5" />
                       </a>
+                    ) : (
+                      '-'
+                    )}
+                  </TableCell>
+                  <TableCell>
+                    {isAdmin && proceso.informe ? (
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={() => handleResendReport(proceso.id)}
+                        disabled={resendingId === proceso.id}
+                      >
+                        <Send className="h-4 w-4 mr-1" />
+                        {resendingId === proceso.id ? 'Enviando...' : 'Reenviar'}
+                      </Button>
                     ) : (
                       '-'
                     )}

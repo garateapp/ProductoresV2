@@ -255,6 +255,47 @@ class ProcesoController extends Controller
             ->with('success', $message)
             ->with('upload_report', $summary);
     }
+
+    public function resendReport(Request $request, Proceso $proceso, ReportNotificationService $reportNotificationService)
+    {
+        if (! $request->user() || ! $request->user()->hasAnyRole(['Administrador', 'Admin'])) {
+            abort(403);
+        }
+
+        if (! $proceso->informe) {
+            return response()->json([
+                'message' => 'El proceso no tiene informe disponible para reenviar.',
+            ], 422);
+        }
+
+        if (! Storage::disk('public')->exists($proceso->informe)) {
+            return response()->json([
+                'message' => 'El archivo del informe no se encuentra en el servidor.',
+            ], 422);
+        }
+
+        try {
+            $reportNotificationService->notifyProcessReport(
+                $proceso,
+                $proceso->informe,
+                basename($proceso->informe)
+            );
+        } catch (\Throwable $e) {
+            Log::error('Process report resend failed', [
+                'proceso_id' => $proceso->id,
+                'n_proceso' => $proceso->n_proceso,
+                'error' => $e->getMessage(),
+            ]);
+
+            return response()->json([
+                'message' => 'No se pudo reenviar el informe. Intenta nuevamente.',
+            ], 500);
+        }
+
+        return response()->json([
+            'message' => 'Informe reenviado correctamente al productor.',
+        ]);
+    }
     public function sync_proces()
     {
         // 1. Configuración de Fecha (Usando Carbon es más idiomático en Laravel)
