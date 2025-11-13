@@ -1417,7 +1417,6 @@ public function previewPage(Recepcion $recepcion)
         ]);
 
         $calidad = $recepcion->calidad;
-
         $temperatura_pulpa = null;
         $porcentaje_exportable = 100;
         $defectos_calidad_sum = 0;
