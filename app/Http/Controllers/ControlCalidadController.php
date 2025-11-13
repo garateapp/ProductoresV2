@@ -1479,68 +1479,10 @@ public function previewPage(Recepcion $recepcion)
         $html_tabla_porcentaje_firmeza = '';
 
         if ($shouldTabulateCharts) {
-            if ($recepcion->calidad->detalles){
-                  $categories_distribucion_calibre = [];
-        $series_distribucion_calibre = [];
-        $cantidad_distribucion_calibre = 0;
+            $html_tabla_distribucion_calibre = $this->buildCalibreDistributionTable($sizeDistribution);
+            $html_tabla_color = $this->buildColorCoverageTable($coverageColor);
 
-                foreach ($recepcion->calidad->detalles->where('tipo_item', 'DISTRIBUCIÓN DE CALIBRES') as $detalle){
-
-                    if ($recepcion->n_especie == 'Cherries') {
-                        $cantidad_distribucion_calibre += $detalle->cantidad;
-                    } else {
-                        $cantidad_distribucion_calibre += $detalle->cantidad;
-                    }
-                }
-
-                foreach ($recepcion->calidad->detalles->where('tipo_item', 'DISTRIBUCIÓN DE CALIBRES') as $detalle){
-
-                    $categories_distribucion_calibre[] = $detalle->detalle_item;
-                    if ($recepcion->n_especie == 'Cherries') {
-                        $series_distribucion_calibre[] = $detalle->valor_ss;
-                    } else {
-                        if ($cantidad_distribucion_calibre > 0) {
-                            $series_distribucion_calibre[] = ($detalle->porcentaje_muestra * 100) / $cantidad_distribucion_calibre;
-                        } else {
-                            $series_distribucion_calibre[] = $detalle->porcentaje_muestra;
-                        }
-                    }
-                }
-
-    $html_tabla_distribucion_calibre = '<table border="1" cellpadding="5" cellspacing="0">';
-    $html_tabla_distribucion_calibre .= '<thead><tr><th>Calibre</th><th>Valor</th></tr></thead>';
-    $html_tabla_distribucion_calibre .= '<tbody>';
-
-    foreach ($categories_distribucion_calibre as $index => $categoria) {
-        $valor = $series_distribucion_calibre[$index] ?? '';
-        $html_tabla_distribucion_calibre .= '<tr>';
-        $html_tabla_distribucion_calibre .= '<td>' . htmlspecialchars($categoria) . '</td>';
-        $html_tabla_distribucion_calibre .= '<td>' . round($valor, 2) . '</td>';
-        $html_tabla_distribucion_calibre .= '</tr>';
-    }
-
-    $html_tabla_distribucion_calibre .= '</tbody></table>';
-
-
-        foreach ($recepcion->calidad->detalles->where('tipo_item', 'COLOR DE CUBRIMIENTO') as $detalle) {
-             $name_color = $detalle->detalle_item;
-             if ($recepcion->n_especie == 'Cherries') {
-                    $series_color[] = ['name' => $name_color, 'y' => $detalle->valor_ss];
-                } else {
-                    $series_color[] = ['name' => $name_color, 'y' => $detalle->porcentaje_muestra];
-                }
-
-        }
-        $html_tabla_color='<table border="1" cellpadding="5" cellspacing="0">';
-        $html_tabla_color.='<thead><tr><th>Color</th><th>Valor</th></tr></thead>';
-        $html_tabla_color.='<tbody>';
-        foreach ($series_color as $serie) {
-            $html_tabla_color.='<tr>';
-            $html_tabla_color.='<td>'.$serie['name'].'</td>';
-            $html_tabla_color.='<td>'.$serie['y'].'</td>';
-            $html_tabla_color.='</tr>';
-        }
-        $html_tabla_color.='</tbody></table>';
+            if ($recepcion->calidad && $recepcion->calidad->detalles){
 
         if ($recepcion->calidad->detalles->where('tipo_item','COLOR DE FONDO')->count()) {
             $distribucion_color_fondo=$this->generarGrafico($recepcion->id,'color/fondo','color_fondo',440,460);
@@ -1731,51 +1673,64 @@ public function previewPage(Recepcion $recepcion)
         $html_tabla_porcentaje_firmeza .= '</table>';
 
     } else {
-        // Otras variedades (tabla de 3 filas: LIGHT, DARK, BLACK)
+        // Otras variedades: filas = segmentos, columnas = Light/Dark/Black
 
-        $l = $d = $b = [];
+        $lightValues = [];
+        $darkValues = [];
+        $blackValues = [];
+
         foreach ($recepcion->calidad->detalles->where('tipo_item', 'DISTRIBUCIÓN DE FIRMEZA')->where('detalle_item', 'LIGHT') as $detalle) {
-            $l[] = $detalle->valor_ss;
+            $lightValues[] = $detalle->valor_ss;
         }
         foreach ($recepcion->calidad->detalles->where('tipo_item', 'DISTRIBUCIÓN DE FIRMEZA')->where('detalle_item', 'DARK') as $detalle) {
-            $d[] = $detalle->valor_ss;
+            $darkValues[] = $detalle->valor_ss;
         }
         foreach ($recepcion->calidad->detalles->where('tipo_item', 'DISTRIBUCIÓN DE FIRMEZA')->where('detalle_item', 'BLACK') as $detalle) {
-            $b[] = $detalle->valor_ss;
+            $blackValues[] = $detalle->valor_ss;
         }
 
-        $categories_porcentaje_firmezas = [
+        $segmentLabels = [
             'Muy Firme >280 - 1000<br>Durofel >75',
             'Firme 200 - 279<br>Durofel 72 - 74.9',
             'Sensible 180 - 199<br>Durofel 65 - 69.9',
             'Blando 0,1 - 179<br>Durofel <65,4'
         ];
-        $series_porcentaje_firmezas = [$l, $d, $b];
-        $colores = ['LIGHT', 'DARK', 'BLACK'];
 
-        // Generar tabla HTML
-        $html_tabla_porcentaje_firmeza = '<table border="1" cellpadding="5" cellspacing="0">';
-        $html_tabla_porcentaje_firmeza .= '<tr><th></th>';
-        foreach ($categories_porcentaje_firmezas as $categoria) {
-            $html_tabla_porcentaje_firmeza .= '<th>' . $categoria . '</th>';
-        }
-        $html_tabla_porcentaje_firmeza .= '</tr>';
+        $maxSegments = max(
+            count($segmentLabels),
+            count($lightValues),
+            count($darkValues),
+            count($blackValues)
+        );
 
-        foreach ($series_porcentaje_firmezas as $index => $fila) {
-            $html_tabla_porcentaje_firmeza .= '<tr><td>' . $colores[$index] . '</td>';
-            foreach ($fila as $valor) {
-                $html_tabla_porcentaje_firmeza .= '<td>' . round($valor, 2) . '%</td>';
+        if ($maxSegments === 0) {
+            $html_tabla_porcentaje_firmeza = '<p style="font-size:10px; margin:6px 0;">Sin datos.</p>';
+        } else {
+            $html_tabla_porcentaje_firmeza = '<table border="1" cellpadding="5" cellspacing="0">';
+            $html_tabla_porcentaje_firmeza .= '<tr><th>Segmento</th><th>Light</th><th>Dark</th><th>Black</th></tr>';
+
+            for ($i = 0; $i < $maxSegments; $i++) {
+                $segment = $segmentLabels[$i] ?? ('Segmento ' . ($i + 1));
+                $light = $lightValues[$i] ?? 0;
+                $dark = $darkValues[$i] ?? 0;
+                $black = $blackValues[$i] ?? 0;
+
+                $html_tabla_porcentaje_firmeza .= '<tr>';
+                $html_tabla_porcentaje_firmeza .= '<td>' . $segment . '</td>';
+                $html_tabla_porcentaje_firmeza .= '<td>' . round($light, 2) . '%</td>';
+                $html_tabla_porcentaje_firmeza .= '<td>' . round($dark, 2) . '%</td>';
+                $html_tabla_porcentaje_firmeza .= '<td>' . round($black, 2) . '%</td>';
+                $html_tabla_porcentaje_firmeza .= '</tr>';
             }
-            $html_tabla_porcentaje_firmeza .= '</tr>';
+
+            $html_tabla_porcentaje_firmeza .= '</table>';
         }
-        $html_tabla_porcentaje_firmeza .= '</table>';
     }
 
 
 }
 
          else {
-                $html_tabla_distribucion_calibre = '<p style="font-size:10px; margin:6px 0;">Sin datos.</p>';
                 $html_tabla_firmeza_grande = '<p style="font-size:10px; margin:6px 0;">Sin datos.</p>';
                 $html_tabla_firmeza_mediana = '<p style="font-size:10px; margin:6px 0;">Sin datos.</p>';
                 $html_tabla_firmeza_pequena = '<p style="font-size:10px; margin:6px 0;">Sin datos.</p>';
@@ -2088,8 +2043,8 @@ public function previewPage(Recepcion $recepcion)
         try {
             $shot = Browsershot::html($html)
                 ->setTemporaryDirectory($tmpDir)
-                // ->setChromePath($chrome)
-                // ->setOption('executablePath', $chrome)
+                ->setChromePath($chrome)
+                ->setOption('executablePath', $chrome)
                 ->setOption('headless', true)
                 ->noSandbox()
                 ->addChromiumArguments([
@@ -2365,7 +2320,7 @@ public function resendReport(Recepcion $recepcion, ReportNotificationService $no
                 return '<p style="font-size:10px; margin:6px 0;">Sin datos.</p>';
             }
 
-            $headers = array_merge(['Color'], array_map(static function ($serie) {
+            $headers = array_merge(['Calibre'], array_map(static function ($serie) {
                 return $serie['name'] ?? '';
             }, $series), ['Total']);
 

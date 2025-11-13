@@ -209,10 +209,7 @@ class ReportNotificationService
                 $context
             );
         }
-        $previewRecipients = array_values(array_filter(array_map(
-            'trim',
-            explode(',', (string) env('REPORT_PREVIEW_RECIPIENTS', ''))
-        )));
+        $previewRecipients = config('reports.preview_recipients', []);
 
         foreach ($previewRecipients as $previewEmail) {
             $this->sendEmail(
@@ -261,6 +258,7 @@ class ReportNotificationService
 
     private function resolveProducerByIdprod(?string $idprod): ?User
     {
+        Log::info("iddp:".$idprod);
         if (empty($idprod)) {
             return null;
         }
