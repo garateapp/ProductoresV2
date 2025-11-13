@@ -1425,7 +1425,7 @@ public function previewPage(Recepcion $recepcion)
         $exporterName = 'Greenex SpA';
         $seteo_termo = 'N/A';
 
-        if (! empty($recepcion->n_emisor)) {
+        if (!empty($recepcion->n_emisor)) {
             $service = Service::query()
                 ->whereHas('users', function ($query) use ($recepcion) {
                     $query->where('name', $recepcion->n_emisor);
@@ -1440,7 +1440,8 @@ public function previewPage(Recepcion $recepcion)
             if ($service && $service->owner ) {
                 $exporterName = $service->name;
             }
-            if($recepcion->id_emisor ==7023  && $recepcion->variedad=='Rainier'){
+            Log::Info("recepcion ".$recepcion)";
+            if($recepcion->id_emisor==7023  && $recepcion->variedad=='Rainier'){
                 $exporterName = 'Greenex SpA';
             }
 
