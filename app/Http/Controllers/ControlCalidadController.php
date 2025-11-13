@@ -1776,7 +1776,7 @@ public function previewPage(Recepcion $recepcion)
             // $html_tabla_color = $html_tabla_color ?: $this->buildColorCoverageTable($coverageColor);
         }
     }
-     if($recepcion->id_emisor==7023  && $recepcion->variedad=='Rainier'){
+     if($recepcion->id_emisor=="7023"  && $recepcion->variedad=='Rainier'){
                 $exporterName = 'Greenex SpA';
             }
         return compact(
