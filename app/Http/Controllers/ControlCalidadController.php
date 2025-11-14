@@ -1827,6 +1827,7 @@ public function previewPage(Recepcion $recepcion)
                 }
 
         }
+
         $html_tabla_color='<table border="1" cellpadding="5" cellspacing="0">';
         $html_tabla_color.='<thead><tr><th>Color</th><th>Valor</th></tr></thead>';
         $html_tabla_color.='<tbody>';
