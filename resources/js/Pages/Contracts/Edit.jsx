@@ -45,6 +45,7 @@ export default function Edit({ auth, contract, producers }) {
     { value: '0.049', label: '0.049' },
     { value: '0.053', label: '0.053' },
     { value: '0.058', label: '0.058' },
+     { value: '0.30', label: '0.30' },
   ];
 
   const submit = (e) => {
