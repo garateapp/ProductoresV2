@@ -2066,6 +2066,11 @@ public function previewPage(Recepcion $recepcion)
         }
         $html_tabla_porcentaje_firmeza .= '</table>';
     }
+    Log::info("% firmeza ".$html_tabla_porcentaje_firmeza);
+    Log::info("Color Fondo ".$html_tabla_color_fondo);
+    Log::info("Calibrix ".$html_tabla_calibrix);
+    Log::info("Color ".$html_tabla_color_fondo);
+    Log::info("D. Calibre ".$html_tabla_distribucion_calibre);
 
 
 }
