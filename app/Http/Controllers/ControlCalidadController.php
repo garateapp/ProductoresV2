@@ -1807,8 +1807,6 @@ public function previewPage(Recepcion $recepcion)
     $html_tabla_distribucion_calibre .= '<thead><tr><th>Calibre</th><th>Valor</th></tr></thead>';
     $html_tabla_distribucion_calibre .= '<tbody>';
 
-
-
     foreach ($categories_distribucion_calibre as $index => $categoria) {
         $valor = $series_distribucion_calibre[$index] ?? '';
         $html_tabla_distribucion_calibre .= '<tr>';
