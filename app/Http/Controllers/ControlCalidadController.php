@@ -1820,7 +1820,7 @@ public function previewPage(Recepcion $recepcion)
 
         foreach ($recepcion->calidad->detalles->where('tipo_item', 'COLOR DE CUBRIMIENTO') as $detalle) {
              $name_color = $detalle->detalle_item;
-             if ($recepcion->n_especie == 'Cherries') {
+                if ($recepcion->n_especie == 'Cherries') {
                     $series_color[] = ['name' => $name_color, 'y' => $detalle->valor_ss];
                 } else {
                     $series_color[] = ['name' => $name_color, 'y' => $detalle->porcentaje_muestra];
