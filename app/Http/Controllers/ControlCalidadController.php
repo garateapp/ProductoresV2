@@ -1817,9 +1817,9 @@ public function previewPage(Recepcion $recepcion)
 
     $html_tabla_distribucion_calibre .= '</tbody></table>';
 
-
+    $series_color[]=[];
         foreach ($recepcion->calidad->detalles->where('tipo_item', 'COLOR DE CUBRIMIENTO') as $detalle) {
-             $name_color = $detalle->detalle_item;
+                $name_color = $detalle->detalle_item;
                 if ($recepcion->n_especie == 'Cherries') {
                     $series_color[] = ['name' => $name_color, 'y' => $detalle->valor_ss];
                 } else {
