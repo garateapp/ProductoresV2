@@ -190,18 +190,19 @@ class ProcesoController extends Controller
             $originalName = $file->getClientOriginalName();
             $baseName = pathinfo($originalName, PATHINFO_FILENAME);
 
-            if (!preg_match('/^(\d+)/', $baseName, $matches)) {
+            if (!preg_match('/^(\d+)-(\d+)/', $baseName, $matches)) {
                 $summary['invalid_name'][] = $originalName;
                 continue;
             }
 
-            $procesoId = (int) $matches[1];
+            $procesoId = (int)$matches[1];
+            $empresa_id = (int)$matches[2];
 
             // $proceso = Proceso::find($procesoId);
 
             // if (! $proceso) {
 
-                $proceso = Proceso::where('n_proceso', $procesoId)->first();
+                $proceso = Proceso::where('n_proceso', $procesoId)->where('empresa_id',$empresa_id)->first();
 
             //}
 
