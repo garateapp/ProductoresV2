@@ -5967,7 +5967,39 @@
 
     </div>
 
-      @if(in_array($recepcion->id_emisor,[
+
+
+    @php
+        $photos = collect($recepcion->calidad?->photos ?? []);
+    @endphp
+
+    @if ($photos->count())
+        <div class="page-break"></div>
+        <div class="photo-page">
+            <h2 class="photo-title">Registro Fotográfico DE DEFECTOS</h2>
+            <div class="photo-grid">
+
+                @foreach ($photos as $photo)
+                    <div class="photo-card">
+                        <img src="{{ $photo->inline_url ?? $photo->url }}"
+                            alt="{{ $photo->photoType->name ?? 'Fotografia' }}">
+                        <div class="photo-info">
+                            <strong>{{ $photo->photoType->name ?? 'Sin clasificacion' }}</strong>
+                            @if (!empty($photo->observations))
+                                <p>{{ $photo->observations }}</p>
+                            @endif
+                            <span>{{ $photo->url ?? 'url' }}</span>
+                            <span>{{ $photo->inline_url ?? 'inlineurl' }}</span>
+                            @if ($photo->created_at)
+                                <span>{{ optional($photo->created_at)->format('d-m-Y H:i') }}</span>
+                            @endif
+                        </div>
+                    </div>
+                @endforeach
+            </div>
+        </div>
+    @endif
+         @if(in_array($recepcion->id_emisor,[
                                             8557,
                                             8558,
                                             8559,
@@ -6029,38 +6061,6 @@
                                     </div>
                                 </div>
                                 @endif
-
-    @php
-        $photos = collect($recepcion->calidad?->photos ?? []);
-    @endphp
-
-    @if ($photos->count())
-        <div class="page-break"></div>
-        <div class="photo-page">
-            <h2 class="photo-title">Registro Fotográfico DE DEFECTOS</h2>
-            <div class="photo-grid">
-
-                @foreach ($photos as $photo)
-                    <div class="photo-card">
-                        <img src="{{ $photo->inline_url ?? $photo->url }}"
-                            alt="{{ $photo->photoType->name ?? 'Fotografia' }}">
-                        <div class="photo-info">
-                            <strong>{{ $photo->photoType->name ?? 'Sin clasificacion' }}</strong>
-                            @if (!empty($photo->observations))
-                                <p>{{ $photo->observations }}</p>
-                            @endif
-                            <span>{{ $photo->url ?? 'url' }}</span>
-                            <span>{{ $photo->inline_url ?? 'inlineurl' }}</span>
-                            @if ($photo->created_at)
-                                <span>{{ optional($photo->created_at)->format('d-m-Y H:i') }}</span>
-                            @endif
-                        </div>
-                    </div>
-                @endforeach
-            </div>
-        </div>
-    @endif
-
 </body>
 
 
