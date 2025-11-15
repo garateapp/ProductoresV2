@@ -190,22 +190,33 @@ class ProcesoController extends Controller
             $originalName = $file->getClientOriginalName();
             $baseName = pathinfo($originalName, PATHINFO_FILENAME);
 
-            if (!preg_match('/^(\d+)/', $baseName, $matches)) {
+            $procesoMatches = null;
+            $hasCompany = false;
+            if (preg_match('/^(\d+)-(\d+)-/i', $baseName, $procesoMatches)) {
+                $hasCompany = true;
+            } elseif (preg_match('/^(\d+)-/i', $baseName, $procesoMatches)) {
+                $hasCompany = false;
+            } else {
                 $summary['invalid_name'][] = $originalName;
                 continue;
             }
 
-            $procesoId = (int)$matches[1];
-            $empresa_id = (int)$matches[2];
+            $procesoId = (int) ($procesoMatches[1] ?? 0);
+            $empresaId = $hasCompany ? (int) ($procesoMatches[2] ?? 0) : null;
 
-            // $proceso = Proceso::find($procesoId);
+            if (! $procesoId) {
+                $summary['invalid_name'][] = $originalName;
+                continue;
+            }
 
-            // if (! $proceso) {
-
-                $proceso = Proceso::where('n_proceso', $procesoId)->where('empresa_id',$empresa_id)->first();
-
-            //}
-
+            $procesoQuery = Proceso::where('n_proceso', $procesoId);
+            if ($hasCompany && $empresaId) {
+                $procesoQuery->where(function ($query) use ($empresaId) {
+                    $query->where('id_empresa', $empresaId)
+                        ->orWhere('empresa_id', $empresaId);
+                });
+            }
+            $proceso = $procesoQuery->first();
 
 
             if (! $proceso) {
