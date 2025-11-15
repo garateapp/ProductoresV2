@@ -190,7 +190,7 @@ class ProcesoController extends Controller
             $originalName = $file->getClientOriginalName();
             $baseName = pathinfo($originalName, PATHINFO_FILENAME);
 
-            if (!preg_match('/^(\d+)-(\d+)/', $baseName, $matches)) {
+            if (!preg_match('/^(\d+)/', $baseName, $matches)) {
                 $summary['invalid_name'][] = $originalName;
                 continue;
             }
