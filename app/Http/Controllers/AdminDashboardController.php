@@ -9,6 +9,7 @@ use App\Models\Proceso;
 use App\Models\ProducerCertification;
 use App\Models\Contract;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Log;
 use Inertia\Inertia;
 
 class AdminDashboardController extends Controller
@@ -47,30 +48,33 @@ class AdminDashboardController extends Controller
         $recepcionesTotal = Recepcion::count();
         $procesosTotal = Proceso::count();
 
-        $recepciones = Recepcion::orderByDesc('fecha_g_recepcion')->limit(50)->get(['id','numero_g_recepcion','fecha_g_recepcion','n_especie','n_variedad','n_emisor','peso_neto']);
-        $procesos = Proceso::orderByDesc('fecha')->limit(50)->get(['id','n_proceso','fecha','especie','variedad','kilos_netos']);
+        $recepciones = Recepcion::orderByDesc('fecha_g_recepcion')->get(['id','numero_g_recepcion','fecha_g_recepcion','n_especie','n_variedad','n_emisor','peso_neto']);
+        $procesos = Proceso::orderByDesc('fecha')->get(['id','n_proceso','fecha','especie','variedad','kilos_netos']);
 
-        $certifications = ProducerCertification::with(['user:id,name','certifyingHouse','certificateType'])->orderByDesc('expiration_date')->limit(20)->get();
-        $contracts = Contract::with('user:id,name')->orderByDesc('fecha_contrato')->limit(20)->get(['id','user_id','contract_file_path','fecha_contrato','vencimiento']);
+        $certifications = ProducerCertification::with(['user:id,name','certifyingHouse','certificateType'])
+        ->orderByDesc('expiration_date')->get();
+        $contracts = Contract::with('user:id,name')
+        ->orderByDesc('fecha_contrato')->get(['id','user_id','contract_file_path','fecha_contrato','vencimiento']);
 
         // Charts: top especies por kilos en recepciones y procesos
         $recepBySpecies = Recepcion::selectRaw('n_especie as especie, SUM(peso_neto) as kilos')
-            ->groupBy('n_especie')->orderByDesc('kilos')->limit(10)->get();
+            ->groupBy('n_especie')->orderByDesc('kilos')->get();
         $procBySpecies = Proceso::selectRaw('especie, SUM(kilos_netos) as kilos')
-            ->groupBy('especie')->orderByDesc('kilos')->limit(10)->get();
+            ->groupBy('especie')->orderByDesc('kilos')->get();
 
         // Stacked by species: exp, comercial, merma, desecho
         $procStackBySpecies = Proceso::selectRaw('especie, SUM(exp) as exp, SUM(comercial) as comercial, SUM(merma) as merma, SUM(desecho) as desecho')
             ->groupBy('especie')
             ->orderByDesc(DB::raw('SUM(exp)+SUM(comercial)+SUM(merma)+SUM(desecho)'))
-            ->limit(10)
-            ->get();
 
+            ->get();
+            Log::info('procStackBySpecies', ['procStackBySpecies' => Proceso::selectRaw('especie, SUM(exp) as exp, SUM(comercial) as comercial, SUM(merma) as merma, SUM(desecho) as desecho')
+            ->groupBy('especie')
+            ->orderByDesc(DB::raw('SUM(exp)+SUM(comercial)+SUM(merma)+SUM(desecho)'))->toSql()]);
         // Weekly kilos recepcionados por semana y especie
         $recepWeeklyRaw = Recepcion::selectRaw("DATE_FORMAT(fecha_g_recepcion, '%x-%v') as semana, n_especie as especie, SUM(peso_neto) as kilos, MIN(fecha_g_recepcion) as min_fecha")
             ->groupBy(DB::raw("DATE_FORMAT(fecha_g_recepcion, '%x-%v')"), 'n_especie')
             ->orderBy('min_fecha')
-            ->limit(200)
             ->get();
         $weeks = $recepWeeklyRaw->pluck('semana')->unique()->values()->all();
         sort($weeks);

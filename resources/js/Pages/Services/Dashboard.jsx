@@ -79,7 +79,7 @@ export default function Dashboard({ auth, service, stats, recepciones = [], proc
                     axisTicks: { show: true, color: '#e5e7eb' },
                   },
                   plotOptions: { bar: { horizontal: false } },
-                  colors: ['var(--corp-green)', 'var(--corp-orange)', '#1565c0', '#ef4444'],
+                  colors: ['var(--corp-green)', 'var(--corp-orange)', '#1565c0', '#ef4444', '#9ca3af'],
                   dataLabels: { enabled: false },
                   yaxis: { labels: { show: true, style: { colors: '#374151', fontSize: '12px' }, formatter: (val) => Number(val).toLocaleString('es-CL') } },
                   legend: { position: 'bottom' },
@@ -91,6 +91,7 @@ export default function Dashboard({ auth, service, stats, recepciones = [], proc
                   { name: 'Comercial', data: procStackBySpecies.map(i => Number(i.comercial) || 0) },
                   { name: 'Merma', data: procStackBySpecies.map(i => Number(i.merma) || 0) },
                   { name: 'Desecho', data: procStackBySpecies.map(i => Number(i.desecho) || 0) },
+                  { name: 'Sin procesar', data: procStackBySpecies.map(i => Number(i.sin_procesar ?? i.kilos_netos) || 0) },
                 ]}
                 type="bar"
                 height={300}
@@ -145,8 +146,8 @@ export default function Dashboard({ auth, service, stats, recepciones = [], proc
               <Chart
                 options={{
                   chart: { type: 'pie' },
-                  labels: ['Exportación', 'Comercial', 'Merma', 'Desecho'],
-                  colors: ['var(--corp-green)', 'var(--corp-orange)', '#1565c0', '#ef4444'],
+                  labels: ['Exportación', 'Comercial', 'Merma', 'Desecho', 'Sin procesar'],
+                  colors: ['var(--corp-green)', 'var(--corp-orange)', '#1565c0', '#ef4444', '#9ca3af'],
                   dataLabels: { enabled: true, formatter: (val) => `${val.toFixed(1)}%` },
                   legend: { position: 'bottom' },
                   tooltip: { y: { formatter: (val) => `${Number(val).toLocaleString('es-CL')} Kg` } },
@@ -156,6 +157,7 @@ export default function Dashboard({ auth, service, stats, recepciones = [], proc
                   Number(pieTotals.comercial ?? 0),
                   Number(pieTotals.merma ?? 0),
                   Number(pieTotals.desecho ?? 0),
+                  Number(pieTotals.sin_procesar ?? pieTotals.kilos_netos ?? 0),
                 ]}
                 type="pie"
                 height={300}

@@ -4,9 +4,9 @@ use App\Http\Controllers\ProfileController;
 use App\Http\Controllers\ReporteriaController;
 use App\Http\Controllers\UserController;
 use Illuminate\Support\Facades\Route;
-use Inertia\Inertia;
 use App\Models\Service;
 use App\Http\Controllers\AdminDashboardController;
+use App\Http\Controllers\DashboardController;
 use App\Http\Controllers\MassCommunicationController;
 use App\Http\Controllers\CommercialDiscardController;
 
@@ -29,7 +29,7 @@ Route::get('/dashboard', function () {
         return redirect()->route('services.dashboard', $service);
     }
     // Por defecto dashboard genérico
-    return Inertia::render('Dashboard');
+    return app(DashboardController::class)(request());
 })->middleware(['auth', 'verified'])->name('dashboard');
 
 
