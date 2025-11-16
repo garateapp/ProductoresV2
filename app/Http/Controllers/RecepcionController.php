@@ -41,82 +41,77 @@ class RecepcionController extends Controller
             return $onlyDigits !== '' ? $onlyDigits : null;
         };
 
-        if (! $isAdmin) {
+        $ownedServiceProducers = collect();
+        $memberServiceProducers = collect();
+        $allServiceProducers = collect();
+
+        if (! $isProducer) {
             $ownedServiceProducers = Service::where('owner_id', $user->id)
                 ->with(['users:id,idprod,name,csg'])
                 ->get()
                 ->pluck('users')
                 ->flatten();
-
             $memberServiceProducers = $user->services()
                 ->with(['users:id,idprod,name,csg'])
                 ->get()
                 ->pluck('users')
                 ->flatten();
-
             $allServiceProducers = $ownedServiceProducers->merge($memberServiceProducers);
 
-            $serviceProducerNames = $allServiceProducers->pluck('name')->filter()->unique();
-            $serviceProducerCodes = $allServiceProducers->pluck('csg')
-                ->map($normalizeProducerCode)
-                ->filter()
-                ->unique();
-            $serviceProducerIds = $allServiceProducers->pluck('idprod')->filter()->unique();
-            $isServiceUser = $serviceProducerNames->isNotEmpty() || $serviceProducerCodes->isNotEmpty() || $serviceProducerIds->isNotEmpty();
+            if ($allServiceProducers->isNotEmpty()) {
+                $serviceProducerNames = $allServiceProducers->pluck('name')->filter()->unique()->values();
+                $serviceProducerCodes = $allServiceProducers
+                    ->flatMap(function ($producer) use ($normalizeProducerCode) {
+                        return collect([
+                            $producer->csg,
+                            $normalizeProducerCode($producer->csg),
+                            $producer->idprod,
+                            $normalizeProducerCode($producer->idprod),
+                        ]);
+                    })
+                    ->filter()
+                    ->unique()
+                    ->values();
+                $serviceProducerIds = $allServiceProducers->pluck('idprod')
+                    ->merge($allServiceProducers->pluck('idprod')->map($normalizeProducerCode))
+                    ->filter()
+                    ->unique()
+                    ->values();
+                $isServiceUser = $serviceProducerNames->isNotEmpty() || $serviceProducerCodes->isNotEmpty() || $serviceProducerIds->isNotEmpty();
+            }
         }
 
-        if (! $isAdmin) {
-            $allowedProducerNames = collect();
-            $allowedProducerCodes = collect();
-            $allowedProducerIds = collect();
+        $allowedProducerNames = collect();
+        $allowedProducerCodes = collect();
+        $allowedProducerIds = collect();
 
-            if ($isServiceUser) {
-                $allowedProducerNames = $serviceProducerNames;
-                $allowedProducerCodes = $serviceProducerCodes;
-                $allowedProducerIds = $serviceProducerIds;
-            } elseif ($isProducer) {
+        if ($isServiceUser) {
+            $allowedProducerNames = $serviceProducerNames;
+            $allowedProducerCodes = $serviceProducerCodes;
+            $allowedProducerIds = $serviceProducerIds;
+        } elseif ($isProducer) {
+            $allowedProducerNames = collect([$user->name])->filter()->unique();
+            $allowedProducerCodes = collect([
+                $user->csg,
+                $normalizeProducerCode($user->csg),
+                $user->idprod,
+                $normalizeProducerCode($user->idprod),
+            ])->filter()->unique();
+            $allowedProducerIds = collect([$user->idprod, $normalizeProducerCode($user->idprod)])
+                ->filter()
+                ->unique();
+        }
 
-                $allowedProducerNames = collect([$user->name])->filter();
-                $allowedProducerCodes = collect([$normalizeProducerCode($user->csg)])->filter();
-                $allowedProducerIds = collect([$user->idprod])->filter();
-            }
+        $shouldRestrict = $isServiceUser || $isProducer;
 
+        if ($shouldRestrict) {
             if ($allowedProducerNames->isNotEmpty() || $allowedProducerCodes->isNotEmpty() || $allowedProducerIds->isNotEmpty()) {
-                $query->where(function ($q) use ($allowedProducerNames, $allowedProducerCodes, $allowedProducerIds) {
-                    $hasCondition = false;
-
-                    if ($allowedProducerNames->isNotEmpty()) {
-                        $q->whereIn('n_emisor', $allowedProducerNames->all());
-                        $hasCondition = true;
-
-                        $q->orWhereIn('n_productor_rotulado', $allowedProducerNames->all());
-                    }
-
-                    if ($allowedProducerCodes->isNotEmpty()) {
-                        if ($hasCondition) {
-                            $q->orWhereIn('Codigo_Sag_emisor', $allowedProducerCodes->all());
-                        } else {
-                            $q->whereIn('Codigo_Sag_emisor', $allowedProducerCodes->all());
-                            $hasCondition = true;
-                        }
-
-                        $q->orWhereIn('csg_productor_rotulado', $allowedProducerCodes->all());
-                    }
-
-                    if ($allowedProducerIds->isNotEmpty()) {
-                        if ($hasCondition) {
-                            $q->orWhereIn('id_emisor', $allowedProducerIds->all());
-                        } else {
-                            $q->whereIn('id_emisor', $allowedProducerIds->all());
-                            $hasCondition = true;
-                        }
-
-                        $q->orWhereIn('id_productor_rotulado', $allowedProducerIds->all());
-                    }
-                });
+                $this->applyRecepcionProducerFilters($query, $allowedProducerNames, $allowedProducerCodes, $allowedProducerIds);
             } else {
                 $query->whereRaw('1 = 0');
             }
+        } elseif (! $isAdmin) {
+            $query->whereRaw('1 = 0');
         }
 
         // Filtro por variedad, especie o lote
@@ -543,5 +538,45 @@ class RecepcionController extends Controller
                 return;
             }
         }
+    }
+
+    private function applyRecepcionProducerFilters($query, $allowedNames, $allowedCodes, $allowedIds): void
+    {
+        $query->where(function ($subQuery) use ($allowedNames, $allowedCodes, $allowedIds) {
+            $applied = false;
+
+            // if ($allowedIds->isNotEmpty()) {
+            //     $ids = $allowedIds->all();
+            //     $subQuery->whereIn('id_productor_rotulado', $ids);
+            //     $applied = true;
+            // }
+
+            // if ($allowedCodes->isNotEmpty()) {
+            //     $codes = $allowedCodes->all();
+            //     $codeFilter = function ($codeQuery) use ($codes) {
+            //         $codeQuery->whereIn('csg_productor_rotulado', $codes);
+            //     };
+
+            //     if ($applied) {
+            //         $subQuery->orWhere($codeFilter);
+            //     } else {
+            //         $subQuery->where($codeFilter);
+            //         $applied = true;
+            //     }
+            // }
+
+            if ($allowedNames->isNotEmpty()) {
+                $names = $allowedNames->all();
+                $nameFilter = function ($nameQuery) use ($names) {
+                    $nameQuery->whereIn('n_productor_rotulado', $names);
+                };
+
+                if ($applied) {
+                    $subQuery->orWhere($nameFilter);
+                } else {
+                    $subQuery->where($nameFilter);
+                }
+            }
+        });
     }
 }

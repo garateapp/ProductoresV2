@@ -42,63 +42,67 @@ class ProcesoController extends Controller
             return $onlyDigits !== '' ? $onlyDigits : null;
         };
 
-        if (! $isAdmin) {
+        $ownedServiceProducers = collect();
+        $memberServiceProducers = collect();
+        $allServiceProducers = collect();
+
+        if (! $isProducer) {
             $ownedServiceProducers = Service::where('owner_id', $user->id)
                 ->with(['users:id,idprod,name,csg'])
                 ->get()
                 ->pluck('users')
                 ->flatten();
-
             $memberServiceProducers = $user->services()
                 ->with(['users:id,idprod,name,csg'])
                 ->get()
                 ->pluck('users')
                 ->flatten();
-
             $allServiceProducers = $ownedServiceProducers->merge($memberServiceProducers);
 
-            $serviceProducerNames = $allServiceProducers->pluck('name')->filter()->unique();
-            $serviceProducerCodes = $allServiceProducers->pluck('csg')
-                ->map($normalizeProducerCode)
-                ->filter()
-                ->unique();
-            $isServiceUser = $serviceProducerNames->isNotEmpty();
+            if ($allServiceProducers->isNotEmpty()) {
+                $serviceProducerNames = $allServiceProducers->pluck('name')->filter()->unique()->values();
+                $serviceProducerCodes = $allServiceProducers
+                    ->flatMap(function ($producer) use ($normalizeProducerCode) {
+                        return collect([
+                            $producer->csg,
+                            $normalizeProducerCode($producer->csg),
+                            $producer->idprod,
+                            $normalizeProducerCode($producer->idprod),
+                        ]);
+                    })
+                    ->filter()
+                    ->unique()
+                    ->values();
+                $isServiceUser = $serviceProducerNames->isNotEmpty() || $serviceProducerCodes->isNotEmpty();
+            }
         }
 
-        if (! $isAdmin) {
-            $allowedProducerNames = collect();
-            $allowedProducerCodes = collect();
+        $allowedProducerNames = collect();
+        $allowedProducerCodes = collect();
 
-            if ($isServiceUser) {
-                $allowedProducerNames = $serviceProducerNames;
-                $allowedProducerCodes = $serviceProducerCodes;
-            } elseif ($isProducer) {
-                $allowedProducerNames = collect([$user->name])->filter();
-                $allowedProducerCodes = collect([$normalizeProducerCode($user->csg)])->filter();
-            }
+        if ($isServiceUser) {
+            $allowedProducerNames = $serviceProducerNames;
+            $allowedProducerCodes = $serviceProducerCodes;
+        } elseif ($isProducer) {
+            $allowedProducerNames = collect([$user->name])->filter()->unique();
+            $allowedProducerCodes = collect([
+                $user->csg,
+                $normalizeProducerCode($user->csg),
+                $user->idprod,
+                $normalizeProducerCode($user->idprod),
+            ])->filter()->unique();
+        }
 
+        $shouldRestrict = $isServiceUser || $isProducer;
+
+        if ($shouldRestrict) {
             if ($allowedProducerNames->isNotEmpty() || $allowedProducerCodes->isNotEmpty()) {
-                $query->where(function ($q) use ($allowedProducerNames, $allowedProducerCodes) {
-                    if ($allowedProducerNames->isNotEmpty()) {
-                        $q->whereIn('agricola', $allowedProducerNames->all());
-                          $hasCondition = true;
-
-                        $q->orWhereIn('LPP_recepcion', $allowedProducerNames->all());
-                    }
-
-                    // if ($allowedProducerCodes->isNotEmpty()) {
-                    //     if ($allowedProducerNames->isNotEmpty()) {
-                    //         $q->orWhereIn('agricola', $allowedProducerNames->all());
-                    //     } else {
-                    //         $q->whereIn('agricola', $allowedPrallowedProducerNamesoducerCodes->all());
-                    //     }
-                    // }
-                });
+                $this->applyProcesoProducerFilters($query, $allowedProducerNames, $allowedProducerCodes);
             } else {
-                // User has no associated producers, so restrict the result set.
                 $query->whereRaw('1 = 0');
             }
-
+        } elseif (! $isAdmin) {
+            $query->whereRaw('1 = 0');
         }
 
         // General search filter
@@ -763,5 +767,26 @@ class ProcesoController extends Controller
             Log::error($e->getTraceAsString());
             return redirect()->route('procesos.index')->with('error', 'Error al sincronizar procesos');
         }
+    }
+
+    private function applyProcesoProducerFilters($query, $allowedNames, $allowedCodes): void
+    {
+        $query->where(function ($subQuery) use ($allowedNames, $allowedCodes) {
+            $applied = false;
+            if ($allowedNames->isNotEmpty()) {
+                $names = $allowedNames->all();
+                $subQuery->whereIn('LPP_recepcion', $names);
+                $applied = true;
+            }
+
+            // if ($allowedCodes->isNotEmpty()) {
+            //     $codes = $allowedCodes->all();
+            //     if ($applied) {
+            //         $subQuery->orWhereIn('c_productor', $codes);
+            //     } else {
+            //         $subQuery->whereIn('c_productor', $codes);
+            //     }
+            // }
+        });
     }
 }
