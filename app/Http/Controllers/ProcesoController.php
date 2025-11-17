@@ -216,8 +216,8 @@ class ProcesoController extends Controller
             $procesoQuery = Proceso::where('n_proceso', $procesoId);
             if ($hasCompany && $empresaId) {
                 $procesoQuery->where(function ($query) use ($empresaId) {
-                    $query->where('id_empresa', $empresaId)
-                        ->orWhere('empresa_id', $empresaId);
+                    $query->where('id_empresa', $empresaId);
+
                 });
             }
             $proceso = $procesoQuery->first();
@@ -247,7 +247,7 @@ class ProcesoController extends Controller
             $summary['updated']++;
 
             try {
-                $reportNotificationService->notifyProcessReport($proceso, $storedPath, $originalName);
+              //  $reportNotificationService->notifyProcessReport($proceso, $storedPath, $originalName);
             } catch (\Throwable $e) {
                 Log::error('Proceso notification dispatch failed', [
                     'proceso_id' => $proceso->id ?? null,
