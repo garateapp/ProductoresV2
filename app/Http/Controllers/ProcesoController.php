@@ -318,7 +318,7 @@ class ProcesoController extends Controller
     {
         // 1. Configuración de Fecha (Usando Carbon es más idiomático en Laravel)
         // Aunque la variable no se usa en la consulta SQL, es bueno usar Carbon.
-        $fecha_limite = Carbon::now()->subDays(3);
+        //$fecha_limite = Carbon::now()->subDays(3);
 
         // 2. Consulta de Datos (Usando Query Builder, corregida y simplificada)
         // El problema de tu lógica era que intentabas sumar categorías
@@ -344,7 +344,7 @@ class ProcesoController extends Controller
                 DB::raw("GETDATE() AS FechaConsulta")
             )
             ->where('ppc.tipo_proceso', 'PRN')
-            //->where('ppc.Estado', 'En Proceso')
+            ->where('ppc.Estado', 'En Proceso')->orWhere('ppc.Estado', 'Finalizado')
             ->groupBy(
                 'n_productor_proceso',
                 'c_productor',
@@ -364,37 +364,45 @@ class ProcesoController extends Controller
         // 4. Procesamiento de Datos (Optimización)
         foreach ($procesos_data as $proceso) {
             // Claves de búsqueda para la sincronización (únicas)
-            $search_keys = [
-                'n_proceso' => $proceso->n_proceso,
-                'id_empresa' => $proceso->id_empresa,
-                'temporada' => 'actual', // Manteniendo tu lógica de 'temporada'
-            ];
+            $proceso_actual = Proceso::where('n_proceso', $proceso->n_proceso)->first();
 
-            // Datos a actualizar o crear
             $update_data = [
                 'agricola' => $proceso->agricola,
                 'especie' => $proceso->especie,
                 'variedad' => $proceso->variedad,
                 'fecha' => $proceso->fecha,
-                'exp' => $proceso->exp,
-                'comercial' => $proceso->comercial,
-                'desecho' => $proceso->desecho,
-                'kilos_netos' => $proceso->kilos_netos,
+                'exp' =>  $proceso->exp+$proceso_actual->exp,
+                'comercial' => (int) $proceso->comercial+$proceso_actual->comercial,
+                'desecho' => (int) $proceso->desecho+$proceso_actual->desecho,
+                'kilos_netos' => (int) $proceso->kilos_netos,
                 'c_productor' => $proceso->c_productor,
                 'LPP_recepcion' => $proceso->LPP_recepcion,
                 'lote_recepcion' => $proceso->lote_recepcion,
-                // Puedes añadir 'merma' aquí si quieres que siempre sea 0 o calcularla.
-                // 'merma' => 0,
             ];
 
-            // Usar updateOrCreate de Eloquent:
-            // Busca el registro con $search_keys, si lo encuentra lo actualiza con $update_data.
-            // Si no lo encuentra, crea un nuevo registro con $search_keys + $update_data.
-            $registro = Proceso::updateOrCreate($search_keys, $update_data);
 
-            if ($registro) {
-                $registros_sincronizados++;
+
+            $registro = Proceso::where('n_proceso', $proceso->n_proceso)
+                ->where('id_empresa', $proceso->id_empresa)
+                ->where('temporada', 'actual')
+                ->first();
+
+            if (! $registro) {
+                $registro = Proceso::where('n_proceso', $proceso->n_proceso)
+                    ->where('id_empresa', $proceso->id_empresa)
+                    ->first();
             }
+
+            if (! $registro) {
+                $registro = new Proceso([
+                    'n_proceso' => $proceso->n_proceso,
+                    'id_empresa' => $proceso->id_empresa,
+                ]);
+            }
+
+            $registro->fill(array_merge($update_data, ['temporada' => 'actual']));
+            $registro->save();
+            $registros_sincronizados++;
         }
 
         // 5. Registro de Sincronización (Descomentar si tienes el modelo Sync)
