@@ -334,7 +334,7 @@ class ProcesoController extends Controller
                 'ppc.n_especie_proceso AS especie',
                 'ppc.n_variedad_proceso AS variedad',
                 'ppc.LPP_recepcion',
-                'ppc.lote_recepcion',
+
                 DB::raw("CAST(ppc.fecha_proceso AS DATE) AS fecha"), // Asegurar que es solo fecha
                 'id_empresa',
                 DB::raw("SUM(CASE WHEN t_categoria = 'Exportacion' THEN ppc.peso_neto ELSE 0 END) AS exp"),
@@ -353,8 +353,8 @@ class ProcesoController extends Controller
                 'ppc.n_variedad_proceso',
                 'ppc.fecha_proceso',
                 'id_empresa',
-                'ppc.LPP_recepcion',
-                'ppc.lote_recepcion'
+                'ppc.LPP_recepcion'
+
             )
             ->get();
 
@@ -364,20 +364,20 @@ class ProcesoController extends Controller
         // 4. Procesamiento de Datos (Optimización)
         foreach ($procesos_data as $proceso) {
             // Claves de búsqueda para la sincronización (únicas)
-            $proceso_actual = Proceso::where('n_proceso', $proceso->n_proceso)->first();
+            //$proceso_actual = Proceso::where('n_proceso', $proceso->n_proceso)->where('id_empresa', $proceso->id_empresa)->();
 
             $update_data = [
                 'agricola' => $proceso->agricola,
                 'especie' => $proceso->especie,
                 'variedad' => $proceso->variedad,
                 'fecha' => $proceso->fecha,
-                'exp' =>  $proceso->exp+$proceso_actual->exp,
-                'comercial' => (int) $proceso->comercial+$proceso_actual->comercial,
-                'desecho' => (int) $proceso->desecho+$proceso_actual->desecho,
+                'exp' =>  (int)$proceso->exp,
+                'comercial' => (int) $proceso->comercial,
+                'desecho' => (int) $proceso->desecho,
                 'kilos_netos' => (int) $proceso->kilos_netos,
                 'c_productor' => $proceso->c_productor,
                 'LPP_recepcion' => $proceso->LPP_recepcion,
-                'lote_recepcion' => $proceso->lote_recepcion,
+                'lote_recepcion' => 0,
             ];
 
 
