@@ -22,6 +22,7 @@ class Recepcion extends Model
         'r_emisor',
         'n_emisor',
         'Codigo_Sag_emisor',
+        'exportadora',
         'id_productor_rotulado',
         'n_productor_rotulado',
         'csg_productor_rotulado',

@@ -282,6 +282,7 @@ class RecepcionController extends Controller
                 numero_documento_recepcion,
                 n_especie,
                 n_variedad,
+                n_exportadora,
                 SUM(COALESCE(cantidad, 0)) AS total_cantidad,
                 SUM(COALESCE(peso_neto, 0)) AS total_peso_neto,
                 nota_calidad,
@@ -305,6 +306,7 @@ class RecepcionController extends Controller
                 'numero_documento_recepcion',
                 'n_especie',
                 'n_variedad',
+                'n_exportadora',
                 'nota_calidad',
                 'n_estado',
                 'Id_productor_rotulado',
@@ -332,6 +334,7 @@ class RecepcionController extends Controller
             'numero_documento_recepcion' => $data['numero_documento_recepcion'] ?? null,
             'n_especie' => $data['n_especie'] ?? null,
             'n_variedad' => $data['n_variedad'] ?? null,
+            'exportadora' => $data['n_exportadora'] ?? null,
             'cantidad' => (int) ($data['total_cantidad'] ?? $data['cantidad'] ?? 0),
             'peso_neto' => (int) ($data['total_peso_neto'] ?? $data['peso_neto'] ?? 0),
             'nota_calidad' => isset($data['nota_calidad']) ? (int) $data['nota_calidad'] : 0,
@@ -477,7 +480,7 @@ class RecepcionController extends Controller
 
     private function buildReceptionPayload(array $row): array
     {
-        Log::info("row:",[$row]);
+        //Log::info("row:",[$row]);
         return [
             'id_g_recepcion' => $row['id_g_recepcion'],
             'tipo_g_recepcion' => $row['tipo_g_recepcion'],
@@ -487,6 +490,7 @@ class RecepcionController extends Controller
             'r_emisor' => $row['r_emisor'],
             'n_emisor' => $row['n_emisor'],
             'Codigo_Sag_emisor' => $row['Codigo_Sag_emisor'],
+            'exportadora' => $row['exportadora'],
             'id_productor_rotulado' => $row['id_productor_rotulado'],
             'n_productor_rotulado' => $row['n_productor_rotulado'],
             'csg_productor_rotulado' => $row['csg_productor_rotulado'],
