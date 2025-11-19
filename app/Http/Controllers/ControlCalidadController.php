@@ -1649,6 +1649,8 @@ public function previewPage(Recepcion $recepcion)
                 $html_tabla_firmeza_pequena.='</tr>';
             }
             $html_tabla_firmeza_pequena.='</tbody></table>';
+            $categories_porc_firmeza=[];
+            $series_porc_firmeza=[];
              if ($recepcion->n_variedad == 'Dagen'){
             foreach ($recepcion->calidad->detalles->where('tipo_item', 'FIRMEZAS') as $detalle){
 
