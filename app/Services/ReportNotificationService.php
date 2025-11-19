@@ -693,9 +693,9 @@ class ReportNotificationService
 
         try {
             $mail = Mail::to($emailRecipient);
-            // if (! empty($bccRecipients)) {
-            //     $mail->bcc($bccRecipients);
-            // }
+            if (! empty($bccRecipients)) {
+                $mail->bcc($bccRecipients);
+            }
             $mail->send($mailable);
 
             Log::info('Report notification: email sent', $context + [
