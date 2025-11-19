@@ -245,7 +245,23 @@ class ProcesoController extends Controller
 
 
             $summary['updated']++;
+             try {
+            $reportNotificationService->notifyProcessReport(
+                $proceso,
+                $proceso->informe,
+                basename($proceso->informe)
+            );
+        } catch (\Throwable $e) {
+            Log::error('Process report resend failed', [
+                'proceso_id' => $proceso->id,
+                'n_proceso' => $proceso->n_proceso,
+                'error' => $e->getMessage(),
+            ]);
 
+            return response()->json([
+                'message' => 'No se pudo reenviar el informe. Intenta nuevamente.',
+            ], 500);
+        }
             try {
               //  $reportNotificationService->notifyProcessReport($proceso, $storedPath, $originalName);
             } catch (\Throwable $e) {
