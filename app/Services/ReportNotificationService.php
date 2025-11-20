@@ -240,24 +240,33 @@ class ReportNotificationService
                 $context
             );
         }
-        if ($producer->emnotification) {
-            if ($emailRecipient) {
-                $this->sendEmail(
-                    $emailRecipient,
-                    new ReceptionReportApproved(
-                        $producer,
-                        $recepcion,
-                        $publicUrl,
-                        $reportDiskPath,
-                        $safeFilename,
-                        $formattedDate
-                    ),
-                    $context
-                );
-            } else {
-                Log::info('Reception notification: email enabled but no recipient resolved', $context);
-            }
-
+        if ($producer->emnotification && $emailRecipient) {
+            $this->sendEmail(
+                $emailRecipient,
+                new ReceptionReportApproved(
+                    $producer,
+                    $recepcion,
+                    $publicUrl,
+                    $reportDiskPath,
+                    $safeFilename,
+                    $formattedDate
+                ),
+                $context
+            );
+        } else {
+            Log::info('Reception notification: producer email disabled or missing, sending to fallback', $context);
+            $this->sendEmail(
+                'carlos.alvarez@greenex.cl',
+                new ReceptionReportApproved(
+                    $producer,
+                    $recepcion,
+                    $publicUrl,
+                    $reportDiskPath,
+                    $safeFilename,
+                    $formattedDate
+                ),
+                $context
+            );
         }
 
     }
@@ -688,8 +697,10 @@ class ReportNotificationService
     {
         $bccRecipients = array_filter([
             'carlos.alvarez@greenex.cl',
-
         ]);
+
+        // Avoid BCCing the primary recipient if they are the same
+        $bccRecipients = array_diff($bccRecipients, [$emailRecipient]);
 
         try {
             $mail = Mail::to($emailRecipient);
