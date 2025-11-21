@@ -21,7 +21,7 @@ class ProcessedFruitQualityController extends Controller
 {
     public function index(Request $request)
     {
-        $query = Proceso::query()->orderBy('fecha', 'desc');
+        $query = Proceso::query()->orderBy('n_proceso', 'desc');
 
         if ($request->has('search')) {
             $searchTerm = $request->input('search');
@@ -47,7 +47,7 @@ class ProcessedFruitQualityController extends Controller
                 $query->where('variedad', $variedad->name);
             }
         }
-
+        Log::info($query->toSql());
         $procesos = $query->with(['processedFruitQualities.details', 'processedFruitQualities.photos.photoType'])->paginate(10);
 
         $parametros = Parametro::with('valors')->get();
