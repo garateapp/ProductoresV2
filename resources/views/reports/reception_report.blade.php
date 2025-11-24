@@ -22,6 +22,19 @@
 
 
 
+    @php
+        // Defaults to avoid undefined variables when optional tables are absent
+        $html_tabla_distribucion_calibre = $html_tabla_distribucion_calibre ?? '';
+        $html_tabla_color = $html_tabla_color ?? '';
+        $html_tabla_firmeza_grande = $html_tabla_firmeza_grande ?? '';
+        $html_tabla_firmeza_mediana = $html_tabla_firmeza_mediana ?? '';
+        $html_tabla_firmeza_pequena = $html_tabla_firmeza_pequena ?? '';
+        $html_tabla_color_fondo = $html_tabla_color_fondo ?? '';
+        $html_tabla_calibrix = $html_tabla_calibrix ?? '';
+        $html_tabla_porc_firmeza = $html_tabla_porc_firmeza ?? '';
+        $html_tabla_porcentaje_firmeza = $html_tabla_porcentaje_firmeza ?? '';
+    @endphp
+
     <style>
         @import url('https://fonts.googleapis.com/css2?family=Roboto:wght@300;400;700&display=swap');
 
@@ -6020,7 +6033,10 @@
                                     <div style="text-align: center; font-size: 12px; padding-left: 3px; padding-right: 3px;">
                                         <h3>Distribución de Calibres</h3>
                                         @php
-                                            echo $html_tabla_distribucion_calibre;
+                                        // if($html_tabla_distribucion_calibre != null){
+                                        //      echo $html_tabla_distribucion_calibre;
+                                        // }
+
                                         @endphp
                                         <h3>Distribución de Color</h3>
                                         @php
