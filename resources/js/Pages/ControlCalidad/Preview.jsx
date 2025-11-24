@@ -25,10 +25,21 @@ export default function Preview({ recepcionId, numero, htmlUrl, approveUrl, appr
         method: 'POST',
         headers: {
           'X-CSRF-TOKEN': token,
+          'X-Requested-With': 'XMLHttpRequest',
           'Accept': 'application/json',
+          'Content-Type': 'application/json',
         },
+        credentials: 'same-origin',
+        body: JSON.stringify({}),
       });
-      const data = await res.json();
+
+      let data = null;
+      try {
+        data = await res.json();
+      } catch (err) {
+        // ignore JSON parse errors to surface a generic message
+      }
+
       if (res.ok && data?.status === 'approved') {
         setApproved(true);
       } else {
