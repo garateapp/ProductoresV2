@@ -42,6 +42,8 @@ export default function Preview({ recepcionId, numero, htmlUrl, approveUrl, appr
 
       if (res.ok && data?.status === 'approved') {
         setApproved(true);
+        // Disparar reenvío automático una vez aprobado
+        await handleResend();
       } else {
         setApproved(false);
         alert(data?.message || 'No se pudo aprobar el reporte');
