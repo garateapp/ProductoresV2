@@ -1953,6 +1953,7 @@ public function previewPage(Recepcion $recepcion)
 
     public function approveReport(Recepcion $recepcion, ReportNotificationService $notificationService)
     {
+        Log::Info('approveReport:'.$recepcion->numero_g_recepcion);
         $calidad = $recepcion->calidad;
 
         $temperatura_pulpa = null;
