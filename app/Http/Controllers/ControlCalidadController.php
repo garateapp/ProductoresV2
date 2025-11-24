@@ -2105,6 +2105,10 @@ public function previewPage(Recepcion $recepcion)
             $recepcion->save();
 
             try {
+                 Log::info('Reception notification send', [
+                'recepcion_id' => $recepcion->id,
+                'numero_g_recepcion' => $recepcion->numero_g_recepcion,
+            ]);
                 $notificationService->notifyReceptionReport(
                     $recepcion->fresh(),
                     $publicUrl,

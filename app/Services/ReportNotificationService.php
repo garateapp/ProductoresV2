@@ -7,6 +7,7 @@ use App\Mail\ReceptionReportApproved;
 use App\Models\Proceso;
 use App\Models\Recepcion;
 use App\Models\User;
+use App\Models\NotificationLog;
 use Carbon\Carbon;
 use Illuminate\Mail\Mailable;
 use Illuminate\Support\Collection;
@@ -624,12 +625,35 @@ class ReportNotificationService
                     'status' => $response->status(),
                     'response' => $response->body(),
                 ]);
+
+                NotificationLog::create([
+                    'type' => 'whatsapp',
+                    'recipient' => $phone,
+                    'status' => 'failure',
+                    'message' => 'Template send failed: ' . $response->body(),
+                    'context' => $context,
+                ]);
             } else {
                 Log::info('Report notification: WhatsApp template sent', $context);
+
+                NotificationLog::create([
+                    'type' => 'whatsapp',
+                    'recipient' => $phone,
+                    'status' => 'success',
+                    'context' => $context,
+                ]);
             }
         } catch (\Throwable $e) {
             Log::error('Report notification: WhatsApp template exception', $context + [
                 'error' => $e->getMessage(),
+            ]);
+
+            NotificationLog::create([
+                'type' => 'whatsapp',
+                'recipient' => $phone,
+                'status' => 'failure',
+                'message' => 'Exception: ' . $e->getMessage(),
+                'context' => $context,
             ]);
         }
     }
@@ -664,12 +688,35 @@ class ReportNotificationService
                     'status' => $response->status(),
                     'response' => $response->body(),
                 ]);
+
+                NotificationLog::create([
+                    'type' => 'whatsapp',
+                    'recipient' => $phone,
+                    'status' => 'failure',
+                    'message' => 'Text send failed: ' . $response->body(),
+                    'context' => $context,
+                ]);
             } else {
                 Log::info('Report notification: WhatsApp text sent', $context);
+
+                NotificationLog::create([
+                    'type' => 'whatsapp',
+                    'recipient' => $phone,
+                    'status' => 'success',
+                    'context' => $context,
+                ]);
             }
         } catch (\Throwable $e) {
             Log::error('Report notification: WhatsApp text exception', $context + [
                 'error' => $e->getMessage(),
+            ]);
+
+            NotificationLog::create([
+                'type' => 'whatsapp',
+                'recipient' => $phone,
+                'status' => 'failure',
+                'message' => 'Exception: ' . $e->getMessage(),
+                'context' => $context,
             ]);
         }
     }
@@ -713,10 +760,27 @@ class ReportNotificationService
                 'email' => $emailRecipient,
                 'bcc' => $bccRecipients,
             ]);
+
+            NotificationLog::create([
+                'type' => 'email',
+                'recipient' => $emailRecipient,
+                'subject' => get_class($mailable),
+                'status' => 'success',
+                'context' => $context,
+            ]);
         } catch (\Throwable $e) {
             Log::error('Report notification: email send failed', $context + [
                 'email' => $emailRecipient,
                 'error' => $e->getMessage(),
+            ]);
+
+            NotificationLog::create([
+                'type' => 'email',
+                'recipient' => $emailRecipient,
+                'subject' => get_class($mailable),
+                'status' => 'failure',
+                'message' => $e->getMessage(),
+                'context' => $context,
             ]);
         }
     }
