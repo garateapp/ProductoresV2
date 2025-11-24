@@ -15,6 +15,8 @@ export default function Preview({ recepcionId, numero, htmlUrl, approveUrl, appr
   const { auth } = usePage().props;
   const userRoles = auth?.user?.roles ?? [];
   const isAdmin = userRoles.some((role) => ['Administrador', 'Admin','Calidad'].includes(role.name));
+  const viewHref = approved ? generateUrl : htmlUrl;
+  const viewLabel = approved ? 'Ver informe' : 'Ver previsualización';
 
   const handleApprove = async (value) => {
     if (!value) return; // one-way approve only
@@ -190,9 +192,9 @@ export default function Preview({ recepcionId, numero, htmlUrl, approveUrl, appr
               )}
             </div>
             <div className="flex items-center gap-2">
-              <a href={ generateUrl } target="_blank" rel="noopener noreferrer">
+              <a href={ viewHref } target="_blank" rel="noopener noreferrer">
                 <Button variant="outline">
-                  <FileText className="h-4 w-4 mr-2" /> {approving ? 'Generando...' : 'Ver informe'}
+                  <FileText className="h-4 w-4 mr-2" /> {approving ? 'Generando...' : viewLabel}
                 </Button>
               </a>
               <Button
