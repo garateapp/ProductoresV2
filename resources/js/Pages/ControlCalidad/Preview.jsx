@@ -40,10 +40,15 @@ export default function Preview({ recepcionId, numero, htmlUrl, approveUrl, appr
         // ignore JSON parse errors to surface a generic message
       }
 
+      console.info('approve response', { status: res.status, ok: res.ok, data });
+
       if (res.ok && data?.status === 'approved') {
         setApproved(true);
         // Disparar reenvío automático una vez aprobado
-        await handleResend();
+        const resendOk = await handleResend();
+        if (!resendOk) {
+          alert('El informe se aprobó, pero el reenvío falló. Revisa los registros.');
+        }
       } else {
         setApproved(false);
         alert(data?.message || 'No se pudo aprobar el reporte');
@@ -57,7 +62,7 @@ export default function Preview({ recepcionId, numero, htmlUrl, approveUrl, appr
   };
 
   const handleResend = async () => {
-    if (!resendUrl) return;
+    if (!resendUrl) return false;
     try {
       setResending(true);
       const token = document.querySelector('meta[name="csrf-token"]').getAttribute('content');
@@ -65,17 +70,33 @@ export default function Preview({ recepcionId, numero, htmlUrl, approveUrl, appr
         method: 'POST',
         headers: {
           'X-CSRF-TOKEN': token,
+          'X-Requested-With': 'XMLHttpRequest',
           'Accept': 'application/json',
+          'Content-Type': 'application/json',
         },
+        credentials: 'same-origin',
+        body: JSON.stringify({}),
       });
-      const data = await res.json();
+      let data = null;
+      try {
+        data = await res.json();
+      } catch (err) {
+        // ignore JSON parse errors to surface a generic message
+      }
+
+      console.info('resend response', { status: res.status, ok: res.ok, data });
+
       if (!res.ok || data?.status !== 'resent') {
         alert(data?.message || 'No se pudo reenviar el informe');
-      } else {
-        alert('Informe reenviado correctamente');
+        return false;
       }
+
+      alert('Informe reenviado correctamente');
+      return true;
     } catch (e) {
+      console.error('Error reenviando informe', e);
       alert('Error al reenviar el informe');
+      return false;
     } finally {
       setResending(false);
     }
