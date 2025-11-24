@@ -47,10 +47,10 @@ export default function Preview({ recepcionId, numero, htmlUrl, approveUrl, appr
       if (res.ok && data?.status === 'approved') {
         setApproved(true);
         // Disparar reenvío automático una vez aprobado
-        const resendOk = await handleResend();
-        if (!resendOk) {
-          alert('El informe se aprobó, pero el reenvío falló. Revisa los registros.');
-        }
+        // const resendOk = await handleResend();
+        // if (!resendOk) {
+        //   alert('El informe se aprobó, pero el reenvío falló. Revisa los registros.');
+        // }
       } else {
         setApproved(false);
         alert(data?.message || 'No se pudo aprobar el reporte');
