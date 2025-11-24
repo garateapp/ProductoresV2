@@ -2123,6 +2123,7 @@ public function previewPage(Recepcion $recepcion)
                     'error' => $e->getMessage(),
                 ]);
             }
+            sleep(5);
             $this->resendReport($recepcion, $notificationService);
             return response()->json([
                 'status' => 'approved',
