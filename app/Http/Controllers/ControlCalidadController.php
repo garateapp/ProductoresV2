@@ -1325,6 +1325,26 @@ class ControlCalidadController extends Controller
 
     public function generateReport(Recepcion $recepcion)
     {
+        // Si el informe aún no está aprobado, generamos un PDF temporal y no lo persistimos.
+        if (! $recepcion->informe) {
+            [$tempPath, $filename, $error] = $this->generatePreviewReportPdf($recepcion);
+
+            if ($error !== null || ! $tempPath || ! is_file($tempPath)) {
+                Log::error('Generate report preview failed', [
+                    'recepcion_id' => $recepcion->id,
+                    'numero_g_recepcion' => $recepcion->numero_g_recepcion,
+                    'error' => $error,
+                ]);
+
+                abort(500, 'No se pudo generar el PDF de previsualización.');
+            }
+
+            // Devuelve el PDF temporal sin guardar la ruta en la BD.
+            return response()->file($tempPath, [
+                'Content-Disposition' => 'inline; filename="' . ($filename ?? basename($tempPath)) . '"',
+            ])->deleteFileAfterSend(true);
+        }
+
         $html = view('reports.reception_report', $this->buildPreviewReportViewData($recepcion))->render();
 
         try {
