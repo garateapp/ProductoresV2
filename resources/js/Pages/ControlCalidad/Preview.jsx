@@ -62,7 +62,10 @@ export default function Preview({ recepcionId, numero, htmlUrl, approveUrl, appr
   };
 
   const handleResend = async () => {
-    if (!resendUrl) return false;
+    if (!resendUrl){
+        console.error('No se pudo reenviar el informe, no se encuentra la URL');
+        return false;
+    }
     try {
       setResending(true);
       const token = document.querySelector('meta[name="csrf-token"]').getAttribute('content');
