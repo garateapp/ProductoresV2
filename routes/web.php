@@ -9,6 +9,7 @@ use App\Http\Controllers\AdminDashboardController;
 use App\Http\Controllers\DashboardController;
 use App\Http\Controllers\MassCommunicationController;
 use App\Http\Controllers\CommercialDiscardController;
+use App\Http\Controllers\NotificationLogController;
 
 Route::get('/', function () {
     return redirect()->route('login');
@@ -101,6 +102,7 @@ Route::middleware('auth')->group(function () {
     Route::post('control-calidad/{recepcion}/report/send-preview-whatsapp', [App\Http\Controllers\ControlCalidadController::class, 'sendPreviewWhatsapp'])->name('control-calidad.send-preview-whatsapp');
     Route::post('control-calidad/{recepcion}/report/approve', [App\Http\Controllers\ControlCalidadController::class, 'approveReport'])->name('control-calidad.approve-report');
     Route::post('control-calidad/{recepcion}/report/resend', [App\Http\Controllers\ControlCalidadController::class, 'resendReport'])->name('control-calidad.resend-report');
+    Route::get('admin/notification-logs', [NotificationLogController::class, 'index'])->name('notification-logs.index');
 
     // Processed Fruit Quality Control Routes
     Route::get('processed-fruit-quality', [App\Http\Controllers\ProcessedFruitQualityController::class, 'index'])->name('processed-fruit-quality.index');

@@ -75,6 +75,11 @@ export default function AdminMenu() {
             Países
           </Link>
         </DropdownMenuItem>
+        <DropdownMenuItem asChild>
+          <Link href={route("notification-logs.index")} className="w-full">
+            Logs de notificaciones
+          </Link>
+        </DropdownMenuItem>
       </DropdownMenuContent>
     </DropdownMenu>
   );
