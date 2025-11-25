@@ -1929,8 +1929,10 @@ public function previewPage(Recepcion $recepcion)
                     $results[] = [
                         'numero_g_recepcion' => $recepcion->numero_g_recepcion,
                         'productor' => $recepcion->n_emisor,
+                        'fecha' => $recepcion->fecha_g_recepcion,
                         'especie' => $recepcion->n_especie,
                         'variedad' => $recepcion->n_variedad,
+                        'peso_neto' => $recepcion->peso_neto,
                         'porcentaje_exportable' => $percentage,
                     ];
                 }
