@@ -1399,7 +1399,7 @@ class ControlCalidadController extends Controller
                     ->savePdf($pdfPath);
                 }
             $recepcion->informe = asset('storage/' . $pdfRelative);
-            $recepcion->save();
+            //$recepcion->save();
 
             return response()->file($pdfPath);
         } catch (\Exception $e) {
