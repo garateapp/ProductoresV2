@@ -22,6 +22,9 @@ export default function Index({ recepciones, especies, variedades = [], filters,
     especie_id: filters.especie_id || '',
     variedad_id: filters.variedad_id || '',
   });
+  const userRoles = props?.auth?.user?.roles ?? [];
+  const isAdmin = userRoles.some((role) => ['Administrador', 'Admin'].includes(role.name));
+  const canManage = isAdmin && !isProducer;
 
   const handleSearchChange = (e) => {
     setData('search', e.target.value);
@@ -41,11 +44,15 @@ export default function Index({ recepciones, especies, variedades = [], filters,
       return;
     }
     const delayDebounceFn = setTimeout(() => {
-      get(route('recepciones.index', {
-        search: data.search,
-        especie_id: data.especie_id,
-        variedad_id: data.variedad_id,
-      }), { preserveState: true, replace: true });
+      const searchTerm = (data.search || '').trim();
+      get(
+        route('recepciones.index', {
+          search: searchTerm,
+          especie_id: data.especie_id,
+          variedad_id: data.variedad_id,
+        }),
+        { preserveState: true, replace: true }
+      );
     }, 300);
 
     return () => clearTimeout(delayDebounceFn);
@@ -56,7 +63,7 @@ export default function Index({ recepciones, especies, variedades = [], filters,
       <Card>
         <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
           <CardTitle className="text-2xl font-bold">Recepciones</CardTitle>
-          <SyncButton />
+          {canManage && <SyncButton />}
         </CardHeader>
         <CardContent>
           {props?.flash?.success && (
@@ -84,7 +91,7 @@ export default function Index({ recepciones, especies, variedades = [], filters,
           <div className="mb-4 flex flex-col md:flex-row justify-between items-center gap-4">
             <Input
               type="text"
-              placeholder="Buscar por variedad, especie o lote..."
+              placeholder="Buscar por lote, agrícola, especie o variedad..."
               value={data.search}
               onChange={handleSearchChange}
               className="max-w-sm"

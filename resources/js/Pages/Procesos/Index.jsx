@@ -47,6 +47,7 @@ export default function Index({ procesos, especies, variedades = [], filters, is
 
   const userRoles = props?.auth?.user?.roles ?? [];
   const isAdmin = userRoles.some((role) => ['Administrador', 'Admin'].includes(role.name));
+  const canManage = isAdmin && !isProducer;
   const csrfToken = props?.csrf_token ?? (typeof document !== 'undefined'
     ? document.querySelector('meta[name="csrf-token"]')?.getAttribute('content')
     : null);
@@ -220,11 +221,15 @@ export default function Index({ procesos, especies, variedades = [], filters, is
       return;
     }
     const delayDebounceFn = setTimeout(() => {
-      get(route('procesos.index', {
-        search: data.search,
-        especie_id: data.especie_id,
-        variedad_id: data.variedad_id,
-      }), { preserveState: true, replace: true });
+      const searchTerm = (data.search || '').trim();
+      get(
+        route('procesos.index', {
+          search: searchTerm,
+          especie_id: data.especie_id,
+          variedad_id: data.variedad_id,
+        }),
+        { preserveState: true, replace: true }
+      );
     }, 300);
 
     return () => clearTimeout(delayDebounceFn);
@@ -240,7 +245,7 @@ export default function Index({ procesos, especies, variedades = [], filters, is
       <Card>
         <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
           <CardTitle className="text-2xl font-bold">Procesos</CardTitle>
-          <SyncButton />
+          {canManage && <SyncButton />}
         </CardHeader>
         <CardContent>
           {props?.flash?.success && (
@@ -257,7 +262,7 @@ export default function Index({ procesos, especies, variedades = [], filters, is
               </details>
             </div>
           )}
-          {isAdmin && props?.flash?.upload_report && (
+          {canManage && props?.flash?.upload_report && (
             <div className="mb-3 rounded border border-indigo-200 bg-indigo-50 px-3 py-2 text-sm text-indigo-900">
               <p>Archivos procesados: {props.flash.upload_report.processed ?? 0}. Informes actualizados: {props.flash.upload_report.updated ?? 0}.</p>
               {props.flash.upload_report.not_found?.length > 0 && (
@@ -268,7 +273,7 @@ export default function Index({ procesos, especies, variedades = [], filters, is
               )}
             </div>
           )}
-          {isAdmin && fileErrors.length > 0 && (
+          {canManage && fileErrors.length > 0 && (
             <div className="mb-3 rounded border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-800">
               <div className="flex items-center justify-between">
                 <span>Revisa los archivos seleccionados:</span>
@@ -281,7 +286,7 @@ export default function Index({ procesos, especies, variedades = [], filters, is
               </ul>
             </div>
           )}
-          {isAdmin && (
+          {canManage && (
             <div
               className={`mb-6 flex flex-col items-center justify-center rounded-lg border-2 border-dashed px-6 py-8 text-center transition ${isDragging ? 'border-indigo-500 bg-indigo-50' : 'border-gray-300 bg-white'}`}
               onDragEnter={handleDragOver}
@@ -324,7 +329,7 @@ export default function Index({ procesos, especies, variedades = [], filters, is
               <p className="mt-2 text-xs text-gray-500">Formato esperado: IDPROCESO-*.pdf (ej. 12-3103225.pdf).</p>
             </div>
           )}
-          {isAdmin && selectedFiles.length > 0 && (
+          {canManage && selectedFiles.length > 0 && (
             <div className="mb-6 rounded border border-gray-200 bg-gray-50 p-4">
               <div className="flex items-center justify-between">
                 <h4 className="text-sm font-semibold text-gray-700">Archivos listos para subir ({selectedFiles.length})</h4>
@@ -354,7 +359,7 @@ export default function Index({ procesos, especies, variedades = [], filters, is
           <div className="mb-4 flex flex-col md:flex-row justify-between items-center gap-4">
             <Input
               type="text"
-              placeholder="Buscar por especie o variedad..."
+              placeholder="Buscar por N° proceso, agrícola, especie o variedad..."
               value={data.search}
               onChange={handleSearchChange}
               className="max-w-sm"

@@ -110,7 +110,9 @@ class ProcesoController extends Controller
             $searchTerm = $request->input('search');
             $query->where(function ($q) use ($searchTerm) {
                 $q->where('especie', 'like', '%'.$searchTerm.'%')
-                    ->orWhere('variedad', 'like', '%'.$searchTerm.'%');
+                    ->orWhere('variedad', 'like', '%'.$searchTerm.'%')
+                    ->orWhere('n_proceso', 'like', '%'.$searchTerm.'%')
+                    ->orWhere('agricola', 'like', '%'.$searchTerm.'%');
             });
         }
 
