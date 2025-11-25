@@ -1916,27 +1916,37 @@ public function previewPage(Recepcion $recepcion)
     {
         $results = [];
 
-        Recepcion::query()
-            ->('fecha_g_recepcion', 'peso_neto')
-            ->whereHas('calidad')
-            ->with(['calidad.detalles' => function ($query) {
-                $query->select('id', 'calidad_id', 'tipo_item', 'detalle_item', 'porcentaje_muestra');
-            }])
-            ->orderBy('fecha_g_recepcion')
-            ->chunkById(250, function ($recepciones) use (&$results) {
-                foreach ($recepciones as $recepcion) {
-                    $percentage = $this->calculateExportablePercentage($recepcion);
-                    $results[] = [
-                        'numero_g_recepcion' => $recepcion->numero_g_recepcion,
-                        'productor' => $recepcion->n_emisor,
-                        'fecha' => $recepcion->fecha_g_recepcion,
-                        'especie' => $recepcion->n_especie,
-                        'variedad' => $recepcion->n_variedad,
-                        'peso_neto' => $recepcion->peso_neto,
-                        'porcentaje_exportable' => $percentage,
-                    ];
-                }
-            });
+       Recepcion::query()
+    // Debes incluir todas las columnas que necesitas dentro del loop, además de las relaciones.
+    // También asegúrate de incluir la clave primaria ('id') para que 'chunkById' funcione.
+    ->select(
+        'id',
+        'numero_g_recepcion',
+        'n_emisor',
+        'n_especie',
+        'n_variedad',
+        'fecha_g_recepcion',
+        'peso_neto'
+    )
+    ->whereHas('calidad')
+    ->with(['calidad.detalles' => function ($query) {
+        $query->select('id', 'calidad_id', 'tipo_item', 'detalle_item', 'porcentaje_muestra');
+    }])
+    ->orderBy('fecha_g_recepcion')
+    ->chunkById(250, function ($recepciones) use (&$results) {
+        foreach ($recepciones as $recepcion) {
+            $percentage = $this->calculateExportablePercentage($recepcion);
+            $results[] = [
+                'numero_g_recepcion' => $recepcion->numero_g_recepcion,
+                'productor' => $recepcion->n_emisor,
+                'fecha' => $recepcion->fecha_g_recepcion,
+                'especie' => $recepcion->n_especie,
+                'variedad' => $recepcion->n_variedad,
+                'peso_neto' => $recepcion->peso_neto,
+                'porcentaje_exportable' => $percentage,
+            ];
+        }
+    });
 
         return response()->json($results);
     }
