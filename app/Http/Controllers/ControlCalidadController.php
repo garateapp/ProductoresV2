@@ -1917,9 +1917,10 @@ public function previewPage(Recepcion $recepcion)
         $results = [];
 
         Recepcion::query()
+            ->('fecha_g_recepcion', 'peso_neto')
             ->whereHas('calidad')
             ->with(['calidad.detalles' => function ($query) {
-                $query->select('id', 'calidad_id', 'tipo_item', 'fecha_g_recepcion', 'peso_neto','detalle_item', 'porcentaje_muestra');
+                $query->select('id', 'calidad_id', 'tipo_item', 'detalle_item', 'porcentaje_muestra');
             }])
             ->orderBy('fecha_g_recepcion')
             ->chunkById(250, function ($recepciones) use (&$results) {
