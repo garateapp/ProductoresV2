@@ -23,7 +23,7 @@ export default function Index({ recepciones, especies, variedades = [], filters,
     variedad_id: filters.variedad_id || '',
   });
   const userRoles = props?.auth?.user?.roles ?? [];
-  const isAdmin = userRoles.some((role) => ['Administrador', 'Admin'].includes(role.name));
+  const isAdmin = userRoles.some((role) => ['Administrador', 'Admin','Calidad'].includes(role.name));
   const canManage = isAdmin && !isProducer;
 
   const handleSearchChange = (e) => {
