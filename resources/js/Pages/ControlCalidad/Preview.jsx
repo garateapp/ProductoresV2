@@ -15,8 +15,9 @@ export default function Preview({ recepcionId, numero, htmlUrl, approveUrl, appr
   const { auth } = usePage().props;
   const userRoles = auth?.user?.roles ?? [];
   const isAdmin = userRoles.some((role) => ['Administrador', 'Admin','Calidad'].includes(role.name));
-  const viewHref = approved ? generateUrl : htmlUrl;
-  const viewLabel = approved ? 'Ver informe' : 'Ver previsualización';
+  // Siempre generamos el PDF vía backend; si no está aprobado se entrega temporal y no se guarda en BD
+  const viewHref = generateUrl;
+  const viewLabel = approved ? 'Ver informe' : 'Ver previsualización (PDF)';
 
   const handleApprove = async (value) => {
     if (!value) return; // one-way approve only
