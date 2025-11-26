@@ -44,6 +44,7 @@ return [
 
     'assemblyai' => [
         'key' => env('ASSEMBLYAI_API_KEY'),
+        // AssemblyAI realtime WS host (v2 realtime)
         'stream_host' => env('ASSEMBLYAI_STREAM_HOST', 'streaming.assemblyai.com'),
     ],
 

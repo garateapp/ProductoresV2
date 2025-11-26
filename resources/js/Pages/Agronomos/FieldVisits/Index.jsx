@@ -8,7 +8,8 @@ import { Badge } from '@/Components/ui/badge';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/Components/ui/table';
 import { Mic, Square, MapPin, Save } from 'lucide-react';
 
-const wsUrl = (host) => `wss://${host}/v2/realtime/ws?sample_rate=16000`;
+const wsUrl = (host, token) =>
+  `wss://${host}/v2/realtime/ws?sample_rate=16000&token=${encodeURIComponent(token)}`;
 
 export default function FieldVisitsIndex({ auth, visits, filters, assemblyai }) {
   const { data, setData, get } = useForm({ search: filters?.search || '' });
@@ -17,6 +18,7 @@ export default function FieldVisitsIndex({ auth, visits, filters, assemblyai }) 
   const [recording, setRecording] = useState(false);
   const [connecting, setConnecting] = useState(false);
   const [geo, setGeo] = useState({ lat: null, lng: null });
+  const [micError, setMicError] = useState('');
   const socketRef = useRef(null);
   const mediaRecorderRef = useRef(null);
 
@@ -46,19 +48,34 @@ export default function FieldVisitsIndex({ auth, visits, filters, assemblyai }) 
   };
 
   const startRecording = async () => {
+    setMicError('');
     if (!assemblyai?.api_key) {
-      alert('No hay API key de AssemblyAI configurada.');
+      setMicError('No hay API key de AssemblyAI configurada.');
       return;
     }
+    if (typeof navigator === 'undefined' || !navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
+      setMicError('El dispositivo/navegador no soporta captura de audio.');
+      return;
+    }
+    if (typeof MediaRecorder === 'undefined') {
+      setMicError('MediaRecorder no está disponible en este navegador. Usa Chrome/Edge/Firefox en Android.');
+      return;
+    }
+
     setTranscript('');
     setPartial('');
     setConnecting(true);
     try {
       const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
-      const mediaRecorder = new MediaRecorder(stream, { mimeType: 'audio/webm' });
+      let mediaRecorder;
+      try {
+        mediaRecorder = new MediaRecorder(stream);
+      } catch (err) {
+        mediaRecorder = new MediaRecorder(stream);
+      }
       mediaRecorderRef.current = mediaRecorder;
 
-      const socket = new WebSocket(wsUrl(assemblyai.host), ['json', `Bearer ${assemblyai.api_key}`]);
+      const socket = new WebSocket(wsUrl(assemblyai.host, assemblyai.api_key));
       socketRef.current = socket;
 
       socket.onmessage = (event) => {
@@ -72,12 +89,16 @@ export default function FieldVisitsIndex({ auth, visits, filters, assemblyai }) 
         }
       };
 
-      socket.onerror = () => {
-        alert('Error en la conexión con AssemblyAI');
+      socket.onerror = (evt) => {
+        console.error('WS error', evt);
+        setMicError('Error en la conexión con AssemblyAI. Revisa la API key, host y red (requiere WSS).');
         stopAndCleanup();
       };
 
-      socket.onclose = () => {
+      socket.onclose = (evt) => {
+        if (!recording) {
+          setMicError(`Conexión cerrada (código ${evt.code || 'desconocido'}). Verifica la API key y host (api.assemblyai.com).`);
+        }
         setConnecting(false);
         setRecording(false);
       };
@@ -96,7 +117,8 @@ export default function FieldVisitsIndex({ auth, visits, filters, assemblyai }) 
         }
       });
     } catch (error) {
-      alert('No se pudo acceder al micrófono.');
+      console.error('Microphone error', error);
+      setMicError(error?.message || 'No se pudo acceder al micrófono. Verifica permisos y que el sitio esté en HTTPS.');
       setConnecting(false);
       stopAndCleanup();
     }
@@ -153,8 +175,13 @@ export default function FieldVisitsIndex({ auth, visits, filters, assemblyai }) 
             <CardHeader>
               <CardTitle>Captura de visita</CardTitle>
             </CardHeader>
-            <CardContent className="space-y-4">
-              <div className="flex flex-wrap gap-3">
+          <CardContent className="space-y-4">
+            {micError && (
+              <div className="rounded border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-800">
+                {micError}
+              </div>
+            )}
+            <div className="flex flex-wrap gap-3">
                 <Button onClick={startRecording} disabled={recording || connecting}>
                   <Mic className="h-4 w-4 mr-2" /> {connecting ? 'Conectando...' : 'Grabar'}
                 </Button>
