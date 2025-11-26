@@ -6,161 +6,108 @@ import { Button } from '@/Components/ui/button';
 import { Input } from '@/Components/ui/input';
 import { Badge } from '@/Components/ui/badge';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/Components/ui/table';
-import { Mic, Square, MapPin, Save } from 'lucide-react';
+import { MapPin, Save, Mic, Square } from 'lucide-react';
 
-const wsUrl = (host, token) =>
-  `wss://${host}/v2/realtime/ws?sample_rate=16000&token=${encodeURIComponent(token)}`;
+export default function FieldVisitsIndex({ auth, visits, filters }) {
+  const { data: searchData, setData: setSearchData, get } = useForm({
+    search: filters?.search || '',
+  });
 
-export default function FieldVisitsIndex({ auth, visits, filters, assemblyai }) {
-  const { data, setData, get } = useForm({ search: filters?.search || '' });
-  const [transcript, setTranscript] = useState('');
-  const [partial, setPartial] = useState('');
-  const [recording, setRecording] = useState(false);
-  const [connecting, setConnecting] = useState(false);
+  const { data, setData, post, processing, reset } = useForm({
+    audio: null,
+    visited_at: new Date().toISOString().slice(0, 16),
+    latitude: '',
+    longitude: '',
+  });
   const [geo, setGeo] = useState({ lat: null, lng: null });
-  const [micError, setMicError] = useState('');
-  const socketRef = useRef(null);
+  const [error, setError] = useState('');
+  const [recording, setRecording] = useState(false);
+  const [recordingError, setRecordingError] = useState('');
   const mediaRecorderRef = useRef(null);
+  const chunksRef = useRef([]);
 
   useEffect(() => {
     const debounce = setTimeout(() => {
       get(route('field-visits.index'), {
         preserveScroll: true,
         replace: true,
-        data: { search: data.search.trim() },
+        data: { search: searchData.search.trim() },
       });
     }, 300);
     return () => clearTimeout(debounce);
-  }, [data.search]);
+  }, [searchData.search]);
 
-  const stopAndCleanup = () => {
-    setRecording(false);
-    setConnecting(false);
-    if (mediaRecorderRef.current) {
-      mediaRecorderRef.current.stop();
-      mediaRecorderRef.current.stream.getTracks().forEach((t) => t.stop());
-      mediaRecorderRef.current = null;
+  const captureLocation = () => {
+    if (!navigator.geolocation) {
+      setError('Geolocalización no soportada en este dispositivo.');
+      return;
     }
-    if (socketRef.current) {
-      socketRef.current.close();
-      socketRef.current = null;
+    navigator.geolocation.getCurrentPosition(
+      (pos) => {
+        setGeo({ lat: pos.coords.latitude, lng: pos.coords.longitude });
+        setData('latitude', pos.coords.latitude);
+        setData('longitude', pos.coords.longitude);
+        setError('');
+      },
+      () => setError('No se pudo obtener la ubicación.')
+    );
+  };
+
+  const submit = (e) => {
+    e.preventDefault();
+    setError('');
+    if (!data.audio) {
+      setError('Selecciona un archivo de audio.');
+      return;
     }
+    post(route('field-visits.store'), {
+      forceFormData: true,
+      preserveScroll: true,
+      onSuccess: () => {
+        reset('audio');
+      },
+      onError: (errs) => {
+        const first = Object.values(errs)[0];
+        setError(first || 'No se pudo guardar la visita.');
+      },
+    });
   };
 
   const startRecording = async () => {
-    setMicError('');
-    if (!assemblyai?.api_key) {
-      setMicError('No hay API key de AssemblyAI configurada.');
+    setRecordingError('');
+    if (typeof navigator === 'undefined' || !navigator.mediaDevices?.getUserMedia) {
+      setRecordingError('El navegador no soporta grabación de audio.');
       return;
     }
-    if (typeof navigator === 'undefined' || !navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
-      setMicError('El dispositivo/navegador no soporta captura de audio.');
-      return;
-    }
-    if (typeof MediaRecorder === 'undefined') {
-      setMicError('MediaRecorder no está disponible en este navegador. Usa Chrome/Edge/Firefox en Android.');
-      return;
-    }
-
-    setTranscript('');
-    setPartial('');
-    setConnecting(true);
     try {
       const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
-      let mediaRecorder;
-      try {
-        mediaRecorder = new MediaRecorder(stream);
-      } catch (err) {
-        mediaRecorder = new MediaRecorder(stream);
-      }
-      mediaRecorderRef.current = mediaRecorder;
-
-      const socket = new WebSocket(wsUrl(assemblyai.host, assemblyai.api_key));
-      socketRef.current = socket;
-
-      socket.onmessage = (event) => {
-        const msg = JSON.parse(event.data);
-        if (msg?.message_type === 'PartialTranscript') {
-          setPartial(msg.text || '');
-        }
-        if (msg?.message_type === 'FinalTranscript') {
-          setTranscript((prev) => `${prev} ${msg.text || ''}`.trim());
-          setPartial('');
+      const recorder = new MediaRecorder(stream);
+      chunksRef.current = [];
+      recorder.ondataavailable = (event) => {
+        if (event.data.size > 0) {
+          chunksRef.current.push(event.data);
         }
       };
-
-      socket.onerror = (evt) => {
-        console.error('WS error', evt);
-        setMicError('Error en la conexión con AssemblyAI. Revisa la API key, host y red (requiere WSS).');
-        stopAndCleanup();
+      recorder.onstop = () => {
+        const blob = new Blob(chunksRef.current, { type: 'audio/webm' });
+        const file = new File([blob], `visita-${Date.now()}.webm`, { type: 'audio/webm' });
+        setData('audio', file);
+        // detener tracks
+        stream.getTracks().forEach((t) => t.stop());
       };
-
-      socket.onclose = (evt) => {
-        if (!recording) {
-          setMicError(`Conexión cerrada (código ${evt.code || 'desconocido'}). Verifica la API key y host (api.assemblyai.com).`);
-        }
-        setConnecting(false);
-        setRecording(false);
-      };
-
-      socket.onopen = () => {
-        setConnecting(false);
-        setRecording(true);
-        mediaRecorder.start(250);
-      };
-
-      mediaRecorder.addEventListener('dataavailable', async (event) => {
-        if (event.data.size > 0 && socket.readyState === WebSocket.OPEN) {
-          const buffer = await event.data.arrayBuffer();
-          const base64 = btoa(String.fromCharCode(...new Uint8Array(buffer)));
-          socket.send(JSON.stringify({ audio: base64 }));
-        }
-      });
-    } catch (error) {
-      console.error('Microphone error', error);
-      setMicError(error?.message || 'No se pudo acceder al micrófono. Verifica permisos y que el sitio esté en HTTPS.');
-      setConnecting(false);
-      stopAndCleanup();
+      mediaRecorderRef.current = recorder;
+      recorder.start(250);
+      setRecording(true);
+    } catch (err) {
+      setRecordingError(err?.message || 'No se pudo acceder al micrófono.');
     }
   };
 
   const stopRecording = () => {
-    stopAndCleanup();
-  };
-
-  const captureLocation = () => {
-    if (!navigator.geolocation) {
-      alert('Geolocalización no soportada en este dispositivo.');
-      return;
+    if (mediaRecorderRef.current && recording) {
+      mediaRecorderRef.current.stop();
     }
-    navigator.geolocation.getCurrentPosition(
-      (pos) => setGeo({ lat: pos.coords.latitude, lng: pos.coords.longitude }),
-      () => alert('No se pudo obtener la ubicación.')
-    );
-  };
-
-  const saveVisit = () => {
-    const text = `${transcript} ${partial}`.trim();
-    if (!text) {
-      alert('No hay texto para guardar.');
-      return;
-    }
-    router.post(
-      route('field-visits.store'),
-      {
-        transcript: text,
-        visited_at: new Date().toISOString(),
-        latitude: geo.lat,
-        longitude: geo.lng,
-      },
-      {
-        preserveScroll: true,
-        onSuccess: () => {
-          setTranscript('');
-          setPartial('');
-        },
-      }
-    );
+    setRecording(false);
   };
 
   return (
@@ -173,45 +120,67 @@ export default function FieldVisitsIndex({ auth, visits, filters, assemblyai }) 
         <div className="mx-auto max-w-6xl space-y-6">
           <Card>
             <CardHeader>
-              <CardTitle>Captura de visita</CardTitle>
+              <CardTitle>Subir audio de visita</CardTitle>
             </CardHeader>
-          <CardContent className="space-y-4">
-            {micError && (
-              <div className="rounded border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-800">
-                {micError}
-              </div>
-            )}
-            <div className="flex flex-wrap gap-3">
-                <Button onClick={startRecording} disabled={recording || connecting}>
-                  <Mic className="h-4 w-4 mr-2" /> {connecting ? 'Conectando...' : 'Grabar'}
-                </Button>
-                <Button onClick={stopRecording} variant="outline" disabled={!recording}>
-                  <Square className="h-4 w-4 mr-2" /> Detener
-                </Button>
-                <Button onClick={captureLocation} variant="outline">
-                  <MapPin className="h-4 w-4 mr-2" /> Obtener ubicación
-                </Button>
-                <Button onClick={saveVisit} variant="secondary">
-                  <Save className="h-4 w-4 mr-2" /> Guardar visita
-                </Button>
-              </div>
-
-              <div className="rounded border bg-gray-50 p-3 text-sm">
-                <p className="text-gray-500">Transcripción en vivo:</p>
-                <p className="mt-2 min-h-[100px] whitespace-pre-wrap text-gray-800">
-                  {transcript || partial ? `${transcript} ${partial}`.trim() : 'Aún sin texto...'}
-                </p>
-              </div>
-
-              <div className="flex gap-3 text-sm text-gray-600">
-                {geo.lat && geo.lng ? (
-                  <Badge variant="secondary">
-                    Ubicación: {geo.lat.toFixed(5)}, {geo.lng.toFixed(5)}
-                  </Badge>
-                ) : (
-                  <span className="text-gray-500">Ubicación no capturada</span>
-                )}
-              </div>
+            <CardContent className="space-y-4">
+              {error && (
+                <div className="rounded border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-800">
+                  {error}
+                </div>
+              )}
+              {recordingError && (
+                <div className="rounded border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-800">
+                  {recordingError}
+                </div>
+              )}
+              <form className="space-y-4" onSubmit={submit}>
+                <div className="grid gap-4 md:grid-cols-2">
+                  <div className="space-y-2">
+                    <label className="text-sm font-medium text-gray-700">Archivo de audio</label>
+                    <Input
+                      type="file"
+                      accept="audio/*"
+                      onChange={(e) => setData('audio', e.target.files?.[0] || null)}
+                    />
+                    <p className="text-xs text-gray-500">Formatos: mp3, wav, m4a, webm, ogg. Máx 20MB.</p>
+                    <div className="flex flex-wrap gap-2">
+                      <Button type="button" variant={recording ? 'destructive' : 'outline'} onClick={recording ? stopRecording : startRecording}>
+                        {recording ? <><Square className="h-4 w-4 mr-2" /> Detener grabación</> : <><Mic className="h-4 w-4 mr-2" /> Grabar audio</>}
+                      </Button>
+                      {data.audio && (
+                        <Badge variant="secondary" className="mt-1">
+                          Seleccionado: {data.audio.name}
+                        </Badge>
+                      )}
+                    </div>
+                  </div>
+                  <div className="space-y-2">
+                    <label className="text-sm font-medium text-gray-700">Fecha y hora de visita</label>
+                    <Input
+                      type="datetime-local"
+                      value={data.visited_at}
+                      onChange={(e) => setData('visited_at', e.target.value)}
+                    />
+                  </div>
+                </div>
+                <div className="flex flex-wrap gap-3 items-center">
+                  <Button type="button" variant="outline" onClick={captureLocation}>
+                    <MapPin className="h-4 w-4 mr-2" /> Obtener ubicación
+                  </Button>
+                  {geo.lat && geo.lng ? (
+                    <Badge variant="secondary">
+                      Ubicación: {geo.lat.toFixed(5)}, {geo.lng.toFixed(5)}
+                    </Badge>
+                  ) : (
+                    <span className="text-sm text-gray-500">Ubicación no capturada (opcional)</span>
+                  )}
+                </div>
+                <div>
+                  <Button type="submit" disabled={processing}>
+                    <Save className="h-4 w-4 mr-2" /> {processing ? 'Procesando...' : 'Subir y transcribir'}
+                  </Button>
+                </div>
+              </form>
             </CardContent>
           </Card>
 
@@ -223,8 +192,8 @@ export default function FieldVisitsIndex({ auth, visits, filters, assemblyai }) 
               <div className="mb-4">
                 <Input
                   placeholder="Buscar por texto o nombre del agrónomo..."
-                  value={data.search}
-                  onChange={(e) => setData('search', e.target.value)}
+                  value={searchData.search}
+                  onChange={(e) => setSearchData('search', e.target.value)}
                   className="max-w-md"
                 />
               </div>

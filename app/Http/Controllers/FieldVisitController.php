@@ -5,6 +5,7 @@ namespace App\Http\Controllers;
 use App\Models\FieldVisit;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
+use Illuminate\Support\Facades\Http;
 use Inertia\Inertia;
 use Inertia\Response;
 
@@ -66,20 +67,99 @@ class FieldVisitController extends Controller
         $this->ensureCanAccess();
 
         $validated = $request->validate([
-            'transcript' => ['required', 'string', 'max:20000'],
+            'audio' => ['required', 'file', 'max:20480', 'mimetypes:audio/mpeg,audio/wav,audio/x-wav,audio/mp4,audio/x-m4a,audio/aac,audio/webm,audio/ogg'],
             'visited_at' => ['nullable', 'date'],
             'latitude' => ['nullable', 'numeric'],
             'longitude' => ['nullable', 'numeric'],
         ]);
 
+        $apiKey = config('services.assemblyai.key');
+        if (! $apiKey) {
+            return back()->with('error', 'Falta configurar ASSEMBLYAI_API_KEY en el servidor.');
+        }
+
+        $audioFile = $request->file('audio');
+
+        try {
+            $uploadUrl = $this->uploadToAssembly($audioFile, $apiKey);
+            $transcript = $this->transcribeWithAssembly($uploadUrl, $apiKey);
+        } catch (\Throwable $e) {
+            return back()->with('error', 'No se pudo transcribir el audio: ' . $e->getMessage());
+        }
+
+        if (! $transcript) {
+            return back()->with('error', 'Transcripción vacía o no disponible.');
+        }
+
         FieldVisit::create([
             'user_id' => Auth::id(),
             'visited_at' => $validated['visited_at'] ?? now(),
-            'transcript' => $validated['transcript'],
+            'transcript' => $transcript,
             'latitude' => $validated['latitude'] ?? null,
             'longitude' => $validated['longitude'] ?? null,
         ]);
 
-        return back()->with('success', 'Visita registrada correctamente.');
+        return back()->with('success', 'Visita registrada y transcrita correctamente.');
+    }
+
+    private function uploadToAssembly(\Illuminate\Http\UploadedFile $file, string $apiKey): string
+    {
+        $response = Http::withHeaders([
+            'authorization' => $apiKey,
+            'transfer-encoding' => 'chunked',
+        ])->withBody(
+            file_get_contents($file->getRealPath()),
+            'application/octet-stream'
+        )->post('https://api.assemblyai.com/v2/upload');
+
+        if (! $response->ok() || empty($response->json('upload_url'))) {
+            throw new \RuntimeException('Fallo al subir el audio a AssemblyAI');
+        }
+
+        return $response->json('upload_url');
+    }
+
+    private function transcribeWithAssembly(string $audioUrl, string $apiKey): string
+    {
+        $start = Http::withHeaders([
+            'authorization' => $apiKey,
+            'content-type' => 'application/json',
+        ])->post('https://api.assemblyai.com/v2/transcript', [
+            'audio_url' => $audioUrl,
+            'format_text' => true,
+        ]);
+
+        if (! $start->ok() || empty($start->json('id'))) {
+            throw new \RuntimeException('No se pudo iniciar la transcripción');
+        }
+
+        $transcriptId = $start->json('id');
+        $pollUrl = "https://api.assemblyai.com/v2/transcript/{$transcriptId}";
+
+        // Poll up to ~60s
+        $attempts = 0;
+        while ($attempts < 20) {
+            sleep(3);
+            $attempts++;
+            $poll = Http::withHeaders([
+                'authorization' => $apiKey,
+            ])->get($pollUrl);
+
+            if (! $poll->ok()) {
+                continue;
+            }
+
+            $status = $poll->json('status');
+            if ($status === 'completed') {
+                return (string) ($poll->json('text') ?? '');
+            }
+
+            if ($status === 'error') {
+                $msg = $poll->json('error') ?? 'Error desconocido';
+                throw new \RuntimeException($msg);
+            }
+        }
+
+        throw new \RuntimeException('La transcripción tardó demasiado.');
     }
 }
