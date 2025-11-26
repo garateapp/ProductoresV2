@@ -76,6 +76,14 @@ export default function AuthenticatedLayout({ header, children }) {
 
                                         {hasAnyRole(['Administrador', 'Calidad']) && <ControlCalidadMenu />}
 
+                                        {hasAnyRole(['Administrador', 'Agronomo']) && (
+                                            <NavigationMenuItem>
+                                                <NavigationMenuLink asChild className={navLinkClasses}>
+                                                    <Link href={route('field-visits.index')}>Visitas</Link>
+                                                </NavigationMenuLink>
+                                            </NavigationMenuItem>
+                                        )}
+
                                         {hasAnyRole(['Administrador', 'Agronomo', 'Sag']) && <SagMenu/>}
 
                                         {hasAnyRole(['Administrador',  'Gerencia', 'Contrato']) && (
@@ -161,6 +169,17 @@ export default function AuthenticatedLayout({ header, children }) {
                                     Contratos
                                 </ResponsiveNavLink>
                             </>
+                        )}
+
+                        {hasAnyRole(['Administrador', 'Agronomo']) && (
+                            <ResponsiveNavLink
+                                {...mobileNavLinkProps}
+                                href={route('field-visits.index')}
+                                active={route().current('field-visits.*')}
+                                onClick={() => setShowingNavigationDropdown(false)}
+                            >
+                                Visitas
+                            </ResponsiveNavLink>
                         )}
 
                         {hasAnyRole(['Administrador', 'Calidad']) && (
