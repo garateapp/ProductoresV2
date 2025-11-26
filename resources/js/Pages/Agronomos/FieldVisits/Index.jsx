@@ -9,16 +9,19 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@
 import { MapPin, Save, Mic, Square } from 'lucide-react';
 
 export default function FieldVisitsIndex({ auth, visits, filters }) {
+  // Búsqueda
   const { data: searchData, setData: setSearchData, get } = useForm({
     search: filters?.search || '',
   });
 
+  // Subida
   const { data, setData, post, processing, reset } = useForm({
     audio: null,
     visited_at: new Date().toISOString().slice(0, 16),
     latitude: '',
     longitude: '',
   });
+
   const [geo, setGeo] = useState({ lat: null, lng: null });
   const [error, setError] = useState('');
   const [recording, setRecording] = useState(false);
@@ -57,7 +60,7 @@ export default function FieldVisitsIndex({ auth, visits, filters }) {
     e.preventDefault();
     setError('');
     if (!data.audio) {
-      setError('Selecciona un archivo de audio.');
+      setError('Selecciona o graba un archivo de audio.');
       return;
     }
     post(route('field-visits.store'), {
@@ -73,33 +76,54 @@ export default function FieldVisitsIndex({ auth, visits, filters }) {
     });
   };
 
+  const pickMimeType = () => {
+    const candidates = [
+      'audio/webm;codecs=opus',
+      'audio/webm',
+      'audio/ogg;codecs=opus',
+      'audio/mp4',
+      'audio/mpeg',
+    ];
+    return candidates.find((t) => typeof MediaRecorder !== 'undefined' && MediaRecorder.isTypeSupported(t)) || '';
+  };
+
   const startRecording = async () => {
     setRecordingError('');
     if (typeof navigator === 'undefined' || !navigator.mediaDevices?.getUserMedia) {
       setRecordingError('El navegador no soporta grabación de audio.');
       return;
     }
+    if (typeof MediaRecorder === 'undefined') {
+      setRecordingError('MediaRecorder no está disponible en este navegador.');
+      return;
+    }
     try {
       const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
-      const recorder = new MediaRecorder(stream);
+      const mimeType = pickMimeType();
+      const recorder = mimeType ? new MediaRecorder(stream, { mimeType }) : new MediaRecorder(stream);
       chunksRef.current = [];
+      recorder.onstart = () => setRecording(true);
       recorder.ondataavailable = (event) => {
         if (event.data.size > 0) {
           chunksRef.current.push(event.data);
         }
       };
       recorder.onstop = () => {
-        const blob = new Blob(chunksRef.current, { type: 'audio/webm' });
-        const file = new File([blob], `visita-${Date.now()}.webm`, { type: 'audio/webm' });
+        const blobType = mimeType || 'audio/webm';
+        const blob = new Blob(chunksRef.current, { type: blobType });
+        const ext = blobType.includes('mp4') ? 'm4a' : blobType.includes('ogg') ? 'ogg' : blobType.includes('mpeg') ? 'mp3' : 'webm';
+        const file = new File([blob], `visita-${Date.now()}.${ext}`, { type: blobType });
         setData('audio', file);
-        // detener tracks
         stream.getTracks().forEach((t) => t.stop());
+        setRecording(false);
       };
       mediaRecorderRef.current = recorder;
       recorder.start(250);
       setRecording(true);
     } catch (err) {
-      setRecordingError(err?.message || 'No se pudo acceder al micrófono.');
+      console.error('recording error', err);
+      setRecordingError(err?.message || 'No se pudo acceder al micrófono o MediaRecorder no está soportado.');
+      setRecording(false);
     }
   };
 
@@ -145,8 +169,17 @@ export default function FieldVisitsIndex({ auth, visits, filters }) {
                     <p className="text-xs text-gray-500">Formatos: mp3, wav, m4a, webm, ogg. Máx 20MB.</p>
                     <div className="flex flex-wrap gap-2">
                       <Button type="button" variant={recording ? 'destructive' : 'outline'} onClick={recording ? stopRecording : startRecording}>
-                        {recording ? <><Square className="h-4 w-4 mr-2" /> Detener grabación</> : <><Mic className="h-4 w-4 mr-2" /> Grabar audio</>}
+                        {recording ? (
+                          <>
+                            <Square className="h-4 w-4 mr-2" /> Detener grabación
+                          </>
+                        ) : (
+                          <>
+                            <Mic className="h-4 w-4 mr-2" /> Grabar audio
+                          </>
+                        )}
                       </Button>
+                      {recording && <span className="text-sm text-red-600">Grabando...</span>}
                       {data.audio && (
                         <Badge variant="secondary" className="mt-1">
                           Seleccionado: {data.audio.name}
