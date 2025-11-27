@@ -47,11 +47,11 @@ class ControlCalidadController extends Controller
             $query->whereIn('n_especie', $producerEspeciesNames);
         }
 
-        if ($request->has('search')) {
-            $searchTerm = $request->input('search');
+        if ($request->filled('search')) {
+            $searchTerm = trim($request->input('search'));
             $query->where(function ($q) use ($searchTerm) {
-                $q->where('n_variedad', 'like', '%'.$searchTerm.'%')
-                    ->orWhere('n_especie', 'like', '%'.$searchTerm.'%');
+                $q->where('numero_g_recepcion', 'like', '%'.$searchTerm.'%')
+                    ->orWhere('n_emisor', 'like', '%'.$searchTerm.'%');
             });
         }
 

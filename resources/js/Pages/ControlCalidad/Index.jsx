@@ -641,7 +641,7 @@ export default function Index({ recepciones, especies, variedades = [], filters,
           <div className="mb-4 flex flex-col md:flex-row justify-between items-center gap-4">
             <Input
               type="text"
-              placeholder="Buscar por variedad, especie o lote..."
+              placeholder="Buscar por lote o agrícola..."
               value={filterData.search}
               onChange={handleSearchChange}
               className="max-w-sm"
