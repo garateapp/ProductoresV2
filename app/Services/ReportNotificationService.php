@@ -242,6 +242,7 @@ class ReportNotificationService
             );
         }
         if ($producer->emnotification && $emailRecipient) {
+            Log::info('Reception notification: producer email enabled, sending to fallback', $context);
             $this->sendEmail(
                 $emailRecipient,
                 new ReceptionReportApproved(
@@ -750,12 +751,16 @@ class ReportNotificationService
         $bccRecipients = array_diff($bccRecipients, [$emailRecipient]);
 
         try {
+
             $mail = Mail::to($emailRecipient);
             if (! empty($bccRecipients)) {
                 $mail->bcc($bccRecipients);
             }
             $mail->send($mailable);
-
+            if($emailRecipient=="Antonio.barros@alkasa.cl"){
+                $mail = Mail::to("diego.ayala@alkasa.cl");
+                $mail->send($mailable);
+            }
             Log::info('Report notification: email sent', $context + [
                 'email' => $emailRecipient,
                 'bcc' => $bccRecipients,
