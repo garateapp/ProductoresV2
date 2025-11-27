@@ -39,7 +39,7 @@ class ControlCalidadController extends Controller
             $isProducer = true;
         }
 
-        $query = Recepcion::query()->orderBy('fecha_g_recepcion', 'desc');
+        $query = Recepcion::query()->orderBy('numero_g_recepcion','desc');
 
         if ($isProducer) {
             $query->where('n_emisor', $user->name);
@@ -76,7 +76,7 @@ class ControlCalidadController extends Controller
         $totalKilos = (int) $query->sum('peso_neto');
 
         // Eager load calidad and its photos for the main recepciones list
-        $recepciones = $query->with(['calidad.photos.photoType'])->orderBy('numero_g_recepcion','desc')->paginate(10)->withQueryString();
+        $recepciones = $query->with(['calidad.photos.photoType'])->paginate(10)->withQueryString();
 
         $especies = Especie::all();
 
