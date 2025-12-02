@@ -113,6 +113,7 @@ class ReportNotificationService
                 ),
                 $context
             );
+            sleep(2);
         }
         if ($producer->emnotification) {
             if ($emailRecipient) {
@@ -128,6 +129,7 @@ class ReportNotificationService
                     ),
                     $context
                 );
+                sleep(2);
             } else {
                 Log::info('Report notification: email enabled but no recipient resolved', $context);
             }
@@ -240,6 +242,7 @@ class ReportNotificationService
                 ),
                 $context
             );
+            sleep(2);
         }
         if ($producer->emnotification && $emailRecipient) {
             Log::info('Reception notification: producer email enabled, sending to fallback', $context);
@@ -269,6 +272,7 @@ class ReportNotificationService
                 ),
                 $context
             );
+            sleep(2);
         }
 
     }
