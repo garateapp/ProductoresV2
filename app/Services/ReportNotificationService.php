@@ -961,26 +961,36 @@ class ReportNotificationService
             return;
         }
 
-        $primary = array_shift($recipients);
+        $chunks = array_chunk($recipients, 10);
 
-        try {
-            $mail = Mail::to($primary);
-            if (! empty($recipients)) {
-                $mail->bcc($recipients);
+        foreach ($chunks as $index => $chunk) {
+            $primary = array_shift($chunk);
+            if (! $primary) {
+                continue;
             }
 
-            $mail->send($mailable);
+            try {
+                $mail = Mail::to($primary);
+                if (! empty($chunk)) {
+                    $mail->bcc($chunk);
+                }
 
-            Log::info('Report notification: distribution list email sent', $context + [
-                'to' => $primary,
-                'bcc' => $recipients,
-            ]);
-        } catch (\Throwable $e) {
-            Log::error('Report notification: failed to send distribution list email', $context + [
-                'to' => $primary,
-                'bcc' => $recipients,
-                'error' => $e->getMessage(),
-            ]);
+                // Clone the mailable to avoid state sharing across sends
+                $mail->send(clone $mailable);
+
+                Log::info('Report notification: distribution list email sent', $context + [
+                    'batch' => $index + 1,
+                    'to' => $primary,
+                    'bcc' => $chunk,
+                ]);
+            } catch (\Throwable $e) {
+                Log::error('Report notification: failed to send distribution list email', $context + [
+                    'batch' => $index + 1,
+                    'to' => $primary,
+                    'bcc' => $chunk,
+                    'error' => $e->getMessage(),
+                ]);
+            }
         }
     }
 }
