@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import AuthenticatedLayout from '@/Layouts/AuthenticatedLayout';
 import { Head, Link , router} from '@inertiajs/react';
 import { Button } from '@/Components/ui/button';
@@ -18,10 +18,21 @@ import { Users, CheckCircle, Clock, XCircle } from 'lucide-react';
 export default function CertificationsIndex({ auth, producers, filters, kpis }) {
   const [search, setSearch] = useState(filters.search || '');
 
+  useEffect(() => {
+    setSearch(filters.search || '');
+  }, [filters.search]);
+
   const handleSearch = (e) => {
     e.preventDefault();
-    const url = route('producer-certifications.index', { search });
-    router.get(url);
+    router.get(
+      route('producer-certifications.index'),
+      { search },
+      {
+        preserveState: true,
+        replace: true,
+        preserveScroll: true,
+      },
+    );
   };
 
   const getCertificationStatus = (expirationDate) => {
@@ -126,7 +137,6 @@ export default function CertificationsIndex({ auth, producers, filters, kpis }) 
                   </TableRow>
                 </TableHeader>
                 <TableBody>
-                    {console.log(producers)}
                   {Object.keys(producers.data).length > 0 ? (
                     Object.values(producers.data).map((producerGroup) => {
 

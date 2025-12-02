@@ -25,6 +25,8 @@ export default function ProducerShow({ auth, producer, certifyingHouses, certifi
 
     const { data, setData, post, put, delete: destroy, processing, errors, reset } = useForm({
         certifying_house_id: null,
+        name: '',
+        certificate_code: '',
         certificate_type_id: null,
         especie_id: null,
         audit_date: '',
@@ -44,6 +46,8 @@ export default function ProducerShow({ auth, producer, certifyingHouses, certifi
         setEditingCertification(certification);
         setData({
             certifying_house_id: String(certification.certifying_house_id),
+            name: certification.name || '',
+            certificate_code: certification.certificate_code || '',
             certificate_type_id: String(certification.certificate_type_id),
             especie_id: String(certification.especie_id),
             audit_date: certification.audit_date ? new Date(certification.audit_date).toISOString().split('T')[0] : '',
@@ -142,19 +146,17 @@ export default function ProducerShow({ auth, producer, certifyingHouses, certifi
 
     const handleSubmit = (e) => {
         e.preventDefault();
-        const submitData = { ...data };
 
         if (editingCertification) {
             post(route('producer-certifications.update', editingCertification.id), {
-                ...submitData,
-                _method: 'put',
-            }, {
                 forceFormData: true,
+                preserveScroll: true,
                 onSuccess: () => handleCloseModal(),
             });
         } else {
-            post(route('producer-certifications.store'), submitData, {
+            post(route('producer-certifications.store'), {
                 forceFormData: true,
+                preserveScroll: true,
                 onSuccess: () => handleCloseModal(),
             });
         }
@@ -441,7 +443,17 @@ export default function ProducerShow({ auth, producer, certifyingHouses, certifi
                                 {errors.certifying_house_id && <div className="text-red-600 text-sm mt-1">{errors.certifying_house_id}</div>}
                             </div>
 
-                            {/* Campo Nombre eliminado */}
+                            <div>
+                                <Label htmlFor="name">Nombre de la certificación</Label>
+                                <Input
+                                    id="name"
+                                    type="text"
+                                    value={data.name}
+                                    onChange={(e) => setData('name', e.target.value)}
+                                    className="mt-1 block w-full"
+                                />
+                                {errors.name && <div className="text-red-600 text-sm mt-1">{errors.name}</div>}
+                            </div>
 
                             <div>
                                 <Label htmlFor="certificate_type_id">Tipo de Certificado</Label>
@@ -463,7 +475,17 @@ export default function ProducerShow({ auth, producer, certifyingHouses, certifi
                                 {errors.certificate_type_id && <div className="text-red-600 text-sm mt-1">{errors.certificate_type_id}</div>}
                             </div>
 
-                            {/* Campo Código Certificado eliminado */}
+                            <div>
+                                <Label htmlFor="certificate_code">Código de certificado</Label>
+                                <Input
+                                    id="certificate_code"
+                                    type="text"
+                                    value={data.certificate_code}
+                                    onChange={(e) => setData('certificate_code', e.target.value)}
+                                    className="mt-1 block w-full"
+                                />
+                                {errors.certificate_code && <div className="text-red-600 text-sm mt-1">{errors.certificate_code}</div>}
+                            </div>
 
                             <div>
                                 <Label htmlFor="especie_id">Especie</Label>

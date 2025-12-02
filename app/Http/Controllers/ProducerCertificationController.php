@@ -21,12 +21,11 @@ class ProducerCertificationController extends Controller
     {
         $search = $request->input('search');
 
-        $query = User::whereNotNull('idprod');
+        $query = User::whereNotNull('idprod')->where('is_active', true);
 
         if ($search) {
             $query->where(function ($q) use ($search) {
                 $q->where('name', 'like', '%'.$search.'%')
-                    ->orWhere('email', 'like', '%'.$search.'%')
                     ->orWhere('rut', 'like', '%'.$search.'%');
             });
         }
@@ -80,7 +79,10 @@ class ProducerCertificationController extends Controller
 
         $paginatedProducers = new LengthAwarePaginator($currentPageItems, $producersByRut->count(), $perPage, $currentPage, [
             'path' => LengthAwarePaginator::resolveCurrentPath(),
+            'query' => $request->only('search'),
         ]);
+
+        $paginatedProducers->appends($request->only('search'));
 
         return Inertia::render('Documentation/ProducerCertifications/Index', [
             'producers' => $paginatedProducers,
@@ -131,7 +133,6 @@ class ProducerCertificationController extends Controller
             'certifying_house_id' => 'required|exists:certifying_houses,id',
             'name' => 'required|string|max:255',
             'certificate_type_id' => 'required|exists:certificate_types,id',
-            'certificate_code' => 'required|string|max:255|unique:producer_certifications,certificate_code',
             'especie_id' => 'required|exists:especies,id',
             'audit_date' => 'required|date',
             'expiration_date' => 'required|date|after:audit_date',
@@ -194,7 +195,6 @@ class ProducerCertificationController extends Controller
             'certifying_house_id' => 'required|exists:certifying_houses,id',
             'name' => 'required|string|max:255',
             'certificate_type_id' => 'required|exists:certificate_types,id',
-            'certificate_code' => 'required|string|max:255|unique:producer_certifications,certificate_code,'.$certification->id,
             'especie_id' => 'required|exists:especies,id',
             'audit_date' => 'required|date',
             'expiration_date' => 'required|date|after:audit_date',
