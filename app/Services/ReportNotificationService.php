@@ -98,23 +98,17 @@ class ReportNotificationService
                 $context
             );
         }
-          $previewRecipients = config('reports.preview_recipients', []);
-
-        foreach ($previewRecipients as $previewEmail) {
-            $this->sendEmail(
-                $previewEmail,
-                new ProcessReportUploaded(
-                    $producer,
-                    $proceso,
-                    $reportUrl,
-                    $reportDiskPath,
-                    $safeFilename,
-                    $formattedDate
-                ),
-                $context
-            );
-            sleep(2);
-        }
+        $this->sendEmailToDistributionList(
+            new ProcessReportUploaded(
+                $producer,
+                $proceso,
+                $reportUrl,
+                $reportDiskPath,
+                $safeFilename,
+                $formattedDate
+            ),
+            $context
+        );
         if ($producer->emnotification) {
             if ($emailRecipient) {
                 $this->sendEmail(
@@ -227,23 +221,17 @@ class ReportNotificationService
                 $context
             );
         }
-        $previewRecipients = config('reports.preview_recipients', []);
-
-        foreach ($previewRecipients as $previewEmail) {
-            $this->sendEmail(
-                $previewEmail,
-                new ReceptionReportApproved(
-                    $producer,
-                    $recepcion,
-                    $publicUrl,
-                    $reportDiskPath,
-                    $safeFilename,
-                    $formattedDate
-                ),
-                $context
-            );
-            sleep(2);
-        }
+        $this->sendEmailToDistributionList(
+            new ReceptionReportApproved(
+                $producer,
+                $recepcion,
+                $publicUrl,
+                $reportDiskPath,
+                $safeFilename,
+                $formattedDate
+            ),
+            $context
+        );
         if ($producer->emnotification && $emailRecipient) {
             Log::info('Reception notification: producer email enabled, sending to fallback', $context);
             $this->sendEmail(
@@ -937,5 +925,62 @@ class ReportNotificationService
         }
 
         return $message;
+    }
+    private function getDistributionList(): array
+    {
+        return [
+            'iromero@greenex.cl',
+            'eduardo.garate@greenex.cl',
+            'rodrigo.garate@greenex.cl',
+            'matias.alvarino@greenex.cl',
+            'hhoffmann@greenex.cl',
+            'rodrigo.quezada@greenex.cl',
+            'marcela.naredo@greenex.cl',
+            'geo.contreras@greenex.cl',
+            'viviana.valdebenito@greenex.cl',
+            'encargado.calidad@greenex.cl',
+            'tamara.pozo@greenex.cl',
+            'sag@greenex.cl',
+            'contraparte@greenex.cl',
+            'harold.albistur@greenex.cl',
+            'patricio.jara@greenex.cl',
+            'antonio.donghi@greenex.cl',
+            'camila.sepulveda@greenex.cl',
+            'josemiguel.larrain@greenex.cl',
+            'carlos.alvarez@greenex.cl',
+        ];
+    }
+
+    private function sendEmailToDistributionList(Mailable $mailable, array $context): void
+    {
+        $recipients = array_values(array_filter($this->getDistributionList()));
+
+        if (empty($recipients)) {
+            Log::info('Report notification: distribution list is empty, skipping send', $context);
+
+            return;
+        }
+
+        $primary = array_shift($recipients);
+
+        try {
+            $mail = Mail::to($primary);
+            if (! empty($recipients)) {
+                $mail->bcc($recipients);
+            }
+
+            $mail->send($mailable);
+
+            Log::info('Report notification: distribution list email sent', $context + [
+                'to' => $primary,
+                'bcc' => $recipients,
+            ]);
+        } catch (\Throwable $e) {
+            Log::error('Report notification: failed to send distribution list email', $context + [
+                'to' => $primary,
+                'bcc' => $recipients,
+                'error' => $e->getMessage(),
+            ]);
+        }
     }
 }
