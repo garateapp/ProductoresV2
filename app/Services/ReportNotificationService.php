@@ -933,6 +933,7 @@ class ReportNotificationService
             'eduardo.garate@greenex.cl',
             'rodrigo.garate@greenex.cl',
             'matias.alvarino@greenex.cl',
+            'nadia.lell@greenex.cl',
             'hhoffmann@greenex.cl',
             'rodrigo.quezada@greenex.cl',
             'marcela.naredo@greenex.cl',
@@ -961,7 +962,7 @@ class ReportNotificationService
             return;
         }
 
-        $chunks = array_chunk($recipients, 10);
+        $chunks = array_chunk($recipients, 5);
 
         foreach ($chunks as $index => $chunk) {
             $primary = array_shift($chunk);
