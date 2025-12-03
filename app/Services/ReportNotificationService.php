@@ -929,26 +929,7 @@ class ReportNotificationService
     private function getDistributionList(): array
     {
         return [
-            'iromero@greenex.cl',
-            'eduardo.garate@greenex.cl',
-            'rodrigo.garate@greenex.cl',
-            'matias.alvarino@greenex.cl',
-            'nadia.lell@greenex.cl',
-            'hhoffmann@greenex.cl',
-            'rodrigo.quezada@greenex.cl',
-            'marcela.naredo@greenex.cl',
-            'geo.contreras@greenex.cl',
-            'viviana.valdebenito@greenex.cl',
-            'encargado.calidad@greenex.cl',
-            'tamara.pozo@greenex.cl',
-            'sag@greenex.cl',
-            'contraparte@greenex.cl',
-            'harold.albistur@greenex.cl',
-            'patricio.jara@greenex.cl',
-            'antonio.donghi@greenex.cl',
-            'camila.sepulveda@greenex.cl',
-            'josemiguel.larrain@greenex.cl',
-            'carlos.alvarez@greenex.cl',
+           'portal@greenex.cl'
         ];
     }
 
@@ -972,26 +953,47 @@ class ReportNotificationService
 
             try {
                 $mail = Mail::to($primary);
-                if (! empty($chunk)) {
-                    $mail->bcc($chunk);
-                }
-
-                // Clone the mailable to avoid state sharing across sends
-                $mail->send(clone $mailable);
-
-                Log::info('Report notification: distribution list email sent', $context + [
-                    'batch' => $index + 1,
-                    'to' => $primary,
-                    'bcc' => $chunk,
-                ]);
-            } catch (\Throwable $e) {
-                Log::error('Report notification: failed to send distribution list email', $context + [
-                    'batch' => $index + 1,
-                    'to' => $primary,
-                    'bcc' => $chunk,
-                    'error' => $e->getMessage(),
-                ]);
+            if (! empty($chunk)) {
+                $mail->bcc($chunk);
             }
+
+            // Clone the mailable to avoid state sharing across sends
+            $mail->send(clone $mailable);
+
+            Log::info('Report notification: distribution list email sent', $context + [
+                'batch' => $index + 1,
+                'to' => $primary,
+                'bcc' => $chunk,
+            ]);
+        } catch (\Throwable $e) {
+            Log::error('Report notification: failed to send distribution list email', $context + [
+                'batch' => $index + 1,
+                'to' => $primary,
+                'bcc' => $chunk,
+                'error' => $e->getMessage(),
+            ]);
         }
+
+            // Send a verification WhatsApp message for each batch
+            $verificationPhone = '+56966291494';
+            $body = $this->buildDistributionWhatsappBody($context);
+            $this->sendWhatsappTextMessage($verificationPhone, $body, $context + [
+                'batch' => $index + 1,
+                'verification_phone' => $verificationPhone,
+            ]);
+        }
+    }
+
+    private function buildDistributionWhatsappBody(array $context): string
+    {
+        $channel = $context['channel'] ?? 'reporte';
+        $id = $context['n_proceso'] ?? $context['numero_g_recepcion'] ?? $context['recepcion_id'] ?? $context['proceso_id'] ?? '';
+        $url = $context['report_url'] ?? $context['report_path'] ?? '';
+
+        $label = $channel === 'process' ? 'proceso' : 'recepcion';
+        $idPart = $id ? " #{$id}" : '';
+        $urlPart = $url ? " Link: {$url}" : '';
+
+        return "Envio automatizado de {$label}{$idPart} a lista de distribucion.{$urlPart}";
     }
 }
