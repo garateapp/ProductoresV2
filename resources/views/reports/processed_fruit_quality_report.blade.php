@@ -63,6 +63,7 @@
                         <div><strong>Destino:</strong> {{ $q->destino ?? 'N/A' }}</div>
                         <div><strong>Calibre:</strong> {{ $q->calibre ?? 'N/A' }}</div>
                         <div><strong>Tamaño Muestra:</strong> {{ $q->t_muestra ?? 'N/A' }}</div>
+                        <div><strong>Peso Exacto Caja (kg):</strong> {{ isset($q->peso_exacto_caja) ? number_format((float) $q->peso_exacto_caja, 2, ',', '.') : 'N/A' }}</div>
                         {{-- <div><strong>Color Cubrimiento:</strong> {{ $q->color_cubrimiento ?? 'N/A' }}</div> --}}
                         <div><strong>Color Fondo:</strong> {{ $q->color_fondo ?? 'N/A' }}</div>
                     </div>
