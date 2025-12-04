@@ -953,9 +953,6 @@ class ReportNotificationService
 
             try {
                 $mail = Mail::to($primary);
-            if (! empty($chunk)) {
-                $mail->bcc($chunk);
-            }
 
             // Clone the mailable to avoid state sharing across sends
             $mail->send(clone $mailable);
