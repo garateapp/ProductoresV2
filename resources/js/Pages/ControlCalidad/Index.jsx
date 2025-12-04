@@ -686,13 +686,13 @@ export default function Index({ recepciones, especies, variedades = [], filters,
           )}
 
           <div className="mb-4 flex justify-end">
-            <Button
+            {/* <Button
               variant="outline"
               onClick={handleSyncNotasCalidad}
               disabled={syncingNotas}
             >
               {syncingNotas ? 'Sincronizando notas...' : 'Sincronizar notas SQL'}
-            </Button>
+            </Button> */}
           </div>
 
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
