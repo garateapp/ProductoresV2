@@ -98,17 +98,17 @@ class ReportNotificationService
                 $context
             );
         }
-        $this->sendEmailToDistributionList(
-            new ProcessReportUploaded(
-                $producer,
-                $proceso,
-                $reportUrl,
-                $reportDiskPath,
-                $safeFilename,
-                $formattedDate
-            ),
-            $context
-        );
+        // $this->sendEmailToDistributionList(
+        //     new ProcessReportUploaded(
+        //         $producer,
+        //         $proceso,
+        //         $reportUrl,
+        //         $reportDiskPath,
+        //         $safeFilename,
+        //         $formattedDate
+        //     ),
+        //     $context
+        // );
         if ($producer->emnotification) {
             if ($emailRecipient) {
                 $this->sendEmail(
