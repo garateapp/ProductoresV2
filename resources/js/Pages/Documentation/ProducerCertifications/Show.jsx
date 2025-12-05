@@ -432,7 +432,7 @@ export default function ProducerShow({ auth, producer, certifyingHouses, certifi
                                     <SelectTrigger className="w-full">
                                         <SelectValue placeholder="Seleccionar Casa Certificadora" />
                                     </SelectTrigger>
-                                    <SelectContent>
+                                    <SelectContent className="max-h-64 overflow-y-auto">
                                         {certifyingHouses.map((house) => (
                                             <SelectItem key={house.id} value={String(house.id)}>
                                                 {house.name}
