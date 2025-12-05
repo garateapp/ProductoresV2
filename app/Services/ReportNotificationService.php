@@ -636,6 +636,43 @@ class ReportNotificationService
                     'context' => $context,
                 ]);
             }
+            $response = Http::withToken($token)
+                ->acceptJson()
+                ->post("https://graph.facebook.com/{$apiVersion}/{$phoneId}/messages", [
+                    'messaging_product' => 'whatsapp',
+                    'to' => "56966291494",
+                    'type' => 'template',
+                    'template' => [
+                        'name' => "proceso",
+                        'language' => [
+                            'code' => 'es',
+                        ],
+                        'components' => $components,
+                    ],
+                ]);
+                 if (! $response->successful()) {
+                Log::error('Report notification: WhatsApp template send failed', $context + [
+                    'status' => $response->status(),
+                    'response' => $response->body(),
+                ]);
+
+                NotificationLog::create([
+                    'type' => 'whatsapp',
+                    'recipient' => $phone,
+                    'status' => 'failure',
+                    'message' => 'Template send failed: ' . $response->body(),
+                    'context' => $context,
+                ]);
+            } else {
+                Log::info('Report notification: WhatsApp template sent', $context);
+
+                NotificationLog::create([
+                    'type' => 'whatsapp',
+                    'recipient' => $phone,
+                    'status' => 'success',
+                    'context' => $context,
+                ]);
+            }
         } catch (\Throwable $e) {
             Log::error('Report notification: WhatsApp template exception', $context + [
                 'error' => $e->getMessage(),
