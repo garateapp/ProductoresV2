@@ -154,7 +154,7 @@ class RecepcionController extends Controller
         $totalRecepciones = $query->count();
         $totalKilos = (int) $query->sum('peso_neto');
 
-        $recepciones = $query->paginate(10); // Paginación de 10 elementos por página
+        $recepciones = $query->paginate(10)->withQueryString(); // Paginación de 10 elementos por página
 
         $especies = Especie::all();
 
