@@ -80,6 +80,12 @@ export default function AdminMenu() {
             Logs de notificaciones
           </Link>
         </DropdownMenuItem>
+
+        <DropdownMenuItem asChild>
+          <Link href={route("login-activity.index")} className="w-full">
+            Eventos de login
+          </Link>
+        </DropdownMenuItem>
       </DropdownMenuContent>
     </DropdownMenu>
   );

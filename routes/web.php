@@ -178,6 +178,8 @@ Route::middleware('auth')->group(function () {
     Route::get('reporteria/calidad', [ReporteriaController::class, 'index'])->name('reporteria.calidad');
     Route::get('reporteria/export-consolidated', [ReporteriaController::class, 'exportConsolidated'])->name('reporteria.export.consolidated');
 
+    Route::get('login-activity', [App\Http\Controllers\LoginActivityController::class, 'index'])->name('login-activity.index');
+
     // Weekly Harvest Estimates
     Route::resource('weekly-harvest-estimates', App\Http\Controllers\WeeklyHarvestEstimateController::class)->names('weekly-harvest-estimates');
     Route::post('weekly-harvest-estimates/import', [App\Http\Controllers\WeeklyHarvestEstimateController::class, 'import'])->name('weekly-harvest-estimates.import');

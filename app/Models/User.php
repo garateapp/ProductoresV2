@@ -124,4 +124,9 @@ class User extends Authenticatable
     {
         return $this->belongsToMany(ProducerGroup::class, 'producer_group_user', 'user_id', 'producer_group_id');
     }
+
+    public function loginEvents()
+    {
+        return $this->hasMany(LoginEvent::class);
+    }
 }

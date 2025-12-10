@@ -1591,9 +1591,13 @@
     <img src="{{ asset('img/logogreenex.png') }}" class="header-logo">
 
 
-
-    <img src="{{ asset('img/sellCC.png') }}" class="stamp-image">
-
+    @if($recepcion->nota_calidad<4)
+        <img src="{{ asset('img/sellCC.png') }}" class="stamp-image">
+    @elseif($recepcion->nota_calidad==4)
+        <img src="{{ asset('img/sellObjetado.png') }}" class="stamp-image">
+    @else
+        <img src="{{ asset('img/sellRechazado.png') }}" class="stamp-image">
+    @endif
 
 
     <div class="title">Informe de Recepción de {{ $recepcion->n_especie }}</div>
