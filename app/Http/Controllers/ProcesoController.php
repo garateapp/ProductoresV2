@@ -149,7 +149,7 @@ class ProcesoController extends Controller
             ->groupBy('especie')
             ->get();
 
-        $procesos = $query->paginate(10); // Use the original query for pagination
+        $procesos = $query->paginate(10)->withQueryString(); // mantener filtros y pgina en los links
 
         $especies = Especie::all();
 
