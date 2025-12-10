@@ -282,6 +282,14 @@ export default function AuthenticatedLayout({ header, children }) {
                                 >
                                     Mercados
                                 </ResponsiveNavLink>
+                                <ResponsiveNavLink
+                                    {...mobileNavLinkProps}
+                                    href={route('login-activity.index')}
+                                    active={route().current('login-activity.index')}
+                                    onClick={() => setShowingNavigationDropdown(false)}
+                                >
+                                    Uso del Portal
+                                </ResponsiveNavLink>
                             </>
                         )}
 
