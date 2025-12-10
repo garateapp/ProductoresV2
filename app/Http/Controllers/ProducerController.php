@@ -205,7 +205,7 @@ class ProducerController extends Controller
     {
         $request->validate([
             'name' => 'required|string|max:255',
-            'email' => 'required|string|email|max:255|unique:users,email,'.$producer->id,
+            'email' => 'required|string|email|max:255',
             'rut' => 'nullable|string|max:255',
             'user' => 'nullable|string|max:255',
             'idprod' => 'nullable|string|max:255',
