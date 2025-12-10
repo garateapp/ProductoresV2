@@ -15,6 +15,8 @@ use App\Http\Controllers\FieldVisitController;
 Route::get('/', function () {
     return redirect()->route('login');
 });
+
+Route::view('/privacy', 'privacy')->name('privacy');
 Route::get('control-calidad/exportable-percentages', [App\Http\Controllers\ControlCalidadController::class, 'exportablePercentages'])->name('control-calidad.exportable-percentages');
 Route::get('/dashboard', function () {
     $user = auth()->user();

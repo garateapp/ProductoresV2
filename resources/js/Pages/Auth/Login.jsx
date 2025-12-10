@@ -83,19 +83,22 @@ export default function Login({ status, canResetPassword }) {
                             </label>
                         </div>
 
-                        <div className="flex items-center justify-end">
-                            {/* {canResetPassword && (
-                                <Link
-                                    href={route('password.request')}
-                                    className="rounded-md text-sm text-greenex-dark-green underline hover:text-greenex-orange focus:outline-none focus:ring-2 focus:ring-greenex-orange focus:ring-offset-2"
-                                >
-                                    Forgot your password?
-                                </Link>
-                            )} */}
+                        <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+                            <Link
+                                href="/privacy"
+                                target="_blank"
+                                rel="noopener noreferrer"
+                                className="text-sm text-gray-600 underline hover:text-greenex-dark-green"
+                            >
+                                Política de privacidad
+                            </Link>
 
-                            <Button className="ms-4" disabled={processing}>
-                                Ingresar
-                            </Button>
+                            <div className="flex items-center justify-end">
+
+                                <Button className="ms-4" disabled={processing}>
+                                    Ingresar
+                                </Button>
+                            </div>
                         </div>
                     </form>
                 </CardContent>
