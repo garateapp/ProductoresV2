@@ -38,6 +38,22 @@ export default function NotificationLogsIndex({ logs, filters }) {
   const { auth } = usePage().props;
   const { data, setData, get, processing, reset } = useForm({ ...emptyFilters, ...filters });
 
+  const buildQueryString = () => {
+    const params = new URLSearchParams();
+    Object.entries(data).forEach(([key, value]) => {
+      if (value) {
+        params.append(key, value);
+      }
+    });
+    return params.toString();
+  };
+
+  const exportExcel = () => {
+    const query = buildQueryString();
+    const url = query ? `${route('notification-logs.export')}?${query}` : route('notification-logs.export');
+    window.location.href = url;
+  };
+
   const submit = (e) => {
     e.preventDefault();
     get(route('notification-logs.index'), { preserveScroll: true, replace: true });
@@ -221,6 +237,9 @@ export default function NotificationLogsIndex({ logs, filters }) {
                   </Button>
                   <Button type="button" variant="outline" onClick={clearFilters} disabled={processing}>
                     Limpiar
+                  </Button>
+                  <Button type="button" variant="secondary" onClick={exportExcel} disabled={processing}>
+                    Exportar Excel
                   </Button>
                 </div>
               </form>

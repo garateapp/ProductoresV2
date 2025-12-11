@@ -106,6 +106,7 @@ Route::middleware('auth')->group(function () {
     Route::post('control-calidad/{recepcion}/report/approve', [App\Http\Controllers\ControlCalidadController::class, 'approveReport'])->name('control-calidad.approve-report');
     Route::post('control-calidad/{recepcion}/report/resend', [App\Http\Controllers\ControlCalidadController::class, 'resendReport'])->name('control-calidad.resend-report');
     Route::get('admin/notification-logs', [NotificationLogController::class, 'index'])->name('notification-logs.index');
+    Route::get('admin/notification-logs/export', [NotificationLogController::class, 'export'])->name('notification-logs.export');
     Route::get('field-visits', [FieldVisitController::class, 'index'])->name('field-visits.index');
     Route::post('field-visits', [FieldVisitController::class, 'store'])->name('field-visits.store');
 
