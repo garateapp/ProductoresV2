@@ -149,6 +149,10 @@ class QualityChartsService
 
     public static function getPromedioFirmezasData(Collection $receptions): array
 {
+        if (self::isLbBrixSpecies($receptions)) {
+            return self::getFirmnessLbBrixData($receptions);
+        }
+
     // Definición con una clave estable para indexar
     $categories = [
         ['key' => 'muy_firme', 'top' => 'Muy Firme >280-1000', 'bottom' => 'Durofel >75'],
@@ -221,8 +225,19 @@ class QualityChartsService
     return ['categories' => $labels, 'series' => $series];
 }
 
+/**
+ * Generates data for DISTRIBUCIÓN DE FIRMEZAS chart.
+ *
+ * @param  \Illuminate\Support\Collection  $receptions
+ *
+ * @return array
+ */
     public static function getDistribucionFirmezasData(Collection $receptions): array
     {
+        if (self::isLbBrixSpecies($receptions)) {
+            return [];
+        }
+
         $chartData = [];
         $firmness = [];
         foreach ($receptions as $reception) {
@@ -244,6 +259,10 @@ class QualityChartsService
 
     public static function getSolidosSolublesData(Collection $receptions): array
     {
+        if (self::isLbBrixSpecies($receptions)) {
+            return [];
+        }
+
         $chartData = [];
         $brix = [];
         foreach ($receptions as $reception) {
@@ -266,6 +285,35 @@ class QualityChartsService
     public static function getColorCubrimientoData(Collection $receptions): array
     {
         $first = $receptions->first();
+        $species = strtolower((string) ($first->n_especie ?? ''));
+        $countByDetalleSpecies = ['plums', 'plum', 'peaches', 'peach', 'apples', 'apple', 'nectarines', 'nectarine'];
+
+        // Para estas especies usamos distribución por cantidad (detalle_item) en COLOR DE CUBRIMIENTO
+        if (in_array($species, $countByDetalleSpecies, true)) {
+            $coverage = [];
+            foreach ($receptions as $reception) {
+                if ($reception->calidad) {
+                    foreach ($reception->calidad->detalles as $detail) {
+                        if ($detail->tipo_item === 'COLOR DE CUBRIMIENTO') {
+                            $color = $detail->detalle_item ?? 'N/A';
+                            $coverage[$color] = ($coverage[$color] ?? 0) + 1;
+                        }
+                    }
+                }
+            }
+
+            $total = array_sum($coverage);
+            $chartData = [];
+            foreach ($coverage as $color => $count) {
+                $chartData[] = [
+                    'color' => $color,
+                    'percentage' => $total > 0 ? round(($count / $total) * 100, 2) : 0,
+                ];
+            }
+
+            return $chartData;
+        }
+
         if ($first && ($first->n_especie === 'Cherries')) {
             $reception_numbers = $receptions->pluck('numero_g_recepcion')->filter()->unique()->map(fn ($n) => (string) $n)->values()->all();
             if (empty($reception_numbers)) {
@@ -387,6 +435,99 @@ $grades = $hay6y7
             $chartData[] = ['color' => $color, 'percentage' => $sum];
         }
 
-        return array_values($chartData);
+            return array_values($chartData);
+        }
+
+    /**
+     * Distribución de color de fondo para especies no cerezas.
+     * Cuenta ocurrencias por detalle_item donde tipo_item = COLOR DE FONDO y devuelve porcentaje.
+     */
+    public static function getColorFondoData(Collection $receptions): array
+    {
+        $coverage = [];
+        foreach ($receptions as $reception) {
+            if ($reception->calidad) {
+                foreach ($reception->calidad->detalles as $detail) {
+                    if ($detail->tipo_item === 'COLOR DE FONDO') {
+                        $color = $detail->detalle_item ?? 'N/A';
+                        $coverage[$color] = ($coverage[$color] ?? 0) + 1;
+                    }
+                }
+            }
+        }
+
+        $total = array_sum($coverage);
+        $chartData = [];
+        foreach ($coverage as $color => $count) {
+            $chartData[] = [
+                'color' => $color,
+                'percentage' => $total > 0 ? round(($count / $total) * 100, 2) : 0,
+            ];
+        }
+
+        return $chartData;
+    }
+
+    /**
+     * Datos de barras para "Firmezas (lb) y BRIX" (por tamaños Grande, Mediano, Chico).
+     */
+    public static function getFirmnessLbBrixData(Collection $receptions): array
+    {
+        $categoriesMap = [];
+        $valuesByType = [
+            'GRANDE' => [],
+            'MEDIANO' => [],
+            'CHICO' => [],
+        ];
+
+        foreach ($receptions as $reception) {
+            $details = $reception->calidad?->detalles;
+            if (! $details) {
+                continue;
+            }
+
+            foreach ($details->whereIn('tipo_item', ['GRANDE', 'MEDIANO', 'CHICO']) as $detalle) {
+                $label = $detalle->detalle_item ?? 'N/A';
+                $categoriesMap[$label] = true;
+                $valuesByType[$detalle->tipo_item][$label] = (float) ($detalle->valor_ss ?? 0);
+            }
+        }
+
+        $categories = array_keys($categoriesMap);
+        sort($categories);
+
+        $series = [];
+        $typeLabels = [
+            'GRANDE' => 'Grande',
+            'MEDIANO' => 'Mediano',
+            'CHICO' => 'Chico',
+        ];
+
+        foreach (['GRANDE', 'MEDIANO', 'CHICO'] as $tipo) {
+            $data = [];
+            foreach ($categories as $category) {
+                $data[] = $valuesByType[$tipo][$category] ?? 0;
+            }
+
+            $series[] = [
+                'name' => $typeLabels[$tipo] ?? $tipo,
+                'data' => $data,
+            ];
+        }
+
+        return [
+            'mode' => 'lb_brix',
+            'categories' => $categories,
+            'series' => $series,
+        ];
+    }
+
+    private static function isLbBrixSpecies(Collection $receptions): bool
+    {
+        $first = $receptions->first();
+        $species = strtolower((string) ($first->n_especie ?? ''));
+        $targets = ['nectirnes', 'nectarine', 'nectarines', 'plum', 'plums', 'peach', 'peaches', 'apple', 'apples', 'pear', 'pears'];
+
+        return in_array($species, $targets, true);
     }
 }

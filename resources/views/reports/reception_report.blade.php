@@ -1620,6 +1620,7 @@
             $firmnessDistribution = $firmnessDistribution ?? [];
 
             $solubleSolids = $solubleSolids ?? [];
+            $hideLegacyFirmnessCharts = ($averageFirmness['mode'] ?? null) === 'lb_brix';
 
             $precalibrePercentage =
                 (float) (optional(
@@ -1633,7 +1634,7 @@
 
         @endphp
 
-
+        const currentSpecies = "{{ strtolower($recepcion->n_especie) }}";
 
         function getChartColors(species) {
 
@@ -1679,79 +1680,187 @@
 
 
 
-                case 'apples':
-
-
+                case 'plums':
 
                     return {
 
+                        exportable: '#b39cff',
 
+                            defectosCalidad: '#8d74e6',
 
-                        exportable: 'rgba(75, 192, 192, 0.6)', // Green tone
+                            defectosCondicion: '#715cc0',
 
+                            danosPlaga: '#5a4799',
 
-
-                            defectosCalidad: 'rgba(0, 150, 0, 0.6)', // Darker green
-
-
-
-                            defectosCondicion: 'rgba(0, 100, 0, 0.6)', // Even darker green
-
-
-
-                            danosPlaga: 'rgba(0, 50, 0, 0.6)', // Darkest green
-
-
-
-                            precalibre: '#FBBF24',
-
-
+                            precalibre: '#d7ccff',
 
                             borderColor: 'rgba(255, 255, 255, 1)'
 
+                    };
 
+                case 'plum':
+
+                    return {
+
+                        exportable: '#b39cff',
+
+                            defectosCalidad: '#8d74e6',
+
+                            defectosCondicion: '#715cc0',
+
+                            danosPlaga: '#5a4799',
+
+                            precalibre: '#d7ccff',
+
+                            borderColor: 'rgba(255, 255, 255, 1)'
 
                     };
 
+                case 'apples':
 
+                    return {
+
+                        exportable: '#7bd66a',
+
+                            defectosCalidad: '#58b64c',
+
+                            defectosCondicion: '#3e8d36',
+
+                            danosPlaga: '#2f6c29',
+
+                            precalibre: '#c4f2b8',
+
+                            borderColor: 'rgba(255, 255, 255, 1)'
+
+                    };
+
+                case 'apple':
+
+                    return {
+
+                        exportable: '#7bd66a',
+
+                            defectosCalidad: '#58b64c',
+
+                            defectosCondicion: '#3e8d36',
+
+                            danosPlaga: '#2f6c29',
+
+                            precalibre: '#c4f2b8',
+
+                            borderColor: 'rgba(255, 255, 255, 1)'
+
+                    };
+
+                case 'peaches':
+
+                    return {
+
+                        exportable: '#ffb980',
+
+                            defectosCalidad: '#f59b56',
+
+                            defectosCondicion: '#e07a2e',
+
+                            danosPlaga: '#b85e1f',
+
+                            precalibre: '#ffe0c2',
+
+                            borderColor: 'rgba(255, 255, 255, 1)'
+
+                    };
+
+                case 'peach':
+
+                    return {
+
+                        exportable: '#ffb980',
+
+                            defectosCalidad: '#f59b56',
+
+                            defectosCondicion: '#e07a2e',
+
+                            danosPlaga: '#b85e1f',
+
+                            precalibre: '#ffe0c2',
+
+                            borderColor: 'rgba(255, 255, 255, 1)'
+
+                    };
 
                 case 'nectarines':
 
-
-
                     return {
 
+                        exportable: '#ff9b73',
 
+                            defectosCalidad: '#f07a4c',
 
-                        exportable: 'rgba(255, 159, 64, 0.6)', // Orange tone
+                            defectosCondicion: '#d3552b',
 
+                            danosPlaga: '#a43a1c',
 
-
-                            defectosCalidad: 'rgba(200, 100, 0, 0.6)', // Darker orange
-
-
-
-                            defectosCondicion: 'rgba(150, 50, 0, 0.6)', // Even darker orange
-
-
-
-                            danosPlaga: 'rgba(100, 25, 0, 0.6)', // Darkest orange
-
-
-
-                            precalibre: '#FBBF24',
-
-
+                            precalibre: '#ffd0bc',
 
                             borderColor: 'rgba(255, 255, 255, 1)'
 
+                    };
 
+                case 'nectarine':
+
+                    return {
+
+                        exportable: '#ff9b73',
+
+                            defectosCalidad: '#f07a4c',
+
+                            defectosCondicion: '#d3552b',
+
+                            danosPlaga: '#a43a1c',
+
+                            precalibre: '#ffd0bc',
+
+                            borderColor: 'rgba(255, 255, 255, 1)'
 
                     };
 
+                case 'pears':
 
+                    return {
 
-                default: // Default colors if species not matched
+                        exportable: '#a7e16c',
+
+                            defectosCalidad: '#86c452',
+
+                            defectosCondicion: '#659a3a',
+
+                            danosPlaga: '#4d792c',
+
+                            precalibre: '#d7f5b6',
+
+                            borderColor: 'rgba(255, 255, 255, 1)'
+
+                    };
+
+                case 'pear':
+
+                    return {
+
+                        exportable: '#a7e16c',
+
+                            defectosCalidad: '#86c452',
+
+                            defectosCondicion: '#659a3a',
+
+                            danosPlaga: '#4d792c',
+
+                            precalibre: '#d7f5b6',
+
+                            borderColor: 'rgba(255, 255, 255, 1)'
+
+                    };
+
+default: // Default colors if species not matched
 
 
 
@@ -1787,13 +1896,13 @@
 
 
 
-            }
+
 
 
 
         }
 
-
+    }
 
         // Color map for cherries series (used in stacked charts)
 
@@ -1880,50 +1989,52 @@
 
 
         function getFirmezaBrixColors(label) {
+            const paletteBySpecies = {
+                'cherries': { LIGHT: '#dc0c15', DARK: '#400000', BLACK: '#000000', DEFAULT: '#0ea5e9' },
+                'plums': { LIGHT: '#c7b5ff', DARK: '#8d74e6', BLACK: '#5a4799', DEFAULT: '#8d74e6' },
+                'plum': { LIGHT: '#c7b5ff', DARK: '#8d74e6', BLACK: '#5a4799', DEFAULT: '#8d74e6' },
+                'apples': { LIGHT: '#a2e7a1', DARK: '#4f9f4a', BLACK: '#2f6c29', DEFAULT: '#58b64c' },
+                'apple': { LIGHT: '#a2e7a1', DARK: '#4f9f4a', BLACK: '#2f6c29', DEFAULT: '#58b64c' },
+                'peaches': { LIGHT: '#ffd9b8', DARK: '#f59b56', BLACK: '#b85e1f', DEFAULT: '#f59b56' },
+                'peach': { LIGHT: '#ffd9b8', DARK: '#f59b56', BLACK: '#b85e1f', DEFAULT: '#f59b56' },
+                'nectarines': { LIGHT: '#ffc9b3', DARK: '#f07a4c', BLACK: '#a43a1c', DEFAULT: '#f07a4c' },
+                'nectarine': { LIGHT: '#ffc9b3', DARK: '#f07a4c', BLACK: '#a43a1c', DEFAULT: '#f07a4c' },
+                'pears': { LIGHT: '#d7f5b6', DARK: '#86c452', BLACK: '#4d792c', DEFAULT: '#86c452' },
+                'pear': { LIGHT: '#d7f5b6', DARK: '#86c452', BLACK: '#4d792c', DEFAULT: '#86c452' },
+                'default': { LIGHT: 'rgba(54, 162, 235, 0.6)', DARK: 'rgba(75, 85, 99, 0.6)', BLACK: '#111827', DEFAULT: 'rgba(54, 162, 235, 0.6)' },
+            };
 
+            const palette = paletteBySpecies[currentSpecies] || paletteBySpecies.default;
+            const upper = (label || '').toUpperCase();
+            return palette[upper] || palette.DEFAULT;
+        }
+        function getColorFondoPalette(species, count) {
+            const key = (species || '').toLowerCase();
+            let base = ['#e5e7eb', '#cbd5e1', '#e2e8f0', '#f1f5f9'];
 
-
-            switch (label.toUpperCase()) {
-
-
-
-                case 'LIGHT':
-
-
-
-                    return '#dc0c15';
-
-
-
-                case 'DARK':
-
-
-
-                    return '#400000';
-
-
-
-                case 'BLACK':
-
-
-
-                    return '#000000';
-
-
-
-                default:
-
-
-
-                    return 'rgba(54, 162, 235, 0.6)'; // Default blue
-
-
-
+            if (key.includes('plum')) {
+                base = ['#f1e9ff', '#e0d4ff', '#cebdf9', '#b9a3f0', '#a68ce6', '#9275dd'];
+            } else if (key.includes('pear')) {
+                base = ['#e8f5e9', '#d6f0d8', '#c4e9c7', '#b3e3b6', '#a2dba5', '#8ed594'];
+            } else if (key.includes('peach') || key.includes('nectarin')) {
+                base = ['#ffe9dc', '#ffd9c2', '#ffc8a7', '#ffb88d', '#f7a775', '#e5965e'];
+            } else if (key.includes('apple')) {
+                base = ['#e8f5e9', '#d0ecd6', '#b9e3c3', '#a2daaf', '#8ad19c', '#73c888'];
             }
 
-
-
+            if (base.length < count) {
+                const last = base[base.length - 1];
+                while (base.length < count) {
+                    base.push(last);
+                }
+            }
+            return base.slice(0, count);
         }
+
+
+
+
+
 
 
 
@@ -3672,6 +3783,7 @@
 
             // Promedio de Firmezas Bar Chart
 
+            const hideLegacyFirmnessCharts = @json($hideLegacyFirmnessCharts);
 
 
             const ctxFirmezas = document.getElementById('firmezas-bar-chart-canvas');
@@ -3683,6 +3795,7 @@
 
 
                 const avgFirm = @json($averageFirmness);
+                const isLbBrixMode = avgFirm && avgFirm.mode === 'lb_brix';
 
 
 
@@ -3707,6 +3820,10 @@
 
 
                 })) : [];
+
+
+
+                const chartTitle = isLbBrixMode ? 'Firmezas (lb) y BRIX' : '% Distribuci�n de Firmezas por Segregaci�n de Color';
 
 
 
@@ -3819,7 +3936,7 @@
 
 
 
-                                text: '% Distribución de Firmezas por Segregación de Color',
+                                text: chartTitle,
                                 font: {
 
                                     size: 10,
@@ -3862,7 +3979,7 @@
 
 
 
-                                    text: 'Promedio',
+                                    text: isLbBrixMode ? 'Lectura (lb / BRIX)' : 'Promedio',
                                     font: {
 
                                         size: 10,
@@ -4050,11 +4167,12 @@
 
 
 
-            if (ctxBrix) {
+            if (!hideLegacyFirmnessCharts && ctxBrix) {
 
 
 
                 const solubleSolids = @json($solubleSolids);
+
 
 
 
@@ -4538,7 +4656,58 @@
 
 
 
-            // Distribución de Firmezas (simple)
+            // Color de Fondo Chart
+
+            const ctxColorFondo = document.getElementById('color-fondo-chart-canvas');
+
+            const colorFondoData = @json($colorFondo);
+
+            if (ctxColorFondo && Array.isArray(colorFondoData) && colorFondoData.length) {
+                const labels = colorFondoData.map(item => item.color || 'N/A');
+                const data = colorFondoData.map(item => Number(item.percentage) || 0);
+                const palette = getColorFondoPalette(@json($recepcion->n_especie), labels.length);
+
+                new Chart(ctxColorFondo, {
+                    type: 'bar',
+                    data: {
+                        labels: labels,
+                        datasets: [{
+                            label: 'Color de Fondo',
+                            data: data,
+                            backgroundColor: palette,
+                            borderColor: '#0f172a',
+                            borderWidth: 1,
+                        }],
+                    },
+                    options: {
+                        responsive: true,
+                        maintainAspectRatio: false,
+                        animation: false,
+                        plugins: {
+                            legend: { display: false },
+                            title: {
+                                display: true,
+                                text: 'Distribuci�n de Color de Fondo',
+                                font: { size: 10, weight: 'bold', family: 'Sans-Serif' },
+                            },
+                            datalabels: {
+                                display: true,
+                                color: '#111827',
+                                align: 'end',
+                                anchor: 'end',
+                                formatter: (val) => `${val.toFixed(1)}%`,
+                                font: { size: 8, weight: 'bold' },
+                            },
+                        },
+                        scales: {
+                            y: { beginAtZero: true, ticks: { callback: (val) => `${val}%` } },
+                        },
+                    },
+                });
+            }
+
+
+                        // Distribución de Firmezas (simple)
 
 
 
@@ -4546,7 +4715,7 @@
 
 
 
-            if (ctxFirmDist) {
+            if (!hideLegacyFirmnessCharts && ctxFirmDist) {
 
 
 
@@ -5354,6 +5523,41 @@
 
 
 
+        @if (!empty($colorFondo) || !$hideLegacyFirmnessCharts)
+        <div class="flex flex-wrap gap-4">
+            @if (!empty($colorFondo))
+            <div class="chart-wrapper" style="flex:1 1 320px;">
+                <div class="chart-container">
+                    <div style="position: relative; height:150px; width:100%;">
+                        <canvas id="color-fondo-chart-canvas"></canvas>
+                    </div>
+                    <div id="color-fondo-legend" class="chart-legend"></div>
+                </div>
+            </div>
+            @endif
+{{--
+            @if (!$hideLegacyFirmnessCharts)
+            <div class="chart-wrapper" style="flex:1 1 320px;">
+                <div class="chart-container">
+                    <div style="position: relative; height:150px; width:100%;">
+                        <canvas id="firmeza-distribucion-chart-canvas"></canvas>
+                    </div>
+                    <div id="firmeza-distribucion-legend" class="chart-legend"></div>
+                </div>
+            </div>
+
+            <div class="chart-wrapper" style="flex:1 1 320px;">
+                <div class="chart-container">
+                    <div style="position: relative; height:150px; width:100%;">
+                        <canvas id="brix-bar-chart-canvas"></canvas>
+                    </div>
+                    <div id="brix-legend" class="chart-legend"></div>
+                </div>
+            </div>
+            @endif --}}
+        </div>
+        @endif
+         @if (!$hideLegacyFirmnessCharts)
         <div class="chart-wrapper">
 
 
@@ -5415,7 +5619,7 @@
 
 
         </div>
-
+ @endif
 
 
         <div class="chart-wrapper full-width-chart">
