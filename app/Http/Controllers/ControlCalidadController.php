@@ -1503,6 +1503,66 @@ public function previewPage(Recepcion $recepcion)
 
         $solubleSolids = QualityChartsService::getSolidosSolublesData($receptions);
         $coverageColor = QualityChartsService::getColorCubrimientoData($receptions);
+        $colorFondo = [];
+        $firmnessBySize = ['categories' => [], 'series' => [], 'mode' => null];
+        $speciesKey = strtolower((string) ($recepcion->n_especie ?? ''));
+        $colorSwitchSpecies = ['plums', 'plum', 'peaches', 'peach', 'apples', 'apple', 'nectarines', 'nectarine'];
+        $isLbBrixMode = ($averageFirmness['mode'] ?? null) === 'lb_brix';
+
+        if ($isLbBrixMode) {
+            $colorFondo = QualityChartsService::getColorFondoData($receptions);
+        }
+
+        if (! $isLbBrixMode && in_array($speciesKey, $colorSwitchSpecies, true)) {
+            $colorFondo = QualityChartsService::getColorFondoData($receptions);
+            // Reutilizamos el slot de averageFirmness para el gráfico alternativo
+            $averageFirmness = [
+                'categories' => array_map(fn ($item) => $item['color'] ?? 'N/A', $colorFondo),
+                'series' => [
+                    [
+                        'name' => 'Color de Fondo',
+                        'data' => array_map(fn ($item) => $item['percentage'] ?? 0, $colorFondo),
+                    ],
+                ],
+                'mode' => 'color_fondo',
+            ];
+
+            // Construir un gráfico de firmezas por tamaño (GRANDE, MEDIANO, CHICO) en un solo bar chart
+            $categoriesFirm = [];
+            $valuesByType = ['GRANDE' => [], 'MEDIANO' => [], 'CHICO' => []];
+            foreach ($receptions as $rec) {
+                if ($rec->calidad) {
+                    foreach ($rec->calidad->detalles->whereIn('tipo_item', ['GRANDE', 'MEDIANO', 'CHICO']) as $detalle) {
+                        $cat = $detalle->detalle_item ?? 'N/A';
+                        $categoriesFirm[$cat] = true;
+                        $valuesByType[$detalle->tipo_item][$cat] = (float) ($detalle->valor_ss ?? 0);
+                    }
+                }
+            }
+            $categoriesFirm = array_keys($categoriesFirm);
+            sort($categoriesFirm);
+
+            $seriesFirm = [];
+            foreach (['GRANDE', 'MEDIANO', 'CHICO'] as $tipo) {
+                $data = [];
+                foreach ($categoriesFirm as $cat) {
+                    $data[] = $valuesByType[$tipo][$cat] ?? 0;
+                }
+                $seriesFirm[] = [
+                    'name' => ucfirst(strtolower($tipo)),
+                    'data' => $data,
+                ];
+            }
+
+            $firmnessBySize = [
+                'categories' => $categoriesFirm,
+                'series' => $seriesFirm,
+                'mode' => 'firmness_by_size',
+            ];
+
+            // Ocultamos brix tradicional para estas especies
+            $solubleSolids = [];
+        }
 
         $tabulatedIds = [6955, 8557, 8558, 8559, 8560, 8561, 8563, 8564, 8630, 8657, 8665, 8666, 8683,8899];
         $shouldTabulateCharts = in_array((int) $recepcion->id_emisor, $tabulatedIds, true);
@@ -1862,6 +1922,8 @@ public function previewPage(Recepcion $recepcion)
             'danos_plaga_sum',
             'sizeDistribution',
             'coverageColor',
+            'colorFondo',
+            'firmnessBySize',
             'averageFirmness',
             'firmnessDistribution',
             'solubleSolids',
@@ -1882,29 +1944,21 @@ public function previewPage(Recepcion $recepcion)
     }
     public function syncNotasCalidad()
     {
-        $recepciones = Recepcion::whereNotNull('nota_calidad')
-            ->whereNotNull('numero_g_recepcion')
-            ->get(['numero_g_recepcion', 'nota_calidad']);
-
-        if ($recepciones->isEmpty()) {
-            return response()->json([
-                'updated' => 0,
-                'total' => 0,
-                'message' => 'No hay recepciones con nota de calidad para sincronizar.',
-            ]);
+        $recepciones =  DB::connection('sqlsrv')
+            ->table('PKG_G_Recepcion')
+            ->selectRaw("
+               numero_i,nota_calidad
+            ")
+           ->where("nota_calidad",'<>','0')
+            ->orderBy('id_g_recepcion', 'ASC')
+            ->get();
+        foreach($recepciones as $recepcion){
+            $rec=Recepcion::where('numero_g_recepcion',$recepcion->numero_i)->first();
+            if($rec){
+                $rec->nota_calidad=$recepcion->nota_calidad;
+                $rec->save();
+            }
         }
-
-        $updated = 0;
-
-        foreach ($recepciones as $recepcion) {
-            $affected = DB::connection('sqlsrv')
-                ->table('PKG_G_Recepcion')
-                ->where('numero_i', $recepcion->numero_g_recepcion)
-                ->update(['nota_calidad' => $recepcion->nota_calidad]);
-
-            $updated += $affected;
-        }
-
         return response()->json([
             'updated' => $updated,
             'total' => $recepciones->count(),
@@ -2056,6 +2110,28 @@ public function previewPage(Recepcion $recepcion)
         $firmnessDistribution = QualityChartsService::getDistribucionFirmezasData($receptions);
         $solubleSolids = QualityChartsService::getSolidosSolublesData($receptions);
         $coverageColor = QualityChartsService::getColorCubrimientoData($receptions);
+        $colorFondo = [];
+        $speciesKey = strtolower((string) ($recepcion->n_especie ?? ''));
+        $colorSwitchSpecies = ['plums', 'plum', 'peaches', 'peach', 'apples', 'apple', 'nectarines', 'nectarine'];
+        $isLbBrixMode = ($averageFirmness['mode'] ?? null) === 'lb_brix';
+
+        if ($isLbBrixMode) {
+            $colorFondo = QualityChartsService::getColorFondoData($receptions);
+        }
+
+        if (! $isLbBrixMode && in_array($speciesKey, $colorSwitchSpecies, true)) {
+            $colorFondo = QualityChartsService::getColorFondoData($receptions);
+            $averageFirmness = [
+                'categories' => array_map(fn ($item) => $item['color'] ?? 'N/A', $colorFondo),
+                'series' => [
+                    [
+                        'name' => 'Color de Fondo',
+                        'data' => array_map(fn ($item) => $item['percentage'] ?? 0, $colorFondo),
+                    ],
+                ],
+                'mode' => 'color_fondo',
+            ];
+        }
 
         $isPreview = false; // render without preview-only controls
             if($recepcion->id_emisor=="7023"  && $recepcion->variedad=='Rainier'){
@@ -2072,6 +2148,7 @@ public function previewPage(Recepcion $recepcion)
             'seteo_termo',
             'sizeDistribution',
             'coverageColor',
+            'colorFondo',
             'averageFirmness',
             'firmnessDistribution',
             'solubleSolids',
@@ -2157,7 +2234,7 @@ public function previewPage(Recepcion $recepcion)
                 ]);
             }
             sleep(5);
-            $this->resendReport($recepcion, $notificationService);
+           // $this->resendReport($recepcion, $notificationService);
             return response()->json([
                 'status' => 'approved',
                 'url' => $publicUrl,
