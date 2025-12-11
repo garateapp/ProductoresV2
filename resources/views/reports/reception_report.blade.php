@@ -3823,7 +3823,7 @@ default: // Default colors if species not matched
 
 
 
-                const chartTitle = isLbBrixMode ? 'Firmezas (lb) y BRIX' : '% Distribuci�n de Firmezas por Segregaci�n de Color';
+                const chartTitle = isLbBrixMode ? 'Firmezas (lb) y BRIX' : '% Distribución de Firmezas por Segregación de Color';
 
 
 
@@ -5220,45 +5220,15 @@ default: // Default colors if species not matched
 
 
         <div class="chart-wrapper">
-
-
-
             <div class="chart-container">
-
-
-
                 <div style="position: relative; height:150px; width:75%;">
-
-
-
                     <canvas id="calibre-bar-chart-canvas"></canvas>
-
-
-
                 </div>
-
-
-
                 <div id="calibre-legend" class="chart-legend"></div>
-
-
-
             </div>
-
-
-
         </div>
-
-
-
         <div class="chart-wrapper">
-
-
-
             <div class="chart-container">
-
-
-
                 @if ($recepcion->n_especie === 'Cherries')
 
                     @php
@@ -5502,31 +5472,19 @@ default: // Default colors if species not matched
                     </div>
                 @else
                     <div style="position: relative; height:150px; width:75%;">
-
                         <canvas id="color-pie-chart-canvas"></canvas>
-
                     </div>
-
-
-
                     <div id="color-legend" class="chart-legend"></div>
-
                 @endif
-
-
-
             </div>
-
-
-
         </div>
 
 
 
         @if (!empty($colorFondo) || !$hideLegacyFirmnessCharts)
-        <div class="flex flex-wrap gap-4">
+
             @if (!empty($colorFondo))
-            <div class="chart-wrapper" style="flex:1 1 320px;">
+            <div class="chart-wrapper">
                 <div class="chart-container">
                     <div style="position: relative; height:150px; width:100%;">
                         <canvas id="color-fondo-chart-canvas"></canvas>
@@ -5555,101 +5513,39 @@ default: // Default colors if species not matched
                 </div>
             </div>
             @endif --}}
-        </div>
+
         @endif
-         @if (!$hideLegacyFirmnessCharts)
-        <div class="chart-wrapper">
-
-
-
-            <div class="chart-container">
-
-
-
-                <div style="position: relative; height:150px; width:75%;">
-
-
-
-                    <canvas id="firmeza-distribucion-chart-canvas"></canvas>
-
-
-
+         @if ($recepcion->n_especie === 'Cherries')
+            <div class="chart-wrapper">
+                <div class="chart-container">
+                    <div style="position: relative; height:150px; width:75%;">
+                        <canvas id="firmeza-distribucion-chart-canvas"></canvas>
+                    </div>
+                    <div id="firmeza-distribucion-legend" class="chart-legend"></div>
                 </div>
-
-
-
-                <div id="firmeza-distribucion-legend" class="chart-legend"></div>
-
-
-
             </div>
-
-
-
-        </div>
-
-
-
-        <div class="chart-wrapper">
-
-
-
-            <div class="chart-container">
-
-
-
-                <div style="position: relative; height:150px; width:75%;">
-
-
-
-                    <canvas id="brix-bar-chart-canvas"></canvas>
-
-
-
+            <div class="chart-wrapper">
+                <div class="chart-container">
+                    <div style="position: relative; height:150px; width:75%;">
+                        <canvas id="brix-bar-chart-canvas"></canvas>
+                    </div>
+                    <div id="brix-legend" class="chart-legend"></div>
                 </div>
-
-
-
-                <div id="brix-legend" class="chart-legend"></div>
-
-
-
             </div>
+         @endif
 
 
 
-        </div>
- @endif
+
 
 
         <div class="chart-wrapper full-width-chart">
-
-
-
             <div class="chart-container">
-
-
-
                 <div style="position: relative; height:140px; width:90%;">
-
-
-
                     <canvas id="firmezas-bar-chart-canvas"></canvas>
-
-
-
                 </div>
-
-
-
                 <div id="firmezas-legend" class="chart-legend"></div>
-
-
-
             </div>
-
-
-
         </div>
 
 
