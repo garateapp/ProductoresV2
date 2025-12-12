@@ -1475,6 +1475,9 @@ public function previewPage(Recepcion $recepcion)
             if ($temperatura_pulpa_detalle) {
                 $temperatura_pulpa = $temperatura_pulpa_detalle->temperatura;
             }
+            else{
+                $temperatura_pulpa=$calidad->detalles()->whereIn('tipo_item', ['GRANDE','MEDIANO','CHICO'])->first()->temperatura;
+            }
 
             $defectos_calidad_sum = $calidad->detalles()
                 ->where('tipo_item', 'DEFECTOS DE CALIDAD')
