@@ -3673,106 +3673,57 @@ default: // Default colors if species not matched
 
 
             if (speciesForColorChart !== 'Cherries') {
-
                 const ctxColor = document.getElementById('color-pie-chart-canvas');
-
-
-
+                console.log(distribucionColor);
                 if (ctxColor) {
-
                     const coverageColor = @json($coverageColor);
-
                     const distribucionColor = (coverageColor || []);
-
                     const labels = distribucionColor.map(item => item.color);
-
                     const data = distribucionColor.map(item => item.percentage);
-
                     const labelsWithValues = (labels || []).map((name, i) =>
-
                         `${name} (${Number(data[i] || 0).toFixed(0)}%)`
-
                     );
-
                     const backgroundColors = ['#FF9999', '#FF0000', '#D60000', '#960000', '#640000', '#000000'];
-
                     const colorChart = new Chart(ctxColor, {
-
                         type: 'pie',
-
                         data: {
-
                             labels: labelsWithValues,
-
                             datasets: [{
-
                                 label: '% de Color',
-
                                 data: data,
-
                                 backgroundColor: backgroundColors
-
                             }]
-
                         },
-
                         options: {
-
                             responsive: true,
-
                             maintainAspectRatio: false,
-
                             animation: false,
-
                             plugins: {
-
                                 legend: {
-
                                     display: true,
-
                                     position: 'bottom',
-
                                     labels: {
-
                                         font: {
-
                                             size: 8
-
                                         }
-
                                     }
-
                                 },
 
                                 datalabels: {
-
                                     display: false
-
                                 },
-
                                 title: {
-
                                     display: true,
-
                                     text: '% de Distribución de Color',
                                     font: {
-
                                         size: 10,
-
                                         weight: 'bold',
-
                                         color: '#333',
-
                                         family: 'Sans-Serif',
-
                                     },
-
                                 }
-
                             }
-
                         }
-
                     });
 
                     generateDatasetLegend(colorChart, 'color-legend');
