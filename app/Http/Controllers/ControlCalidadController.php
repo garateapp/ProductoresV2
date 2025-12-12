@@ -1473,12 +1473,12 @@ public function previewPage(Recepcion $recepcion)
             $temperatura_pulpa_detalle = $calidad->detalles()->where('tipo_item', 'SOLIDOS SOLUBLES')->first();
             //dd($temperatura_pulpa_detalle);
             if ($temperatura_pulpa_detalle) {
-                $temperatura_pulpa = $temperatura_pulpa_detalle->temperatura;
+                $temperatura_pulpa = $temperatura_pulpa_detalle->temperatura??'N/A';
             }
             else{
                 $temperatura_pulpa_detalle=$calidad->detalles()->whereIn('tipo_item', ['GRANDE','MEDIANO','CHICO'])->first();
                 if ($temperatura_pulpa_detalle) {
-                    $temperatura_pulpa = $temperatura_pulpa_detalle->temperatura;
+                    $temperatura_pulpa = $temperatura_pulpa_detalle->temperatura??'N/A';
                 }
             }
 
