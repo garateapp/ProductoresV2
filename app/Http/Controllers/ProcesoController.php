@@ -6,6 +6,7 @@ use App\Models\Especie;
 use App\Models\Proceso;
 use App\Models\Variedad;
 use App\Models\Service;
+use App\Models\NotificationLog;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Http;
@@ -149,7 +150,59 @@ class ProcesoController extends Controller
             ->groupBy('especie')
             ->get();
 
-        $procesos = $query->paginate(10)->withQueryString(); // mantener filtros y pgina en los links
+        $procesos = $query->paginate(10)->withQueryString(); // mantener filtros y pagina en los links
+
+        // Mapear envios de email/WhatsApp del informe por proceso (solo pagina actual)
+        $currentProcesses = collect($procesos->items());
+        $processIds = $currentProcesses->pluck('id')->filter()->values();
+        $processNumbers = $currentProcesses->pluck('n_proceso')->filter()->values();
+        $idByProcessNumber = $currentProcesses
+            ->filter(fn ($item) => ! empty($item->n_proceso))
+            ->pluck('id', 'n_proceso');
+
+        $logs = collect();
+        if ($processIds->isNotEmpty() || $processNumbers->isNotEmpty()) {
+            $logs = NotificationLog::query()
+                ->where('context->channel', 'process')
+                ->where(function ($q) use ($processIds, $processNumbers) {
+                    if ($processIds->isNotEmpty()) {
+                        $q->whereIn('context->proceso_id', $processIds);
+                    }
+                    if ($processNumbers->isNotEmpty()) {
+                        $q->orWhereIn('context->n_proceso', $processNumbers);
+                    }
+                })
+                ->get();
+        }
+
+        $statusByProcess = [];
+        foreach ($logs as $log) {
+            $context = $log->context ?? [];
+            $processId = $context['proceso_id'] ?? null;
+            if (! $processId && isset($context['n_proceso'])) {
+                $processId = $idByProcessNumber[$context['n_proceso']] ?? null;
+            }
+            if (! $processId) {
+                continue;
+            }
+
+            $statusByProcess[$processId] = $statusByProcess[$processId] ?? ['email' => false, 'whatsapp' => false];
+            if ($log->type === 'email' && $log->status === 'success') {
+                $statusByProcess[$processId]['email'] = true;
+            }
+            if ($log->type === 'whatsapp' && $log->status === 'success') {
+                $statusByProcess[$processId]['whatsapp'] = true;
+            }
+        }
+
+        $procesos->getCollection()->transform(function ($proceso) use ($statusByProcess) {
+            $proceso->notifications = [
+                'email_sent' => $statusByProcess[$proceso->id]['email'] ?? false,
+                'whatsapp_sent' => $statusByProcess[$proceso->id]['whatsapp'] ?? false,
+            ];
+
+            return $proceso;
+        });
 
         $especies = Especie::all();
 

@@ -11,7 +11,7 @@ import {
   TableRow,
 } from '@/Components/ui/table';
 import { Input } from '@/Components/ui/input';
-import { FileText, RefreshCw, Send, Upload as UploadIcon, X } from 'lucide-react';
+import { FileText, RefreshCw, Send, Upload as UploadIcon, X, Mail, MessageCircle } from 'lucide-react';
 import Chart from 'react-apexcharts';
 import AuthenticatedLayout from '@/Layouts/AuthenticatedLayout';
 
@@ -520,49 +520,71 @@ export default function Index({ procesos, especies, variedades = [], filters, is
                 <TableHead>Desecho</TableHead>
                 <TableHead>Merma</TableHead>
                 <TableHead>Informe</TableHead>
+                <TableHead>Notificaciones</TableHead>
                 <TableHead>Acciones</TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
-              {procesos.data.map(proceso => (
-                <TableRow key={proceso.id}>
-                  <TableCell>{proceso.agricola}</TableCell>
-                  <TableCell>{proceso.n_proceso}</TableCell>
-                  <TableCell>{proceso.especie}</TableCell>
-                  <TableCell>{proceso.variedad}</TableCell>
+              {procesos.data.map((proceso) => {
+                const emailSent = proceso.notifications?.email_sent;
+                const whatsappSent = proceso.notifications?.whatsapp_sent;
 
-                  <TableCell>{formatProcessDate(proceso.fecha)}</TableCell>
-                  <TableCell>{(proceso.kilos_netos ?? 0).toLocaleString('es-CL')}</TableCell>
-                  <TableCell>{calculatePercentage(proceso.exp ?? 0, proceso.kilos_netos ?? 0)}</TableCell>
-                  <TableCell>{calculatePercentage(proceso.comercial ?? 0, proceso.kilos_netos ?? 0)}</TableCell>
-                  <TableCell>{calculatePercentage(proceso.desecho ?? 0, proceso.kilos_netos ?? 0)}</TableCell>
-                  <TableCell>{calculatePercentage(proceso.merma ?? 0, proceso.kilos_netos ?? 0)}</TableCell>
-                  <TableCell>
-                    {proceso.informe ? (
-                      <a href={"storage/" + proceso.informe} target="_blank" rel="noopener noreferrer" className="text-blue-600 hover:text-blue-800">
-                        <FileText className="h-5 w-5" />
-                      </a>
-                    ) : (
-                      '-'
-                    )}
-                  </TableCell>
-                  <TableCell>
-                    {isAdmin && proceso.informe ? (
-                      <Button
-                        variant="outline"
-                        size="sm"
-                        onClick={() => handleResendReport(proceso.id)}
-                        disabled={resendingId === proceso.id}
-                      >
-                        <Send className="h-4 w-4 mr-1" />
-                        {resendingId === proceso.id ? 'Enviando...' : 'Reenviar'}
-                      </Button>
-                    ) : (
-                      '-'
-                    )}
-                  </TableCell>
-                </TableRow>
-              ))}
+                return (
+                  <TableRow key={proceso.id}>
+                    <TableCell>{proceso.agricola}</TableCell>
+                    <TableCell>{proceso.n_proceso}</TableCell>
+                    <TableCell>{proceso.especie}</TableCell>
+                    <TableCell>{proceso.variedad}</TableCell>
+
+                    <TableCell>{formatProcessDate(proceso.fecha)}</TableCell>
+                    <TableCell>{(proceso.kilos_netos ?? 0).toLocaleString('es-CL')}</TableCell>
+                    <TableCell>{calculatePercentage(proceso.exp ?? 0, proceso.kilos_netos ?? 0)}</TableCell>
+                    <TableCell>{calculatePercentage(proceso.comercial ?? 0, proceso.kilos_netos ?? 0)}</TableCell>
+                    <TableCell>{calculatePercentage(proceso.desecho ?? 0, proceso.kilos_netos ?? 0)}</TableCell>
+                    <TableCell>{calculatePercentage(proceso.merma ?? 0, proceso.kilos_netos ?? 0)}</TableCell>
+                    <TableCell>
+                      {proceso.informe ? (
+                        <a href={"storage/" + proceso.informe} target="_blank" rel="noopener noreferrer" className="text-blue-600 hover:text-blue-800">
+                          <FileText className="h-5 w-5" />
+                        </a>
+                      ) : (
+                        '-'
+                      )}
+                    </TableCell>
+                    <TableCell>
+                      {isAdmin ? (
+                        <div className="flex items-center gap-2">
+                          <Mail
+                            className={`h-4 w-4 ${emailSent ? 'text-green-600' : 'text-red-500'}`}
+                            title={emailSent ? 'Informe enviado por email' : 'Email no enviado'}
+                          />
+                          <MessageCircle
+                            className={`h-4 w-4 ${whatsappSent ? 'text-green-600' : 'text-red-500'}`}
+                            title={whatsappSent ? 'Informe enviado por WhatsApp' : 'WhatsApp no enviado'}
+                          />
+                        </div>
+                      ) : (
+                        '-'
+                      )}
+                    </TableCell>
+                    <TableCell>
+                      {isAdmin && proceso.informe ? (
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          onClick={() => handleResendReport(proceso.id)}
+                          disabled={resendingId === proceso.id}
+                        >
+                          <Send className="h-4 w-4 mr-1" />
+                          {resendingId === proceso.id ? 'Enviando...' : 'Reenviar'}
+                        </Button>
+                      ) : (
+                        '-'
+                      )}
+                    </TableCell>
+                  </TableRow>
+                );
+              })}
             </TableBody>
           </Table>
           {/* Paginación */}
