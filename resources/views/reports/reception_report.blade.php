@@ -3674,10 +3674,11 @@ default: // Default colors if species not matched
 
             if (speciesForColorChart !== 'Cherries') {
                 const ctxColor = document.getElementById('color-pie-chart-canvas');
-                console.log(coverageColor);
+
                 if (ctxColor) {
                     const coverageColor = @json($coverageColor);
                     const distribucionColor = (coverageColor || []);
+                    console.log(coverageColor);
                     const labels = distribucionColor.map(item => item.color);
                     const data = distribucionColor.map(item => item.percentage);
                     const labelsWithValues = (labels || []).map((name, i) =>
