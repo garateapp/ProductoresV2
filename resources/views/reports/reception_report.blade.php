@@ -2004,8 +2004,31 @@ default: // Default colors if species not matched
                 'default': { LIGHT: 'rgba(54, 162, 235, 0.6)', DARK: 'rgba(75, 85, 99, 0.6)', BLACK: '#111827', DEFAULT: 'rgba(54, 162, 235, 0.6)' },
             };
 
+            // Tonos por especie para tamaños Grande/Mediano/Chico (variaciones del mismo color base)
+            const firmnessShadesBySpecies = {
+                'cherries': ['#fca5a5', '#ef4444', '#991b1b'],
+                'plums': ['#e9d5ff', '#c4b5fd', '#7c3aed'],
+                'plum': ['#e9d5ff', '#c4b5fd', '#7c3aed'],
+                'apples': ['#c8f7c5', '#7bd47f', '#2f855a'],
+                'apple': ['#c8f7c5', '#7bd47f', '#2f855a'],
+                'peaches': ['#ffe0b2', '#ffb74d', '#f57c00'],
+                'peach': ['#ffe0b2', '#ffb74d', '#f57c00'],
+                'nectarines': ['#ffd4bf', '#ff9f68', '#d35425'],
+                'nectarine': ['#ffd4bf', '#ff9f68', '#d35425'],
+                'pears': ['#e8f5d9', '#b7e08a', '#6f9f3f'],
+                'pear': ['#e8f5d9', '#b7e08a', '#6f9f3f'],
+                'default': ['#bfdbfe', '#60a5fa', '#2563eb'],
+            };
+
             const palette = paletteBySpecies[currentSpecies] || paletteBySpecies.default;
             const upper = (label || '').toUpperCase();
+
+            if (['GRANDE', 'MEDIANO', 'CHICO'].includes(upper)) {
+                const shades = firmnessShadesBySpecies[currentSpecies] || firmnessShadesBySpecies.default;
+                const order = ['GRANDE', 'MEDIANO', 'CHICO'];
+                return shades[order.indexOf(upper)] ?? palette.DEFAULT;
+            }
+
             return palette[upper] || palette.DEFAULT;
         }
         function getColorFondoPalette(species, count) {
@@ -3748,353 +3771,105 @@ default: // Default colors if species not matched
 
                 const avgFirm = @json($averageFirmness);
                 const isLbBrixMode = avgFirm && avgFirm.mode === 'lb_brix';
-
-
-
                 const labels = (avgFirm && avgFirm.categories) ? avgFirm.categories : [];
-
-
-
                 const datasets = (avgFirm && avgFirm.series) ? avgFirm.series.map(s => ({
-
-
-
                     label: s.name,
-
-
-
                     data: s.data,
-
-
-
                     backgroundColor: getFirmezaBrixColors(s.name)
-
-
-
                 })) : [];
-
-
-
                 const chartTitle = isLbBrixMode ? 'Firmezas (lb) y BRIX' : '% Distribución de Firmezas por Segregación de Color';
-
-
-
                 const firmezasChart = new Chart(ctxFirmezas, {
-
-
-
                     type: 'bar',
-
-
-
                     data: {
-
-
-
                         labels: labels,
-
-
-
                         datasets: datasets
-
-
-
                     },
-
-
-
                     options: {
-
-
-
                         responsive: true,
-
-
-
                         maintainAspectRatio: false,
-
-
-
                         animation: false,
-
-
-
                         plugins: {
-
-
-
                             legend: {
-
-
-
                                 display: false
-
-
-
                             },
-
-
-
                             datalabels: {
-
-
-
                                 display: true,
-
-
-
                                 color: '#000000',
-
-
-
                                 align: 'end',
-
-
-
                                 anchor: 'end',
-
-
-
                                 offset: -4,
-
-
-
                                 font: {
-
-
-
                                     weight: 'bold',
-                                    size: 8
-
-
-
+                                       size: 8
                                 },
-
-
-
                                 formatter: (val) => Number(val).toFixed(1)
-
-
-
                             },
-
-
-
                             title: {
-
-
-
                                 display: true,
-
-
-
                                 text: chartTitle,
                                 font: {
-
                                     size: 10,
-
                                     weight: 'bold',
-
                                     color: '#333',
-
                                     family: 'Sans-Serif',
-
                                 },
-
-
-
                             }
-
-
-
                         },
-
-
-
                         scales: {
-
-
-
                             y: {
-
-
-
                                 beginAtZero: true,
-
-
-
                                 title: {
-
-
-
                                     display: true,
-
-
-
                                     text: isLbBrixMode ? 'Lectura (lb / BRIX)' : 'Promedio',
                                     font: {
-
                                         size: 10,
-
                                         weight: 'bold',
-
                                         color: '#333',
-
                                         family: 'Sans-Serif',
 
                                     },
-
-
-
                                 },
-
-
-
                                 grid: {
-
-
-
                                     display: false,
-
-
-
                                     drawBorder: false
-
-
-
                                 },
-
-
-
                                 ticks: {
-
-
-
                                     font: {
-
-
-
                                         size: 8,
                                         family: 'Sans-Serif',
-
-
-
                                     },
-
-
-
                                     maxRotation: 0,
-
-
-
                                     minRotation: 0,
-
-
-
                                     autoSkip: false
-
-
-
                                 }
-
-
-
                             },
-
-
-
                             x: {
-
-
-
                                 title: {
-
-
-
                                     display: true,
-
-
-
                                     text: 'Color',
                                     font: {
-
                                         size: 10,
-
                                         weight: 'bold',
-
                                         color: '#333',
-
                                         family: 'Sans-Serif',
-
                                     },
-
-
-
                                 },
-
-
-
                                 grid: {
-
-
-
                                     display: false,
-
-
-
                                     drawBorder: false
-
-
-
                                 },
-
-
-
                                 ticks: {
-
-
-
                                     font: {
-
-
-
                                         size: 8,
                                         family: 'Sans-Serif',
-
-
-
                                     },
-
-
-
                                     maxRotation: 0,
-
-
-
                                     minRotation: 0,
-
-
-
                                     autoSkip: false
-
-
-
                                 }
-
-
-
                             }
-
-
-
                         }
-
-
-
                     }
-
-
-
                 });
 
 
