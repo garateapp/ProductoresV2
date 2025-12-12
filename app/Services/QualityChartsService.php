@@ -425,7 +425,7 @@ $grades = $hay6y7
                 foreach ($reception->calidad->detalles as $detail) {
                     if ($detail->tipo_item === 'COLOR DE CUBRIMIENTO') {
                         $color = $detail->detalle_item ?? 'N/A';
-                        $pct = $detail->valor_ss ?? 0;
+                        $pct = $detail->cantidad ?? 0;
                         $coverage[$color] = ($coverage[$color] ?? 0) + $pct;
                     }
                 }
