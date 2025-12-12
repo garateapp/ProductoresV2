@@ -296,7 +296,7 @@ class QualityChartsService
                     foreach ($reception->calidad->detalles as $detail) {
                         if ($detail->tipo_item === 'COLOR DE CUBRIMIENTO') {
                             $color = $detail->detalle_item ?? 'N/A';
-                            $coverage[$color] = ($coverage[$color] ?? 0) + 1;
+                            $coverage[$color] = $detail->cantidad ?? 0 ;
                         }
                     }
                 }
