@@ -111,14 +111,7 @@ return [
             'prefix_indexes' => true,
             // 'encrypt' => env('DB_ENCRYPT', 'yes'),
             'trust_server_certificate' => env('DB_TRUST_SERVER_CERTIFICATE', 'true'),
-            'options' => (function () {
-                $opts = [];
-                if (defined('PDO::SQLSRV_ATTR_QUERY_TIMEOUT')) {
-                    $opts[PDO::SQLSRV_ATTR_QUERY_TIMEOUT] = (int) env('DB_SQLSRV_TIMEOUT', 5);
-                }
 
-                return $opts;
-            })(),
         ],
         'firmpro' => [
             'driver' => 'sqlsrv',
@@ -133,14 +126,7 @@ return [
             'prefix_indexes' => true,
             // 'encrypt' => env('DB_ENCRYPT', 'yes'),
             'trust_server_certificate' => env('DB_TRUST_SERVER_CERTIFICATE', 'true'),
-            'options' => (function () {
-                $opts = [];
-                if (defined('PDO::SQLSRV_ATTR_QUERY_TIMEOUT')) {
-                    $opts[PDO::SQLSRV_ATTR_QUERY_TIMEOUT] = (int) env('DB_FIRMPRO_TIMEOUT', 25);
-                }
 
-                return $opts;
-            })(),
 
         ],
         'unitec' => [
