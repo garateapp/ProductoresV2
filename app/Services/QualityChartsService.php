@@ -19,7 +19,7 @@ class QualityChartsService
 
             try {
                 $conexion = DB::connection('firmpro');
-                $queryTimeout = (int) env('DB_FIRMPRO_QUERY_TIMEOUT', 5);
+
 
                 $colors = ['Rojo', 'Rojo Caoba', 'Santina', 'Caoba Oscuro', 'Black'];
                 $coloresQ = $conexion->query()
@@ -326,7 +326,7 @@ public static function getPromedioFirmezasData(Collection $receptions): array
 
             try {
                 $conexion = DB::connection('firmpro');
-                $queryTimeout = (int) env('DB_FIRMPRO_QUERY_TIMEOUT', 5);
+
 
                 $colors = ['Rojo', 'Rojo Caoba', 'Santina', 'Caoba Oscuro', 'Negro'];
                 $coloresQ = $conexion->query()
