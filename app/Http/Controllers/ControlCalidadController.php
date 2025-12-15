@@ -1515,6 +1515,23 @@ public function previewPage(Recepcion $recepcion)
         $colorSwitchSpecies = ['plums', 'plum', 'peaches', 'peach', 'apples', 'apple', 'nectarines', 'nectarine'];
         $isLbBrixMode = ($averageFirmness['mode'] ?? null) === 'lb_brix';
 
+        // Series precomputadas para cerezas (evita consultas dentro de la vista)
+        $ch_calibre_categories = [];
+        $ch_calibre_series = [];
+        $ch_calibre_counts_series = [];
+        $ch_color_categories = [];
+        $ch_color_series = [];
+        $ch_color_counts_series = [];
+
+        if ($recepcion->n_especie === 'Cherries') {
+            $ch_calibre_categories = $sizeDistribution['categories'] ?? [];
+            $ch_calibre_series = $sizeDistribution['series'] ?? [];
+            $ch_calibre_counts_series = $sizeDistribution['countsSeries'] ?? [];
+            $ch_color_categories = $coverageColor['categories'] ?? [];
+            $ch_color_series = $coverageColor['series'] ?? [];
+            $ch_color_counts_series = $coverageColor['countsSeries'] ?? [];
+        }
+
         if ($isLbBrixMode) {
             $colorFondo = QualityChartsService::getColorFondoData($receptions);
         }
@@ -1936,6 +1953,12 @@ public function previewPage(Recepcion $recepcion)
             'isPreview',
             'exporterName',
             'seteo_termo',
+            'ch_calibre_categories',
+            'ch_calibre_series',
+            'ch_calibre_counts_series',
+            'ch_color_categories',
+            'ch_color_series',
+            'ch_color_counts_series',
             'html_tabla_distribucion_calibre',
             'html_tabla_color',
             'html_tabla_firmeza_grande',
@@ -2117,9 +2140,24 @@ public function previewPage(Recepcion $recepcion)
         $solubleSolids = QualityChartsService::getSolidosSolublesData($receptions);
         $coverageColor = QualityChartsService::getColorCubrimientoData($receptions);
         $colorFondo = [];
+        $ch_calibre_categories = [];
+        $ch_calibre_series = [];
+        $ch_calibre_counts_series = [];
+        $ch_color_categories = [];
+        $ch_color_series = [];
+        $ch_color_counts_series = [];
         $speciesKey = strtolower((string) ($recepcion->n_especie ?? ''));
         $colorSwitchSpecies = ['plums', 'plum', 'peaches', 'peach', 'apples', 'apple', 'nectarines', 'nectarine'];
         $isLbBrixMode = ($averageFirmness['mode'] ?? null) === 'lb_brix';
+
+        if ($recepcion->n_especie === 'Cherries') {
+            $ch_calibre_categories = $sizeDistribution['categories'] ?? [];
+            $ch_calibre_series = $sizeDistribution['series'] ?? [];
+            $ch_calibre_counts_series = $sizeDistribution['countsSeries'] ?? [];
+            $ch_color_categories = $coverageColor['categories'] ?? [];
+            $ch_color_series = $coverageColor['series'] ?? [];
+            $ch_color_counts_series = $coverageColor['countsSeries'] ?? [];
+        }
 
         if ($isLbBrixMode) {
             $colorFondo = QualityChartsService::getColorFondoData($receptions);
@@ -2155,6 +2193,12 @@ public function previewPage(Recepcion $recepcion)
             'sizeDistribution',
             'coverageColor',
             'colorFondo',
+            'ch_calibre_categories',
+            'ch_calibre_series',
+            'ch_calibre_counts_series',
+            'ch_color_categories',
+            'ch_color_series',
+            'ch_color_counts_series',
             'averageFirmness',
             'firmnessDistribution',
             'solubleSolids',
