@@ -5202,7 +5202,16 @@ default: // Default colors if species not matched
 
 
 
- @if ($recepcion->n_especie !== 'Cherries')
+         @if ($recepcion->n_especie === 'Cherries')
+        <div class="chart-wrapper full-width-chart">
+            <div class="chart-container">
+                <div style="position: relative; height:150px; width:95%;">
+                    <canvas id="firmezas-bar-chart-canvas"></canvas>
+                </div>
+                <div id="firmezas-legend" class="chart-legend"></div>
+            </div>
+        </div>
+        @else
         <div class="chart-wrapper">
             <div class="chart-container">
                 <div style="position: relative; height:150px; width:95%;">
@@ -5211,7 +5220,8 @@ default: // Default colors if species not matched
                 <div id="firmezas-legend" class="chart-legend"></div>
             </div>
         </div>
-@endif
+        @endif
+
 
 
     </div>
