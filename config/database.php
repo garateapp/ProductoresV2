@@ -1,6 +1,7 @@
 <?php
 
 use Illuminate\Support\Str;
+use PDO;
 
 return [
 
@@ -110,6 +111,9 @@ return [
             'prefix_indexes' => true,
             // 'encrypt' => env('DB_ENCRYPT', 'yes'),
             'trust_server_certificate' => env('DB_TRUST_SERVER_CERTIFICATE', 'true'),
+            'options' => array_filter([
+                PDO::ATTR_TIMEOUT => (int) env('DB_SQLSRV_TIMEOUT', 5),
+            ]),
         ],
         'firmpro' => [
             'driver' => 'sqlsrv',
@@ -124,6 +128,9 @@ return [
             'prefix_indexes' => true,
             // 'encrypt' => env('DB_ENCRYPT', 'yes'),
             'trust_server_certificate' => env('DB_TRUST_SERVER_CERTIFICATE', 'true'),
+            'options' => array_filter([
+                PDO::ATTR_TIMEOUT => (int) env('DB_FIRMPRO_TIMEOUT', 5),
+            ]),
 
         ],
         'unitec' => [
@@ -139,6 +146,9 @@ return [
             'prefix_indexes' => true,
             // 'encrypt' => env('DB_ENCRYPT', 'yes'),
             'trust_server_certificate' => env('DB_TRUST_SERVER_CERTIFICATE', 'true'),
+            'options' => array_filter([
+                PDO::ATTR_TIMEOUT => (int) env('UNITEC_DB_TIMEOUT', 5),
+            ]),
         ],
 
     ],

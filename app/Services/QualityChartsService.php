@@ -8,7 +8,7 @@ use Illuminate\Support\Facades\Log;
 
 class QualityChartsService
 {
-    public static function getSizeDistributionData(Collection $receptions): array
+        public static function getSizeDistributionData(Collection $receptions): array
     {
         $first = $receptions->first();
         if ($first && ($first->n_especie === 'Cherries')) {
@@ -17,115 +17,119 @@ class QualityChartsService
                 return ['categories' => [], 'series' => [], 'countsSeries' => []];
             }
 
-            $conexion = DB::connection('firmpro'); // usa SIEMPRE esta conexión
+            try {
+                $conexion = DB::connection('firmpro');
+                $queryTimeout = (int) env('DB_FIRMPRO_QUERY_TIMEOUT', 5);
 
-            // --- 1) Subquery COLORES con unionAll (sin DB::raw en from) ---
-            $colors = ['Rojo','Rojo Caoba','Santina','Caoba Oscuro','Black'];
-            $coloresQ = $conexion->query()
-                ->selectRaw("'Rojo' AS nombre_color")
-                ->unionAll($conexion->query()->selectRaw("'Rojo Caoba' AS nombre_color"))
-                ->unionAll($conexion->query()->selectRaw("'Santina' AS nombre_color"))
-                ->unionAll($conexion->query()->selectRaw("'Caoba Oscuro' AS nombre_color"))
-                ->unionAll($conexion->query()->selectRaw("'Negro' AS nombre_color"));
+                $colors = ['Rojo', 'Rojo Caoba', 'Santina', 'Caoba Oscuro', 'Black'];
+                $coloresQ = $conexion->query()
+                    ->selectRaw("'Rojo' AS nombre_color")
+                    ->unionAll($conexion->query()->selectRaw("'Rojo Caoba' AS nombre_color"))
+                    ->unionAll($conexion->query()->selectRaw("'Santina' AS nombre_color"))
+                    ->unionAll($conexion->query()->selectRaw("'Caoba Oscuro' AS nombre_color"))
+                    ->unionAll($conexion->query()->selectRaw("'Negro' AS nombre_color"));
 
-            // --- CALIBRES con alias en cada UNION ---
-            $calibresAllQ = $conexion->query()
-                ->selectRaw("'L'  AS categoria_calibres")
-                ->unionAll($conexion->query()->selectRaw("'XL' AS categoria_calibres"))
-                ->unionAll($conexion->query()->selectRaw("'J'  AS categoria_calibres"))
-                ->unionAll($conexion->query()->selectRaw("'2J' AS categoria_calibres"))
-                ->unionAll($conexion->query()->selectRaw("'3J' AS categoria_calibres"))
-                ->unionAll($conexion->query()->selectRaw("'4J' AS categoria_calibres"))
-                ->unionAll($conexion->query()->selectRaw("'5J' AS categoria_calibres"))
-                ->unionAll($conexion->query()->selectRaw("'6J' AS categoria_calibres"))
-                ->unionAll($conexion->query()->selectRaw("'7J' AS categoria_calibres"));
+                $calibresAllQ = $conexion->query()
+                    ->selectRaw("'L' AS categoria_calibres")
+                    ->unionAll($conexion->query()->selectRaw("'XL' AS categoria_calibres"))
+                    ->unionAll($conexion->query()->selectRaw("'J' AS categoria_calibres"))
+                    ->unionAll($conexion->query()->selectRaw("'2J' AS categoria_calibres"))
+                    ->unionAll($conexion->query()->selectRaw("'3J' AS categoria_calibres"))
+                    ->unionAll($conexion->query()->selectRaw("'4J' AS categoria_calibres"))
+                    ->unionAll($conexion->query()->selectRaw("'5J' AS categoria_calibres"))
+                    ->unionAll($conexion->query()->selectRaw("'6J' AS categoria_calibres"))
+                    ->unionAll($conexion->query()->selectRaw("'7J' AS categoria_calibres"));
 
-
-            // --- 3) CASE reutilizable ---
-            $caseCategoria = "
-                CASE
-                    WHEN calibre < 22 THEN 'L'
-                    WHEN calibre BETWEEN 22 AND 23.9 THEN 'L'
-                    WHEN calibre BETWEEN 24 AND 25.9 THEN 'XL'
-                    WHEN calibre BETWEEN 26 AND 27.9 THEN 'J'
-                    WHEN calibre BETWEEN 28 AND 29.9 THEN '2J'
-                    WHEN calibre BETWEEN 30 AND 31.9 THEN '3J'
-                    WHEN calibre BETWEEN 32 AND 33.9 THEN '4J'
-                    WHEN calibre BETWEEN 34 AND 35.9 THEN '5J'
-                    WHEN calibre BETWEEN 35 AND 36.9 THEN '6J'
-                    WHEN calibre >= 37 THEN '7J'
-                END
-            ";
-
-            // --- 4) Subconsulta datos ---
-            $datosSub = $conexion->table('fruitcloud.dbo.fpdatos AS fpd')
-                ->selectRaw("fpd.nombre_color, {$caseCategoria} AS categoria_calibres, COUNT(*) AS cantidad")
-                //->where('fpd.numero_recepcion', '74') // <-- si quieres, cambia por ->whereIn('fpd.numero_recepcion', $reception_numbers)
-                ->groupBy('fpd.nombre_color', DB::raw($caseCategoria));
-
-            // --- 5) Flag 6J/7J ---
-            $hay6y7Sub = $conexion->query()
-                ->fromSub($datosSub, 'd')
-                ->selectRaw("
+                $caseCategoria = "
                     CASE
-                    WHEN COALESCE(SUM(CASE WHEN d.categoria_calibres IN ('6J','7J') THEN d.cantidad END),0) > 0
-                    THEN 1 ELSE 0
-                    END AS hay
-                ");
+                        WHEN calibre < 22 THEN 'L'
+                        WHEN calibre BETWEEN 22 AND 23.9 THEN 'L'
+                        WHEN calibre BETWEEN 24 AND 25.9 THEN 'XL'
+                        WHEN calibre BETWEEN 26 AND 27.9 THEN 'J'
+                        WHEN calibre BETWEEN 28 AND 29.9 THEN '2J'
+                        WHEN calibre BETWEEN 30 AND 31.9 THEN '3J'
+                        WHEN calibre BETWEEN 32 AND 33.9 THEN '4J'
+                        WHEN calibre BETWEEN 34 AND 35.9 THEN '5J'
+                        WHEN calibre BETWEEN 35 AND 36.9 THEN '6J'
+                        WHEN calibre >= 37 THEN '7J'
+                    END
+                ";
 
-            // --- 6) Calibres filtrados usando fromSub + joinSub ---
-            $calibresFiltrados = $conexion->query()
-                ->fromSub($calibresAllQ, 'f')
-                ->joinSub($hay6y7Sub, 'h', function($j){ $j->whereRaw('1=1'); }) // CROSS JOIN
-                ->where(function ($q) {
-                    $q->whereNotIn('f.categoria_calibres', ['6J','7J'])
-                    ->orWhere('h.hay', 1);
-                })
-                ->select('f.categoria_calibres');
+                $datosSub = $conexion->table('fruitcloud.dbo.fpdatos AS fpd')
+                    ->selectRaw("fpd.nombre_color, {$caseCategoria} AS categoria_calibres, COUNT(*) AS cantidad")
+                    ->groupBy('fpd.nombre_color', DB::raw($caseCategoria))
+                    ->timeout($queryTimeout);
 
-            // --- 7) Query final: fromSub(colores) + joinSub(calibres filtrados) + leftJoinSub(datos) ---
-            $resultado = $conexion->query()
-                ->fromSub($coloresQ, 'c')
-                ->joinSub($calibresFiltrados, 'f', function($j){ $j->whereRaw('1=1'); }) // CROSS JOIN
-                ->leftJoinSub($datosSub, 'd', function ($join) {
-                    $join->on('d.nombre_color', '=', 'c.nombre_color')
-                        ->on('d.categoria_calibres', '=', 'f.categoria_calibres');
-                })
-                ->selectRaw("c.nombre_color, f.categoria_calibres, COALESCE(d.cantidad, 0) AS cantidad")
-                ->orderBy('c.nombre_color')
-                ->orderBy('f.categoria_calibres')
-                ->get();
+                $hay6y7Sub = $conexion->query()
+                    ->fromSub($datosSub, 'd')
+                    ->selectRaw("
+                        CASE
+                        WHEN COALESCE(SUM(CASE WHEN d.categoria_calibres IN ('6J','7J') THEN d.cantidad END),0) > 0
+                        THEN 1 ELSE 0
+                        END AS hay
+                    ");
 
-            // --- 8) Ajusta el orden de categorías según el flag ---
-            $hay6y7 = (int) $conexion->query()->fromSub($hay6y7Sub, 'x')->value('hay');
-            $grades = $hay6y7
-                ? ['L','XL','J','2J','3J','4J','5J','6J','7J']
-                : ['L','XL','J','2J','3J','4J','5J'];
+                $calibresFiltrados = $conexion->query()
+                    ->fromSub($calibresAllQ, 'f')
+                    ->joinSub($hay6y7Sub, 'h', function ($j) {
+                        $j->whereRaw('1=1');
+                    })
+                    ->where(function ($q) {
+                        $q->whereNotIn('f.categoria_calibres', ['6J', '7J'])
+                            ->orWhere('h.hay', 1);
+                    })
+                    ->select('f.categoria_calibres');
 
-            $counts = [];
-            $totalsByGrade = [];
-            foreach ($resultado as $row) {
-                $counts[$row->categoria_calibres][$row->nombre_color] = ($counts[$row->categoria_calibres][$row->nombre_color] ?? 0) + (int) $row->cantidad;
-                $totalsByGrade[$row->categoria_calibres] = ($totalsByGrade[$row->categoria_calibres] ?? 0) + (int) $row->cantidad;
-            }
-            $series = [];
-            $countsSeries = [];
+                $resultado = $conexion->query()
+                    ->fromSub($coloresQ, 'c')
+                    ->joinSub($calibresFiltrados, 'f', function ($j) {
+                        $j->whereRaw('1=1');
+                    })
+                    ->leftJoinSub($datosSub, 'd', function ($join) {
+                        $join->on('d.nombre_color', '=', 'c.nombre_color')
+                            ->on('d.categoria_calibres', '=', 'f.categoria_calibres');
+                    })
+                    ->selectRaw("c.nombre_color, f.categoria_calibres, COALESCE(d.cantidad, 0) AS cantidad")
+                    ->orderBy('c.nombre_color')
+                    ->orderBy('f.categoria_calibres')
+                    ->get();
 
+                $hay6y7 = (int) $conexion->query()->fromSub($hay6y7Sub, 'x')->value('hay');
+                $grades = $hay6y7
+                    ? ['L', 'XL', 'J', '2J', '3J', '4J', '5J', '6J', '7J']
+                    : ['L', 'XL', 'J', '2J', '3J', '4J', '5J'];
 
-            foreach ($colors as $c) {
-                $data = [];
-                $countRow = [];
-                foreach ($grades as $g) {
-                    $val = $counts[$g][$c] ?? 0;
-                    $total = $totalsByGrade[$g] ?? 0;
-                    $data[] = $total > 0 ? round(($val / $total) * 100, 2) : 0.0;
-                    $countRow[] = $val;
+                $counts = [];
+                $totalsByGrade = [];
+                foreach ($resultado as $row) {
+                    $counts[$row->categoria_calibres][$row->nombre_color] = ($counts[$row->categoria_calibres][$row->nombre_color] ?? 0) + (int) $row->cantidad;
+                    $totalsByGrade[$row->categoria_calibres] = ($totalsByGrade[$row->categoria_calibres] ?? 0) + (int) $row->cantidad;
                 }
-                $series[] = ['name' => $c, 'data' => $data];
-                $countsSeries[] = ['name' => $c, 'data' => $countRow];
-            }
+                $series = [];
+                $countsSeries = [];
 
-            return ['categories' => $grades, 'series' => $series, 'countsSeries' => $countsSeries];
+                foreach ($colors as $c) {
+                    $data = [];
+                    $countRow = [];
+                    foreach ($grades as $g) {
+                        $val = $counts[$g][$c] ?? 0;
+                        $total = $totalsByGrade[$g] ?? 0;
+                        $data[] = $total > 0 ? round(($val / $total) * 100, 2) : 0.0;
+                        $countRow[] = $val;
+                    }
+                    $series[] = ['name' => $c, 'data' => $data];
+                    $countsSeries[] = ['name' => $c, 'data' => $countRow];
+                }
+
+                return ['categories' => $grades, 'series' => $series, 'countsSeries' => $countsSeries];
+            } catch (\Throwable $e) {
+                Log::warning('Size distribution from FirmPro failed, returning empty', [
+                    'error' => $e->getMessage(),
+                    'recepciones' => $reception_numbers,
+                ]);
+
+                return ['categories' => [], 'series' => [], 'countsSeries' => []];
+            }
         }
 
         $chartData = [];
@@ -147,7 +151,7 @@ class QualityChartsService
         return array_values($chartData);
     }
 
-    public static function getPromedioFirmezasData(Collection $receptions): array
+public static function getPromedioFirmezasData(Collection $receptions): array
 {
         if (self::isLbBrixSpecies($receptions)) {
             return self::getFirmnessLbBrixData($receptions);
@@ -319,30 +323,31 @@ class QualityChartsService
             if (empty($reception_numbers)) {
                 return ['categories' => [], 'series' => [], 'countsSeries' => []];
             }
-           $conexion = DB::connection('firmpro');
 
-// COLORES
-$colors = ['Rojo','Rojo Caoba','Santina','Caoba Oscuro','Negro'];
-$coloresQ = $conexion->query()
-    ->selectRaw("'Rojo' AS nombre_color")
-    ->unionAll($conexion->query()->selectRaw("'Rojo Caoba' AS nombre_color"))
-    ->unionAll($conexion->query()->selectRaw("'Santina' AS nombre_color"))
-    ->unionAll($conexion->query()->selectRaw("'Caoba Oscuro' AS nombre_color"))
-    ->unionAll($conexion->query()->selectRaw("'Negro' AS nombre_color"));
+            try {
+                $conexion = DB::connection('firmpro');
+                $queryTimeout = (int) env('DB_FIRMPRO_QUERY_TIMEOUT', 5);
 
-// --- CALIBRES con alias en cada UNION ---
-$calibresAllQ = $conexion->query()
-    ->selectRaw("'L'  AS categoria_calibres")
-    ->unionAll($conexion->query()->selectRaw("'XL' AS categoria_calibres"))
-    ->unionAll($conexion->query()->selectRaw("'J'  AS categoria_calibres"))
-    ->unionAll($conexion->query()->selectRaw("'2J' AS categoria_calibres"))
-    ->unionAll($conexion->query()->selectRaw("'3J' AS categoria_calibres"))
-    ->unionAll($conexion->query()->selectRaw("'4J' AS categoria_calibres"))
-    ->unionAll($conexion->query()->selectRaw("'5J' AS categoria_calibres"))
-    ->unionAll($conexion->query()->selectRaw("'6J' AS categoria_calibres"))
-    ->unionAll($conexion->query()->selectRaw("'7J' AS categoria_calibres"));
+                $colors = ['Rojo', 'Rojo Caoba', 'Santina', 'Caoba Oscuro', 'Negro'];
+                $coloresQ = $conexion->query()
+                    ->selectRaw("'Rojo' AS nombre_color")
+                    ->unionAll($conexion->query()->selectRaw("'Rojo Caoba' AS nombre_color"))
+                    ->unionAll($conexion->query()->selectRaw("'Santina' AS nombre_color"))
+                    ->unionAll($conexion->query()->selectRaw("'Caoba Oscuro' AS nombre_color"))
+                    ->unionAll($conexion->query()->selectRaw("'Negro' AS nombre_color"));
 
-$caseCategoria = "
+                $calibresAllQ = $conexion->query()
+                    ->selectRaw("'L'  AS categoria_calibres")
+                    ->unionAll($conexion->query()->selectRaw("'XL' AS categoria_calibres"))
+                    ->unionAll($conexion->query()->selectRaw("'J'  AS categoria_calibres"))
+                    ->unionAll($conexion->query()->selectRaw("'2J' AS categoria_calibres"))
+                    ->unionAll($conexion->query()->selectRaw("'3J' AS categoria_calibres"))
+                    ->unionAll($conexion->query()->selectRaw("'4J' AS categoria_calibres"))
+                    ->unionAll($conexion->query()->selectRaw("'5J' AS categoria_calibres"))
+                    ->unionAll($conexion->query()->selectRaw("'6J' AS categoria_calibres"))
+                    ->unionAll($conexion->query()->selectRaw("'7J' AS categoria_calibres"));
+
+                $caseCategoria = "
     CASE
         WHEN calibre < 22 THEN 'L'
         WHEN calibre BETWEEN 22 AND 23.99 THEN 'L'
@@ -357,66 +362,78 @@ $caseCategoria = "
     END
 ";
 
-$datosSub = $conexion->table('fruitcloud.dbo.fpdatos AS fpd')
-    ->selectRaw("fpd.nombre_color, {$caseCategoria} AS categoria_calibres, COUNT(*) AS cantidad")
-    ->where('fpd.numero_recepcion', $reception_numbers) // o ->whereIn('fpd.numero_recepcion', $reception_numbers)
-    ->groupBy('fpd.nombre_color', DB::raw($caseCategoria));
+                $datosSub = $conexion->table('fruitcloud.dbo.fpdatos AS fpd')
+                    ->selectRaw("fpd.nombre_color, {$caseCategoria} AS categoria_calibres, COUNT(*) AS cantidad")
+                    ->where('fpd.numero_recepcion', $reception_numbers) // o ->whereIn('fpd.numero_recepcion', $reception_numbers)
+                    ->groupBy('fpd.nombre_color', DB::raw($caseCategoria))
+                    ->timeout($queryTimeout);
 
-$hay6y7Sub = $conexion->query()
-    ->fromSub($datosSub, 'd')
-    ->selectRaw("
+                $hay6y7Sub = $conexion->query()
+                    ->fromSub($datosSub, 'd')
+                    ->selectRaw("
         CASE
           WHEN COALESCE(SUM(CASE WHEN d.categoria_calibres IN ('6J','7J') THEN d.cantidad END),0) > 0
           THEN 1 ELSE 0
         END AS hay
     ");
 
-$calibresFiltrados = $conexion->query()
-    ->fromSub($calibresAllQ, 'f')
-    ->joinSub($hay6y7Sub, 'h', function($j){ $j->whereRaw('1=1'); })
-    ->where(function ($q) {
-        $q->whereNotIn('f.categoria_calibres', ['6J','7J'])
-          ->orWhere('h.hay', 1);
-    })
-    ->select('f.categoria_calibres');
+                $calibresFiltrados = $conexion->query()
+                    ->fromSub($calibresAllQ, 'f')
+                    ->joinSub($hay6y7Sub, 'h', function ($j) {
+                        $j->whereRaw('1=1');
+                    })
+                    ->where(function ($q) {
+                        $q->whereNotIn('f.categoria_calibres', ['6J','7J'])
+                          ->orWhere('h.hay', 1);
+                    })
+                    ->select('f.categoria_calibres');
 
-$resultado = $conexion->query()
-    ->fromSub($coloresQ, 'c')
-    ->joinSub($calibresFiltrados, 'f', function($j){ $j->whereRaw('1=1'); })
-    ->leftJoinSub($datosSub, 'd', function ($join) {
-        $join->on('d.nombre_color', '=', 'c.nombre_color')
-             ->on('d.categoria_calibres', '=', 'f.categoria_calibres');
-    })
-    ->selectRaw("c.nombre_color, f.categoria_calibres, COALESCE(d.cantidad, 0) AS cantidad")
-    ->orderBy('c.nombre_color')
-    ->orderBy('f.categoria_calibres')
-    ->get();
+                $resultado = $conexion->query()
+                    ->fromSub($coloresQ, 'c')
+                    ->joinSub($calibresFiltrados, 'f', function($j){ $j->whereRaw('1=1'); })
+                    ->leftJoinSub($datosSub, 'd', function ($join) {
+                        $join->on('d.nombre_color', '=', 'c.nombre_color')
+                             ->on('d.categoria_calibres', '=', 'f.categoria_calibres');
+                    })
+                    ->selectRaw("c.nombre_color, f.categoria_calibres, COALESCE(d.cantidad, 0) AS cantidad")
+                    ->orderBy('c.nombre_color')
+                    ->orderBy('f.categoria_calibres')
+                    ->get();
 
-    $hay6y7 = (int) $conexion->query()->fromSub($hay6y7Sub, 'x')->value('hay');
-$grades = $hay6y7
-    ? ['L','XL','J','2J','3J','4J','5J','6J','7J']
-    : ['L','XL','J','2J','3J','4J','5J'];
-            $counts = [];
-            $totalsByColor = [];
-            foreach ($resultado as $row) {
-                $counts[$row->nombre_color][$row->categoria_calibres] = ($counts[$row->nombre_color][$row->categoria_calibres] ?? 0) + (int) $row->cantidad;
-                $totalsByColor[$row->nombre_color] = ($totalsByColor[$row->nombre_color] ?? 0) + (int) $row->cantidad;
+                $hay6y7 = (int) $conexion->query()->fromSub($hay6y7Sub, 'x')->value('hay');
+                $grades = $hay6y7
+                    ? ['L','XL','J','2J','3J','4J','5J','6J','7J']
+                    : ['L','XL','J','2J','3J','4J','5J'];
+                $counts = [];
+                $totalsByColor = [];
+                foreach ($resultado as $row) {
+                    $counts[$row->nombre_color][$row->categoria_calibres] = ($counts[$row->nombre_color][$row->categoria_calibres] ?? 0) + (int) $row->cantidad;
+                    $totalsByColor[$row->nombre_color] = ($totalsByColor[$row->nombre_color] ?? 0) + (int) $row->cantidad;
+                }
+                $series = [];
+                $countsSeries = [];
+                foreach ($grades as $g) {
+                    $data = [];
+                    $countRow = [];
+                    foreach ($colors as $c) {
+                        $val = $counts[$c][$g] ?? 0;
+                        $total = $totalsByColor[$c] ?? 0;
+                        $data[] = $total > 0 ? round(($val / $total) * 100, 2) : 0.0;
+                        $countRow[] = $val;
+                    }
+                    $series[] = ['name' => $g, 'data' => $data];
+                    $countsSeries[] = ['name' => $g, 'data' => $countRow];
+                }
+
+                return ['categories' => $colors, 'series' => $series, 'countsSeries' => $countsSeries];
+            } catch (\Throwable $e) {
+                Log::warning('Color coverage from FirmPro failed, returning empty', [
+                    'error' => $e->getMessage(),
+                    'recepciones' => $reception_numbers,
+                ]);
+
+                return ['categories' => [], 'series' => [], 'countsSeries' => []];
             }
-            $series = [];
-            $countsSeries = [];
-            foreach ($grades as $g) {
-                $data = [];
-                $countRow = [];
-                foreach ($colors as $c) {
-                    $val = $counts[$c][$g] ?? 0;
-                    $total = $totalsByColor[$c] ?? 0;
-                    $data[] = $total > 0 ? round(($val / $total) * 100, 2) : 0.0;
-                    $countRow[] = $val;
-                } $series[] = ['name' => $g, 'data' => $data];
-                $countsSeries[] = ['name' => $g, 'data' => $countRow];
-            }
-
-            return ['categories' => $colors, 'series' => $series, 'countsSeries' => $countsSeries];
         }
         $chartData = [];
         $coverage = [];
