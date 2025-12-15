@@ -58,7 +58,7 @@ class QualityChartsService
                 $datosSub = $conexion->table('fruitcloud.dbo.fpdatos AS fpd')
                     ->selectRaw("fpd.nombre_color, {$caseCategoria} AS categoria_calibres, COUNT(*) AS cantidad")
                     ->groupBy('fpd.nombre_color', DB::raw($caseCategoria))
-                    ->timeout($queryTimeout);
+                    ;
 
                 $hay6y7Sub = $conexion->query()
                     ->fromSub($datosSub, 'd')
@@ -362,11 +362,10 @@ public static function getPromedioFirmezasData(Collection $receptions): array
     END
 ";
 
-                $datosSub = $conexion->table('fruitcloud.dbo.fpdatos AS fpd')
-                    ->selectRaw("fpd.nombre_color, {$caseCategoria} AS categoria_calibres, COUNT(*) AS cantidad")
-                    ->where('fpd.numero_recepcion', $reception_numbers) // o ->whereIn('fpd.numero_recepcion', $reception_numbers)
-                    ->groupBy('fpd.nombre_color', DB::raw($caseCategoria))
-                    ->timeout($queryTimeout);
+$datosSub = $conexion->table('fruitcloud.dbo.fpdatos AS fpd')
+    ->selectRaw("fpd.nombre_color, {$caseCategoria} AS categoria_calibres, COUNT(*) AS cantidad")
+    ->where('fpd.numero_recepcion', $reception_numbers) // o ->whereIn('fpd.numero_recepcion', $reception_numbers)
+    ->groupBy('fpd.nombre_color', DB::raw($caseCategoria));
 
                 $hay6y7Sub = $conexion->query()
                     ->fromSub($datosSub, 'd')
