@@ -4321,15 +4321,15 @@ default: // Default colors if species not matched
             // Color de Fondo Chart
 
             const ctxColorFondo = document.getElementById('color-fondo-chart-canvas');
-
             const colorFondoData = @json($colorFondo);
+            let ColorFondoChart;
 
             if (ctxColorFondo && Array.isArray(colorFondoData) && colorFondoData.length) {
                 const labels = colorFondoData.map(item => item.color || 'N/A');
                 const data = colorFondoData.map(item => Number(item.percentage) || 0);
                 const palette = getColorFondoPalette(@json($recepcion->n_especie), labels.length);
 
-                const ColorFondoChart = new Chart(ctxColorFondo, {
+                ColorFondoChart = new Chart(ctxColorFondo, {
                     type: 'pie',
                     data: {
                         labels: labels,
@@ -4373,7 +4373,9 @@ default: // Default colors if species not matched
                     },
                 });
             }
-             generateHtmlLegend(ColorFondoChart, 'color-fondo-legend');
+            if (ColorFondoChart) {
+                generateHtmlLegend(ColorFondoChart, 'color-fondo-legend');
+            }
 
                         // Distribución de Firmezas (simple)
 
