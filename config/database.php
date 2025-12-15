@@ -124,6 +124,9 @@ return [
             'prefix_indexes' => true,
             // 'encrypt' => env('DB_ENCRYPT', 'yes'),
             'trust_server_certificate' => env('DB_TRUST_SERVER_CERTIFICATE', 'true'),
+            'options' => extension_loaded('pdo_sqlsrv') ? array_filter([
+    PDO::ATTR_PERSISTENT => true,
+]) : [],
         ],
         'unitec' => [
             'driver' => 'sqlsrv',
