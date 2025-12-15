@@ -129,7 +129,7 @@ return [
             // 'encrypt' => env('DB_ENCRYPT', 'yes'),
             'trust_server_certificate' => env('DB_TRUST_SERVER_CERTIFICATE', 'true'),
             'options' => array_filter([
-                PDO::ATTR_TIMEOUT => (int) env('DB_FIRMPRO_TIMEOUT', 5),
+                PDO::ATTR_TIMEOUT => (int) env('DB_FIRMPRO_TIMEOUT', 25),
             ]),
 
         ],
