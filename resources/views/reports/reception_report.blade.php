@@ -3356,98 +3356,33 @@ default: // Default colors if species not matched
 
 
                     const calibreChart = new Chart(ctxCalibre, {
-
-
-
                         type: 'bar',
-
-
-
                         data: {
-
-
-
                             labels: labelsWithTotals,
-
-
-
                             datasets: [{
-
-
-
                                 label: '% de Calibres',
-
-
-
                                 data: data,
-
-
-
                                 backgroundColor: colors.exportable
-
-
-
                             }]
-
-
-
                         },
-
-
-
                         options: {
-
-
-
                             responsive: true,
-
-
-
                             maintainAspectRatio: false,
-
-
-
                             animation: false,
-
-
-
                             plugins: {
-
-
-
                                 legend: {
-
-
-
                                     display: false
-
-
-
                                 },
-
-
-
                                 datalabels: {
-
-
-
                                     display: false
-
-
-
                                 },
-
-
-
                                 title: {
-
-
-
                                     display: true,
-
-
-
-                                    text: 'Distribución de Calibres por Color',
+                                    @if($recepcion->n_especie === 'Cherries')
+                                    text:'Distribución de Calibres por Color',
+                                    @else
+                                    text: 'Distribución de Calibres',
+                                    @endif
                                     font: {
 
                                         size: 10,
@@ -3701,17 +3636,14 @@ default: // Default colors if species not matched
                 if (ctxColor) {
                     const coverageColor = @json($coverageColor);
                     const distribucionColor = (coverageColor || []);
-                    console.log(coverageColor);
-                    const labels = distribucionColor.map(item => item.color);
-                    const data = distribucionColor.map(item => item.percentage);
-                    const labelsWithValues = (labels || []).map((name, i) =>
-                        `${name} (${Number(data[i] || 0).toFixed(0)}%)`
-                    );
-                    const backgroundColors = ['#FF9999', '#FF0000', '#D60000', '#960000', '#640000', '#000000'];
+                    const labels = distribucionColor.map(item => item.color || 'N/A');
+                    const data = distribucionColor.map(item => Number(item.percentage) || 0);
+                    const baseColors = ['#FF9999', '#FF0000', '#D60000', '#960000', '#640000', '#000000', '#4B5563'];
+                    const backgroundColors = labels.map((_, idx) => baseColors[idx % baseColors.length]);
                     const colorChart = new Chart(ctxColor, {
                         type: 'pie',
                         data: {
-                            labels: labelsWithValues,
+                            labels: labels,
                             datasets: [{
                                 label: '% de Color',
                                 data: data,
@@ -3724,17 +3656,20 @@ default: // Default colors if species not matched
                             animation: false,
                             plugins: {
                                 legend: {
-                                    display: true,
-                                    position: 'bottom',
-                                    labels: {
-                                        font: {
-                                            size: 8
-                                        }
-                                    }
+                                    display: false
                                 },
 
                                 datalabels: {
-                                    display: false
+                                    display: true,
+                                    color: '#111827',
+                                    formatter: (value, context) => {
+                                        const label = context.chart?.data?.labels?.[context.dataIndex] || '';
+                                        return `${label} (${Number(value).toFixed(1)}%)`;
+                                    },
+                                    font: {
+                                        size: 8,
+                                        weight: 'bold'
+                                    }
                                 },
                                 title: {
                                     display: true,
@@ -3750,7 +3685,7 @@ default: // Default colors if species not matched
                         }
                     });
 
-                    generateDatasetLegend(colorChart, 'color-legend');
+                    generateHtmlLegend(colorChart, 'color-legend');
 
                 }
 
@@ -3790,13 +3725,13 @@ default: // Default colors if species not matched
                         animation: false,
                         plugins: {
                             legend: {
-                                display: false
+                                display: true
                             },
                             datalabels: {
                                 display: true,
                                 color: '#000000',
-                                align: 'end',
-                                anchor: 'end',
+                                align: 'middle',
+                                anchor: 'center',
                                 offset: -4,
                                 font: {
                                     weight: 'bold',
@@ -3878,7 +3813,7 @@ default: // Default colors if species not matched
 
 
 
-                // generateSeriesLegend(firmezasChart, 'firmezas-legend', '');
+               // generateSeriesLegend(firmezasChart, 'firmezas-legend', '');
 
 
 
@@ -4394,16 +4329,16 @@ default: // Default colors if species not matched
                 const data = colorFondoData.map(item => Number(item.percentage) || 0);
                 const palette = getColorFondoPalette(@json($recepcion->n_especie), labels.length);
 
-                new Chart(ctxColorFondo, {
-                    type: 'bar',
+                const ColorFondoChart = new Chart(ctxColorFondo, {
+                    type: 'pie',
                     data: {
                         labels: labels,
                         datasets: [{
                             label: 'Color de Fondo',
                             data: data,
                             backgroundColor: palette,
-                            borderColor: '#0f172a',
-                            borderWidth: 1,
+                            borderColor: 'transparent',
+                            borderWidth: 0,
                         }],
                     },
                     options: {
@@ -4411,28 +4346,34 @@ default: // Default colors if species not matched
                         maintainAspectRatio: false,
                         animation: false,
                         plugins: {
-                            legend: { display: false },
+                            legend: {
+                                display: true,
+                                position: 'right',
+                                labels: {
+                                    boxWidth: 10,
+                                    font: { size: 8 }
+                                }
+                            },
                             title: {
                                 display: true,
-                                text: 'Distribuci�n de Color de Fondo',
+                                text: 'Distribución de Color de Fondo',
                                 font: { size: 10, weight: 'bold', family: 'Sans-Serif' },
                             },
                             datalabels: {
                                 display: true,
                                 color: '#111827',
-                                align: 'end',
-                                anchor: 'end',
-                                formatter: (val) => `${val.toFixed(1)}%`,
+                                formatter: (val, ctx) => {
+                                    const label = ctx.chart?.data?.labels?.[ctx.dataIndex] || '';
+                                    return `${label} (${val.toFixed(1)}%)`;
+                                },
                                 font: { size: 8, weight: 'bold' },
                             },
                         },
-                        scales: {
-                            y: { beginAtZero: true, ticks: { callback: (val) => `${val}%` } },
-                        },
+                        scales: {},
                     },
                 });
             }
-
+             generateHtmlLegend(ColorFondoChart, 'color-fondo-legend');
 
                         // Distribución de Firmezas (simple)
 
@@ -5265,16 +5206,16 @@ default: // Default colors if species not matched
 
 
 
-
-        <div class="chart-wrapper full-width-chart">
+ @if ($recepcion->n_especie !== 'Cherries')
+        <div class="chart-wrapper">
             <div class="chart-container">
-                <div style="position: relative; height:140px; width:90%;">
+                <div style="position: relative; height:150px; width:75%;">
                     <canvas id="firmezas-bar-chart-canvas"></canvas>
                 </div>
                 <div id="firmezas-legend" class="chart-legend"></div>
             </div>
         </div>
-
+@endif
 
 
     </div>
@@ -5463,6 +5404,7 @@ default: // Default colors if species not matched
 
                     @php
 
+                        if($recepcion->n_especie=='Cherries'){
                         $calidad_fields = [
                             'materia_vegetal' => 'Materia Vegetal',
 
@@ -5478,7 +5420,18 @@ default: // Default colors if species not matched
 
                             'llenado_tottes' => 'Llenado Tottes',
                         ];
+                        }
+                        else{
+                             $calidad_fields = [
+                            'materia_vegetal' => 'Materia Vegetal',
 
+                            'piedras' => 'Piedras',
+
+                            'barro' => 'Barro',
+
+                            'llenado_tottes' => 'Llenado Tottes',
+                        ];
+                        }
                     @endphp
 
 

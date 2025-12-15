@@ -449,8 +449,8 @@ $grades = $hay6y7
             if ($reception->calidad) {
                 foreach ($reception->calidad->detalles as $detail) {
                     if ($detail->tipo_item === 'COLOR DE FONDO') {
-                        $color = $detail->cantidad ?? 'N/A';
-                        $coverage[$color] = ($coverage[$color] ?? 0) + 1;
+                        $color = $detail->detalle_item ?? 'N/A';
+                        $coverage[$color] = $detail->cantidad ?? 0;
                     }
                 }
             }
@@ -461,7 +461,7 @@ $grades = $hay6y7
         foreach ($coverage as $color => $count) {
             $chartData[] = [
                 'color' => $color,
-                'percentage' => $total > 0 ? round(($count / $total) * 100, 2) : 0,
+                'percentage' => $count,
             ];
         }
 
