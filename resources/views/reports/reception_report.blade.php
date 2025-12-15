@@ -5044,8 +5044,6 @@ default: // Default colors if species not matched
 
                     @endphp
 
-
-
                     <div class="color-matrix-wrapper">
 
                         <p style="text-align: center;font-weight: 700;font-family:Sans-Serif;color:#666;font-size:10px">

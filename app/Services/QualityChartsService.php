@@ -438,6 +438,8 @@ $grades = $hay6y7
             return array_values($chartData);
         }
 
+
+
     /**
      * Distribución de color de fondo para especies no cerezas.
      * Cuenta ocurrencias por detalle_item donde tipo_item = COLOR DE FONDO y devuelve porcentaje.
