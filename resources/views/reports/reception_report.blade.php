@@ -5052,9 +5052,7 @@ default: // Default colors if species not matched
                         @if (!empty($calibres) && !empty($matrixRows))
 
                             <table class="color-calibre-matrix">
-
                                 <thead>
-
                                     <tr>
                                         <th>Grupo</th>
                                         <th>Color</th>
