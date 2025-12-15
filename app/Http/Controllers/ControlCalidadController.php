@@ -304,6 +304,12 @@ class ControlCalidadController extends Controller
 
     public function validateKilos(Recepcion $recepcion)
     {
+        $startedAt = microtime(true);
+        Log::info('validateKilos:start', [
+            'recepcion_id' => $recepcion->id,
+            'numero_g_recepcion' => $recepcion->numero_g_recepcion,
+        ]);
+
         try {
             $remote = DB::connection('sqlsrv')
                 ->table('V_PKG_Recepcion_FG')
@@ -311,6 +317,12 @@ class ControlCalidadController extends Controller
                 ->where('numero_g_recepcion', $recepcion->numero_g_recepcion)
                 ->groupBy('numero_g_recepcion')
                 ->first();
+
+            Log::info('validateKilos:end', [
+                'recepcion_id' => $recepcion->id,
+                'numero_g_recepcion' => $recepcion->numero_g_recepcion,
+                'elapsed_ms' => round((microtime(true) - $startedAt) * 1000, 1),
+            ]);
 
             $localKilos = (int) ($recepcion->peso_neto ?? 0);
             $sourceKilos = $remote ? (int) ($remote->total_peso_neto ?? 0) : null;
@@ -326,6 +338,7 @@ class ControlCalidadController extends Controller
                 'recepcion_id' => $recepcion->id,
                 'numero_g_recepcion' => $recepcion->numero_g_recepcion,
                 'error' => $e->getMessage(),
+                'elapsed_ms' => round((microtime(true) - $startedAt) * 1000, 1),
             ]);
 
             return response()->json(['error' => 'validation_failed'], 500);
