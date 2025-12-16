@@ -1851,7 +1851,7 @@ default: // Default colors if species not matched
 
 
 
-                const formattedValue = chart.config.type === 'bar' ? value.toFixed(1) : value.toFixed(1) + '%';
+                const formattedValue = chart.config.type === 'bar' ? value.toFixed(0) : value.toFixed(0) + '%';
 
 
 
@@ -1935,7 +1935,7 @@ default: // Default colors if species not matched
 
 
 
-                        <span>${dataset.label}: ${total.toFixed(1)}%</span>
+                        <span>${dataset.label}: ${total.toFixed(0)}%</span>
 
 
 
@@ -2011,7 +2011,7 @@ default: // Default colors if species not matched
 
 
 
-                        <span>${ds.label}: ${avg.toFixed(1)}${postfix}</span>
+                        <span>${ds.label}: ${avg.toFixed(0)}${postfix}</span>
 
 
 
@@ -2172,7 +2172,7 @@ default: // Default colors if species not matched
 
 
 
-                        <span>${it.label}: ${pct.toFixed(1)}% (${it.total})</span>
+                        <span>${it.label}: ${pct.toFixed(0)}% (${it.total})</span>
 
 
 
@@ -2414,7 +2414,7 @@ default: // Default colors if species not matched
 
 
 
-                                text: `${exportableAdjusted.toFixed(1)}%`,
+                                text: `${exportableAdjusted.toFixed(0)}%`,
 
 
 
@@ -2718,7 +2718,7 @@ default: // Default colors if species not matched
 
 
 
-                                        const pct = Number(val).toFixed(1);
+                                        const pct = Number(val).toFixed(0);
 
 
 
@@ -3346,7 +3346,7 @@ default: // Default colors if species not matched
                                     color: '#111827',
                                     formatter: (value, context) => {
                                         const label = context.chart?.data?.labels?.[context.dataIndex] || '';
-                                        return `(${Number(value).toFixed(1)}%)`;
+                                        return `(${Number(value).toFixed(0)}%)`;
                                     },
                                     font: {
                                         size: 8,
@@ -3419,7 +3419,7 @@ default: // Default colors if species not matched
                                     weight: 'bold',
                                        size: 8
                                 },
-                                formatter: (val) => Number(val).toFixed(1)
+                                formatter: (val) => Number(val).toFixed(0)
                             },
                             title: {
                                 display: true,
@@ -3641,7 +3641,7 @@ default: // Default colors if species not matched
 
 
 
-                                formatter: (val) => Number(val).toFixed(1)
+                                formatter: (val) => Number(val).toFixed(0)
 
 
 
@@ -4046,7 +4046,7 @@ default: // Default colors if species not matched
                                 color: '#111827',
                                 formatter: (val, ctx) => {
                                     const label = ctx.chart?.data?.labels?.[ctx.dataIndex] || '';
-                                    return `(${val.toFixed(1)}%)`;
+                                    return `(${val.toFixed(0)}%)`;
                                 },
                                 font: { size: 8, weight: 'bold' },
                             },
@@ -4231,7 +4231,7 @@ default: // Default colors if species not matched
 
 
 
-                                formatter: (val) => Number(val).toFixed(1)
+                                formatter: (val) => Number(val).toFixed(0)
 
 
 
