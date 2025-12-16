@@ -266,6 +266,8 @@ class RecepcionController extends Controller
     private function fetchReceptionRows()
     {
 
+        $cutoff = Carbon::now()->subDays(1)->format('Y-m-d');
+
         return DB::connection('sqlsrv')
             ->table('V_PKG_Recepcion_FG')
             ->selectRaw("
@@ -291,6 +293,7 @@ class RecepcionController extends Controller
                 n_productor_rotulado,
                 csg_productor_rotulado
             ")
+            ->whereRaw('ISDATE(fecha_g_recepcion) = 1 AND CONVERT(date, fecha_g_recepcion, 120) >= ?', [$cutoff])
             ->groupBy(
                 'id_empresa',
                 'id_g_recepcion',
