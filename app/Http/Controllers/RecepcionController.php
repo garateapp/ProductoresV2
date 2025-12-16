@@ -214,22 +214,6 @@ class RecepcionController extends Controller
             }
 
             $stats = $this->processReceptionRows($rows, false);
-             if (!$request->boolean('dry_run')) {
-                $recep=Recepcion::where('nota_calidad',0)->get();
-
-                    foreach($recep as $row){
-                    $nota = DB::connection('sqlsrv')
-                    ->table('PKG_G_Recepcion')
-                    ->where('numero_i', $row->numero_g_recepcion)   // acceso con ->
-                    ->value('nota_calidad');                         // <- clave
-
-                    if (!is_null($nota)) {
-                        // Asumiendo que el campo en Recepcion se llama 'nota_calidad'
-                        $row->nota_calidad = $nota;
-                        $row->save(); // guarda el cambio
-                    }
-                }
-            }
             return redirect()->route('recepciones.index')
                 ->with('success', sprintf(
                     'Recepciones sincronizadas. Creadas: %d, actualizadas: %d.',
