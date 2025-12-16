@@ -3338,7 +3338,7 @@ default: // Default colors if species not matched
                                     color: '#111827',
                                     formatter: (value, context) => {
                                         const label = context.chart?.data?.labels?.[context.dataIndex] || '';
-                                        return `${label} (${Number(value).toFixed(1)}%)`;
+                                        return `(${Number(value).toFixed(1)}%)`;
                                     },
                                     font: {
                                         size: 8,
@@ -3404,8 +3404,8 @@ default: // Default colors if species not matched
                             datalabels: {
                                 display: true,
                                 color: '#000000',
-                                align: 'middle',
-                                anchor: 'center',
+                                align: 'end',
+                                anchor: 'end',
                                 offset: -4,
                                 font: {
                                     weight: 'bold',
