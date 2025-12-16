@@ -4046,7 +4046,7 @@ default: // Default colors if species not matched
                                 color: '#111827',
                                 formatter: (val, ctx) => {
                                     const label = ctx.chart?.data?.labels?.[ctx.dataIndex] || '';
-                                    return `${label} (${val.toFixed(1)}%)`;
+                                    return `(${val.toFixed(1)}%)`;
                                 },
                                 font: { size: 8, weight: 'bold' },
                             },
