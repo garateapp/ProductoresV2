@@ -1264,16 +1264,24 @@
 
     <img src="{{ asset('img/logogreenex.png') }}" class="header-logo">
 
-
-    @if($recepcion->nota_calidad<4)
-        <img src="{{ asset('img/sellCC.png') }}" class="stamp-image">
-    @elseif($recepcion->nota_calidad==4)
-        <img src="{{ asset('img/sellObjetado.png') }}" class="stamp-image">
-    @else
-        <img src="{{ asset('img/sellRechazado.png') }}" class="stamp-image">
+    @if($recepcion->n_especie=='Cherries')
+        @if($recepcion->nota_calidad<4)
+            <img src="{{ asset('img/sellCC.png') }}" class="stamp-image">
+        @elseif($recepcion->nota_calidad==4)
+            <img src="{{ asset('img/sellObjetado.png') }}" class="stamp-image">
+        @else
+            <img src="{{ asset('img/sellRechazado.png') }}" class="stamp-image">
+        @endif
     @endif
-
-
+      @if($recepcion->n_especie!='Cherries')
+        @if($recepcion->nota_calidad<3)
+            <img src="{{ asset('img/sellCC.png') }}" class="stamp-image">
+        @elseif($recepcion->nota_calidad==3)
+            <img src="{{ asset('img/sellObjetado.png') }}" class="stamp-image">
+        @else
+            <img src="{{ asset('img/sellRechazado.png') }}" class="stamp-image">
+        @endif
+    @endif
     <div class="title">Informe de Recepción de {{ $recepcion->n_especie }}</div>
 
 
