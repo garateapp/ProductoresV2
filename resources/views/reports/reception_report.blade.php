@@ -4029,7 +4029,7 @@ default: // Default colors if species not matched
                         animation: false,
                         plugins: {
                             legend: {
-                                display: true,
+                                display: false,
                                 position: 'right',
                                 labels: {
                                     boxWidth: 10,
