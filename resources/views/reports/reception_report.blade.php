@@ -613,7 +613,7 @@
 
 
 
-            gap: 8px;
+            /* gap: 8px; */
 
 
 
@@ -4834,7 +4834,7 @@ default: // Default colors if species not matched
             @if (!empty($colorFondo))
             <div class="chart-wrapper">
                 <div class="chart-container">
-                    <div style="position: relative; height:150px; width:100%;">
+                    <div style="position: relative; height:150px; width:80%;">
                         <canvas id="color-fondo-chart-canvas"></canvas>
                     </div>
                     <div id="color-fondo-legend" class="chart-legend"></div>
