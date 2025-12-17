@@ -400,11 +400,11 @@ class ProcesoController extends Controller
             ->table('V_PKG_Produccion_Completo', 'ppc')
             ->select(
                 'n_productor_proceso AS agricola',
-                'c_productor',
+                //'c_productor',
                 'numero_proceso AS n_proceso',
                 'ppc.n_especie_proceso AS especie',
                 'ppc.n_variedad_proceso AS variedad',
-                'ppc.LPP_recepcion',
+                //'ppc.LPP_recepcion',
 
                 DB::raw("CAST(ppc.fecha_proceso AS DATE) AS fecha"), // Asegurar que es solo fecha
                 'id_empresa',
@@ -418,14 +418,13 @@ class ProcesoController extends Controller
             ->where('ppc.Estado', 'En Proceso')->orWhere('ppc.Estado', 'Finalizado')
             ->groupBy(
                 'n_productor_proceso',
-                'c_productor',
+                //'c_productor',
                 'numero_proceso',
                 'ppc.n_especie_proceso',
                 'ppc.n_variedad_proceso',
                 'ppc.fecha_proceso',
                 'id_empresa',
-                'ppc.LPP_recepcion'
-
+                //'ppc.LPP_recepcion'
             )
             ->get();
 
@@ -446,8 +445,8 @@ class ProcesoController extends Controller
                 'comercial' => (int) $proceso->comercial,
                 'desecho' => (int) $proceso->desecho,
                 'kilos_netos' => (int) $proceso->kilos_netos,
-                'c_productor' => $proceso->c_productor,
-                'LPP_recepcion' => $proceso->LPP_recepcion,
+                //'c_productor' => $proceso->c_productor,
+                //'LPP_recepcion' => $proceso->LPP_recepcion,
                 'lote_recepcion' => 0,
             ];
 
