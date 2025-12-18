@@ -301,11 +301,11 @@ class ProcesoController extends Controller
 
             $summary['updated']++;
              try {
-            // $reportNotificationService->notifyProcessReport(
-            //     $proceso,
-            //     $proceso->informe,
-            //     basename($proceso->informe)
-            //);
+            $reportNotificationService->notifyProcessReport(
+                $proceso,
+                $proceso->informe,
+                basename($proceso->informe)
+            );
         } catch (\Throwable $e) {
             Log::error('Process report resend failed', [
                 'proceso_id' => $proceso->id,
