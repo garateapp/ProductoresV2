@@ -50,6 +50,11 @@ export default function AdminMenu() {
           </Link>
         </DropdownMenuItem>
         <DropdownMenuItem asChild>
+          <Link href={route("field-management.index")} className="w-full">
+            Gestion de Campo
+          </Link>
+        </DropdownMenuItem>
+        <DropdownMenuItem asChild>
           <Link href={route("mass-communications.create")} className="w-full">
             Envío masivo
           </Link>

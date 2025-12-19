@@ -11,6 +11,7 @@ use App\Http\Controllers\MassCommunicationController;
 use App\Http\Controllers\CommercialDiscardController;
 use App\Http\Controllers\NotificationLogController;
 use App\Http\Controllers\FieldVisitController;
+use App\Http\Controllers\FieldManagementController;
 
 Route::get('/', function () {
     return redirect()->route('login');
@@ -109,6 +110,41 @@ Route::middleware('auth')->group(function () {
     Route::get('admin/notification-logs/export', [NotificationLogController::class, 'export'])->name('notification-logs.export');
     Route::get('field-visits', [FieldVisitController::class, 'index'])->name('field-visits.index');
     Route::post('field-visits', [FieldVisitController::class, 'store'])->name('field-visits.store');
+
+    // Field Management Module (Contratistas, cuadrillas, trabajadores, credenciales, campos)
+    Route::prefix('field-management')->name('field-management.')->group(function () {
+        Route::get('/', [FieldManagementController::class, 'index'])->name('index');
+        Route::get('/sync', [FieldManagementController::class, 'apiSync'])->name('sync');
+
+        Route::post('/contractors', [FieldManagementController::class, 'storeContractor'])->name('contractors.store');
+        Route::put('/contractors/{contractor}', [FieldManagementController::class, 'updateContractor'])->name('contractors.update');
+        Route::delete('/contractors/{contractor}', [FieldManagementController::class, 'destroyContractor'])->name('contractors.destroy');
+
+        Route::post('/crews', [FieldManagementController::class, 'storeCrew'])->name('crews.store');
+        Route::put('/crews/{crew}', [FieldManagementController::class, 'updateCrew'])->name('crews.update');
+        Route::delete('/crews/{crew}', [FieldManagementController::class, 'destroyCrew'])->name('crews.destroy');
+
+        Route::post('/workers', [FieldManagementController::class, 'storeWorker'])->name('workers.store');
+        Route::put('/workers/{worker}', [FieldManagementController::class, 'updateWorker'])->name('workers.update');
+        Route::delete('/workers/{worker}', [FieldManagementController::class, 'destroyWorker'])->name('workers.destroy');
+
+        Route::post('/credentials', [FieldManagementController::class, 'storeCredential'])->name('credentials.store');
+        Route::put('/credentials/{credential}', [FieldManagementController::class, 'updateCredential'])->name('credentials.update');
+        Route::delete('/credentials/{credential}', [FieldManagementController::class, 'destroyCredential'])->name('credentials.destroy');
+        Route::post('/credentials/assign', [FieldManagementController::class, 'assignCredential'])->name('credentials.assign');
+
+        Route::post('/fields', [FieldManagementController::class, 'storeField'])->name('fields.store');
+        Route::put('/fields/{field}', [FieldManagementController::class, 'updateField'])->name('fields.update');
+        Route::delete('/fields/{field}', [FieldManagementController::class, 'destroyField'])->name('fields.destroy');
+
+        Route::post('/blocks', [FieldManagementController::class, 'storeBlock'])->name('blocks.store');
+        Route::put('/blocks/{block}', [FieldManagementController::class, 'updateBlock'])->name('blocks.update');
+        Route::delete('/blocks/{block}', [FieldManagementController::class, 'destroyBlock'])->name('blocks.destroy');
+
+        Route::post('/fruit-configs', [FieldManagementController::class, 'storeFruitConfig'])->name('fruit-configs.store');
+        Route::put('/fruit-configs/{fruitConfig}', [FieldManagementController::class, 'updateFruitConfig'])->name('fruit-configs.update');
+        Route::delete('/fruit-configs/{fruitConfig}', [FieldManagementController::class, 'destroyFruitConfig'])->name('fruit-configs.destroy');
+    });
 
     // Processed Fruit Quality Control Routes
     Route::get('processed-fruit-quality', [App\Http\Controllers\ProcessedFruitQualityController::class, 'index'])->name('processed-fruit-quality.index');
