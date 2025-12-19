@@ -2022,7 +2022,8 @@ public function previewPage(Recepcion $recepcion)
         'n_especie',
         'n_variedad',
         'fecha_g_recepcion',
-        'peso_neto'
+        'peso_neto',
+        'id_emisor',
     )
     ->whereHas('calidad')
     ->with(['calidad.detalles' => function ($query) {
@@ -2032,6 +2033,16 @@ public function previewPage(Recepcion $recepcion)
     ->chunkById(250, function ($recepciones) use (&$results) {
         foreach ($recepciones as $recepcion) {
             $percentage = $this->calculateExportablePercentage($recepcion);
+            $esServicio= false;
+            $service = Service::query()
+                ->whereHas('users', function ($query) use ($recepcion) {
+                    $query->where('idprod', $recepcion->id_emisor);
+                })
+                ->with('owner')
+                ->first();
+                if ($service && $service->owner) {
+                    $esServicio = true;
+                }
             $results[] = [
                 'numero_g_recepcion' => $recepcion->numero_g_recepcion,
                 'productor' => $recepcion->n_emisor,
@@ -2040,6 +2051,8 @@ public function previewPage(Recepcion $recepcion)
                 'variedad' => $recepcion->n_variedad,
                 'peso_neto' => $recepcion->peso_neto,
                 'porcentaje_exportable' => $percentage,
+                'es_servicio' => $esServicio,
+                'Servicio_nombre' => $esServicio ? $service->name : null,
             ];
         }
     });
