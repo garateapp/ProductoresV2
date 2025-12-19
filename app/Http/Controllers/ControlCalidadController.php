@@ -2052,7 +2052,7 @@ public function previewPage(Recepcion $recepcion)
                 'peso_neto' => $recepcion->peso_neto,
                 'porcentaje_exportable' => $percentage,
                 'es_servicio' => $esServicio,
-                'Servicio_nombre' => $esServicio ? $service->name : null,
+                'Servicio_nombre' => $esServicio ? $service->name : Greenex SpA,
             ];
         }
     });
