@@ -78,7 +78,10 @@ class ConsolidatedExport implements FromCollection, ShouldAutoSize, WithEvents, 
         $defectosCondicionSum = $reception->calidad->detalles
             ->where('tipo_item', 'DEFECTOS DE CONDICIÓN')
             ->sum('cantidad');
-        $estimacionExportacion = 100 - ($defectosCalidadSum + $defectosCondicionSum);
+         $danoPlagaSum = $reception->calidad->detalles
+            ->where('tipo_item', 'DAÑO PLAGA')
+            ->sum('cantidad');
+        $estimacionExportacion = 100 - ($defectosCalidadSum + $defectosCondicionSum+$danoPlagaSum);
 
         $row[] = $estimacionExportacion;
         $row[] = ''; // Exportable Proceso
