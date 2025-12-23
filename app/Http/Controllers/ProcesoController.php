@@ -286,10 +286,6 @@ class ProcesoController extends Controller
 
             }
 
-
-
-
-
             $sanitizedName = preg_replace('/[^A-Za-z0-9._-]/', '_', $originalName);
 
             $storedPath = $file->storeAs('pdf-procesos', $sanitizedName, 'public');
@@ -400,7 +396,7 @@ class ProcesoController extends Controller
             ->table('V_PKG_Produccion_Completo', 'ppc')
             ->select(
                 'n_productor_proceso AS agricola',
-                //'c_productor',
+                'c_productor',
                 'numero_proceso AS n_proceso',
                 'ppc.n_especie_proceso AS especie',
                 'ppc.n_variedad_proceso AS variedad',
@@ -418,7 +414,7 @@ class ProcesoController extends Controller
             ->where('ppc.Estado', 'En Proceso')->orWhere('ppc.Estado', 'Finalizado')
             ->groupBy(
                 'n_productor_proceso',
-                //'c_productor',
+                'c_productor',
                 'numero_proceso',
                 'ppc.n_especie_proceso',
                 'ppc.n_variedad_proceso',
@@ -445,7 +441,7 @@ class ProcesoController extends Controller
                 'comercial' => (int) $proceso->comercial,
                 'desecho' => (int) $proceso->desecho,
                 'kilos_netos' => (int) $proceso->kilos_netos,
-                //'c_productor' => $proceso->c_productor,
+                'c_productor' => $proceso->c_productor,
                 //'LPP_recepcion' => $proceso->LPP_recepcion,
                 'lote_recepcion' => 0,
             ];
@@ -850,21 +846,25 @@ class ProcesoController extends Controller
     private function applyProcesoProducerFilters($query, $allowedNames, $allowedCodes): void
     {
         $query->where(function ($subQuery) use ($allowedNames, $allowedCodes) {
-            $applied = false;
-            if ($allowedNames->isNotEmpty()) {
-                $names = $allowedNames->all();
-                $subQuery->whereIn('LPP_recepcion', $names);
-                $applied = true;
+            $hasCodes = $allowedCodes->isNotEmpty();
+            $hasNames = $allowedNames->isNotEmpty();
+
+            if ($hasCodes) {
+                $subQuery->whereIn('c_productor', $allowedCodes);
             }
 
-            // if ($allowedCodes->isNotEmpty()) {
-            //     $codes = $allowedCodes->all();
-            //     if ($applied) {
-            //         $subQuery->orWhereIn('c_productor', $codes);
-            //     } else {
-            //         $subQuery->whereIn('c_productor', $codes);
-            //     }
-            // }
+            if ($hasNames) {
+                $nameFilter = function ($nameQuery) use ($allowedNames) {
+                    $nameQuery->whereIn('agricola', $allowedNames)
+                        ->orWhereIn('LPP_recepcion', $allowedNames);
+                };
+
+                if ($hasCodes) {
+                    $subQuery->orWhere($nameFilter);
+                } else {
+                    $subQuery->where($nameFilter);
+                }
+            }
         });
     }
 }
