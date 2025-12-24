@@ -28,7 +28,7 @@ class ProcesoController extends Controller
         $isProducer = ! empty($user->idprod);
        $isAdmin = method_exists($user, 'hasRole') && ($user->hasRole('Admin') || $user->hasRole('Administrador') || ($user->hasRole('Calidad') || $user->hasRole('Gerencia')));
 
-        $query = Proceso::query();
+        $query = Proceso::query()->where('estado','Finalizado');
 
         $serviceProducerNames = collect();
         $serviceProducerCodes = collect();
@@ -401,7 +401,7 @@ class ProcesoController extends Controller
                 'ppc.n_especie_proceso AS especie',
                 'ppc.n_variedad_proceso AS variedad',
                 //'ppc.LPP_recepcion',
-
+                'ppc.estado',
                 DB::raw("CAST(ppc.fecha_proceso AS DATE) AS fecha"), // Asegurar que es solo fecha
                 'id_empresa',
                 DB::raw("SUM(CASE WHEN t_categoria = 'Exportacion' THEN ppc.peso_neto ELSE 0 END) AS exp"),
@@ -420,6 +420,7 @@ class ProcesoController extends Controller
                 'ppc.n_variedad_proceso',
                 'ppc.fecha_proceso',
                 'id_empresa',
+                'ppc.estado'
                 //'ppc.LPP_recepcion'
             )
             ->get();
@@ -444,6 +445,7 @@ class ProcesoController extends Controller
                 'c_productor' => $proceso->c_productor,
                 //'LPP_recepcion' => $proceso->LPP_recepcion,
                 'lote_recepcion' => 0,
+                'estado'=>$proceso->estado,
             ];
 
 

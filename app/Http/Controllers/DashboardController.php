@@ -69,7 +69,7 @@ class DashboardController extends Controller
                     'n_productor_rotulado',
                 ]);
 
-            $procesoBase = Proceso::query();
+            $procesoBase = Proceso::query()->where('estado', 'Finalizado');
             $this->applyProcesoFilters($procesoBase, $producerNames, $producerCodes);
 
             $totalProcesos = (clone $procesoBase)->count();

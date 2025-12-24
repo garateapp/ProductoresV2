@@ -325,7 +325,7 @@ class ProducerController extends Controller
             ->limit(50)
             ->get(['id','numero_g_recepcion','fecha_g_recepcion','n_especie','n_variedad','cantidad','peso_neto','informe']);
 
-        $procesosQuery = \App\Models\Proceso::query();
+        $procesosQuery = \App\Models\Proceso::query()->where('estado', 'Finalizado');
         if ($hasProcessFilter) {
             $applyProcessFilters($procesosQuery);
         }

@@ -28,6 +28,7 @@ class Proceso extends Model
         'c_productor',
         'LPP_recepcion',
         'lote_recepcion',
+        'estado',
     ];
 
     public function recepcion()
