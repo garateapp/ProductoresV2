@@ -50,6 +50,7 @@ class ServiceController extends Controller
                 ->get(['id','numero_g_recepcion','fecha_g_recepcion','n_especie','n_variedad','cantidad','peso_neto','informe']);
             $myProcesos = \App\Models\Proceso::query()
                 ->where('agricola', $producerName)
+                ->where('estado', 'Finalizado')
                 ->orderByDesc('fecha')
                 ->limit(50)
                 ->get(['id','n_proceso','fecha','especie','variedad','kilos_netos','informe','exp','comercial','merma']);
@@ -270,7 +271,7 @@ class ServiceController extends Controller
 
         $procesos = collect();
         if ($hasProcesoFilters) {
-            $procesosQuery = Proceso::query();
+            $procesosQuery = Proceso::query()->where('estado', 'Finalizado');
             $this->applyProcesoProducerFilters($procesosQuery, $producerCsgs, $producerCodes, $producerNames);
             $procesos = $procesosQuery
                 ->orderByDesc('fecha')
