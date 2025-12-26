@@ -11,7 +11,7 @@ import {
   TableRow,
 } from '@/Components/ui/table';
 import { Input } from '@/Components/ui/input';
-import { FileText, RefreshCw, Send, Upload as UploadIcon, X, Mail, MessageCircle } from 'lucide-react';
+import { FileText, RefreshCw, Send, Upload as UploadIcon, X, Mail, MessageCircle, Truck } from 'lucide-react';
 import Chart from 'react-apexcharts';
 import AuthenticatedLayout from '@/Layouts/AuthenticatedLayout';
 
@@ -359,7 +359,7 @@ export default function Index({ procesos, especies, variedades = [], filters, is
           <div className="mb-4 flex flex-col md:flex-row justify-between items-center gap-4">
             <Input
               type="text"
-              placeholder="Buscar por N° proceso, agrícola, especie o variedad..."
+              placeholder="Buscar por N° proceso, agrícola, lote_recepcion, especie o variedad..."
               value={data.search}
               onChange={handleSearchChange}
               className="max-w-sm"
@@ -512,7 +512,7 @@ export default function Index({ procesos, especies, variedades = [], filters, is
                 <TableHead>Agricola</TableHead>
                 <TableHead>N° Proceso</TableHead>
                 <TableHead>Especie</TableHead>
-                <TableHead>Variedad</TableHead>
+                <TableHead className="min-w-[11rem]">Variedad</TableHead>
                 <TableHead>Fecha</TableHead>
                 <TableHead>Kg Procesados</TableHead>
                 <TableHead>Exportación</TableHead>
@@ -534,7 +534,7 @@ export default function Index({ procesos, especies, variedades = [], filters, is
                     <TableCell>{proceso.agricola}</TableCell>
                     <TableCell>{proceso.n_proceso}</TableCell>
                     <TableCell>{proceso.especie}</TableCell>
-                    <TableCell>{proceso.variedad}</TableCell>
+                    <TableCell className="min-w-[13rem]">{proceso.variedad}</TableCell>
 
                     <TableCell>{formatProcessDate(proceso.fecha)}</TableCell>
                     <TableCell>{(proceso.kilos_netos ?? 0).toLocaleString('es-CL')}</TableCell>
@@ -562,29 +562,49 @@ export default function Index({ procesos, especies, variedades = [], filters, is
                             className={`h-4 w-4 ${whatsappSent ? 'text-green-600' : 'text-red-500'}`}
                             title={whatsappSent ? 'Informe enviado por WhatsApp' : 'WhatsApp no enviado'}
                           />
-                        </div>
-                      ) : (
-                        '-'
-                      )}
-                    </TableCell>
-                    <TableCell>
-                      {isAdmin && proceso.informe ? (
-                        <Button
-                          variant="outline"
-                          size="sm"
-                          onClick={() => handleResendReport(proceso.id)}
-                          disabled={resendingId === proceso.id}
-                        >
-                          <Send className="h-4 w-4 mr-1" />
-                          {resendingId === proceso.id ? 'Enviando...' : 'Reenviar'}
-                        </Button>
-                      ) : (
-                        '-'
-                      )}
-                    </TableCell>
-                  </TableRow>
-                );
-              })}
+                </div>
+              ) : (
+                '-'
+              )}
+            </TableCell>
+            <TableCell>
+              <div className="flex items-center gap-2">
+                <Button
+                  variant="outline"
+                  size="sm"
+                  asChild
+                  disabled={!proceso.lote_recepcion}
+                  title={proceso.lote_recepcion ? 'Abrir recepción asociada' : 'Sin lote de recepción disponible'}
+                >
+                  <a
+                    href={`/recepciones?especie_id=&search=${encodeURIComponent(proceso.lote_recepcion ?? '')}&variedad_id=`}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                  >
+                    <div className="flex items-center gap-1">
+                      <Truck className="h-4 w-4" />
+                      <span>Recepción</span>
+                    </div>
+                  </a>
+                </Button>
+                {isAdmin && proceso.informe ? (
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() => handleResendReport(proceso.id)}
+                    disabled={resendingId === proceso.id}
+                  >
+                    <Send className="h-4 w-4 mr-1" />
+                    {resendingId === proceso.id ? 'Enviando...' : 'Reenviar'}
+                  </Button>
+                ) : (
+                  <span className="text-gray-400 text-sm">-</span>
+                )}
+              </div>
+            </TableCell>
+          </TableRow>
+        );
+      })}
             </TableBody>
           </Table>
           {/* Paginación */}

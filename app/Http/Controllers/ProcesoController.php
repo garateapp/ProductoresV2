@@ -113,6 +113,7 @@ class ProcesoController extends Controller
                 $q->where('especie', 'like', '%'.$searchTerm.'%')
                     ->orWhere('variedad', 'like', '%'.$searchTerm.'%')
                     ->orWhere('n_proceso', 'like', '%'.$searchTerm.'%')
+                    ->orWhere('lote_recepcion', 'like', '%'.$searchTerm.'%')
                     ->orWhere('agricola', 'like', '%'.$searchTerm.'%');
             });
         }
@@ -402,11 +403,13 @@ class ProcesoController extends Controller
                 'ppc.n_variedad_proceso AS variedad',
                 //'ppc.LPP_recepcion',
                 'ppc.estado',
+                'ppc.recepciones_trazabilidad as lote_recepcion',
                 DB::raw("CAST(ppc.fecha_proceso AS DATE) AS fecha"), // Asegurar que es solo fecha
                 'id_empresa',
                 DB::raw("SUM(CASE WHEN t_categoria = 'Exportacion' THEN ppc.peso_neto ELSE 0 END) AS exp"),
                 DB::raw("SUM(CASE WHEN t_categoria = 'Mercado Interno' THEN ppc.peso_neto ELSE 0 END) AS comercial"),
                 DB::raw("SUM(CASE WHEN t_categoria = 'Desecho' THEN ppc.peso_neto ELSE 0 END) AS desecho"),
+                DB::raw("SUM(CASE WHEN t_categoria = 'Merma' THEN ppc.peso_neto ELSE 0 END) AS merma"),
                 DB::raw("SUM(CASE WHEN t_categoria = 'Sin Procesar' THEN ppc.peso_neto ELSE 0 END) AS kilos_netos"),
                 DB::raw("GETDATE() AS FechaConsulta")
             )
@@ -420,10 +423,43 @@ class ProcesoController extends Controller
                 'ppc.n_variedad_proceso',
                 'ppc.fecha_proceso',
                 'id_empresa',
-                'ppc.estado'
+                'ppc.estado',
+                'ppc.recepciones_trazabilidad',
                 //'ppc.LPP_recepcion'
             )
+            ->orderBy('numero_proceso', 'desc')
             ->get();
+
+        // Consolidar procesos duplicados por n_proceso e id_empresa sumando sus totales
+        $procesos_data = $procesos_data
+            ->groupBy(fn ($proceso) => $proceso->n_proceso.'|'.$proceso->id_empresa)
+            ->map(function ($procesosAgrupados) {
+                $procesoBase = $procesosAgrupados->first();
+                $loteRecepcion = $procesosAgrupados
+                    ->pluck('lote_recepcion')
+                    ->filter(function ($valor) {
+                        return $valor !== null && $valor !== '' && $valor !== 0 && $valor !== '0';
+                    })
+                    ->first();
+
+                return (object) [
+                    'agricola' => $procesoBase->agricola,
+                    'c_productor' => $procesoBase->c_productor,
+                    'n_proceso' => $procesoBase->n_proceso,
+                    'especie' => $procesoBase->especie,
+                    'variedad' => $procesoBase->variedad,
+                    'estado' => $procesoBase->estado,
+                    'fecha' => $procesoBase->fecha,
+                    'id_empresa' => $procesoBase->id_empresa,
+                    'exp' => (int) $procesosAgrupados->sum('exp'),
+                    'comercial' => (int) $procesosAgrupados->sum('comercial'),
+                    'desecho' => (int) $procesosAgrupados->sum('desecho'),
+                    'merma' => (int) $procesosAgrupados->sum('merma'),
+                    'kilos_netos' => (int) $procesosAgrupados->sum('kilos_netos'),
+                    'lote_recepcion' => $loteRecepcion ?? $procesoBase->lote_recepcion,
+                ];
+            })
+            ->values();
 
         // 3. Inicialización para conteo de sincronización
         $registros_sincronizados = 0;
@@ -442,9 +478,10 @@ class ProcesoController extends Controller
                 'comercial' => (int) $proceso->comercial,
                 'desecho' => (int) $proceso->desecho,
                 'kilos_netos' => (int) $proceso->kilos_netos,
+                'merma' => (int) $proceso->merma,
                 'c_productor' => $proceso->c_productor,
                 //'LPP_recepcion' => $proceso->LPP_recepcion,
-                'lote_recepcion' => 0,
+                'lote_recepcion' => $proceso->lote_recepcion,
                 'estado'=>$proceso->estado,
             ];
 
