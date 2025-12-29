@@ -9,10 +9,28 @@ use App\Models\Recepcion;
 use Illuminate\Http\Request;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\Auth;
+use Illuminate\Support\Facades\DB;
 use Inertia\Inertia;
 
 class DashboardController extends Controller
 {
+/*************  ✨ Windsurf Command ⭐  *************/
+/**
+ * Handle an incoming request.
+ *
+ * @param  \Illuminate\Http\Request  $request
+ * @return \Illuminate\Http\Response
+ */
+/**
+ * This function renders the dashboard page based on the user's role.
+ * If the user is a producer, it renders the producer's dashboard page.
+ * If the user is not a producer, it renders the main dashboard page.
+ * The function takes a request object as a parameter and returns a response object.
+ *
+ * @param \Illuminate\Http\Request $request
+ * @return \Illuminate\Http\Response
+ */
+/*******  77bcf021-acf4-46a7-8163-b2e78d458c8d  *******/
     public function __invoke(Request $request)
     {
         $user = Auth::user();
@@ -36,6 +54,9 @@ class DashboardController extends Controller
             'contracts' => [],
             'certifications' => [],
             'stats' => [],
+            'charts' => [
+                'calibreCurve' => ['categories' => [], 'series' => [], 'species' => [], 'varietiesBySpecies' => [], 'calibresBySpecies' => []],
+            ],
         ];
 
         if ($isProducer) {
@@ -121,6 +142,9 @@ class DashboardController extends Controller
                     'activeContracts' => $contracts->count(),
                     'activeCertifications' => $certifications->count(),
                 ],
+                'charts' => [
+                    'calibreCurve' => $this->buildCalibreCurveForProducer($producerNames, $producerCodes),
+                ],
             ]);
         }
 
@@ -191,5 +215,108 @@ class DashboardController extends Controller
                 }
             }
         });
+    }
+
+    private function buildCalibreCurveForProducer(Collection $allowedNames, Collection $allowedCodes): array
+    {
+        $rows = DB::connection('sqlsrv')
+            ->table('V_PKG_Produccion_Completo as ppc')
+            ->select([
+                DB::raw('ppc.n_especie_proceso AS especie'),
+                DB::raw('ppc.n_variedad_proceso AS variedad'),
+                DB::raw('ppc.n_calibre AS calibre'),
+                DB::raw('SUM(ppc.peso_neto) as kilos'),
+            ])
+            ->where('ppc.tipo_proceso', 'PRN')
+            ->where('ppc.estado', 'Finalizado')
+            ->whereNotIn('ppc.id_calibre', [73, 75, 104, 91, 96])
+            ->when($allowedCodes->isNotEmpty() || $allowedNames->isNotEmpty(), function ($query) use ($allowedCodes, $allowedNames) {
+                $query->where(function ($q) use ($allowedCodes, $allowedNames) {
+                    $applied = false;
+                    if ($allowedCodes->isNotEmpty()) {
+                        $q->whereIn('ppc.c_productor', $allowedCodes);
+                        $applied = true;
+                    }
+                    if ($allowedNames->isNotEmpty()) {
+                        $applied
+                            ? $q->orWhereIn('ppc.n_productor_proceso', $allowedNames)
+                            : $q->whereIn('ppc.n_productor_proceso', $allowedNames);
+                    }
+                });
+            })
+            ->groupBy('ppc.n_especie_proceso', 'ppc.n_variedad_proceso', 'ppc.n_calibre')
+            ->get()
+            ->map(function ($row) {
+                if ($row->calibre !== null) {
+                    $row->calibre = preg_replace('/\.$/', '', (string) $row->calibre);
+                }
+
+                return $row;
+            });
+
+        if ($rows->isEmpty()) {
+            return ['categories' => [], 'series' => [], 'species' => [], 'varietiesBySpecies' => [], 'calibresBySpecies' => []];
+        }
+
+        $categories = $rows->pluck('calibre')->filter()->unique()->values()->all();
+        usort($categories, function ($a, $b) {
+            $na = is_numeric($a) ? (float) $a : $a;
+            $nb = is_numeric($b) ? (float) $b : $b;
+            if (is_numeric($na) && is_numeric($nb)) {
+                return $na <=> $nb;
+            }
+            return strnatcasecmp((string) $na, (string) $nb);
+        });
+
+        $series = [];
+        $calibresBySpecies = [];
+        $seriesGroups = $rows->groupBy(function ($item) {
+            $especie = $item->especie ?: 'SIN ESPECIE';
+            $variedad = $item->variedad ?: 'SIN VARIEDAD';
+
+            return $especie.'|'.$variedad;
+        });
+
+        foreach ($seriesGroups as $key => $items) {
+            [$species, $variety] = explode('|', $key);
+            $data = [];
+            foreach ($categories as $calibre) {
+                $match = $items->firstWhere('calibre', $calibre);
+                $data[] = (float) ($match->kilos ?? 0);
+            }
+            $calibresBySpecies[$species] = array_values(array_unique(array_merge($calibresBySpecies[$species] ?? [], $items->pluck('calibre')->filter()->all())));
+            $series[] = [
+                'name' => trim($species.' - '.$variety),
+                'especie' => $species,
+                'variedad' => $variety,
+                'data' => $data,
+            ];
+        }
+
+        $speciesList = collect($series)->pluck('especie')->unique()->values()->all();
+        $varietiesBySpecies = collect($series)
+            ->groupBy('especie')
+            ->map(fn ($items) => $items->pluck('variedad')->unique()->values()->all())
+            ->toArray();
+
+        foreach ($calibresBySpecies as $sp => $values) {
+            usort($values, function ($a, $b) {
+                $na = is_numeric($a) ? (float) $a : $a;
+                $nb = is_numeric($b) ? (float) $b : $b;
+                if (is_numeric($na) && is_numeric($nb)) {
+                    return $na <=> $nb;
+                }
+                return strnatcasecmp((string) $na, (string) $nb);
+            });
+            $calibresBySpecies[$sp] = $values;
+        }
+
+        return [
+            'categories' => $categories,
+            'series' => $series,
+            'species' => $speciesList,
+            'varietiesBySpecies' => $varietiesBySpecies,
+            'calibresBySpecies' => $calibresBySpecies,
+        ];
     }
 }

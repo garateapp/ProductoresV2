@@ -9,6 +9,80 @@ export default function AdminDashboard({ auth, services = [], producers = [], re
   const [producerFilter, setProducerFilter] = useState('');
   const [recepFilter, setRecepFilter] = useState('');
   const [procFilter, setProcFilter] = useState('');
+  const [selectedCalibreSpecies, setSelectedCalibreSpecies] = useState('');
+  const [selectedCalibreVariety, setSelectedCalibreVariety] = useState('');
+
+  // Color por especie (paleta corporativa + legible)
+  const speciesColor = (name = '') => {
+    const n = String(name).toLowerCase();
+    if (n.includes('cherr') || n.includes('cereza')) return '#7F1F38'; // Cherry wine
+    if (n.includes('apple') || n.includes('manzana')) return 'var(--corp-green)'; // Greenex green
+    if (n.includes('pear') || n.includes('pera')) return '#53A318'; // Pear green
+    if (n.includes('mandarin') || n.includes('mandarina')) return 'var(--corp-orange)'; // Mandarin orange
+    if (n.includes('orange') || n.includes('naranja')) return '#ff8b24'; // Orange
+    if (n.includes('nectarin') || n.includes('nectarina')) return '#E91E63'; // Pink
+    if (n.includes('peach') || n.includes('durazno')) return '#F06292'; // Peach
+    if (n.includes('plum') || n.includes('ciruela')) return '#7E57C2'; // Plum purple
+    if (n.includes('membrill')) return '#FDD835'; // Yellow
+    return '#607D8B'; // Default slate
+  };
+
+  const calibreData = charts?.calibreCurve ?? {};
+  const calibreCategoriesAll = Array.isArray(calibreData.categories) ? calibreData.categories.map((c) => String(c ?? '')) : [];
+  const calibreSeries = Array.isArray(calibreData.series) ? calibreData.series : [];
+  const calibreSpecies = Array.isArray(calibreData.species) ? calibreData.species.filter(Boolean) : [];
+  const calibreVarietiesBySpecies = calibreData.varietiesBySpecies || {};
+  const calibreCalibresBySpecies = calibreData.calibresBySpecies || {};
+
+  const activeCalibreSpecies = selectedCalibreSpecies || calibreSpecies[0] || '';
+  const calibreVarietyOptions = useMemo(() => {
+    const options = Array.isArray(calibreVarietiesBySpecies?.[activeCalibreSpecies])
+      ? calibreVarietiesBySpecies[activeCalibreSpecies]
+      : [];
+    return options.filter(Boolean);
+  }, [calibreVarietiesBySpecies, activeCalibreSpecies]);
+  const activeCalibreVariety = calibreVarietyOptions.includes(selectedCalibreVariety) ? selectedCalibreVariety : '';
+  const activeCalibreCategories = useMemo(() => {
+    const speciesCalibres = Array.isArray(calibreCalibresBySpecies?.[activeCalibreSpecies])
+      ? calibreCalibresBySpecies[activeCalibreSpecies].map((c) => String(c ?? ''))
+      : [];
+    const fallback = speciesCalibres.length ? speciesCalibres : calibreCategoriesAll;
+    return fallback;
+  }, [calibreCalibresBySpecies, activeCalibreSpecies, calibreCategoriesAll]);
+
+  const filteredCalibreSeries = useMemo(() => {
+    return calibreSeries
+      .filter((serie) => (!activeCalibreSpecies || serie.especie === activeCalibreSpecies))
+      .filter((serie) => (!activeCalibreVariety || (serie.variedad || 'SIN VARIEDAD') === activeCalibreVariety))
+      .map((serie) => {
+        const dataArr = Array.isArray(serie?.data) ? serie.data : [];
+        const categoryMap = new Map(
+          calibreCategoriesAll.map((cat, idx) => [String(cat ?? ''), dataArr[idx] ?? 0])
+        );
+        return {
+          name: serie.name || `${serie.especie}${serie.variedad ? ` - ${serie.variedad}` : ''}`,
+          data: activeCalibreCategories.map((_, idx) => {
+            const cat = activeCalibreCategories[idx];
+            const val = categoryMap.has(String(cat)) ? categoryMap.get(String(cat)) : 0;
+            const num = typeof val === 'number' ? val : Number(val ?? 0);
+            return Number.isFinite(num) ? num : 0;
+          }),
+          color: speciesColor(serie.especie),
+        };
+      });
+  }, [calibreSeries, activeCalibreCategories, activeCalibreSpecies, activeCalibreVariety, calibreCategoriesAll]);
+
+  const aggregatedCalibreData = useMemo(() => {
+    if (!activeCalibreCategories.length) {
+      return { kilos: [], percent: [], total: 0 };
+    }
+    const kilos = activeCalibreCategories.map((_, idx) =>
+      filteredCalibreSeries.reduce((sum, serie) => sum + (serie.data[idx] || 0), 0)
+    );
+    const total = kilos.reduce((a, b) => a + b, 0);
+    const percent = total > 0 ? kilos.map((v) => (v * 100) / total) : activeCalibreCategories.map(() => 0);
+    return { kilos, percent, total };
+  }, [activeCalibreCategories, filteredCalibreSeries]);
 
   const filteredProducers = useMemo(() => {
     const term = producerFilter.trim().toLowerCase();
@@ -40,21 +114,6 @@ export default function AdminDashboard({ auth, services = [], producers = [], re
     if (!term) return procesos;
     return procesos.filter(p => `${p.n_proceso} ${p.especie} ${p.variedad}`.toLowerCase().includes(term));
   }, [procFilter, procesos]);
-
-  // Color por especie (paleta corporativa + legible)
-  const speciesColor = (name = '') => {
-    const n = String(name).toLowerCase();
-    if (n.includes('cherr') || n.includes('cereza')) return '#7F1F38'; // Cherry wine
-    if (n.includes('apple') || n.includes('manzana')) return 'var(--corp-green)'; // Greenex green
-    if (n.includes('pear') || n.includes('pera')) return '#53A318'; // Pear green
-    if (n.includes('mandarin') || n.includes('mandarina')) return 'var(--corp-orange)'; // Mandarin orange
-    if (n.includes('orange') || n.includes('naranja')) return '#ff8b24'; // Orange
-    if (n.includes('nectarin') || n.includes('nectarina')) return '#E91E63'; // Pink
-    if (n.includes('peach') || n.includes('durazno')) return '#F06292'; // Peach
-    if (n.includes('plum') || n.includes('ciruela')) return '#7E57C2'; // Plum purple
-    if (n.includes('membrill')) return '#FDD835'; // Yellow
-    return '#607D8B'; // Default slate
-  };
   return (
     <AuthenticatedLayout user={auth.user} header={<h2 className="font-semibold text-xl text-gray-800 leading-tight">Dashboard Administrador</h2>}>
       <Head title="Dashboard Administrador" />
@@ -162,79 +221,72 @@ export default function AdminDashboard({ auth, services = [], producers = [], re
         </div>
 
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+
           {/* Línea: Kilos recepcionados por semana y especie */}
           <Card className="bg-[#f1f8e9]">
-            <CardHeader><CardTitle className="text-[#2e7d32]">Kilos recepcionados por semana</CardTitle></CardHeader>
+            <CardHeader>
+              <CardTitle className="text-[#2e7d32]">Kilos recepcionados por semana</CardTitle>
+            </CardHeader>
             <CardContent>
-             {(() => {
-  const raw = charts?.recepWeeklyBySpecies || { weeks: [], series: [] };
+              {(() => {
+                const raw = charts?.recepWeeklyBySpecies || { weeks: [], series: [] };
+                const weeks = Array.isArray(raw.weeks) ? raw.weeks.map((w) => String(w ?? '')) : [];
+                const series = Array.isArray(raw.series)
+                  ? raw.series.map((s) => {
+                      const name = typeof s?.name === 'string' ? s.name : '-';
+                      const dataArr = Array.isArray(s?.data) ? s.data : [];
+                      const data = weeks.map((_, i) => {
+                        const v = dataArr[i];
+                        const num = typeof v === 'number' ? v : v == null ? 0 : Number(v);
+                        return Number.isFinite(num) ? num : 0;
+                      });
+                      return { name, data };
+                    })
+                  : [];
+                const safeSeries = series.length ? series : [{ name: 'Sin datos', data: weeks.map(() => 0) }];
+                const lineColors = safeSeries.map((s) => speciesColor?.(s.name) || '#2e7d32');
+                const axisLabelColor = '#1f2937';
+                const shouldRotateLabels = weeks.length > 8;
 
-  // 1) Normaliza weeks a strings
-  const weeks = Array.isArray(raw.weeks) ? raw.weeks.map(w => String(w ?? '')) : [];
-
-  // 2) Normaliza series: forma, largos y números
-  const series = Array.isArray(raw.series) ? raw.series.map((s) => {
-    const name = typeof s?.name === 'string' ? s.name : '—';
-    const dataArr = Array.isArray(s?.data) ? s.data : [];
-    // Igualar largo a weeks y forzar números
-    const data = weeks.map((_, i) => {
-      const v = dataArr[i];
-      const num = typeof v === 'number' ? v : (v == null ? 0 : Number(v));
-      return Number.isFinite(num) ? num : 0;
-    });
-    return { name, data };
-  }) : [];
-
-  // 3) Si no hay series, mete una dummy para evitar errores
-  const safeSeries = series.length ? series : [{ name: 'Sin datos', data: weeks.map(() => 0) }];
-
-  // 4) Colores seguros
-  const lineColors = safeSeries.map(s => {
-    const c = speciesColor?.(s.name);
-    return (typeof c === 'string' && c) ? c : '#2e7d32';
-  });
-
-  const axisLabelColor = '#1f2937';
-  const shouldRotateLabels = weeks.length > 6;
-
-  return (
-    <Chart
-      options={{
-        chart: { type: 'line', toolbar: { show: false } },
-        xaxis: {
-          categories: weeks,
-          labels: {
-            show: true,
-            rotate: shouldRotateLabels ? -45 : 0,
-            offsetY: shouldRotateLabels ? 4 : 0,
-            trim: false,
-            hideOverlappingLabels: false,
-            style: { colors: axisLabelColor, fontSize: '12px' },
-          },
-          axisBorder: { show: true, color: '#e5e7eb' },
-          axisTicks: { show: true, color: '#e5e7eb' },
-        },
-        stroke: { curve: 'smooth', width: 3 },
-        colors: lineColors,
-        dataLabels: { enabled: false },
-        yaxis: {
-          labels: {
-            show: true,
-            style: { colors: axisLabelColor, fontSize: '12px' },
-            formatter: (val) => Number(val || 0).toLocaleString('es-CL'),
-          },
-        },
-        grid: { borderColor: '#f3f4f6' },
-        tooltip: { y: { formatter: (val) => `${Number(val || 0).toLocaleString('es-CL')} Kg` } },
-      }}
-      series={safeSeries}
-      type="line"
-      height={300}
-    />
-  );
-})()}
+                return (
+                  <Chart
+                    options={{
+                      chart: { type: 'line', toolbar: { show: false } },
+                      xaxis: {
+                        categories: weeks,
+                        labels: {
+                          show: true,
+                          rotate: shouldRotateLabels ? -45 : 0,
+                          offsetY: shouldRotateLabels ? 4 : 0,
+                          trim: false,
+                          hideOverlappingLabels: false,
+                          style: { colors: axisLabelColor, fontSize: '12px' },
+                        },
+                        axisBorder: { show: true, color: '#e5e7eb' },
+                        axisTicks: { show: true, color: '#e5e7eb' },
+                      },
+                      stroke: { curve: 'smooth', width: 3 },
+                      colors: lineColors,
+                      dataLabels: { enabled: false },
+                      yaxis: {
+                        labels: {
+                          show: true,
+                          style: { colors: axisLabelColor, fontSize: '12px' },
+                          formatter: (val) => Number(val || 0).toLocaleString('es-CL'),
+                        },
+                      },
+                      grid: { borderColor: '#f3f4f6' },
+                      tooltip: { y: { formatter: (val) => `${Number(val || 0).toLocaleString('es-CL')} Kg` } },
+                    }}
+                    series={safeSeries}
+                    type="line"
+                    height={300}
+                  />
+                );
+              })()}
             </CardContent>
           </Card>
+
           {/* Pie: Distribución por categoría */}
           <Card className="bg-[#fff8e1]">
             <CardHeader><CardTitle className="text-[#fe790f]">Distribución por categoría</CardTitle></CardHeader>
@@ -260,6 +312,126 @@ export default function AdminDashboard({ auth, services = [], producers = [], re
             </CardContent>
           </Card>
         </div>
+
+        {/* Curva de calibre por especie (ancho completo) */}
+        <Card className="bg-[#e3f2fd]">
+          <CardHeader><CardTitle className="text-[#1565c0]">Curva de calibre por especie</CardTitle></CardHeader>
+          <CardContent>
+            {activeCalibreCategories.length ? (
+              <>
+                <div className="flex flex-wrap gap-3 mb-4">
+                  <div className="flex flex-col text-sm">
+                    <span className="text-gray-600 mb-1">Especie</span>
+                    <select
+                      className="border rounded px-2 py-1 min-w-[180px]"
+                      value={activeCalibreSpecies}
+                      onChange={(e) => {
+                        setSelectedCalibreSpecies(e.target.value);
+                        setSelectedCalibreVariety('');
+                      }}
+                    >
+                      {calibreSpecies.map((sp) => (
+                        <option key={sp} value={sp}>{sp}</option>
+                      ))}
+                    </select>
+                  </div>
+                  <div className="flex flex-col text-sm">
+                    <span className="text-gray-600 mb-1">Variedad</span>
+                    <select
+                      className="border rounded px-2 py-1 min-w-[180px]"
+                      value={activeCalibreVariety}
+                      onChange={(e) => setSelectedCalibreVariety(e.target.value)}
+                      disabled={!activeCalibreSpecies}
+                    >
+                      <option value="">Todas</option>
+                      {calibreVarietyOptions.map((variedad) => (
+                        <option key={variedad} value={variedad}>{variedad}</option>
+                      ))}
+                    </select>
+                  </div>
+                </div>
+
+                {filteredCalibreSeries.length ? (
+                  <Chart
+                    options={{
+                      chart: { type: 'line', toolbar: { show: true }, zoom: { enabled: true } },
+                      xaxis: {
+                        categories: activeCalibreCategories,
+                        labels: {
+                          rotate: activeCalibreCategories.length > 8 ? -45 : 0,
+                          offsetY: activeCalibreCategories.length > 8 ? 4 : 0,
+                          trim: false,
+                          style: { colors: '#1f2937', fontSize: '12px' },
+                        },
+                        axisBorder: { show: true, color: '#e5e7eb' },
+                        axisTicks: { show: true, color: '#e5e7eb' },
+                      },
+                      stroke: { curve: 'smooth', width: 3 },
+                      colors: [
+                        speciesColor(activeCalibreSpecies),
+                        '#ef4444',
+                      ],
+                      dataLabels: { enabled: false },
+                      yaxis: [
+                        {
+                          seriesName: 'Kg',
+                          labels: {
+                            show: true,
+                            style: { colors: '#1f2937', fontSize: '12px' },
+                            formatter: (val) => Number(val || 0).toLocaleString('es-CL'),
+                          },
+                          title: { text: 'Kg', style: { color: '#1f2937' } },
+                        },
+                        {
+                          seriesName: '% participación',
+                          opposite: true,
+                          labels: {
+                            show: true,
+                            style: { colors: '#1f2937', fontSize: '12px' },
+                            formatter: (val) => `${Number(val || 0).toFixed(1)}%`,
+                          },
+                          title: { text: '%', style: { color: '#1f2937' } },
+                          min: 0,
+                          max: 100,
+                        },
+                      ],
+                      grid: { borderColor: '#f3f4f6' },
+                      tooltip: {
+                        shared: true,
+                        intersect: false,
+                        y: [
+                          { formatter: (val) => `${Number(val || 0).toLocaleString('es-CL')} Kg` },
+                          { formatter: (val) => `${Number(val || 0).toFixed(1)}%` },
+                        ],
+                      },
+                      legend: { position: 'top' },
+                    }}
+                    series={[
+                      {
+                        name: activeCalibreVariety
+                          ? `${activeCalibreSpecies} - ${activeCalibreVariety} (Kg)`
+                          : `${activeCalibreSpecies || 'Total'} (Kg)`,
+                        type: 'column',
+                        data: aggregatedCalibreData.kilos,
+                      },
+                      {
+                        name: '% participación',
+                        type: 'line',
+                        data: aggregatedCalibreData.percent,
+                      },
+                    ]}
+                    type="line"
+                    height={260}
+                  />
+                ) : (
+                  <p className="text-sm text-gray-500">Sin series para la selección.</p>
+                )}
+              </>
+            ) : (
+              <p className="text-sm text-gray-500">Sin datos de calibre.</p>
+            )}
+          </CardContent>
+        </Card>
 
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
           <Card>
@@ -295,12 +467,12 @@ export default function AdminDashboard({ auth, services = [], producers = [], re
                         <div className="mr-2">
                           <div className="font-medium text-sm text-gray-800">{p.name}</div>
                           <div className="text-xs text-gray-500">
-                            {p.rut || 'Sin RUT'}{p.count > 1 ? ` · ${p.count} registros` : ''}
+                            {p.rut || 'Sin RUT'}{p.count > 1 ? ` Â· ${p.count} registros` : ''}
                           </div>
                           {(p.idprods?.length || p.csgs?.length) && (
                             <div className="text-[11px] text-gray-500">
                               {p.idprods?.length ? `ID Prod: ${p.idprods.join(', ')}` : ''}
-                              {p.idprods?.length && p.csgs?.length ? ' · ' : ''}
+                              {p.idprods?.length && p.csgs?.length ? ' Â· ' : ''}
                               {p.csgs?.length ? `CSG: ${p.csgs.join(', ')}` : ''}
                             </div>
                           )}
@@ -362,7 +534,7 @@ export default function AdminDashboard({ auth, services = [], producers = [], re
               {filteredProc.length ? (
                 <div className="max-h-[250px] overflow-auto">
                   <table className="min-w-full text-sm">
-                    <thead className="bg-gray-50"><tr><th className="px-3 py-2 text-left">N° Proceso</th><th className="px-3 py-2 text-left">Fecha</th><th className="px-3 py-2 text-left">Especie</th><th className="px-3 py-2 text-left">Variedad</th></tr></thead>
+                    <thead className="bg-gray-50"><tr><th className="px-3 py-2 text-left">NÂ° Proceso</th><th className="px-3 py-2 text-left">Fecha</th><th className="px-3 py-2 text-left">Especie</th><th className="px-3 py-2 text-left">Variedad</th></tr></thead>
                     <tbody>
                       {filteredProc.map(p => (
                         <tr key={p.id} className="border-b">
@@ -409,7 +581,3 @@ function Stat({ title, value, color = 'green', icon: Icon }) {
     </div>
   );
 }
-
-
-
-

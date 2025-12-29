@@ -8,6 +8,7 @@ use App\Models\Recepcion;
 use App\Models\Proceso;
 use App\Models\ProducerCertification;
 use App\Models\Contract;
+use App\Models\Detalle;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
 use Inertia\Inertia;
@@ -113,7 +114,96 @@ class AdminDashboardController extends Controller
                 'procStackBySpecies' => $procStackBySpecies,
                 'recepWeeklyBySpecies' => $recepWeeklyBySpecies,
                 'procCategoryTotals' => $procCategoryTotals,
+                'calibreCurve' => $this->buildCalibreCurve(),
             ],
         ]);
+    }
+
+    private function buildCalibreCurve(): array
+    {
+        $rows = DB::connection('sqlsrv')
+            ->table('V_PKG_Produccion_Completo as ppc')
+            ->select([
+                DB::raw('ppc.n_especie_proceso AS especie'),
+                DB::raw('ppc.n_variedad_proceso AS variedad'),
+                DB::raw('ppc.n_calibre AS calibre'),
+                DB::raw('SUM(ppc.peso_neto) as kilos'),
+            ])
+            ->where('ppc.tipo_proceso', 'PRN')
+            ->where('ppc.estado', 'Finalizado')
+            ->whereNotIn('ppc.id_calibre', [1,73,75,104,91,96])
+            ->groupBy('ppc.n_especie_proceso', 'ppc.n_variedad_proceso', 'ppc.n_calibre')
+            ->get()
+            ->map(function ($row) {
+                if ($row->calibre !== null) {
+                    $row->calibre = preg_replace('/\.$/', '', (string) $row->calibre);
+                }
+
+                return $row;
+            });
+
+        if ($rows->isEmpty()) {
+            return ['categories' => [], 'series' => []];
+        }
+
+        $categories = $rows->pluck('calibre')->filter()->unique()->values()->all();
+        usort($categories, function ($a, $b) {
+            $na = is_numeric($a) ? (float) $a : $a;
+            $nb = is_numeric($b) ? (float) $b : $b;
+            if (is_numeric($na) && is_numeric($nb)) {
+                return $na <=> $nb;
+            }
+            return strnatcasecmp((string) $na, (string) $nb);
+        });
+
+        $series = [];
+        $seriesGroups = $rows->groupBy(function ($item) {
+            $especie = $item->especie ?: 'SIN ESPECIE';
+            $variedad = $item->variedad ?: 'SIN VARIEDAD';
+
+            return $especie.'|'.$variedad;
+        });
+
+        $calibresBySpecies = [];
+        foreach ($seriesGroups as $key => $items) {
+            [$species, $variety] = explode('|', $key);
+            $data = [];
+            foreach ($categories as $calibre) {
+                $match = $items->firstWhere('calibre', $calibre);
+                $data[] = (float) ($match->kilos ?? 0);
+            }
+            $calibresBySpecies[$species] = array_values(array_unique(array_merge($calibresBySpecies[$species] ?? [], $items->pluck('calibre')->filter()->all())));
+            $series[] = [
+                'name' => trim($species.' - '.$variety),
+                'especie' => $species,
+                'variedad' => $variety,
+                'data' => $data,
+            ];
+        }
+
+        $speciesList = collect($series)->pluck('especie')->unique()->values()->all();
+        $varietiesBySpecies = collect($series)
+            ->groupBy('especie')
+            ->map(fn ($items) => $items->pluck('variedad')->unique()->values()->all())
+            ->toArray();
+        foreach ($calibresBySpecies as $sp => $values) {
+            usort($values, function ($a, $b) {
+                $na = is_numeric($a) ? (float) $a : $a;
+                $nb = is_numeric($b) ? (float) $b : $b;
+                if (is_numeric($na) && is_numeric($nb)) {
+                    return $na <=> $nb;
+                }
+                return strnatcasecmp((string) $na, (string) $nb);
+            });
+            $calibresBySpecies[$sp] = $values;
+        }
+
+        return [
+            'categories' => $categories,
+            'series' => $series,
+            'species' => $speciesList,
+            'varietiesBySpecies' => $varietiesBySpecies,
+            'calibresBySpecies' => $calibresBySpecies,
+        ];
     }
 }

@@ -404,6 +404,7 @@ class ProducerController extends Controller
             $procCategoryTotals = $procTotalsQuery
                 ->first();
         }
+        $calibreCurve = $this->buildCalibreCurveForProducer($relatedCodes, $name);
 
         return Inertia::render('Producers/Dashboard', [
             'producer' => $producer,
@@ -423,9 +424,110 @@ class ProducerController extends Controller
                 'procStackBySpecies' => $procStackBySpecies,
                 'recepWeeklyBySpecies' => $recepWeeklyBySpecies,
                 'procCategoryTotals' => $procCategoryTotals,
+                'calibreCurve' => $calibreCurve,
             ],
         ]);
     }
-}
 
+    private function buildCalibreCurveForProducer($relatedCodes, $producerName): array
+    {
+        $rows = DB::connection('sqlsrv')
+            ->table('V_PKG_Produccion_Completo as ppc')
+            ->select([
+                DB::raw('ppc.n_especie_proceso AS especie'),
+                DB::raw('ppc.n_variedad_proceso AS variedad'),
+                DB::raw('ppc.n_calibre AS calibre'),
+                DB::raw('SUM(ppc.peso_neto) as kilos'),
+            ])
+            ->where('ppc.tipo_proceso', 'PRN')
+            ->where('ppc.estado', 'Finalizado')
+            ->whereNotIn('ppc.id_calibre', [73, 75, 104, 91, 96])
+            ->when($relatedCodes->isNotEmpty() || ! empty($producerName), function ($query) use ($relatedCodes, $producerName) {
+                $query->where(function ($q) use ($relatedCodes, $producerName) {
+                    $applied = false;
+                    if ($relatedCodes->isNotEmpty()) {
+                        $q->whereIn('ppc.c_productor', $relatedCodes);
+                        $applied = true;
+                    }
+                    if (! empty($producerName)) {
+                        $applied
+                            ? $q->orWhere('ppc.n_productor_proceso', $producerName)
+                            : $q->where('ppc.n_productor_proceso', $producerName);
+                    }
+                });
+            })
+            ->groupBy('ppc.n_especie_proceso', 'ppc.n_variedad_proceso', 'ppc.n_calibre')
+            ->get()
+            ->map(function ($row) {
+                if ($row->calibre !== null) {
+                    $row->calibre = preg_replace('/\.$/', '', (string) $row->calibre);
+                }
+                return $row;
+            });
+
+        if ($rows->isEmpty()) {
+            return ['categories' => [], 'series' => []];
+        }
+
+        $categories = $rows->pluck('calibre')->filter()->unique()->values()->all();
+        usort($categories, function ($a, $b) {
+            $na = is_numeric($a) ? (float) $a : $a;
+            $nb = is_numeric($b) ? (float) $b : $b;
+            if (is_numeric($na) && is_numeric($nb)) {
+                return $na <=> $nb;
+            }
+            return strnatcasecmp((string) $na, (string) $nb);
+        });
+
+        $series = [];
+        $calibresBySpecies = [];
+        $seriesGroups = $rows->groupBy(function ($item) {
+            $especie = $item->especie ?: 'SIN ESPECIE';
+            $variedad = $item->variedad ?: 'SIN VARIEDAD';
+            return $especie.'|'.$variedad;
+        });
+
+        foreach ($seriesGroups as $key => $items) {
+            [$species, $variety] = explode('|', $key);
+            $data = [];
+            foreach ($categories as $calibre) {
+                $match = $items->firstWhere('calibre', $calibre);
+                $data[] = (float) ($match->kilos ?? 0);
+            }
+            $calibresBySpecies[$species] = array_values(array_unique(array_merge($calibresBySpecies[$species] ?? [], $items->pluck('calibre')->filter()->all())));
+            $series[] = [
+                'name' => trim($species.' - '.$variety),
+                'especie' => $species,
+                'variedad' => $variety,
+                'data' => $data,
+            ];
+        }
+
+        $speciesList = collect($series)->pluck('especie')->unique()->values()->all();
+        $varietiesBySpecies = collect($series)
+            ->groupBy('especie')
+            ->map(fn ($items) => $items->pluck('variedad')->unique()->values()->all())
+            ->toArray();
+
+        foreach ($calibresBySpecies as $sp => $values) {
+            usort($values, function ($a, $b) {
+                $na = is_numeric($a) ? (float) $a : $a;
+                $nb = is_numeric($b) ? (float) $b : $b;
+                if (is_numeric($na) && is_numeric($nb)) {
+                    return $na <=> $nb;
+                }
+                return strnatcasecmp((string) $na, (string) $nb);
+            });
+            $calibresBySpecies[$sp] = $values;
+        }
+
+        return [
+            'categories' => $categories,
+            'series' => $series,
+            'species' => $speciesList,
+            'varietiesBySpecies' => $varietiesBySpecies,
+            'calibresBySpecies' => $calibresBySpecies,
+        ];
+    }
+}
 

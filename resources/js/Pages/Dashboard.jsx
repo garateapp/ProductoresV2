@@ -4,6 +4,7 @@ import { Head } from '@inertiajs/react';
 import { Card, CardHeader, CardTitle, CardContent } from '@/Components/ui/card';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/Components/ui/tabs';
 import { Badge } from '@/Components/ui/badge';
+import Chart from 'react-apexcharts';
 import { Truck, Factory, FileText, Award, FileCheck2, Zap } from 'lucide-react';
 
 const formatNumber = (value) => Number(value ?? 0).toLocaleString('es-CL');
@@ -37,8 +38,77 @@ export default function Dashboard({
   contracts = [],
   certifications = [],
   stats = {},
+  charts = {},
 }) {
-  useState('unused'); // placeholder to keep consistency if needed
+  const [selectedCalibreSpecies, setSelectedCalibreSpecies] = useState('');
+  const [selectedCalibreVariety, setSelectedCalibreVariety] = useState('');
+  const calibreData = charts?.calibreCurve ?? {};
+  const calibreCategoriesAll = Array.isArray(calibreData.categories) ? calibreData.categories.map((c) => String(c ?? '')) : [];
+  const calibreSeries = Array.isArray(calibreData.series) ? calibreData.series : [];
+  const calibreSpecies = Array.isArray(calibreData.species) ? calibreData.species.filter(Boolean) : [];
+  const calibreVarietiesBySpecies = calibreData.varietiesBySpecies || {};
+  const calibreCalibresBySpecies = calibreData.calibresBySpecies || {};
+
+  const speciesColor = (name = '') => {
+    const n = String(name).toLowerCase();
+    if (n.includes('cherr') || n.includes('cereza')) return '#7F1F38';
+    if (n.includes('apple') || n.includes('manzana')) return 'var(--corp-green)';
+    if (n.includes('pear') || n.includes('pera')) return '#53A318';
+    if (n.includes('mandarin') || n.includes('mandarina')) return 'var(--corp-orange)';
+    if (n.includes('orange') || n.includes('naranja')) return '#ff8b24';
+    if (n.includes('nectarin') || n.includes('nectarina')) return '#E91E63';
+    if (n.includes('peach') || n.includes('durazno')) return '#F06292';
+    if (n.includes('plum') || n.includes('ciruela')) return '#7E57C2';
+    if (n.includes('membrill')) return '#FDD835';
+    return '#607D8B';
+  };
+
+  const activeCalibreSpecies = selectedCalibreSpecies || calibreSpecies[0] || '';
+  const calibreVarietyOptions = useMemo(() => {
+    const options = Array.isArray(calibreVarietiesBySpecies?.[activeCalibreSpecies]) ? calibreVarietiesBySpecies[activeCalibreSpecies] : [];
+    return options.filter(Boolean);
+  }, [calibreVarietiesBySpecies, activeCalibreSpecies]);
+  const activeCalibreVariety = calibreVarietyOptions.includes(selectedCalibreVariety) ? selectedCalibreVariety : '';
+  const activeCalibreCategories = useMemo(() => {
+    const speciesCalibres = Array.isArray(calibreCalibresBySpecies?.[activeCalibreSpecies])
+      ? calibreCalibresBySpecies[activeCalibreSpecies].map((c) => String(c ?? ''))
+      : [];
+    return speciesCalibres.length ? speciesCalibres : calibreCategoriesAll;
+  }, [calibreCalibresBySpecies, activeCalibreSpecies, calibreCategoriesAll]);
+
+  const filteredCalibreSeries = useMemo(() => {
+    return calibreSeries
+      .filter((serie) => (!activeCalibreSpecies || serie.especie === activeCalibreSpecies))
+      .filter((serie) => (!activeCalibreVariety || (serie.variedad || 'SIN VARIEDAD') === activeCalibreVariety))
+      .map((serie) => {
+        const dataArr = Array.isArray(serie?.data) ? serie.data : [];
+        const categoryMap = new Map(
+          calibreCategoriesAll.map((cat, idx) => [String(cat ?? ''), dataArr[idx] ?? 0])
+        );
+        return {
+          name: serie.name || `${serie.especie}${serie.variedad ? ` - ${serie.variedad}` : ''}`,
+          data: activeCalibreCategories.map((cat) => {
+            const val = categoryMap.has(String(cat)) ? categoryMap.get(String(cat)) : 0;
+            const num = typeof val === 'number' ? val : Number(val ?? 0);
+            return Number.isFinite(num) ? num : 0;
+          }),
+          color: speciesColor(serie.especie),
+        };
+      });
+  }, [calibreSeries, activeCalibreCategories, activeCalibreSpecies, activeCalibreVariety, calibreCategoriesAll]);
+
+  const aggregatedCalibreData = useMemo(() => {
+    if (!activeCalibreCategories.length) {
+      return { kilos: [], percent: [], total: 0 };
+    }
+    const kilos = activeCalibreCategories.map((cat, idx) =>
+      filteredCalibreSeries.reduce((sum, serie) => sum + (serie.data[idx] || 0), 0)
+    );
+    const total = kilos.reduce((a, b) => a + b, 0);
+    const percent = total > 0 ? kilos.map((v) => (v * 100) / total) : activeCalibreCategories.map(() => 0);
+    return { kilos, percent, total };
+  }, [activeCalibreCategories, filteredCalibreSeries]);
+
   const receptionSpark = useMemo(() => recepciones.map((item) => item.peso_neto ?? 0), [recepciones]);
   const processSpark = useMemo(() => procesos.map((item) => item.kilos_netos ?? 0), [procesos]);
 
@@ -186,6 +256,119 @@ export default function Dashboard({
                   )}
                 </TabsContent>
               </Tabs>
+            </section>
+
+            <section className="rounded-3xl border bg-white p-6 shadow-sm">
+              <div className="flex flex-wrap items-center justify-between gap-4 mb-4">
+                <div>
+                  <h3 className="text-lg font-semibold text-gray-800">Curva de calibre por especie</h3>
+                  <p className="text-sm text-gray-500">Barras en kilos y línea de % para cada calibre.</p>
+                </div>
+                <div className="flex flex-wrap gap-3">
+                  <div className="flex flex-col text-sm">
+                    <span className="text-gray-600 mb-1">Especie</span>
+                    <select
+                      className="border rounded px-2 py-1 min-w-[160px]"
+                      value={activeCalibreSpecies}
+                      onChange={(e) => {
+                        setSelectedCalibreSpecies(e.target.value);
+                        setSelectedCalibreVariety('');
+                      }}
+                    >
+                      {calibreSpecies.map((sp) => (
+                        <option key={sp} value={sp}>{sp}</option>
+                      ))}
+                    </select>
+                  </div>
+                  <div className="flex flex-col text-sm">
+                    <span className="text-gray-600 mb-1">Variedad</span>
+                    <select
+                      className="border rounded px-2 py-1 min-w-[160px]"
+                      value={activeCalibreVariety}
+                      onChange={(e) => setSelectedCalibreVariety(e.target.value)}
+                      disabled={!activeCalibreSpecies}
+                    >
+                      <option value="">Todas</option>
+                      {calibreVarietyOptions.map((variedad) => (
+                        <option key={variedad} value={variedad}>{variedad}</option>
+                      ))}
+                    </select>
+                  </div>
+                </div>
+              </div>
+
+              {activeCalibreCategories.length && filteredCalibreSeries.length ? (
+                <Chart
+                  options={{
+                    chart: { type: 'line', toolbar: { show: true }, zoom: { enabled: true } },
+                    xaxis: {
+                      categories: activeCalibreCategories,
+                      labels: {
+                        rotate: activeCalibreCategories.length > 8 ? -45 : 0,
+                        offsetY: activeCalibreCategories.length > 8 ? 4 : 0,
+                        trim: false,
+                        style: { colors: '#1f2937', fontSize: '12px' },
+                      },
+                      axisBorder: { show: true, color: '#e5e7eb' },
+                      axisTicks: { show: true, color: '#e5e7eb' },
+                    },
+                    stroke: { curve: 'smooth', width: 3 },
+                    colors: [speciesColor(activeCalibreSpecies), '#ef4444'],
+                    dataLabels: { enabled: false },
+                    yaxis: [
+                      {
+                        seriesName: 'Kg',
+                        labels: {
+                          show: true,
+                          style: { colors: '#1f2937', fontSize: '12px' },
+                          formatter: (val) => Number(val || 0).toLocaleString('es-CL'),
+                        },
+                        title: { text: 'Kg', style: { color: '#1f2937' } },
+                      },
+                      {
+                        seriesName: '% participación',
+                        opposite: true,
+                        labels: {
+                          show: true,
+                          style: { colors: '#1f2937', fontSize: '12px' },
+                          formatter: (val) => `${Number(val || 0).toFixed(1)}%`,
+                        },
+                        title: { text: '%', style: { color: '#1f2937' } },
+                        min: 0,
+                        max: 100,
+                      },
+                    ],
+                    grid: { borderColor: '#f3f4f6' },
+                    tooltip: {
+                      shared: true,
+                      intersect: false,
+                      y: [
+                        { formatter: (val) => `${Number(val || 0).toLocaleString('es-CL')} Kg` },
+                        { formatter: (val) => `${Number(val || 0).toFixed(1)}%` },
+                      ],
+                    },
+                    legend: { position: 'top' },
+                  }}
+                  series={[
+                    {
+                      name: activeCalibreVariety
+                        ? `${activeCalibreSpecies} - ${activeCalibreVariety} (Kg)`
+                        : `${activeCalibreSpecies || 'Total'} (Kg)`,
+                      type: 'column',
+                      data: aggregatedCalibreData.kilos,
+                    },
+                    {
+                      name: '% participación',
+                      type: 'line',
+                      data: aggregatedCalibreData.percent,
+                    },
+                  ]}
+                  type="line"
+                  height={280}
+                />
+              ) : (
+                <EmptyState message="Sin datos de calibre disponibles." />
+              )}
             </section>
 
             <section className="grid gap-6 lg:grid-cols-2">

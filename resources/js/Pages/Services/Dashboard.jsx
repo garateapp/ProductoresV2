@@ -6,6 +6,16 @@ import Chart from 'react-apexcharts';
 import { Users, Truck, Factory, ShieldCheck, FileText as FileIcon } from 'lucide-react';
 
 export default function Dashboard({ auth, service, stats, recepciones = [], procesos = [], certifications = [], markets = [], contracts = [], charts = {} }) {
+  const calibreData = charts?.calibreCurve ?? {};
+  const calibreCategoriesAll = Array.isArray(calibreData.categories) ? calibreData.categories.map((c) => String(c ?? '')) : [];
+  const calibreSeries = Array.isArray(calibreData.series) ? calibreData.series : [];
+  const calibreSpecies = Array.isArray(calibreData.species) ? calibreData.species.filter(Boolean) : [];
+  const calibreVarietiesBySpecies = calibreData.varietiesBySpecies || {};
+  const calibreCalibresBySpecies = calibreData.calibresBySpecies || {};
+
+  const [selectedCalibreSpecies, setSelectedCalibreSpecies] = React.useState('');
+  const [selectedCalibreVariety, setSelectedCalibreVariety] = React.useState('');
+
   const speciesColor = (name = '') => {
     const n = String(name).toLowerCase();
     if (n.includes('cherr') || n.includes('cereza')) return '#7F1F38';
@@ -28,6 +38,52 @@ export default function Dashboard({ auth, service, stats, recepciones = [], proc
   const lineColors = (recepWeekly.series || []).map(s => speciesColor(s.name));
   const axisLabelColor = '#1f2937';
   const shouldRotateLabels = weeks.length > 6;
+
+  const activeCalibreSpecies = selectedCalibreSpecies || calibreSpecies[0] || '';
+  const calibreVarietyOptions = React.useMemo(() => {
+    const options = Array.isArray(calibreVarietiesBySpecies?.[activeCalibreSpecies]) ? calibreVarietiesBySpecies[activeCalibreSpecies] : [];
+    return options.filter(Boolean);
+  }, [calibreVarietiesBySpecies, activeCalibreSpecies]);
+  const activeCalibreVariety = calibreVarietyOptions.includes(selectedCalibreVariety) ? selectedCalibreVariety : '';
+  const activeCalibreCategories = React.useMemo(() => {
+    const speciesCalibres = Array.isArray(calibreCalibresBySpecies?.[activeCalibreSpecies])
+      ? calibreCalibresBySpecies[activeCalibreSpecies].map((c) => String(c ?? ''))
+      : [];
+    return speciesCalibres.length ? speciesCalibres : calibreCategoriesAll;
+  }, [calibreCalibresBySpecies, activeCalibreSpecies, calibreCategoriesAll]);
+
+  const filteredCalibreSeries = React.useMemo(() => {
+    return calibreSeries
+      .filter((serie) => (!activeCalibreSpecies || serie.especie === activeCalibreSpecies))
+      .filter((serie) => (!activeCalibreVariety || (serie.variedad || 'SIN VARIEDAD') === activeCalibreVariety))
+      .map((serie) => {
+        const dataArr = Array.isArray(serie?.data) ? serie.data : [];
+        const categoryMap = new Map(
+          calibreCategoriesAll.map((cat, idx) => [String(cat ?? ''), dataArr[idx] ?? 0])
+        );
+        return {
+          name: serie.name || `${serie.especie}${serie.variedad ? ` - ${serie.variedad}` : ''}`,
+          data: activeCalibreCategories.map((cat) => {
+            const val = categoryMap.has(String(cat)) ? categoryMap.get(String(cat)) : 0;
+            const num = typeof val === 'number' ? val : Number(val ?? 0);
+            return Number.isFinite(num) ? num : 0;
+          }),
+          color: speciesColor(serie.especie),
+        };
+      });
+  }, [calibreSeries, activeCalibreCategories, activeCalibreSpecies, activeCalibreVariety, calibreCategoriesAll]);
+
+  const aggregatedCalibreData = React.useMemo(() => {
+    if (!activeCalibreCategories.length) {
+      return { kilos: [], percent: [], total: 0 };
+    }
+    const kilos = activeCalibreCategories.map((cat, idx) =>
+      filteredCalibreSeries.reduce((sum, serie) => sum + (serie.data[idx] || 0), 0)
+    );
+    const total = kilos.reduce((a, b) => a + b, 0);
+    const percent = total > 0 ? kilos.map((v) => (v * 100) / total) : activeCalibreCategories.map(() => 0);
+    return { kilos, percent, total };
+  }, [activeCalibreCategories, filteredCalibreSeries]);
   return (
     <AuthenticatedLayout user={auth.user} header={<h2 className="font-semibold text-xl text-gray-800 leading-tight">Dashboard Servicio</h2>}>
       <Head title={`Dashboard Servicio - ${service.name}`} />
@@ -99,6 +155,126 @@ export default function Dashboard({ auth, service, stats, recepciones = [], proc
             </CardContent>
           </Card>
         </div>
+
+        {/* Curva de calibre por especie (prioridad) */}
+        <Card className="bg-[#e3f2fd]">
+          <CardHeader><CardTitle className="text-[#1565c0]">Curva de calibre por especie</CardTitle></CardHeader>
+          <CardContent>
+            {activeCalibreCategories.length ? (
+              <>
+                <div className="flex flex-wrap gap-3 mb-4">
+                  <div className="flex flex-col text-sm">
+                    <span className="text-gray-600 mb-1">Especie</span>
+                    <select
+                      className="border rounded px-2 py-1 min-w-[180px]"
+                      value={activeCalibreSpecies}
+                      onChange={(e) => {
+                        setSelectedCalibreSpecies(e.target.value);
+                        setSelectedCalibreVariety('');
+                      }}
+                    >
+                      {calibreSpecies.map((sp) => (
+                        <option key={sp} value={sp}>{sp}</option>
+                      ))}
+                    </select>
+                  </div>
+                  <div className="flex flex-col text-sm">
+                    <span className="text-gray-600 mb-1">Variedad</span>
+                    <select
+                      className="border rounded px-2 py-1 min-w-[180px]"
+                      value={activeCalibreVariety}
+                      onChange={(e) => setSelectedCalibreVariety(e.target.value)}
+                      disabled={!activeCalibreSpecies}
+                    >
+                      <option value="">Todas</option>
+                      {calibreVarietyOptions.map((variedad) => (
+                        <option key={variedad} value={variedad}>{variedad}</option>
+                      ))}
+                    </select>
+                  </div>
+                </div>
+
+                {filteredCalibreSeries.length ? (
+                  <Chart
+                    options={{
+                      chart: { type: 'line', toolbar: { show: true }, zoom: { enabled: true } },
+                      xaxis: {
+                        categories: activeCalibreCategories,
+                        labels: {
+                          rotate: activeCalibreCategories.length > 8 ? -45 : 0,
+                          offsetY: activeCalibreCategories.length > 8 ? 4 : 0,
+                          trim: false,
+                          style: { colors: '#1f2937', fontSize: '12px' },
+                        },
+                        axisBorder: { show: true, color: '#e5e7eb' },
+                        axisTicks: { show: true, color: '#e5e7eb' },
+                      },
+                      stroke: { curve: 'smooth', width: 3 },
+                      colors: [
+                        speciesColor(activeCalibreSpecies),
+                        '#ef4444',
+                      ],
+                      dataLabels: { enabled: false },
+                      yaxis: [
+                        {
+                          seriesName: 'Kg',
+                          labels: {
+                            show: true,
+                            style: { colors: '#1f2937', fontSize: '12px' },
+                            formatter: (val) => Number(val || 0).toLocaleString('es-CL'),
+                          },
+                          title: { text: 'Kg', style: { color: '#1f2937' } },
+                        },
+                        {
+                          seriesName: '% participación',
+                          opposite: true,
+                          labels: {
+                            show: true,
+                            style: { colors: '#1f2937', fontSize: '12px' },
+                            formatter: (val) => `${Number(val || 0).toFixed(1)}%`,
+                          },
+                          title: { text: '%', style: { color: '#1f2937' } },
+                          min: 0,
+                          max: 100,
+                        },
+                      ],
+                      grid: { borderColor: '#f3f4f6' },
+                      tooltip: {
+                        shared: true,
+                        intersect: false,
+                        y: [
+                          { formatter: (val) => `${Number(val || 0).toLocaleString('es-CL')} Kg` },
+                          { formatter: (val) => `${Number(val || 0).toFixed(1)}%` },
+                        ],
+                      },
+                      legend: { position: 'top' },
+                    }}
+                    series={[
+                      {
+                        name: activeCalibreVariety
+                          ? `${activeCalibreSpecies} - ${activeCalibreVariety} (Kg)`
+                          : `${activeCalibreSpecies || 'Total'} (Kg)`,
+                        type: 'column',
+                        data: aggregatedCalibreData.kilos,
+                      },
+                      {
+                        name: '% participación',
+                        type: 'line',
+                        data: aggregatedCalibreData.percent,
+                      },
+                    ]}
+                    type="line"
+                    height={260}
+                  />
+                ) : (
+                  <p className="text-sm text-gray-500">Sin series para la selección.</p>
+                )}
+              </>
+            ) : (
+              <p className="text-sm text-gray-500">Sin datos de calibre.</p>
+            )}
+          </CardContent>
+        </Card>
 
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
           <Card className="bg-[#f1f8e9]">
