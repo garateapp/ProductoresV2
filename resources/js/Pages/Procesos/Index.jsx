@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect, useRef, useMemo } from 'react';
 import { Link, useForm, usePage, router } from '@inertiajs/react';
 import { Button } from '@/Components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/Components/ui/card';
@@ -36,7 +36,15 @@ export default function Index({ procesos, especies, variedades = [], filters, is
     search: filters.search || '',
     especie_id: filters.especie_id || '',
     variedad_id: filters.variedad_id || '',
+    search_fields: Array.isArray(filters.search_fields) ? filters.search_fields : [],
+    search_exact: Boolean(filters.search_exact),
   });
+
+  const selectedSearchFields = useMemo(() => {
+    if (Array.isArray(data.search_fields)) return data.search_fields.filter(Boolean);
+    if (data.search_fields) return [data.search_fields].filter(Boolean);
+    return [];
+  }, [data.search_fields]);
 
   const [selectedFiles, setSelectedFiles] = useState([]);
   const [isDragging, setIsDragging] = useState(false);
@@ -54,6 +62,35 @@ export default function Index({ procesos, especies, variedades = [], filters, is
 
   const handleSearchChange = (e) => {
     setData('search', e.target.value);
+  };
+
+  const handleExactToggle = (e) => {
+    setData('search_exact', e.target.checked);
+  };
+
+  const searchFieldOptions = [
+    { value: 'n_proceso', label: 'N° Proceso' },
+    { value: 'lote_recepcion', label: 'Lote recepción' },
+    { value: 'agricola', label: 'Agrícola' },
+  ];
+
+  const handleSearchFieldSelect = (event) => {
+    const values = Array.from(event.target.selectedOptions || [])
+      .map((opt) => opt.value)
+      .filter(Boolean);
+    setData('search_fields', values);
+  };
+
+  const toggleSearchField = (value) => {
+    const next = selectedSearchFields.includes(value)
+      ? selectedSearchFields.filter((v) => v !== value)
+      : [...selectedSearchFields, value];
+    setData('search_fields', next);
+  };
+
+  const removeSearchField = (value) => {
+    const next = selectedSearchFields.filter((v) => v !== value);
+    setData('search_fields', next);
   };
 
   const handleEspecieFilter = (especieId) => {
@@ -227,13 +264,15 @@ export default function Index({ procesos, especies, variedades = [], filters, is
           search: searchTerm,
           especie_id: data.especie_id,
           variedad_id: data.variedad_id,
+          search_fields: selectedSearchFields,
+          search_exact: data.search_exact,
         }),
         { preserveState: true, replace: true }
       );
     }, 300);
 
     return () => clearTimeout(delayDebounceFn);
-  }, [data.search, data.especie_id, data.variedad_id, props?.flash?.sync_output, props?.flash?.success, props?.flash?.error]);
+  }, [data.search, data.especie_id, data.variedad_id, data.search_fields, data.search_exact, props?.flash?.sync_output, props?.flash?.success, props?.flash?.error, selectedSearchFields]);
 
   const calculatePercentage = (value, total) => {
     if (total === 0) return '0.00%';
@@ -356,14 +395,62 @@ export default function Index({ procesos, especies, variedades = [], filters, is
               </div>
             </div>
           )}
-          <div className="mb-4 flex flex-col md:flex-row justify-between items-center gap-4">
-            <Input
-              type="text"
-              placeholder="Buscar por N° proceso, agrícola, lote_recepcion, especie o variedad..."
-              value={data.search}
-              onChange={handleSearchChange}
-              className="max-w-sm"
-            />
+          <div className="mb-4 flex flex-col md:flex-row justify-between items-start gap-4">
+            <div className="flex flex-col gap-4 w-full md:w-1/2">
+              <Input
+                type="text"
+                placeholder="Buscar…"
+                value={data.search}
+                onChange={handleSearchChange}
+                className="max-w-sm"
+              />
+              <div className="flex flex-col gap-1">
+                <span className="text-gray-600 text-sm">Campos a buscar:</span>
+                <select
+                  multiple
+                  size={3}
+                  className="border rounded px-2 py-2 text-sm max-w-xs"
+                value={selectedSearchFields}
+                onChange={handleSearchFieldSelect}
+                >
+                  {searchFieldOptions.map((opt) => (
+                    <option key={opt.value} value={opt.value}>{opt.label}</option>
+                  ))}
+                </select>
+                <span className="text-xs text-gray-500">Selecciona uno o varios campos usa Ctrl para seleccionar más de uno</span>
+                <label className="flex items-center gap-2 text-sm text-gray-700">
+                  <input
+                    type="checkbox"
+                    className="h-4 w-4"
+                    checked={Boolean(data.search_exact)}
+                    onChange={handleExactToggle}
+                  />
+                  Coincidencia exacta
+                </label>
+              </div>
+              {selectedSearchFields.length > 0 && (
+                <div className="flex flex-wrap gap-2">
+                  {selectedSearchFields.map((field) => {
+                    const opt = searchFieldOptions.find((o) => o.value === field);
+                    return (
+                      <span
+                        key={field}
+                        className="inline-flex items-center gap-1 rounded-full bg-emerald-100 px-3 py-1 text-xs text-emerald-800"
+                      >
+                        {opt?.label ?? field}
+                        <button
+                          type="button"
+                          className="text-emerald-700 hover:text-emerald-900"
+                          onClick={() => removeSearchField(field)}
+                        >
+                          ×
+                        </button>
+                      </span>
+                    );
+                  })}
+                </div>
+              )}
+            </div>
             <div className="flex flex-wrap gap-2">
               <Button
                 variant={data.especie_id === '' ? 'default' : 'outline'}
@@ -511,6 +598,7 @@ export default function Index({ procesos, especies, variedades = [], filters, is
               <TableRow>
                 <TableHead>Agricola</TableHead>
                 <TableHead>N° Proceso</TableHead>
+                <TableHead>Lote recepción</TableHead>
                 <TableHead>Especie</TableHead>
                 <TableHead className="min-w-[11rem]">Variedad</TableHead>
                 <TableHead>Fecha</TableHead>
@@ -533,6 +621,7 @@ export default function Index({ procesos, especies, variedades = [], filters, is
                   <TableRow key={proceso.id}>
                     <TableCell>{proceso.agricola}</TableCell>
                     <TableCell>{proceso.n_proceso}</TableCell>
+                    <TableCell>{proceso.lote_recepcion ?? '-'}</TableCell>
                     <TableCell>{proceso.especie}</TableCell>
                     <TableCell className="min-w-[13rem]">{proceso.variedad}</TableCell>
 

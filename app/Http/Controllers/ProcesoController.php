@@ -106,15 +106,38 @@ class ProcesoController extends Controller
             $query->whereRaw('1 = 0');
         }
 
-        // General search filter
+        // General search filter (configurable fields)
         if ($request->has('search') && $request->input('search') !== '' && $request->input('search') !== null) {
             $searchTerm = $request->input('search');
-            $query->where(function ($q) use ($searchTerm) {
-                $q->where('especie', 'like', '%'.$searchTerm.'%')
-                    ->orWhere('variedad', 'like', '%'.$searchTerm.'%')
-                    ->orWhere('n_proceso', 'like', '%'.$searchTerm.'%')
-                    ->orWhere('lote_recepcion', 'like', '%'.$searchTerm.'%')
-                    ->orWhere('agricola', 'like', '%'.$searchTerm.'%');
+            $useExact = $request->boolean('search_exact', false);
+            $searchFields = collect($request->input('search_fields', []))
+                ->filter()
+                ->unique()
+                ->values();
+
+            $allowedFields = collect([
+                'n_proceso',
+                'lote_recepcion',
+                'agricola',
+            ]);
+
+            if ($searchFields->isEmpty()) {
+                $searchFields = $allowedFields;
+            } else {
+                $searchFields = $searchFields->intersect($allowedFields);
+                if ($searchFields->isEmpty()) {
+                    $searchFields = $allowedFields;
+                }
+            }
+
+            $query->where(function ($q) use ($searchTerm, $searchFields, $useExact) {
+                foreach ($searchFields as $field) {
+                    if ($useExact) {
+                        $q->orWhere($field, '=', $searchTerm);
+                    } else {
+                        $q->orWhere($field, 'like', '%'.$searchTerm.'%');
+                    }
+                }
             });
         }
 
@@ -217,7 +240,7 @@ class ProcesoController extends Controller
             'procesos' => $procesos,
             'especies' => $especies->toArray(),
             'variedades' => $variedades,
-            'filters' => $request->only(['search', 'especie_id', 'variedad_id']),
+            'filters' => $request->only(['search', 'especie_id', 'variedad_id', 'search_fields', 'search_exact']),
             'isProducer' => $isProducer,
             'totalProcesos' => $totalProcesos,
             'totalKgProcesados' => $totalKgProcesados,
