@@ -10,6 +10,26 @@ import { Truck, Factory, FileText, Award, FileCheck2, Zap } from 'lucide-react';
 const formatNumber = (value) => Number(value ?? 0).toLocaleString('es-CL');
 const formatDate = (value) => (value ? new Date(value).toLocaleDateString('es-CL') : 'S/F');
 
+const sortCalibres = (categories = [], species = '') => {
+  const order = ['L', 'XL', 'J', '2J', '3J', '4J', '5J', '6J', '7J'];
+  const isCherry = typeof species === 'string' && (species.toLowerCase().includes('cherr') || species.toLowerCase().includes('cereza'));
+  const normalized = categories.map((c) => String(c ?? '').toUpperCase().trim());
+
+  const position = (val) => {
+    const idx = order.indexOf(val);
+    if (isCherry && idx !== -1) return idx;
+    if (!Number.isNaN(Number(val))) return 1000 + Number(val);
+    return 2000;
+  };
+
+  return [...normalized].sort((a, b) => {
+    const pa = position(a);
+    const pb = position(b);
+    if (pa === pb) return a.localeCompare(b, 'es', { numeric: true, sensitivity: 'base' });
+    return pa - pb;
+  });
+};
+
 const StatCard = ({ icon: Icon, title, value, accent = 'from-emerald-500/15 to-white' }) => (
   <Card className="border border-emerald-50 bg-gradient-to-br text-emerald-900 shadow-sm">
     <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
@@ -73,7 +93,8 @@ export default function Dashboard({
     const speciesCalibres = Array.isArray(calibreCalibresBySpecies?.[activeCalibreSpecies])
       ? calibreCalibresBySpecies[activeCalibreSpecies].map((c) => String(c ?? ''))
       : [];
-    return speciesCalibres.length ? speciesCalibres : calibreCategoriesAll;
+    const fallback = speciesCalibres.length ? speciesCalibres : calibreCategoriesAll;
+    return sortCalibres(fallback, activeCalibreSpecies);
   }, [calibreCalibresBySpecies, activeCalibreSpecies, calibreCategoriesAll]);
 
   const filteredCalibreSeries = useMemo(() => {
