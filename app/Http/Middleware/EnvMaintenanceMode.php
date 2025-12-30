@@ -36,7 +36,7 @@ class EnvMaintenanceMode
             }
 
             // Usuarios autenticados con roles distintos a Productor pueden acceder normalmente
-            if ($user && method_exists($user, 'hasRole') && ! $user->hasRole('Productor')) {
+            if ($user && method_exists($user, 'hasRole') ) {
                 return $next($request);
             }
 
