@@ -25,8 +25,8 @@ class ProcesoController extends Controller
     public function index(Request $request)
     {
         $user = Auth::user();
-        $isProducer = ! empty($user->idprod);
-       $isAdmin = method_exists($user, 'hasRole') && ($user->hasRole('Admin') || $user->hasRole('Administrador') || ($user->hasRole('Calidad') || $user->hasRole('Gerencia')));
+        $isProducer = !empty($user->idprod);
+        $isAdmin = method_exists($user, 'hasRole') && ($user->hasRole('Admin') || $user->hasRole('Administrador') || ($user->hasRole('Calidad') || $user->hasRole('Gerencia')));
 
         $query = Proceso::query()->where('estado','Finalizado');
 
@@ -424,7 +424,7 @@ class ProcesoController extends Controller
                 'numero_proceso AS n_proceso',
                 'ppc.n_especie_proceso AS especie',
                 'ppc.n_variedad_proceso AS variedad',
-                //'ppc.LPP_recepcion',
+                'ppc.LPP_recepcion',
                 'ppc.estado',
                 'ppc.recepciones_trazabilidad as lote_recepcion',
                 DB::raw("CAST(ppc.fecha_proceso AS DATE) AS fecha"), // Asegurar que es solo fecha
@@ -437,7 +437,7 @@ class ProcesoController extends Controller
                 DB::raw("GETDATE() AS FechaConsulta")
             )
             ->where('ppc.tipo_proceso', 'PRN')
-            ->where('ppc.Estado', 'En Proceso')->orWhere('ppc.Estado', 'Finalizado')
+            ->Where('ppc.Estado', 'Finalizado')
             ->groupBy(
                 'n_productor_proceso',
                 'c_productor',
@@ -448,7 +448,7 @@ class ProcesoController extends Controller
                 'id_empresa',
                 'ppc.estado',
                 'ppc.recepciones_trazabilidad',
-                //'ppc.LPP_recepcion'
+                'ppc.LPP_recepcion'
             )
             ->orderBy('numero_proceso', 'desc')
             ->get();
@@ -473,6 +473,7 @@ class ProcesoController extends Controller
                     'variedad' => $procesoBase->variedad,
                     'estado' => $procesoBase->estado,
                     'fecha' => $procesoBase->fecha,
+                    'LPP_recepcion' => $procesoBase->LPP_recepcion,
                     'id_empresa' => $procesoBase->id_empresa,
                     'exp' => (int) $procesosAgrupados->sum('exp'),
                     'comercial' => (int) $procesosAgrupados->sum('comercial'),
@@ -503,7 +504,7 @@ class ProcesoController extends Controller
                 'kilos_netos' => (int) $proceso->kilos_netos,
                 'merma' => (int) $proceso->merma,
                 'c_productor' => $proceso->c_productor,
-                //'LPP_recepcion' => $proceso->LPP_recepcion,
+                'LPP_recepcion' => $proceso->LPP_recepcion,
                 'lote_recepcion' => $proceso->lote_recepcion,
                 'estado'=>$proceso->estado,
             ];
@@ -527,10 +528,11 @@ class ProcesoController extends Controller
                     'id_empresa' => $proceso->id_empresa,
                 ]);
             }
-
-            $registro->fill(array_merge($update_data, ['temporada' => 'actual']));
-            $registro->save();
-            $registros_sincronizados++;
+            if($registro->informe==null){
+                $registro->fill(array_merge($update_data, ['temporada' => 'actual']));
+                $registro->save();
+                $registros_sincronizados++;
+            }
         }
 
         // 5. Registro de Sincronización (Descomentar si tienes el modelo Sync)
