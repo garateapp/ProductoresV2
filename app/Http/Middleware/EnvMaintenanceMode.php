@@ -21,7 +21,7 @@ class EnvMaintenanceMode
                     ? $user->hasAnyRole(['Administrador', 'Admin', 'Calidad', 'Agronomo', 'Agrónomo', 'Gerencia'])
                     : ($user->hasRole('Administrador') || $user->hasRole('Admin') || $user->hasRole('Calidad') || $user->hasRole('Agronomo') || $user->hasRole('Agrónomo') || $user->hasRole('Gerencia'));
 
-                if ($hasProducer && ! $hasBypassRole) {
+                if ( ! $hasBypassRole) {
                     if ($request->expectsJson()) {
                         return response()->json(['message' => 'Sitio en mantención. Inténtalo más tarde.'], 503);
                     }
