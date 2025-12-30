@@ -521,14 +521,14 @@ class ProcesoController extends Controller
                     ->where('id_empresa', $proceso->id_empresa)
                     ->first();
             }
-
-            if (! $registro) {
-                $registro = new Proceso([
-                    'n_proceso' => $proceso->n_proceso,
-                    'id_empresa' => $proceso->id_empresa,
-                ]);
-            }
             if($registro->informe==null){
+                if (! $registro) {
+                    $registro = new Proceso([
+                        'n_proceso' => $proceso->n_proceso,
+                        'id_empresa' => $proceso->id_empresa,
+                    ]);
+                }
+
                 $registro->fill(array_merge($update_data, ['temporada' => 'actual']));
                 $registro->save();
                 $registros_sincronizados++;
