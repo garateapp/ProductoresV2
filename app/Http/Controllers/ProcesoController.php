@@ -521,18 +521,22 @@ class ProcesoController extends Controller
                     ->where('id_empresa', $proceso->id_empresa)
                     ->first();
             }
-            if($registro->informe==null){
-                if (! $registro) {
-                    $registro = new Proceso([
-                        'n_proceso' => $proceso->n_proceso,
-                        'id_empresa' => $proceso->id_empresa,
-                    ]);
-                }
 
-                $registro->fill(array_merge($update_data, ['temporada' => 'actual']));
-                $registro->save();
-                $registros_sincronizados++;
+            // Solo actualizar si no tiene informe
+            if ($registro && ! empty($registro->informe)) {
+                continue;
             }
+
+            if (! $registro) {
+                $registro = new Proceso([
+                    'n_proceso' => $proceso->n_proceso,
+                    'id_empresa' => $proceso->id_empresa,
+                ]);
+            }
+
+            $registro->fill(array_merge($update_data, ['temporada' => 'actual']));
+            $registro->save();
+            $registros_sincronizados++;
         }
 
         // 5. Registro de Sincronización (Descomentar si tienes el modelo Sync)
