@@ -911,6 +911,49 @@ class ProcesoController extends Controller
         }
     }
 
+    public function sync_lpp(Request $request)
+    {
+        $user = $request->user();
+        if (! $user || ! $user->hasAnyRole(['Administrador', 'Admin', 'Calidad', 'Gerencia'])) {
+            abort(403);
+        }
+
+        $rows = DB::connection('sqlsrv')
+            ->table('V_PKG_Produccion_Completo as ppc')
+            ->select([
+                DB::raw('ppc.numero_proceso AS n_proceso'),
+                DB::raw('ppc.id_empresa AS id_empresa'),
+                DB::raw('MAX(ppc.LPP_recepcion) AS lpp_recepcion'),
+            ])
+            ->where('ppc.tipo_proceso', 'PRN')
+            ->whereNotNull('ppc.LPP_recepcion')
+            ->where('ppc.LPP_recepcion', '<>', '')
+            ->groupBy('ppc.numero_proceso', 'ppc.id_empresa')
+            ->get();
+
+        $updated = 0;
+        foreach ($rows as $row) {
+            $proceso = Proceso::where('n_proceso', $row->n_proceso)
+                ->where('id_empresa', $row->id_empresa)
+                ->where('temporada', 'actual')
+                ->first();
+
+            if (! $proceso) {
+                $proceso = Proceso::where('n_proceso', $row->n_proceso)
+                    ->where('id_empresa', $row->id_empresa)
+                    ->first();
+            }
+
+            if ($proceso && $row->lpp_recepcion) {
+                $proceso->LPP_recepcion = $row->lpp_recepcion;
+                $proceso->save();
+                $updated++;
+            }
+        }
+
+        return redirect()->route('procesos.index')->with('success', "LPP de recepciones sincronizado. Registros actualizados: {$updated}");
+    }
+
     private function applyProcesoProducerFilters($query, $allowedNames, $allowedCodes): void
     {
         $query->where(function ($subQuery) use ($allowedNames, $allowedCodes) {

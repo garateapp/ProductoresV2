@@ -281,11 +281,16 @@ export default function Index({ procesos, especies, variedades = [], filters, is
 
   return (
     <div className="container mx-auto py-10">
-      <Card>
-        <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-          <CardTitle className="text-2xl font-bold">Procesos</CardTitle>
-          {canManage && <SyncButton />}
-        </CardHeader>
+          <Card>
+            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+              <CardTitle className="text-2xl font-bold">Procesos</CardTitle>
+          {canManage && (
+            <div className="flex items-center gap-2">
+              <SyncButton />
+              <LppSyncButton />
+            </div>
+          )}
+            </CardHeader>
         <CardContent>
           {props?.flash?.success && (
             <div className="mb-3 rounded border border-green-200 bg-green-50 text-green-800 px-3 py-2 text-sm">{props.flash.success}</div>
@@ -749,6 +754,23 @@ function SyncButton() {
       </Button>
       <Button variant="secondary" onClick={() => doSync(true)} disabled={syncing} title="Simular sincronización (dry-run)">Prueba (dry-run)</Button>
     </div>
+  );
+}
+
+function LppSyncButton() {
+  const [syncing, setSyncing] = useState(false);
+  const doSync = () => {
+    if (!confirm('¿Actualizar solo LPP recepción?')) return;
+    setSyncing(true);
+    router.post(route('procesos.sync-lpp'), {}, {
+      preserveScroll: true,
+      onFinish: () => setSyncing(false),
+    });
+  };
+  return (
+    <Button variant="outline" onClick={doSync} disabled={syncing} title="Sincronizar LPP recepción">
+      <RefreshCw className={`h-4 w-4 mr-2 ${syncing ? 'animate-spin' : ''}`} /> {syncing ? 'Actualizando...' : 'LPP'}
+    </Button>
   );
 }
 
