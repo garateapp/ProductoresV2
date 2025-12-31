@@ -619,7 +619,7 @@ export default function Index({ procesos, especies, variedades = [], filters, is
 
                 return (
                   <TableRow key={proceso.id}>
-                    <TableCell>{proceso.agricola}</TableCell>
+                    <TableCell>{proceso.LPP_recepcion}</TableCell>
                     <TableCell>{proceso.n_proceso}</TableCell>
                     <TableCell>{proceso.lote_recepcion ?? '-'}</TableCell>
                     <TableCell>{proceso.especie}</TableCell>
