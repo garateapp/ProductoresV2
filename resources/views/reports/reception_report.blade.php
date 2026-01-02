@@ -3320,9 +3320,70 @@ default: // Default colors if species not matched
                     const distribucionColor = (coverageColor || []);
                     const labels = distribucionColor.map(item => item.color || 'N/A');
                     const data = distribucionColor.map(item => Number(item.percentage) || 0);
+
+                    // Derivar paleta a partir del color de especie (misma lógica que otros gráficos)
                     const speciesPalette = @json($colors ?? []);
                     const baseColors = ['#FF9999', '#FF0000', '#D60000', '#960000', '#640000', '#000000', '#4B5563'];
-                    const palette = (Array.isArray(speciesPalette) && speciesPalette.length) ? speciesPalette : baseColors;
+                    const normalizeHex = (c) => {
+                        if (typeof c !== 'string') return null;
+                        const v = c.trim();
+                        return v.startsWith('#') ? v : null;
+                    };
+                    const toHsl = (hex) => {
+                        const r = parseInt(hex.substr(1,2),16)/255;
+                        const g = parseInt(hex.substr(3,2),16)/255;
+                        const b = parseInt(hex.substr(5,2),16)/255;
+                        const max = Math.max(r,g,b), min = Math.min(r,g,b);
+                        let h, s, l = (max + min) / 2;
+                        if(max === min){ h = s = 0; } else {
+                            const d = max - min;
+                            s = l > 0.5 ? d / (2 - max - min) : d / (max + min);
+                            switch(max){
+                                case r: h = (g - b) / d + (g < b ? 6 : 0); break;
+                                case g: h = (b - r) / d + 2; break;
+                                case b: h = (r - g) / d + 4; break;
+                            }
+                            h /= 6;
+                        }
+                        return {h, s, l};
+                    };
+                    const fromHsl = ({h,s,l}) => {
+                        let r, g, b;
+                        if(s === 0){
+                            r = g = b = l; // achromatic
+                        } else {
+                            const hue2rgb = (p, q, t) => {
+                                if(t < 0) t += 1;
+                                if(t > 1) t -= 1;
+                                if(t < 1/6) return p + (q - p) * 6 * t;
+                                if(t < 1/2) return q;
+                                if(t < 2/3) return p + (q - p) * (2/3 - t) * 6;
+                                return p;
+                            };
+                            const q = l < 0.5 ? l * (1 + s) : l + s - l * s;
+                            const p = 2 * l - q;
+                            r = hue2rgb(p, q, h + 1/3);
+                            g = hue2rgb(p, q, h);
+                            b = hue2rgb(p, q, h - 1/3);
+                        }
+                        const toHex = (x) => {
+                            const v = Math.round(x * 255).toString(16).padStart(2, '0');
+                            return v;
+                        };
+                        return `#${toHex(r)}${toHex(g)}${toHex(b)}`;
+                    };
+                    const buildPalette = () => {
+                        const hexColors = Array.isArray(speciesPalette) ? speciesPalette.map(normalizeHex).filter(Boolean) : [];
+                        if (hexColors.length === 0) return baseColors;
+                        const base = hexColors[0];
+                        const hsl = toHsl(base);
+                        const shifts = [-0.15, -0.05, 0, 0.05, 0.1, 0.15, 0.2];
+                        return shifts.map(delta => {
+                            const l = Math.max(0, Math.min(1, hsl.l + delta));
+                            return fromHsl({h: hsl.h, s: hsl.s, l});
+                        });
+                    };
+                    const palette = buildPalette();
                     const backgroundColors = labels.map((_, idx) => palette[idx % palette.length]);
                     const colorChart = new Chart(ctxColor, {
                         type: 'pie',
