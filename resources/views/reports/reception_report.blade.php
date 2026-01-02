@@ -3383,7 +3383,8 @@ default: // Default colors if species not matched
                             return fromHsl({h: hsl.h, s: hsl.s, l});
                         });
                     };
-                    const palette = buildPalette();
+                    //const palette = buildPalette();
+                    const palette = getColorFondoPalette(@json($recepcion->n_especie), labels.length);
                     const backgroundColors = labels.map((_, idx) => palette[idx % palette.length]);
                     const colorChart = new Chart(ctxColor, {
                         type: 'pie',
@@ -3392,7 +3393,7 @@ default: // Default colors if species not matched
                             datasets: [{
                                 label: '% de Color',
                                 data: data,
-                                backgroundColor: backgroundColors
+                                backgroundColor: palette
                             }]
                         },
                         options: {
