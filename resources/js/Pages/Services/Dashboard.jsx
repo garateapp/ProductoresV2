@@ -157,7 +157,7 @@ export default function Dashboard({ auth, service, stats, recepciones = [], proc
         </div>
 
         {/* Curva de calibre por especie (prioridad) */}
-        <Card className="bg-[#e3f2fd]">
+        {/* <Card className="bg-[#e3f2fd]">
           <CardHeader><CardTitle className="text-[#1565c0]">Curva de calibre por especie</CardTitle></CardHeader>
           <CardContent>
             {activeCalibreCategories.length ? (
@@ -274,7 +274,7 @@ export default function Dashboard({ auth, service, stats, recepciones = [], proc
               <p className="text-sm text-gray-500">Sin datos de calibre.</p>
             )}
           </CardContent>
-        </Card>
+        </Card> */}
 
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
           <Card className="bg-[#f1f8e9]">
