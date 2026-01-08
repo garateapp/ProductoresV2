@@ -440,7 +440,7 @@ class ProcesoController extends Controller
             )
             ->where('ppc.tipo_proceso', 'PRN')
             ->Where('ppc.Estado', 'Finalizado')
-            ->whereNotIn('numero_proceso',[])
+            ->whereNotIn('numero_proceso',[748,987,912,561,749,85,710,1615,1616,755,770,1003])
             ->groupBy(
                 'n_productor_proceso',
                 'c_productor',
@@ -526,9 +526,9 @@ class ProcesoController extends Controller
             }
 
             // Solo actualizar si no tiene informe
-            if ($registro && !empty($registro->informe)) {
-                continue;
-            }
+            // if ($registro && !empty($registro->informe)) {
+            //     continue;
+            // }
 
             if (! $registro) {
                 $registro = new Proceso([
