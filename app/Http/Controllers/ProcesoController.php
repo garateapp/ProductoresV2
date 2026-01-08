@@ -105,7 +105,7 @@ class ProcesoController extends Controller
         } elseif (! $isAdmin) {
             $query->whereRaw('1 = 0');
         }
-
+        $query->whereNotIn('n_proceso',[748,987,912,561,749,85,710,1615,1616,755,770,1003]);
         // General search filter (configurable fields)
         if ($request->has('search') && $request->input('search') !== '' && $request->input('search') !== null) {
             $searchTerm = $request->input('search');
@@ -167,7 +167,7 @@ class ProcesoController extends Controller
         $totalMerma =  $query->sum('merma');
         $query->where('exp','>',0);
         $query->where('comercial','>',0);
-        $query->whereNotIn('n_proceso',[748,987,912,561,749,85,710,1615,1616,755,770,1003]);
+
         // Calculate totals for the chart
         $chartDataQuery = clone $query; // Clone the query
 
@@ -872,7 +872,7 @@ class ProcesoController extends Controller
                         if ($m===3) $especie = $item;
                         if ($m===4) $variedad = $item;
                         if ($m===5) $fecha = $item;
-                        if ($m===6) $kilos_netos = (int) $item;
+                        if ($m===6) $kilos_netos = $item;
                         if ($m===7) $categoria = $item;
                         if ($m===8) $id_empresa = $item;
                         if ($m===9) $c_productor = $item;
