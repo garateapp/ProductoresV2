@@ -324,11 +324,11 @@ class ProcesoController extends Controller
 
             $summary['updated']++;
              try {
-            // $reportNotificationService->notifyProcessReport(
-            //     $proceso,
-            //     $proceso->informe,
-            //     basename($proceso->informe)
-            //);
+            $reportNotificationService->notifyProcessReport(
+                $proceso,
+                $proceso->informe,
+                basename($proceso->informe)
+            );
         } catch (\Throwable $e) {
             Log::error('Process report resend failed', [
                 'proceso_id' => $proceso->id,
@@ -442,7 +442,7 @@ class ProcesoController extends Controller
             ->where('ppc.tipo_proceso', 'PRN')
             ->where('ppc.Estado', 'Finalizado')
             ->where('peso_neto','>',0)
-            ->whereNotIn('numero_proceso',[748,987,912,749,85,710,1615,1616,755,770,1003]) //temporal
+            ->whereNotIn('numero_proceso',[1615,1616]) //temporal
             ->groupBy(
                 'n_productor_proceso',
                 'c_productor',
@@ -528,9 +528,9 @@ class ProcesoController extends Controller
             }
 
             // Solo actualizar si no tiene informe
-            // if ($registro && !empty($registro->informe)) {
-            //     continue;
-            // }
+            if ($registro && !empty($registro->informe)) {
+                continue;
+            }
 
             if (! $registro) {
                 $registro = new Proceso([
