@@ -528,9 +528,9 @@ class ProcesoController extends Controller
             }
 
             // Solo actualizar si no tiene informe
-            if ($registro && !empty($registro->informe)) {
-                continue;
-            }
+            // if ($registro && !empty($registro->informe)) {
+            //     continue;
+            // }
 
             if (! $registro) {
                 $registro = new Proceso([
