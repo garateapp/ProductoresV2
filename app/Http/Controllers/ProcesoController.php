@@ -321,11 +321,11 @@ class ProcesoController extends Controller
 
             $summary['updated']++;
              try {
-            $reportNotificationService->notifyProcessReport(
-                $proceso,
-                $proceso->informe,
-                basename($proceso->informe)
-            );
+            // $reportNotificationService->notifyProcessReport(
+            //     $proceso,
+            //     $proceso->informe,
+            //     basename($proceso->informe)
+            //);
         } catch (\Throwable $e) {
             Log::error('Process report resend failed', [
                 'proceso_id' => $proceso->id,
@@ -438,6 +438,7 @@ class ProcesoController extends Controller
             )
             ->where('ppc.tipo_proceso', 'PRN')
             ->Where('ppc.Estado', 'Finalizado')
+            ->whereNotIn('numero_proceso',[])
             ->groupBy(
                 'n_productor_proceso',
                 'c_productor',
@@ -478,7 +479,7 @@ class ProcesoController extends Controller
                     'exp' => (int) $procesosAgrupados->sum('exp'),
                     'comercial' => (int) $procesosAgrupados->sum('comercial'),
                     'desecho' => (int) $procesosAgrupados->sum('desecho'),
-                    'merma' => (int) $procesosAgrupados->sum('merma'),
+                    'merma' => (int) (int) $procesosAgrupados->sum('kilos_netos')-(int) $procesosAgrupados->sum('exp')-(int) $procesosAgrupados->sum('comercial')-(int) $procesosAgrupados->sum('desecho'),
                     'kilos_netos' => (int) $procesosAgrupados->sum('kilos_netos'),
                     'lote_recepcion' => $loteRecepcion ?? $procesoBase->lote_recepcion,
                 ];
@@ -523,7 +524,7 @@ class ProcesoController extends Controller
             }
 
             // Solo actualizar si no tiene informe
-            if ($registro && ! empty($registro->informe)) {
+            if ($registro && !empty($registro->informe)) {
                 continue;
             }
 
