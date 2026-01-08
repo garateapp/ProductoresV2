@@ -105,7 +105,7 @@ class ProcesoController extends Controller
         } elseif (! $isAdmin) {
             $query->whereRaw('1 = 0');
         }
-        $query->whereNotIn('n_proceso',[748,987,912,749,85,710,1615,1616,755,770,1003]);
+
         // General search filter (configurable fields)
         if ($request->has('search') && $request->input('search') !== '' && $request->input('search') !== null) {
             $searchTerm = $request->input('search');
