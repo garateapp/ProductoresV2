@@ -165,9 +165,11 @@ class ProcesoController extends Controller
         $totalExportacion = (int) $query->sum('exp');
         $totalComercial = (int) $query->sum('comercial');
         $totalMerma = (int) $query->sum('merma');
-
+        $query->where('exp','>',0);
+        $query->where('comercial','>',0);
         // Calculate totals for the chart
         $chartDataQuery = clone $query; // Clone the query
+
          $query->orderBy('n_proceso', 'desc');
          Log::info($query->toSql());
         $chartData = $chartDataQuery->selectRaw('especie, SUM(exp) as exportacion, SUM(comercial) as comercial, SUM(desecho) as desecho, SUM(merma) as merma')
