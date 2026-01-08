@@ -54,7 +54,7 @@ export default function Index({ procesos, especies, variedades = [], filters, is
   const fileInputRef = useRef(null);
 
   const userRoles = props?.auth?.user?.roles ?? [];
-  const isAdmin = userRoles.some((role) => ['Administrador', 'Admin','Calidad'].includes(role.name));
+  const isAdmin = userRoles.some((role) => ['Administrador', 'Admin'].includes(role.name));
   const canManage = isAdmin && !isProducer;
   const csrfToken = props?.csrf_token ?? (typeof document !== 'undefined'
     ? document.querySelector('meta[name="csrf-token"]')?.getAttribute('content')
