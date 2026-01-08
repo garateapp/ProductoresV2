@@ -161,10 +161,10 @@ class ProcesoController extends Controller
         }
 
         $totalProcesos = $query->count();
-        $totalKgProcesados = (int) $query->sum('kilos_netos');
-        $totalExportacion = (int) $query->sum('exp');
-        $totalComercial = (int) $query->sum('comercial');
-        $totalMerma = (int) $query->sum('merma');
+        $totalKgProcesados =  $query->sum('kilos_netos');
+        $totalExportacion =  $query->sum('exp');
+        $totalComercial =  $query->sum('comercial');
+        $totalMerma =  $query->sum('merma');
         $query->where('exp','>',0);
         $query->where('comercial','>',0);
         $query->whereNotIn('n_proceso',[748,987,912,561,749,85,710,1615,1616,755,770,1003]);
@@ -480,11 +480,11 @@ class ProcesoController extends Controller
                     'fecha' => $procesoBase->fecha,
                     'LPP_recepcion' => $procesoBase->LPP_recepcion,
                     'id_empresa' => $procesoBase->id_empresa,
-                    'exp' => (int) $procesosAgrupados->sum('exp'),
-                    'comercial' => (int) $procesosAgrupados->sum('comercial'),
-                    'desecho' => (int) $procesosAgrupados->sum('desecho'),
-                    'merma' => (int) (int) $procesosAgrupados->sum('kilos_netos')-(int) $procesosAgrupados->sum('exp')-(int) $procesosAgrupados->sum('comercial')-(int) $procesosAgrupados->sum('desecho'),
-                    'kilos_netos' => (int) $procesosAgrupados->sum('kilos_netos'),
+                    'exp' =>  $procesosAgrupados->sum('exp'),
+                    'comercial' =>  $procesosAgrupados->sum('comercial'),
+                    'desecho' =>  $procesosAgrupados->sum('desecho'),
+                    'merma' =>  $procesosAgrupados->sum('kilos_netos')- $procesosAgrupados->sum('exp')- $procesosAgrupados->sum('comercial')- $procesosAgrupados->sum('desecho'),
+                    'kilos_netos' => $procesosAgrupados->sum('kilos_netos'),
                     'lote_recepcion' => $loteRecepcion ?? $procesoBase->lote_recepcion,
                 ];
             })
