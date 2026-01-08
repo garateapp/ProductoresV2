@@ -442,7 +442,7 @@ class ProcesoController extends Controller
             ->where('ppc.tipo_proceso', 'PRN')
             ->where('ppc.Estado', 'Finalizado')
             ->where('peso_neto','>',0)
-            ->whereNotIn('numero_proceso',[748,987,912,561,749,85,710,1615,1616,755,770,1003])
+            ->whereNotIn('numero_proceso',[748,987,912,561,749,85,710,1615,1616,755,770,1003]) //temporal
             ->groupBy(
                 'n_productor_proceso',
                 'c_productor',
