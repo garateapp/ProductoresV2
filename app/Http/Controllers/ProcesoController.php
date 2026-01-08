@@ -105,7 +105,7 @@ class ProcesoController extends Controller
         } elseif (! $isAdmin) {
             $query->whereRaw('1 = 0');
         }
-        $query->whereNotIn('n_proceso',[748,987,912,561,749,85,710,1615,1616,755,770,1003]);
+        $query->whereNotIn('n_proceso',[748,987,912,749,85,710,1615,1616,755,770,1003]);
         // General search filter (configurable fields)
         if ($request->has('search') && $request->input('search') !== '' && $request->input('search') !== null) {
             $searchTerm = $request->input('search');
@@ -442,7 +442,7 @@ class ProcesoController extends Controller
             ->where('ppc.tipo_proceso', 'PRN')
             ->where('ppc.Estado', 'Finalizado')
             ->where('peso_neto','>',0)
-            ->whereNotIn('numero_proceso',[748,987,912,561,749,85,710,1615,1616,755,770,1003]) //temporal
+            ->whereNotIn('numero_proceso',[748,987,912,749,85,710,1615,1616,755,770,1003]) //temporal
             ->groupBy(
                 'n_productor_proceso',
                 'c_productor',
