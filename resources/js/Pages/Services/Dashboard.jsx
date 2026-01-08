@@ -2,6 +2,7 @@ import React from 'react';
 import { Head, Link } from '@inertiajs/react';
 import AuthenticatedLayout from '@/Layouts/AuthenticatedLayout';
 import { Card, CardHeader, CardTitle, CardContent } from '@/Components/ui/card';
+import { Alert, AlertTitle, AlertDescription } from '@/Components/ui/alert';
 import Chart from 'react-apexcharts';
 import { Users, Truck, Factory, ShieldCheck, FileText as FileIcon } from 'lucide-react';
 
@@ -88,6 +89,17 @@ export default function Dashboard({ auth, service, stats, recepciones = [], proc
     <AuthenticatedLayout user={auth.user} header={<h2 className="font-semibold text-xl text-gray-800 leading-tight">Dashboard Servicio</h2>}>
       <Head title={`Dashboard Servicio - ${service.name}`} />
       <div className="container mx-auto py-6 space-y-6">
+        <Alert className="border-emerald-200 bg-emerald-50 text-emerald-900">
+                  <AlertCircle className="h-4 w-4 text-emerald-700" />
+                  <AlertTitle>Actualizaciones recientes</AlertTitle>
+                  <AlertDescription>
+                    <ul className="list-disc pl-5 space-y-1">
+                      <li>Se agrega gráfico de curva de calibre exportación por especie.</li>
+                      <li>Mejoras en buscadores.</li>
+                      <li>Optimización de carga.</li>
+                    </ul>
+                  </AlertDescription>
+                </Alert>
         <div className="grid grid-cols-1 md:grid-cols-5 gap-4">
           <Stat title="Productores" value={stats?.producers ?? 0} color="orange" icon={Users} />
           <Stat title="Recepciones" value={stats?.recepciones ?? 0} color="green" icon={Truck} />

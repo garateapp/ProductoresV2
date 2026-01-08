@@ -2,8 +2,9 @@ import React, { useMemo, useState } from 'react';
 import { Head, Link } from '@inertiajs/react';
 import AuthenticatedLayout from '@/Layouts/AuthenticatedLayout';
 import { Card, CardHeader, CardTitle, CardContent } from '@/Components/ui/card';
+import { Alert, AlertTitle, AlertDescription } from '@/Components/ui/alert';
 import Chart from 'react-apexcharts';
-import { Users, Building2, Truck, Factory, ShieldCheck, FileText as FileIcon, LayoutDashboard, Eye } from 'lucide-react';
+import { Users, Building2, Truck, Factory, ShieldCheck, FileText as FileIcon, LayoutDashboard, Eye, AlertCircle } from 'lucide-react';
 
 export default function AdminDashboard({ auth, services = [], producers = [], recepciones = [], procesos = [], certifications = [], contracts = [], stats = {}, charts = {} }) {
   const [producerFilter, setProducerFilter] = useState('');
@@ -118,6 +119,17 @@ export default function AdminDashboard({ auth, services = [], producers = [], re
     <AuthenticatedLayout user={auth.user} header={<h2 className="font-semibold text-xl text-gray-800 leading-tight">Dashboard Administrador</h2>}>
       <Head title="Dashboard Administrador" />
       <div className="container mx-auto py-6 space-y-6">
+        <Alert className="border-emerald-200 bg-emerald-50 text-emerald-900">
+          <AlertCircle className="h-4 w-4 text-emerald-700" />
+          <AlertTitle>Actualizaciones recientes</AlertTitle>
+          <AlertDescription>
+            <ul className="list-disc pl-5 space-y-1">
+              <li>Se agrega gráfico de curva de calibre exportación por especie.</li>
+              <li>Mejoras en buscadores.</li>
+              <li>Optimización de carga.</li>
+            </ul>
+          </AlertDescription>
+        </Alert>
         <div className="grid grid-cols-1 md:grid-cols-6 gap-4">
           <Stat title="Servicios" value={stats.services ?? 0} color="green" icon={Building2} />
           <Stat title="Productores" value={stats.producers ?? 0} color="orange" icon={Users} />

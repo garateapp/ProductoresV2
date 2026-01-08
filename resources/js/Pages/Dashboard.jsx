@@ -4,6 +4,7 @@ import { Head } from '@inertiajs/react';
 import { Card, CardHeader, CardTitle, CardContent } from '@/Components/ui/card';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/Components/ui/tabs';
 import { Badge } from '@/Components/ui/badge';
+import { Alert, AlertTitle, AlertDescription } from '@/Components/ui/alert';
 import Chart from 'react-apexcharts';
 import { Truck, Factory, FileText, Award, FileCheck2, Zap } from 'lucide-react';
 
@@ -167,6 +168,17 @@ export default function Dashboard({
       ) : (
         <div className="py-8">
           <div className="mx-auto max-w-6xl space-y-10 px-4 sm:px-6 lg:px-8">
+            <Alert className="border-emerald-200 bg-emerald-50 text-emerald-900">
+          <AlertCircle className="h-4 w-4 text-emerald-700" />
+          <AlertTitle>Actualizaciones recientes</AlertTitle>
+          <AlertDescription>
+            <ul className="list-disc pl-5 space-y-1">
+              <li>Se agrega gráfico de curva de calibre exportación por especie.</li>
+              <li>Mejoras en buscadores.</li>
+              <li>Optimización de carga.</li>
+            </ul>
+          </AlertDescription>
+        </Alert>
             <section className="relative overflow-hidden rounded-3xl border bg-gradient-to-br from-emerald-600 via-emerald-500 to-emerald-400 p-8 text-white shadow-lg">
               <div className="relative z-10 flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
                 <div>
