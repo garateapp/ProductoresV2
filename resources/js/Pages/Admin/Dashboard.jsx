@@ -315,7 +315,7 @@ export default function AdminDashboard({ auth, services = [], producers = [], re
 
         {/* Curva de calibre por especie (ancho completo) */}
         <Card className="bg-[#e3f2fd]">
-          <CardHeader><CardTitle className="text-[#1565c0]">Curva de calibre por especie</CardTitle></CardHeader>
+          <CardHeader><CardTitle className="text-[#1565c0]">Curva de Calibre  Exportación por especie</CardTitle></CardHeader>
           <CardContent>
             {activeCalibreCategories.length ? (
               <>

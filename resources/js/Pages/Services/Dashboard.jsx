@@ -158,7 +158,7 @@ export default function Dashboard({ auth, service, stats, recepciones = [], proc
 
         {/* Curva de calibre por especie (prioridad) */}
         <Card className="bg-[#e3f2fd]">
-          <CardHeader><CardTitle className="text-[#1565c0]">Curva de calibre por especie</CardTitle></CardHeader>
+          <CardHeader><CardTitle className="text-[#1565c0]">Curva de calibre Exportación por especie </CardTitle></CardHeader>
           <CardContent>
             {activeCalibreCategories.length ? (
               <>

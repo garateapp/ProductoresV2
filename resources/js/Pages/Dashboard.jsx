@@ -282,7 +282,7 @@ export default function Dashboard({
             <section className="rounded-3xl border bg-white p-6 shadow-sm">
               <div className="flex flex-wrap items-center justify-between gap-4 mb-4">
                 <div>
-                  <h3 className="text-lg font-semibold text-gray-800">Curva de calibre por especie</h3>
+                  <h3 className="text-lg font-semibold text-gray-800">Curva de Calibre Exportación  por especie</h3>
                   <p className="text-sm text-gray-500">Barras en kilos y línea de % para cada calibre.</p>
                 </div>
                 <div className="flex flex-wrap gap-3">
