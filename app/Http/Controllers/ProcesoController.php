@@ -167,7 +167,7 @@ class ProcesoController extends Controller
         $totalMerma = (int) $query->sum('merma');
         $query->where('exp','>',0);
         $query->where('comercial','>',0);
-        $query->->whereNotIn('numero_proceso',[748,987,912,561,749,85,710,1615,1616,755,770,1003]);
+        $query->whereNotIn('numero_proceso',[748,987,912,561,749,85,710,1615,1616,755,770,1003]);
         // Calculate totals for the chart
         $chartDataQuery = clone $query; // Clone the query
 
