@@ -4,7 +4,7 @@ import AuthenticatedLayout from '@/Layouts/AuthenticatedLayout';
 import { Card, CardHeader, CardTitle, CardContent } from '@/Components/ui/card';
 import { Alert, AlertTitle, AlertDescription } from '@/Components/ui/alert';
 import Chart from 'react-apexcharts';
-import { Users, Truck, Factory, ShieldCheck, FileText as FileIcon } from 'lucide-react';
+import { Users, Truck, Factory, ShieldCheck, FileText as FileIcon,AlertCircle } from 'lucide-react';
 
 export default function Dashboard({ auth, service, stats, recepciones = [], procesos = [], certifications = [], markets = [], contracts = [], charts = {} }) {
   const calibreData = charts?.calibreCurve ?? {};

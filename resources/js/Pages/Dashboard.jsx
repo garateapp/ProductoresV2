@@ -6,7 +6,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/Components/ui/tabs';
 import { Badge } from '@/Components/ui/badge';
 import { Alert, AlertTitle, AlertDescription } from '@/Components/ui/alert';
 import Chart from 'react-apexcharts';
-import { Truck, Factory, FileText, Award, FileCheck2, Zap } from 'lucide-react';
+import { Truck, Factory, FileText, Award, FileCheck2, Zap,AlertCircle } from 'lucide-react';
 
 const formatNumber = (value) => Number(value ?? 0).toLocaleString('es-CL');
 const formatDate = (value) => (value ? new Date(value).toLocaleDateString('es-CL') : 'S/F');
