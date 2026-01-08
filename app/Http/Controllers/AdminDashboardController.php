@@ -131,6 +131,7 @@ class AdminDashboardController extends Controller
             ])
             ->where('ppc.tipo_proceso', 'PRN')
             ->where('ppc.estado', 'Finalizado')
+            ->where('ppc.t_categoria', 'Exportacion')
             ->whereNotIn('ppc.id_calibre', [1,73,75,104,91,96])
             ->groupBy('ppc.n_especie_proceso', 'ppc.n_variedad_proceso', 'ppc.n_calibre')
             ->get()

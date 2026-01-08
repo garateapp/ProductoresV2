@@ -279,7 +279,7 @@ export default function Dashboard({
               </Tabs>
             </section>
 
-            {/* <section className="rounded-3xl border bg-white p-6 shadow-sm">
+            <section className="rounded-3xl border bg-white p-6 shadow-sm">
               <div className="flex flex-wrap items-center justify-between gap-4 mb-4">
                 <div>
                   <h3 className="text-lg font-semibold text-gray-800">Curva de calibre por especie</h3>
@@ -390,7 +390,7 @@ export default function Dashboard({
               ) : (
                 <EmptyState message="Sin datos de calibre disponibles." />
               )}
-            </section> */}
+            </section>
 
             <section className="grid gap-6 lg:grid-cols-2">
               <Card className="border-emerald-100 shadow-sm">

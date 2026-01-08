@@ -229,6 +229,7 @@ class DashboardController extends Controller
             ])
             ->where('ppc.tipo_proceso', 'PRN')
             ->where('ppc.estado', 'Finalizado')
+            ->where('ppc.t_categoria', 'Exportacion')
             ->whereNotIn('ppc.id_calibre', [73, 75, 104, 91, 96])
             ->when($allowedCodes->isNotEmpty() || $allowedNames->isNotEmpty(), function ($query) use ($allowedCodes, $allowedNames) {
                 $query->where(function ($q) use ($allowedCodes, $allowedNames) {
