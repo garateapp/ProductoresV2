@@ -119,7 +119,7 @@ class ProcesoController extends Controller
             $allowedFields = collect([
                 'n_proceso',
                 'lote_recepcion',
-                'agricola',
+                'agricola','LPP_recepcion',
             ]);
 
             if ($searchFields->isEmpty()) {
@@ -137,6 +137,7 @@ class ProcesoController extends Controller
                         $q->orWhere($field, '=', $searchTerm);
                     } else {
                         $q->orWhere($field, 'like', '%'.$searchTerm.'%');
+                        $q->orWhere('LPP_recepcion', 'like', '%'.$searchTerm.'%');
                     }
                 }
             });
