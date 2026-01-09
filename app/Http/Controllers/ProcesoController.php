@@ -160,9 +160,7 @@ class ProcesoController extends Controller
                 $query->where('variedad', $variedad->name);
             }
         }
-        if ($shouldRestrict) {
-            $query->whereNotNull('informe')->orWhere('informe', '!=', '');
-        }
+
         $totalProcesos = $query->count();
         $totalKgProcesados =  $query->sum('kilos_netos');
         $totalExportacion =  $query->sum('exp');
