@@ -99,6 +99,7 @@ class ProcesoController extends Controller
         if ($shouldRestrict) {
             if ($allowedProducerNames->isNotEmpty() || $allowedProducerCodes->isNotEmpty()) {
                 $this->applyProcesoProducerFilters($query, $allowedProducerNames, $allowedProducerCodes);
+                $query->whereNotNull('informe');
             } else {
                 $query->whereRaw('1 = 0');
             }
@@ -159,7 +160,9 @@ class ProcesoController extends Controller
                 $query->where('variedad', $variedad->name);
             }
         }
-
+        if ($shouldRestrict) {
+            $query->whereNotNull('informe')->orWhere('informe', '!=', '');
+        }
         $totalProcesos = $query->count();
         $totalKgProcesados =  $query->sum('kilos_netos');
         $totalExportacion =  $query->sum('exp');
@@ -967,12 +970,14 @@ class ProcesoController extends Controller
 
             if ($hasCodes) {
                 $subQuery->whereIn('c_productor', $allowedCodes);
+
             }
 
             if ($hasNames) {
                 $nameFilter = function ($nameQuery) use ($allowedNames) {
                     $nameQuery->whereIn('agricola', $allowedNames)
                         ->orWhereIn('LPP_recepcion', $allowedNames);
+
                 };
 
                 if ($hasCodes) {
@@ -982,5 +987,6 @@ class ProcesoController extends Controller
                 }
             }
         });
+
     }
 }
