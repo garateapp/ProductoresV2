@@ -276,7 +276,7 @@ export default function Index({ procesos, especies, variedades = [], filters, is
 
   const calculatePercentage = (value, total) => {
     if (total === 0) return '0.00%';
-    return ((value / total) * 100).toFixed(2) + '%';
+    return ((value / total) * 100).toFixed(1) + '%';
   };
 
   return (
