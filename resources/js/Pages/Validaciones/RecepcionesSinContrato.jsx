@@ -25,7 +25,7 @@ export default function RecepcionesSinContrato({ producers, filters, excludedSer
     search: filters.search || '',
     email_filter: filters.email_filter || 'all',
     phone_filter: filters.phone_filter || 'all',
-    contract_filter: filters.contract_filter || 'all',
+    contract_filter: filters.contract_filter || 'without',
   });
   const [ready, setReady] = useState(false);
 
@@ -91,11 +91,11 @@ export default function RecepcionesSinContrato({ producers, filters, excludedSer
           <div>
             <CardTitle className="text-2xl font-bold">Validaciones</CardTitle>
             <p className="text-sm text-gray-600">
-              Productores con recepciones y sin contrato registrado.
+              Productores con recepciones sin contrato.
             </p>
           </div>
           <div className="flex flex-col gap-2 text-sm text-gray-600">
-            <span>Servicios excluidos: {excludedServices.join(', ')}</span>
+            {/* <span>Servicios excluidos: {excludedServices.join(', ')}</span> */}
             <span>Total encontrados: {producers.total}</span>
           </div>
         </CardHeader>
@@ -142,7 +142,7 @@ export default function RecepcionesSinContrato({ producers, filters, excludedSer
                 >
                   <option value="all">Todos</option>
                   <option value="with">Con contrato</option>
-                  <option value="without">Sin contrato</option>
+                  <option value="without" selected>Sin contrato</option>
                 </select>
               </label>
             </div>
@@ -288,6 +288,8 @@ export default function RecepcionesSinContrato({ producers, filters, excludedSer
                   <Link
                     key={index}
                     href={link.url}
+                    preserveState={true}
+                    preserveScroll={true}
                     className={`px-3 py-1 text-sm border rounded ${link.active
                       ? 'border-green-500 bg-green-50 text-green-700'
                       : 'border-gray-300 bg-white text-gray-600 hover:bg-gray-50'
