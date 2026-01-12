@@ -169,7 +169,7 @@ class ConsolidatedExport implements FromCollection, ShouldAutoSize, WithEvents, 
 
         // GRUPO: DAÑO PLAGA
         $danoPlagaData = $reception->calidad->detalles
-            ->where('tipo_item', 'DAÑO PLAGA');
+            ->where('tipo_item', 'DAÑO DE PLAGA');
 
         foreach ($this->danoPlagaHeadings as $heading) {
             $detail = $danoPlagaData->firstWhere('detalle_item', $heading);
