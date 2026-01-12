@@ -12,6 +12,7 @@ use App\Http\Controllers\CommercialDiscardController;
 use App\Http\Controllers\NotificationLogController;
 use App\Http\Controllers\FieldVisitController;
 use App\Http\Controllers\FieldManagementController;
+use App\Http\Controllers\ValidacionesController;
 
 Route::get('/', function () {
     return redirect()->route('login');
@@ -214,6 +215,7 @@ Route::middleware('auth')->group(function () {
     Route::get('/api/csgs-by-rut/{rut}', [App\Http\Controllers\MrlSampleController::class, 'getCsgsByRut'])->name('api.csgs-by-rut');
 
     Route::resource('contracts', App\Http\Controllers\ContractController::class)->names('contracts');
+    Route::get('validaciones/recepciones-sin-contrato', [ValidacionesController::class, 'recepcionesSinContrato'])->name('validaciones.recepciones-sin-contrato');
 
     Route::get('reporteria/calidad', [ReporteriaController::class, 'index'])->name('reporteria.calidad');
     Route::get('reporteria/export-consolidated', [ReporteriaController::class, 'exportConsolidated'])->name('reporteria.export.consolidated');

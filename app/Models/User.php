@@ -96,6 +96,16 @@ class User extends Authenticatable
         return $this->belongsToMany(Service::class);
     }
 
+    public function recepciones()
+    {
+        return $this->hasMany(Recepcion::class, 'id_emisor', 'idprod');
+    }
+
+    public function contracts()
+    {
+        return $this->hasMany(Contract::class);
+    }
+
     public function certifications()
     {
         return $this->hasMany(ProducerCertification::class);

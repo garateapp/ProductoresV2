@@ -16,6 +16,7 @@ import AdminMenu from './Dropdowns/AdminMenu.jsx';
 import UserMenu from './Dropdowns/UserMenu.jsx';  // sin llaves
 import ControlCalidadMenu from './Dropdowns/ControlCalidadMenu.jsx';
 import SagMenu from './Dropdowns/SagMenu.jsx';
+import ValidacionesMenu from './Dropdowns/ValidacionesMenu.jsx';
 
 const navLinkClasses =
     "group inline-flex h-9 w-max items-center justify-center rounded-md bg-greenex-dark-green px-4 py-2 text-sm font-medium transition-colors hover:bg-greenex-vibrant-green hover:text-greenex-orange focus:bg-greenex-vibrant-green focus:text-greenex-orange focus:outline-none disabled:pointer-events-none disabled:opacity-50 text-greenex-white";
@@ -96,6 +97,7 @@ export default function AuthenticatedLayout({ header, children }) {
 
                                         {/* Submenús extraídos */}
                                         {hasAnyRole(['Administrador', 'Gerencia', 'Agronomo', 'Sag']) && <DocumentationMenu />}
+                                        {hasAnyRole(['Administrador', 'Gerencia', 'Contrato']) && <ValidacionesMenu />}
                                         {hasRole('Administrador') && <AdminMenu />}
                                         <UserMenu user={user} />
                                     </NavigationMenuList>
@@ -169,6 +171,17 @@ export default function AuthenticatedLayout({ header, children }) {
                                     Contratos
                                 </ResponsiveNavLink>
                             </>
+                        )}
+
+                        {hasAnyRole(['Administrador', 'Gerencia', 'Contrato']) && (
+                            <ResponsiveNavLink
+                                {...mobileNavLinkProps}
+                                href={route('validaciones.recepciones-sin-contrato')}
+                                active={route().current('validaciones.recepciones-sin-contrato')}
+                                onClick={() => setShowingNavigationDropdown(false)}
+                            >
+                                Validaciones
+                            </ResponsiveNavLink>
                         )}
 
                         {hasAnyRole(['Administrador', 'Agronomo']) && (
