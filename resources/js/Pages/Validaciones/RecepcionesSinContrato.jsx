@@ -260,7 +260,7 @@ export default function RecepcionesSinContrato({ producers, filters, excludedSer
                               )}
                             </TableCell>
                             <TableCell>
-                              <Link href={route('producers.dashboard', producer.id)}>
+                              <Link href={route('producers.edit', producer.id)}>
                                 <Button variant="outline" size="sm">Ver productor</Button>
                               </Link>
                             </TableCell>
