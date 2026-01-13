@@ -9,7 +9,7 @@ use App\Models\Calidad;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Database\Eloquent\Relations\BelongsToMany;
 use App\Models\Service;
-use App\Models\Variedad; // Add this line
+use App\Models\Variedad;
 use App\Models\User;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
@@ -513,6 +513,11 @@ class RecepcionController extends Controller
 
         $payload = $this->buildReceptionPayload($row);
         $recepcion->forceFill($payload)->save();
+         $user=User::where('csg',$row['Codigo_Sag_emisor'])->first();
+        if($user){
+            $user->is_active=1;
+            $user->save();
+        }
     }
 
     private function createReceptionRecord(array $row): Recepcion
@@ -524,6 +529,11 @@ class RecepcionController extends Controller
         $payload['temporada'] = 'actual';
 
         $recepcion = Recepcion::create($payload);
+        $user=User::where('csg',$row['Codigo_Sag_emisor'])->first();
+        if($user){
+            $user->is_active=1;
+            $user->save();
+        }
         Calidad::create(['recepcion_id' => $recepcion->id]);
 
         return $recepcion;
