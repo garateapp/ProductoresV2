@@ -3029,7 +3029,7 @@ default: // Default colors if species not matched
 
 
 
-                        return `${cat} (${formatted})`;
+                        return `${cat}`;
 
 
 
