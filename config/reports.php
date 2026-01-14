@@ -34,6 +34,7 @@ return [
     ))),
 
     'reception_delay_time' => env('RECEPTION_DELAY_REPORT_TIME', '08:00'),
+    'reception_delay_cron' => env('RECEPTION_DELAY_REPORT_CRON'),
     'reception_delay_threshold_hours' => (int) env('RECEPTION_DELAY_REPORT_THRESHOLD_HOURS', 12),
     'reception_delay_lookback_hours' => (int) env('RECEPTION_DELAY_REPORT_LOOKBACK_HOURS', 24),
 ];

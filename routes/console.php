@@ -15,9 +15,13 @@ Schedule::command(
     'tinker --execute="app()->call([App\\Http\\Controllers\\RecepcionController::class, \'recepction_sync\'])"'
 )->hourly()->description('Sincroniza recepciones cada 60 minutos mediante RecepcionController@recepction_sync');
 
+$delayCron = config('reports.reception_delay_cron');
 $delayTime = config('reports.reception_delay_time');
-if ($delayTime) {
-    Schedule::command('reports:reception-delay-summary')
-        ->dailyAt($delayTime)
-        ->description('Envia resumen de recepciones con envio de informe tardio');
+$delaySchedule = Schedule::command('reports:reception-delay-summary')
+    ->description('Envia resumen de recepciones con envio de informe tardio');
+
+if ($delayCron) {
+    $delaySchedule->cron($delayCron);
+} elseif ($delayTime) {
+    $delaySchedule->dailyAt($delayTime);
 }
