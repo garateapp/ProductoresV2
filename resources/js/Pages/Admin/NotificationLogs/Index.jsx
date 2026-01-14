@@ -288,6 +288,9 @@ export default function NotificationLogsIndex({ logs, filters }) {
                             {log.channel && <div><strong>Canal:</strong> {log.channel}</div>}
                             {log.n_proceso && <div><strong>N° proceso:</strong> {log.n_proceso}</div>}
                             {log.proceso_id && <div><strong>Proceso ID:</strong> {log.proceso_id}</div>}
+                            {log.channel && log.channel.toLowerCase() === 'recepcion' && log.numero_g_recepcion && (
+                              <div><strong>Numero G recepcion:</strong> {log.numero_g_recepcion}</div>
+                            )}
                             {log.c_productor && <div><strong>CSG:</strong> {log.c_productor}</div>}
                             {log.producer_name && <div><strong>Productor:</strong> {log.producer_name}</div>}
                           </div>
