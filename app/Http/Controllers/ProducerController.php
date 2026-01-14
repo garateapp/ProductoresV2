@@ -160,7 +160,9 @@ class ProducerController extends Controller
     public function edit(User $producer)
     {
         $producer->load('agronomists');
-
+        if($producer->user=='' or $producer->user==null){
+            $producer->user="gre-".$producer->rut;
+        }
         return Inertia::render('Producers/Edit', [
             'producer' => [
                 'id' => $producer->id,
