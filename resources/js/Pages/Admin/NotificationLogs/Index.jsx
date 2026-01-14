@@ -291,7 +291,7 @@ export default function NotificationLogsIndex({ logs, filters }) {
                             {typeof log.channel === 'string' &&
                               log.channel.toLowerCase().includes('recepcion') &&
                               log.numero_g_recepcion && (
-                              <div><strong>Numero G recepcion:</strong> {log.numero_g_recepcion}</div>
+                              <div><strong>N° Recepcion:</strong> {log.numero_g_recepcion}</div>
                             )}
                             {log.c_productor && <div><strong>CSG:</strong> {log.c_productor}</div>}
                             {log.producer_name && <div><strong>Productor:</strong> {log.producer_name}</div>}
