@@ -14,3 +14,10 @@ Artisan::command('inspire', function () {
 Schedule::command(
     'tinker --execute="app()->call([App\\Http\\Controllers\\RecepcionController::class, \'recepction_sync\'])"'
 )->hourly()->description('Sincroniza recepciones cada 60 minutos mediante RecepcionController@recepction_sync');
+
+$delayTime = config('reports.reception_delay_time');
+if ($delayTime) {
+    Schedule::command('reports:reception-delay-summary')
+        ->dailyAt($delayTime)
+        ->description('Envia resumen de recepciones con envio de informe tardio');
+}
