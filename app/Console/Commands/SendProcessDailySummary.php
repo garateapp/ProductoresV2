@@ -31,7 +31,8 @@ class SendProcessDailySummary extends Command
         $logs = NotificationLog::query()
             ->where('context->channel', 'process')
             ->whereBetween('created_at', [$since->toDateTimeString(), $now->copy()->endOfDay()->toDateTimeString()])
-            //->whereNotIn('recipient', ['carlos.alvarez@greenex.cl','+56966291494'])
+            ->where('recipient','!=','carlos.alvarez@greenex.cl')
+            ->where('recipient','!=','+56966291494')
             ->orderBy('created_at')
             ->get();
 
