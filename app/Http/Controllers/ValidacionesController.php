@@ -51,11 +51,37 @@ class ValidacionesController extends Controller
             $query->whereDoesntHave('telefonos');
         }
 
+        $rutsWithContractsQuery = User::query()
+            ->select('rut')
+            ->whereNotNull('rut')
+            ->where('rut', '<>', '')
+            ->whereHas('contracts')
+            ->distinct();
+
         $contractFilter = $request->input('contract_filter', 'all');
         if ($contractFilter === 'with') {
-            $query->whereHas('contracts');
+            $query->where(function ($filter) use ($rutsWithContractsQuery) {
+                $filter->whereIn('rut', $rutsWithContractsQuery)
+                    ->orWhere(function ($rutless) {
+                        $rutless->where(function ($noRut) {
+                            $noRut->whereNull('rut')
+                                ->orWhere('rut', '');
+                        })->whereHas('contracts');
+                    });
+            });
         } elseif ($contractFilter === 'without') {
-            $query->whereDoesntHave('contracts');
+            $query->where(function ($filter) use ($rutsWithContractsQuery) {
+                $filter->where(function ($withRut) use ($rutsWithContractsQuery) {
+                    $withRut->whereNotNull('rut')
+                        ->where('rut', '<>', '')
+                        ->whereNotIn('rut', $rutsWithContractsQuery);
+                })->orWhere(function ($rutless) {
+                    $rutless->where(function ($noRut) {
+                        $noRut->whereNull('rut')
+                            ->orWhere('rut', '');
+                    })->whereDoesntHave('contracts');
+                });
+            });
         }
 
         $producers = $query
@@ -68,20 +94,38 @@ class ValidacionesController extends Controller
             ->paginate(20)
             ->withQueryString();
 
+        $rutsOnPage = $producers->getCollection()
+            ->pluck('rut')
+            ->filter()
+            ->unique()
+            ->values();
+
+        $rutsWithContracts = $rutsOnPage->isEmpty()
+            ? collect()
+            : User::query()
+                ->whereIn('rut', $rutsOnPage)
+                ->whereHas('contracts')
+                ->pluck('rut')
+                ->unique();
+
+        $hasContractsByRut = $rutsWithContracts->flip();
+
         return Inertia::render('Validaciones/RecepcionesSinContrato', [
-            'producers' => $producers->through(function ($producer) {
+            'producers' => $producers->through(function ($producer) use ($hasContractsByRut) {
                 $lastReception = $producer->recepciones_max_fecha_g_recepcion
                     ? Carbon::parse($producer->recepciones_max_fecha_g_recepcion)->format('Y-m-d')
                     : null;
 
                 $email = $producer->email;
-                if ($email && Str::endsWith(Str::lower($email), '@sync.greene.cl')) {
+                if ($email && Str::endsWith(Str::lower($email), '@sync.greenex.cl')) {
                     $email = null;
                 }
 
                 $hasEmail = (bool) $email;
                 $hasPhone = $producer->telefonos->isNotEmpty();
-                $hasContract = (int) ($producer->contracts_count ?? 0) > 0;
+                $hasContract = $producer->rut
+                    ? isset($hasContractsByRut[$producer->rut])
+                    : (int) ($producer->contracts_count ?? 0) > 0;
 
                 return [
                     'id' => $producer->id,
