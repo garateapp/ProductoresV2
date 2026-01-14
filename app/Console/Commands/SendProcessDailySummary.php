@@ -25,12 +25,13 @@ class SendProcessDailySummary extends Command
             return self::SUCCESS;
         }
 
-        $now = Carbon::now();
+        $now = Carbon::now('America/Santiago');
         $since = $now->copy()->startOfDay();
 
         $logs = NotificationLog::query()
             ->where('context->channel', 'process')
             ->whereBetween('created_at', [$since->toDateTimeString(), $now->toDateTimeString()])
+            ->whereNotIn('recipient', ['carlos.alvarez@greenex.cl','+56966291494'])
             ->orderBy('created_at')
             ->get();
 
@@ -80,18 +81,23 @@ class SendProcessDailySummary extends Command
                         ?? $proceso->LLP_recepcion
                         ?? $proceso->LPP_recepcion
                         ?? null,
-                    'estado' => $proceso->estado ?? null,
+                    'estado' => null,
                     'types' => [],
+                    'statuses' => [],
                 ];
             }
 
             $rowsByProcess[$rowKey]['types'][] = $log->type ?: null;
+            $rowsByProcess[$rowKey]['statuses'][] = $log->status ?: null;
         }
 
         $rows = array_values(array_map(function (array $row): array {
             $types = array_values(array_filter(array_unique($row['types'])));
+            $statuses = array_values(array_filter(array_unique($row['statuses'])));
             $row['type'] = empty($types) ? null : implode(', ', $types);
+            $row['estado'] = empty($statuses) ? null : implode(', ', $statuses);
             unset($row['types']);
+            unset($row['statuses']);
 
             return $row;
         }, $rowsByProcess));
