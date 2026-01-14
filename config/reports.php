@@ -37,5 +37,18 @@ return [
     'reception_delay_cron' => env('RECEPTION_DELAY_REPORT_CRON'),
     'reception_delay_threshold_hours' => (int) env('RECEPTION_DELAY_REPORT_THRESHOLD_HOURS', 12),
     'reception_delay_lookback_hours' => (int) env('RECEPTION_DELAY_REPORT_LOOKBACK_HOURS', 24),
+
+    /*
+    |--------------------------------------------------------------------------
+    | Process daily summary
+    |--------------------------------------------------------------------------
+    |
+    | Daily summary of process reports sent during the day.
+    |
+    */
+    'process_daily_recipients' => array_values(array_filter(array_map(
+        'trim',
+        explode(',', env('PROCESS_DAILY_REPORT_RECIPIENTS', ''))
+    ))),
 ];
 
