@@ -1,8 +1,6 @@
 <?php
 
 use Illuminate\Support\Str;
-use PDO;
-
 return [
 
     /*
@@ -142,14 +140,7 @@ return [
             'prefix_indexes' => true,
             // 'encrypt' => env('DB_ENCRYPT', 'yes'),
             'trust_server_certificate' => env('DB_TRUST_SERVER_CERTIFICATE', 'true'),
-            'options' => (function () {
-                $opts = [];
-                if (defined('PDO::SQLSRV_ATTR_QUERY_TIMEOUT')) {
-                    $opts[PDO::SQLSRV_ATTR_QUERY_TIMEOUT] = (int) env('UNITEC_DB_TIMEOUT', 5);
-                }
 
-                return $opts;
-            })(),
         ],
 
     ],
