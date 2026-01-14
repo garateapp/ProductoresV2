@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { useForm, Link } from '@inertiajs/react';
+import { useForm, usePage, Link } from '@inertiajs/react';
 import { Button } from '@/Components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/Components/ui/card';
 import { Label } from '@/Components/ui/label';
@@ -11,7 +11,9 @@ import TelefonoManager from '@/Components/TelefonoManager';
 import AgronomistManager from '@/Components/AgronomistManager';
 
 export default function Edit({ producer }) {
-  const { data, setData, put, errors } = useForm({
+  const { flash } = usePage().props;
+  const [welcomeLoading, setWelcomeLoading] = useState(false);
+  const { data, setData, put, errors, processing } = useForm({
     name: producer.name || '',
     email: producer.email || '',
     rut: producer.rut || '',
@@ -34,12 +36,35 @@ export default function Edit({ producer }) {
     certificaciones: producer.certificaciones || '',
     status: producer.status || '',
     enviomasivo: producer.enviomasivo || false,
+    stay: false,
+    send_welcome_email: false,
   });
 
   function submit(e) {
     e.preventDefault();
     put(route('producers.update', producer.id));
   }
+
+  const sendWelcomeEmail = () => {
+    const confirmed = window.confirm('¿Enviar correo de bienvenida al productor?');
+    if (!confirmed) return;
+    setWelcomeLoading(true);
+    setData('stay', true);
+    setData('send_welcome_email', true);
+    put(route('producers.update', producer.id), {
+      preserveScroll: true,
+      onError: () => {
+        setWelcomeLoading(false);
+        setData('stay', false);
+        setData('send_welcome_email', false);
+      },
+      onSuccess: () => {
+        setWelcomeLoading(false);
+        setData('stay', false);
+        setData('send_welcome_email', false);
+      },
+    });
+  };
 
   return (
     <div className="container mx-auto py-10">
@@ -48,6 +73,16 @@ export default function Edit({ producer }) {
           <CardTitle>Editar Productor</CardTitle>
         </CardHeader>
         <CardContent>
+          {flash?.success && (
+            <div className="mb-4 rounded border border-green-200 bg-green-50 px-3 py-2 text-sm text-green-800">
+              {flash.success}
+            </div>
+          )}
+          {flash?.error && (
+            <div className="mb-4 rounded border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-800">
+              {flash.error}
+            </div>
+          )}
           <Tabs defaultValue="general">
             <TabsList>
               <TabsTrigger value="general">Información General</TabsTrigger>
@@ -276,6 +311,16 @@ export default function Edit({ producer }) {
                   <Link href={route('producers.index')}>
                     <Button type="button" variant="outline">Volver</Button>
                   </Link>
+                  <Button type="button" variant="secondary" onClick={sendWelcomeEmail} disabled={processing || welcomeLoading}>
+                    {welcomeLoading ? (
+                      <span className="inline-flex items-center gap-2">
+                        <span className="h-4 w-4 animate-spin rounded-full border-2 border-current border-t-transparent" />
+                        Enviando correo...
+                      </span>
+                    ) : (
+                      'Enviar correo de bienvenida'
+                    )}
+                  </Button>
                   <Button type="submit">Actualizar</Button>
                 </div>
               </form>

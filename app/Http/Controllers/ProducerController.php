@@ -5,10 +5,12 @@ namespace App\Http\Controllers;
 use App\Models\User;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Hash;
+use Illuminate\Support\Facades\Mail;
 use Illuminate\Support\Facades\Artisan;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Validation\Rules;
 use Inertia\Inertia;
+use App\Mail\ProducerWelcome;
 
 class ProducerController extends Controller
 {
@@ -143,6 +145,10 @@ class ProducerController extends Controller
 
         $producer->assignRole('Productor');
 
+        if ($request->boolean('stay')) {
+            return redirect()->route('producers.edit', $producer->id);
+        }
+
         return redirect()->route('producers.index');
     }
 
@@ -228,6 +234,8 @@ class ProducerController extends Controller
             'certificaciones' => 'nullable|string|max:255',
             'status' => 'nullable|string|max:255',
             'enviomasivo' => 'boolean',
+            'send_welcome_email' => 'boolean',
+            'stay' => 'boolean',
         ]);
 
         $producer->update([
@@ -254,6 +262,25 @@ class ProducerController extends Controller
             'status' => $request->status,
             'enviomasivo' => $request->boolean('enviomasivo'),
         ]);
+
+        if ($request->boolean('send_welcome_email')) {
+            if (empty($producer->email)) {
+                return redirect()
+                    ->route('producers.edit', $producer->id)
+                    ->with('error', 'El productor no tiene correo registrado.');
+            }
+
+            Mail::to($producer->email)->send(new ProducerWelcome(
+                $producer,
+                $producer->user ?: $producer->email,
+                'gre1234',
+                'https://appgreenex.cl'
+            ));
+        }
+
+        if ($request->boolean('stay')) {
+            return redirect()->route('producers.edit', $producer->id);
+        }
 
         return redirect()->route('producers.index');
     }
@@ -429,6 +456,26 @@ class ProducerController extends Controller
                 'calibreCurve' => $calibreCurve,
             ],
         ]);
+    }
+
+    public function sendWelcomeEmail(User $producer)
+    {
+        if (empty($producer->email)) {
+            return redirect()
+                ->route('producers.edit', $producer->id)
+                ->with('error', 'El productor no tiene correo registrado.');
+        }
+
+        Mail::to($producer->email)->send(new ProducerWelcome(
+            $producer,
+            $producer->user ?: $producer->email,
+            'gre1234',
+            'https://appgreenex.cl'
+        ));
+
+        return redirect()
+            ->route('producers.edit', $producer->id)
+            ->with('success', 'Correo de bienvenida enviado.');
     }
 
     private function buildCalibreCurveForProducer($relatedCodes, $producerName): array

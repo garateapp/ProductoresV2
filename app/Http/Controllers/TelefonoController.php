@@ -30,7 +30,7 @@ class TelefonoController extends Controller
             $this->syncAcrossSameRut($telefono);
         }
 
-        return redirect()->route('producers.edit', $request->user_id)->with('success', 'Telefono added successfully.');
+        return redirect()->route('producers.edit', $request->user_id)->with('success', 'Telefono agregado exitosamente!!!.');
     }
 
     /**
@@ -55,9 +55,8 @@ class TelefonoController extends Controller
             $this->syncAcrossSameRut($telefono, $originalNumero);
         }
 
-        return redirect()->route('producers.edit', $telefono->user_id)->with('success', 'Telefono updated successfully.');
+        return redirect()->route('producers.edit', $telefono->user_id)->with('success', 'Telefono actualizado exitosamente!!!.');
     }
-
     /**
      * Remove the specified resource from storage.
      */
@@ -66,7 +65,7 @@ class TelefonoController extends Controller
         $producerId = $telefono->user_id;
         $telefono->delete();
 
-        return redirect()->route('producers.edit', $producerId)->with('success', 'Telefono deleted successfully.');
+        return redirect()->route('producers.edit', $producerId)->with('success', 'Telefono eliminado exitosamente!!.');
     }
 
     private function syncAcrossSameRut(Telefono $telefono, ?string $originalNumero = null): void
