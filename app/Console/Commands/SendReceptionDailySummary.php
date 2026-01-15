@@ -20,7 +20,7 @@ class SendReceptionDailySummary extends Command
     {
         $recipients = array_values(array_diff(
             config('reports.reception_daily_recipients', []),
-            ['carlos.alvarez@greenex.cl', '+56966291494']
+
         ));
         if (empty($recipients)) {
             $this->info('Reception daily summary skipped: no recipients configured.');

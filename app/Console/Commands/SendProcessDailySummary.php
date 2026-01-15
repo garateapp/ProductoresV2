@@ -20,7 +20,7 @@ class SendProcessDailySummary extends Command
     {
         $recipients = array_values(array_diff(
             config('reports.process_daily_recipients', []),
-            ['carlos.alvarez@greenex.cl', '+56966291494']
+
         ));
         if (empty($recipients)) {
             $this->info('Process daily summary skipped: no recipients configured.');
