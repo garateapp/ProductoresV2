@@ -46,7 +46,6 @@ class SendProcessDailySummary extends Command
             Log::info('Process daily summary: found processes for the date range.', [
             'since' => $since->toDateTimeString(),
             'until' => $until->toDateTimeString(),
-            'count' => $processes->count(),
             'query' => $queryP->toSql(),
             'bindings' => $queryP->getBindings(),
         ]);
