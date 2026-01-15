@@ -14,6 +14,7 @@
         <thead>
             <tr>
                 <th>Numero proceso</th>
+                <th>Fecha</th>
                 <th>CSG</th>
                 <th>Productor</th>
                 <th>Tipo</th>
@@ -24,6 +25,7 @@
             @foreach ($rows as $row)
                 <tr>
                     <td>{{ $row['n_proceso'] ?? 'N/A' }}</td>
+                    <td>{{ $row['fecha'] ?? 'N/A' }}</td>
                     <td>{{ $row['csg'] ?? 'N/A' }}</td>
                     <td>{{ $row['producer'] ?? 'N/A' }}</td>
                     <td>{{ $row['type'] ?? 'N/A' }}</td>

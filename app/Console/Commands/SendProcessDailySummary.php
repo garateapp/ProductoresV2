@@ -73,6 +73,7 @@ class SendProcessDailySummary extends Command
         foreach ($processes as $proceso) {
             $rowsByProcess['id:' . $proceso->id] = [
                 'n_proceso' => $proceso->n_proceso,
+                'fecha' => $proceso->fecha,
                 'csg' => $proceso->c_productor,
                 'producer' => $proceso->agricola
                     ?? $proceso->LLP_recepcion
@@ -103,6 +104,7 @@ class SendProcessDailySummary extends Command
             if (! isset($rowsByProcess[$rowKey])) {
                 $rowsByProcess[$rowKey] = [
                     'n_proceso' => $proceso->n_proceso ?? $processNumber,
+                    'fecha' => $proceso->fecha ?? null,
                     'csg' => $proceso->c_productor ?? ($context['c_productor'] ?? null),
                     'producer' => $context['producer_name']
                         ?? $proceso->agricola
