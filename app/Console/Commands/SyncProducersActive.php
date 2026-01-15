@@ -49,7 +49,7 @@ class SyncProducersActive extends Command
 
         $validPairs = [];
         foreach ($activePairs as $row) {
-            $key = $normalizeRut($row->rut) . '|' . $normalizeCsg($row->codigo_sag);
+            $key = $normalizeRut($row->rut) . '|' . $normalizeCsg($row->codigo_sag??'');
             $validPairs[$key] = true;
         }
 
@@ -83,7 +83,7 @@ class SyncProducersActive extends Command
             $rutKey = $normalizeRut($remoteProducer->rut);
             $csgKey = $normalizeCsg($remoteProducer->codigo_sag);
 
-            if (! $rutKey || ! $csgKey) {
+            if (! $rutKey ) {
                 continue;
             }
 
