@@ -59,7 +59,7 @@ class SendProcessDailySummary extends Command
 
         $logsQuery = NotificationLog::query()
             ->where('context->channel', 'process')
-            ->whereNotIn('recipient', ['carlos.alvarez@greenex.cl', '+56966291494'])
+
             ->orderBy('created_at');
 
         $logsQuery->when($processIds->isNotEmpty() || $processNumbers->isNotEmpty(), function ($query) use ($processIds, $processNumbers) {
