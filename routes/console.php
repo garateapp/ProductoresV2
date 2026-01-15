@@ -33,3 +33,11 @@ Schedule::command('tinker --execute="Artisan::call(\'reports:process-daily-summa
 Schedule::command('tinker --execute="Artisan::call(\'reports:process-daily-summary\')"')
     ->dailyAt('15:00')
     ->description('Envia resumen de procesos enviados (15:00).');
+
+Schedule::command('tinker --execute="Artisan::call(\'reports:reception-daily-summary\')"')
+    ->dailyAt('12:00')
+    ->description('Envia resumen de recepciones enviadas (12:00).');
+
+Schedule::command('tinker --execute="Artisan::call(\'reports:reception-daily-summary\')"')
+    ->dailyAt('15:00')
+    ->description('Envia resumen de recepciones enviadas (15:00).');

@@ -50,5 +50,10 @@ return [
         'trim',
         explode(',', env('PROCESS_DAILY_REPORT_RECIPIENTS', ''))
     ))),
+
+    'reception_daily_recipients' => array_values(array_filter(array_map(
+        'trim',
+        explode(',', env('RECEPTION_DAILY_REPORT_RECIPIENTS', ''))
+    ))),
 ];
 
