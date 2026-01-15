@@ -44,7 +44,12 @@ class SendProcessDailySummary extends Command
             })
             ->orderBy('fecha')
             ->get();
-
+        Log::info('Process daily summary: found processes for the date range.', [
+            'since' => $since->toDateTimeString(),
+            'until' => $until->toDateTimeString(),
+            'count' => $processes->count(),
+            'query' => $processes->toSql(),
+        ]);
         if ($processes->isEmpty()) {
             $this->info('Process daily summary skipped: no processes found for the date range.');
             Log::info('Process daily summary skipped: no processes found for the date range.', [
