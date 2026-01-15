@@ -17,7 +17,6 @@ class ValidacionesController extends Controller
 
         $query = User::role('Productor')
             ->whereNotNull('idprod')
-            ->whereIn('idprod', Recepcion::query()->select('id_emisor')->distinct())
             ->whereDoesntHave('services', function ($serviceQuery) use ($excludedServiceIds) {
                 $serviceQuery->whereIn('services.id', $excludedServiceIds);
             });
@@ -85,9 +84,9 @@ class ValidacionesController extends Controller
         }
 
         $producers = $query
-            ->withCount('recepciones')
+            //->withCount('recepciones')
             ->withCount('contracts')
-            ->withMax('recepciones', 'fecha_g_recepcion')
+            //->withMax('recepciones', 'fecha_g_recepcion')
             ->with('services:id,name')
             ->with('telefonos:id,user_id,numero')
             ->orderBy('name')
@@ -112,9 +111,9 @@ class ValidacionesController extends Controller
 
         return Inertia::render('Validaciones/RecepcionesSinContrato', [
             'producers' => $producers->through(function ($producer) use ($hasContractsByRut) {
-                $lastReception = $producer->recepciones_max_fecha_g_recepcion
-                    ? Carbon::parse($producer->recepciones_max_fecha_g_recepcion)->format('Y-m-d')
-                    : null;
+                // $lastReception = $producer->recepciones_max_fecha_g_recepcion
+                //     ? Carbon::parse($producer->recepciones_max_fecha_g_recepcion)->format('Y-m-d')
+                //     : null;
 
                 $email = $producer->email;
                 if ($email && Str::endsWith(Str::lower($email), '@sync.greenex.cl')) {
@@ -134,7 +133,7 @@ class ValidacionesController extends Controller
                     'email' => $email,
                     'idprod' => $producer->idprod,
                     'recepciones_count' => $producer->recepciones_count ?? 0,
-                    'last_reception_date' => $lastReception,
+                    //'last_reception_date' => $lastReception,
                     'telefonos' => $producer->telefonos->pluck('numero')->filter()->values(),
                     'has_email' => $hasEmail,
                     'has_phone' => $hasPhone,

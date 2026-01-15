@@ -18,6 +18,13 @@ class SyncProducersActive extends Command
     {
         $this->info('Consultando productores desde FX...');
 
+        $localRecepcionProducerIds = DB::table('recepcions')
+            ->whereNotNull('id_emisor')
+            ->groupBy('id_emisor')
+            ->pluck('id_emisor')
+            ->map(static fn ($value) => (string) $value)
+            ->all();
+
         $activePairs = DB::connection('sqlsrv')
             ->table('ADM_P_Entidades as E')
             ->join('ADM_P_Entidades_X_Tipo as ET', 'E.id', '=', 'ET.id_adm_p_entidades')
@@ -32,7 +39,16 @@ class SyncProducersActive extends Command
             ->where('tipo_juridico', 1)
             // ->whereNotNull('codigo_sag')
             // ->where('codigo_sag', '!=', '')
-            ->where('CP1', '1')
+            ->where(function ($query) use ($localRecepcionProducerIds) {
+                $query->where('CP1', '1');
+
+                if (! empty($localRecepcionProducerIds)) {
+                    $query->orWhere(function ($subQuery) use ($localRecepcionProducerIds) {
+                        $subQuery->where('CP1', '0')
+                            ->whereIn('id', $localRecepcionProducerIds);
+                    });
+                }
+            })
             ->get();
 
         $normalizeRut = static function ($rut) {
