@@ -36,20 +36,22 @@ class SendProcessDailySummary extends Command
         $sinceDate = $since->toDateString();
         $untilDate = $until->toDateString();
 
-        $processes = Proceso::query()
+         $queryP= Proceso::query()
             ->where(function ($query) use ($sinceDate, $untilDate) {
                 $query->whereBetween(DB::raw("STR_TO_DATE(fecha, '%Y-%m-%d')"), [$sinceDate, $untilDate])
                     ->orWhereBetween(DB::raw("STR_TO_DATE(fecha, '%d-%m-%Y')"), [$sinceDate, $untilDate])
                     ->orWhereBetween(DB::raw("STR_TO_DATE(fecha, '%d/%m/%Y')"), [$sinceDate, $untilDate]);
             })
-            ->orderBy('fecha')
-            ->get();
-        Log::info('Process daily summary: found processes for the date range.', [
+            ->orderBy('fecha');
+            Log::info('Process daily summary: found processes for the date range.', [
             'since' => $since->toDateTimeString(),
             'until' => $until->toDateTimeString(),
             'count' => $processes->count(),
-            'query' => $processes->toSql(),
+            'query' => $queryP->toSql(),
+            'bindings' => $queryP->getBindings(),
         ]);
+            $processes=$queryP->get();
+
         if ($processes->isEmpty()) {
             $this->info('Process daily summary skipped: no processes found for the date range.');
             Log::info('Process daily summary skipped: no processes found for the date range.', [
