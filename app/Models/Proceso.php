@@ -20,6 +20,7 @@ class Proceso extends Model
         'kilos_netos',
         'id_empresa',
         'informe',
+        'informe_uploaded_at',
         'exp',
         'comercial',
         'desecho',

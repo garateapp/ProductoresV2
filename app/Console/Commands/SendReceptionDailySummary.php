@@ -84,6 +84,7 @@ class SendReceptionDailySummary extends Command
             $rowsByReception['id:' . $recepcion->id] = [
                 'numero_g_recepcion' => $recepcion->numero_g_recepcion,
                 'fecha' => $recepcion->fecha_g_recepcion,
+                'informe_aprobado_at' => $recepcion->informe_aprobado_at,
                 'csg' => $recepcion->csg_productor_rotulado ?? $recepcion->Codigo_Sag_emisor ?? null,
                 'producer' => $recepcion->n_emisor
                     ?? $recepcion->n_productor_rotulado
@@ -115,6 +116,7 @@ class SendReceptionDailySummary extends Command
                 $rowsByReception[$rowKey] = [
                     'numero_g_recepcion' => $recepcion->numero_g_recepcion ?? $receptionNumber,
                     'fecha' => $recepcion->fecha_g_recepcion ?? null,
+                    'informe_aprobado_at' => $recepcion->informe_aprobado_at ?? null,
                     'csg' => $recepcion->csg_productor_rotulado ?? $recepcion->Codigo_Sag_emisor ?? null,
                     'producer' => $context['producer_name']
                         ?? $recepcion->n_emisor

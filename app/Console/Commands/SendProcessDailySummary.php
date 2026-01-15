@@ -38,11 +38,11 @@ class SendProcessDailySummary extends Command
 
          $queryP= Proceso::query()
             ->where(function ($query) use ($sinceDate, $untilDate) {
-                $query->whereBetween(DB::raw("STR_TO_DATE(fecha, '%Y-%m-%d')"), [$sinceDate, $untilDate])
-                    ->orWhereBetween(DB::raw("STR_TO_DATE(fecha, '%d-%m-%Y')"), [$sinceDate, $untilDate])
-                    ->orWhereBetween(DB::raw("STR_TO_DATE(fecha, '%d/%m/%Y')"), [$sinceDate, $untilDate]);
+                $query->whereBetween(DB::raw("STR_TO_DATE(informe_uploaded_at, '%Y-%m-%d')"), [$sinceDate, $untilDate])
+                    ->orWhereBetween(DB::raw("STR_TO_DATE(informe_uploaded_at, '%d-%m-%Y')"), [$sinceDate, $untilDate])
+                    ->orWhereBetween(DB::raw("STR_TO_DATE(informe_uploaded_at, '%d/%m/%Y')"), [$sinceDate, $untilDate]);
             })
-            ->orderBy('fecha');
+            ->orderBy('informe_uploaded_at', 'asc');
             Log::info('Process daily summary: found processes for the date range.', [
             'since' => $since->toDateTimeString(),
             'until' => $until->toDateTimeString(),
@@ -90,6 +90,7 @@ class SendProcessDailySummary extends Command
             $rowsByProcess['id:' . $proceso->id] = [
                 'n_proceso' => $proceso->n_proceso,
                 'fecha' => $proceso->fecha,
+                'informe_uploaded_at' => $proceso->informe_uploaded_at,
                 'csg' => $proceso->c_productor,
                 'producer' => $proceso->agricola
                     ?? $proceso->LLP_recepcion
@@ -121,6 +122,7 @@ class SendProcessDailySummary extends Command
                 $rowsByProcess[$rowKey] = [
                     'n_proceso' => $proceso->n_proceso ?? $processNumber,
                     'fecha' => $proceso->fecha ?? null,
+                    'informe_uploaded_at' => $proceso->informe_uploaded_at ?? null,
                     'csg' => $proceso->c_productor ?? ($context['c_productor'] ?? null),
                     'producer' => $context['producer_name']
                         ?? $proceso->agricola

@@ -15,6 +15,7 @@
             <tr>
                 <th>Numero recepcion</th>
                 <th>Fecha</th>
+                <th>Fecha aprobacion</th>
                 <th>CSG</th>
                 <th>Productor</th>
                 <th>Tipo</th>
@@ -26,6 +27,7 @@
                 <tr>
                     <td>{{ $row['numero_g_recepcion'] ?? 'N/A' }}</td>
                     <td>{{ $row['fecha'] ?? 'N/A' }}</td>
+                    <td>{{ $row['informe_aprobado_at'] ?? 'N/A' }}</td>
                     <td>{{ $row['csg'] ?? 'N/A' }}</td>
                     <td>{{ $row['producer'] ?? 'N/A' }}</td>
                     <td>{{ $row['type'] ?? 'N/A' }}</td>

@@ -35,6 +35,7 @@ class Recepcion extends Model
         'nota_calidad',
         'n_estado',
         'informe',
+        'informe_aprobado_at',
         'temporada',
     ];
 

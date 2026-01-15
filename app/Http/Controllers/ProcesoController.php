@@ -320,6 +320,7 @@ class ProcesoController extends Controller
             $storedPath = $file->storeAs('pdf-procesos', $sanitizedName, 'public');
 
             $proceso->informe = $storedPath;//Storage::disk('public')->url($storedPath);
+            $proceso->informe_uploaded_at = Carbon::now('America/Santiago');
 
             $proceso->save();
 
