@@ -30,8 +30,8 @@ class SyncProducersActive extends Command
             ->table('ADM_P_Entidades')
             ->select(['id', 'rut', 'nombre', 'direccion', 'codigo_sag'])
             ->where('tipo_juridico', 1)
-            ->whereNotNull('codigo_sag')
-            ->where('codigo_sag', '!=', '')
+            // ->whereNotNull('codigo_sag')
+            // ->where('codigo_sag', '!=', '')
             ->where('CP1', '1')
             ->get();
 
