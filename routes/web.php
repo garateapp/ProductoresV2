@@ -65,9 +65,10 @@ Route::middleware('auth')->group(function () {
         ->parameters(['valores' => 'valor'])
         ->names('valores');
 
-    Route::resource('producers', App\Http\Controllers\ProducerController::class)->names('producers');
-    Route::post('producers/sync-active', [App\Http\Controllers\ProducerController::class, 'syncActive'])->name('producers.sync-active');
-    Route::get('producers/{producer}/dashboard', [App\Http\Controllers\ProducerController::class, 'dashboard'])->name('producers.dashboard');
+Route::resource('producers', App\Http\Controllers\ProducerController::class)->names('producers');
+Route::post('producers/sync-active', [App\Http\Controllers\ProducerController::class, 'syncActive'])->name('producers.sync-active');
+Route::get('producers/{producer}/dashboard', [App\Http\Controllers\ProducerController::class, 'dashboard'])->name('producers.dashboard');
+Route::post('producers/{producer}/welcome-email', [App\Http\Controllers\ProducerController::class, 'sendWelcomeEmail'])->name('producers.welcome-email');
 
     Route::resource('telefonos', App\Http\Controllers\TelefonoController::class)->only(['store', 'update', 'destroy'])->names('telefonos');
 

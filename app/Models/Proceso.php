@@ -19,6 +19,7 @@ class Proceso extends Model
         'fecha',
         'kilos_netos',
         'id_empresa',
+        'exportadora',
         'informe',
         'informe_uploaded_at',
         'exp',

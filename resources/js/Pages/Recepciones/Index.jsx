@@ -15,15 +15,17 @@ import { FileText, RefreshCw } from 'lucide-react'; // Import FileText icon
 import AuthenticatedLayout from '@/Layouts/AuthenticatedLayout';
 import { usePage } from '@inertiajs/react';
 
-export default function Index({ recepciones, especies, variedades = [], filters, isProducer, totalRecepciones, totalKilos = 0 }) {
+export default function Index({ recepciones, especies, variedades = [], exportadoras = [], filters, isProducer, totalRecepciones, totalKilos = 0 }) {
   const { props } = usePage();
   const { data, setData, get } = useForm({
     search: filters.search || '',
     especie_id: filters.especie_id || '',
     variedad_id: filters.variedad_id || '',
+    exportadora: filters.exportadora || '',
   });
   const userRoles = props?.auth?.user?.roles ?? [];
   const isAdmin = userRoles.some((role) => ['Administrador', 'Admin','Calidad'].includes(role.name));
+  const canFilterExportadora = userRoles.some((role) => ['Administrador', 'Admin'].includes(role.name));
   const canManage = isAdmin && !isProducer;
 
   const handleSearchChange = (e) => {
@@ -39,6 +41,10 @@ export default function Index({ recepciones, especies, variedades = [], filters,
     setData('variedad_id', variedadId);
   };
 
+  const handleExportadoraFilter = (event) => {
+    setData('exportadora', event.target.value);
+  };
+
   useEffect(() => {
     if (props?.flash?.sync_output || props?.flash?.success || props?.flash?.error) {
       return;
@@ -50,13 +56,14 @@ export default function Index({ recepciones, especies, variedades = [], filters,
           search: searchTerm,
           especie_id: data.especie_id,
           variedad_id: data.variedad_id,
+          exportadora: data.exportadora,
         }),
         { preserveState: true, replace: true }
       );
     }, 300);
 
     return () => clearTimeout(delayDebounceFn);
-  }, [data.search, data.especie_id, data.variedad_id, props?.flash?.sync_output, props?.flash?.success, props?.flash?.error]);
+  }, [data.search, data.especie_id, data.variedad_id, data.exportadora, props?.flash?.sync_output, props?.flash?.success, props?.flash?.error]);
 
   return (
     <div className="container mx-auto py-10">
@@ -132,6 +139,22 @@ export default function Index({ recepciones, especies, variedades = [], filters,
                   {variedad.name}
                 </Button>
               ))}
+            </div>
+          )}
+
+          {canFilterExportadora && exportadoras.length > 0 && (
+            <div className="mb-4">
+              <label className="block text-sm text-gray-600 mb-1">Exportadora</label>
+              <select
+                className="border rounded px-2 py-2 text-sm max-w-xs"
+                value={data.exportadora}
+                onChange={handleExportadoraFilter}
+              >
+                <option value="">Todas</option>
+                {exportadoras.map((exportadora) => (
+                  <option key={exportadora} value={exportadora}>{exportadora}</option>
+                ))}
+              </select>
             </div>
           )}
 

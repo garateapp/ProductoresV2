@@ -24,6 +24,8 @@ class RecepcionController extends Controller
         $user = Auth::user();
         $isProducer = ! empty($user->idprod);
         $isAdmin = method_exists($user, 'hasRole') && ($user->hasRole('Admin') || $user->hasRole('Administrador') || ($user->hasRole('Calidad') || $user->hasRole('Gerencia')));
+        $isExportadoraAdmin = method_exists($user, 'hasRole') && ($user->hasRole('Admin') || $user->hasRole('Administrador'));
+        $isAgronomo = method_exists($user, 'hasRole') && ($user->hasRole('Agronomo') || $user->hasRole('Agrónomo'));
         $isCC=method_exists($user, 'hasRole') && ($user->hasRole('Calidad') || $user->hasRole('Gerencia'));
         $query = Recepcion::query();
 
@@ -110,6 +112,8 @@ class RecepcionController extends Controller
             } else {
                 $query->whereRaw('1 = 0');
             }
+        } elseif ($isAgronomo) {
+            $query->whereRaw('LOWER(exportadora) = ?', [mb_strtolower('Greenex Spa')]);
         } elseif (! $isAdmin) {
             $query->whereRaw('1 = 0');
         }
@@ -147,6 +151,11 @@ class RecepcionController extends Controller
                 $query->where('n_variedad', $variedad->name);
             }
         }
+
+        $exportadoraFilter = $request->input('exportadora');
+        if ($isExportadoraAdmin && $exportadoraFilter) {
+            $query->where('exportadora', $exportadoraFilter);
+        }
        // dd($query->toSql(), $query->getBindings());
        $query->orderBy('fecha_g_recepcion', 'desc');
        Log::info($query->toSql(), $query->getBindings());
@@ -166,11 +175,23 @@ class RecepcionController extends Controller
             }
         }
 
+        $exportadoras = [];
+        if ($isExportadoraAdmin) {
+            $exportadoras = Recepcion::query()
+                ->select('exportadora')
+                ->whereNotNull('exportadora')
+                ->distinct()
+                ->orderBy('exportadora')
+                ->pluck('exportadora')
+                ->values()
+                ->all();
+        }
         return Inertia::render('Recepciones/Index', [
             'recepciones' => $recepciones,
             'especies' => $especies->toArray(), // Convertir a array aquí
             'variedades' => $variedades, // Pass varieties to the frontend
-            'filters' => $request->only(['search', 'especie_id', 'variedad_id']),
+            'exportadoras' => $exportadoras,
+            'filters' => $request->only(['search', 'especie_id', 'variedad_id', 'exportadora']),
             'isProducer' => $isProducer,
             'totalRecepciones' => $totalRecepciones, // Pass total recepciones
             'totalKilos' => $totalKilos,             // Pass total kilos

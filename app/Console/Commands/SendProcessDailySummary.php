@@ -49,7 +49,7 @@ class SendProcessDailySummary extends Command
             'query' => $queryP->toSql(),
             'bindings' => $queryP->getBindings(),
         ]);
-            $processes=$queryP->get();
+        $processes=$queryP->get();
 
         if ($processes->isEmpty()) {
             $this->info('Process daily summary skipped: no processes found for the date range.');

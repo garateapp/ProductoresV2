@@ -27,6 +27,7 @@ class ProcesoController extends Controller
         $user = Auth::user();
         $isProducer = !empty($user->idprod);
         $isAdmin = method_exists($user, 'hasRole') && ($user->hasRole('Admin') || $user->hasRole('Administrador') || ($user->hasRole('Calidad') || $user->hasRole('Gerencia')));
+        $isAgronomo = method_exists($user, 'hasRole') && ($user->hasRole('Agronomo') || $user->hasRole('Agrónomo'));
 
         $query = Proceso::query()->where('estado','Finalizado');
 
@@ -103,6 +104,8 @@ class ProcesoController extends Controller
             } else {
                 $query->whereRaw('1 = 0');
             }
+        } elseif ($isAgronomo) {
+            $query->whereRaw('LOWER(exportadora) = ?', [mb_strtolower('Greenex Spa')]);
         } elseif (! $isAdmin) {
             $query->whereRaw('1 = 0');
         }
@@ -141,6 +144,10 @@ class ProcesoController extends Controller
                     }
                 }
             });
+        }
+        $exportadoraFilter = $request->input('exportadora');
+        if ($isAdmin && $exportadoraFilter) {
+            $query->where('exportadora', $exportadoraFilter);
         }
 
         $variedades = collect();
@@ -241,11 +248,24 @@ class ProcesoController extends Controller
             $especies = $especies->whereIn('id', $producerEspeciesIds)->values();
         }
 
+        $exportadoras = [];
+        if ($isAdmin) {
+            $exportadoras = Proceso::query()
+                ->select('exportadora')
+                ->whereNotNull('exportadora')
+                ->distinct()
+                ->orderBy('exportadora')
+                ->pluck('exportadora')
+                ->values()
+                ->all();
+        }
+
         return Inertia::render('Procesos/Index', [
             'procesos' => $procesos,
             'especies' => $especies->toArray(),
             'variedades' => $variedades,
-            'filters' => $request->only(['search', 'especie_id', 'variedad_id', 'search_fields', 'search_exact']),
+            'exportadoras' => $exportadoras,
+            'filters' => $request->only(['search', 'especie_id', 'variedad_id', 'search_fields', 'search_exact', 'exportadora']),
             'isProducer' => $isProducer,
             'totalProcesos' => $totalProcesos,
             'totalKgProcesados' => $totalKgProcesados,

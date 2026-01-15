@@ -2288,6 +2288,7 @@ public function previewPage(Recepcion $recepcion)
             // Save public URL in recepcion->informe so Index can show direct link
             $publicUrl = asset('storage/' . $pdfRelative);
             $recepcion->informe = $publicUrl;
+            $recepcion->informe_aprobado_at = Carbon::now('America/Santiago');
             $recepcion->save();
 
             try {

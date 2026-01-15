@@ -30,12 +30,13 @@ const formatProcessDate = (dateString) => {
   return date.toLocaleDateString('es-CL');
 };
 
-export default function Index({ procesos, especies, variedades = [], filters, isProducer, totalProcesos, totalKgProcesados, totalExportacion, totalComercial, totalMerma, chartData }) {
+export default function Index({ procesos, especies, variedades = [], exportadoras = [], filters, isProducer, totalProcesos, totalKgProcesados, totalExportacion, totalComercial, totalMerma, chartData }) {
   const { props } = usePage();
   const { data, setData, get } = useForm({
     search: filters.search || '',
     especie_id: filters.especie_id || '',
     variedad_id: filters.variedad_id || '',
+    exportadora: filters.exportadora || '',
     search_fields: Array.isArray(filters.search_fields) ? filters.search_fields : [],
     search_exact: Boolean(filters.search_exact),
   });
@@ -100,6 +101,10 @@ export default function Index({ procesos, especies, variedades = [], filters, is
 
   const handleVariedadFilter = (variedadId) => {
     setData('variedad_id', variedadId);
+  };
+
+  const handleExportadoraFilter = (event) => {
+    setData('exportadora', event.target.value);
   };
 
   const extractProcesoId = (filename) => {
@@ -264,6 +269,7 @@ export default function Index({ procesos, especies, variedades = [], filters, is
           search: searchTerm,
           especie_id: data.especie_id,
           variedad_id: data.variedad_id,
+          exportadora: data.exportadora,
           search_fields: selectedSearchFields,
           search_exact: data.search_exact,
         }),
@@ -272,7 +278,7 @@ export default function Index({ procesos, especies, variedades = [], filters, is
     }, 300);
 
     return () => clearTimeout(delayDebounceFn);
-  }, [data.search, data.especie_id, data.variedad_id, data.search_fields, data.search_exact, props?.flash?.sync_output, props?.flash?.success, props?.flash?.error, selectedSearchFields]);
+  }, [data.search, data.especie_id, data.variedad_id, data.exportadora, data.search_fields, data.search_exact, props?.flash?.sync_output, props?.flash?.success, props?.flash?.error, selectedSearchFields]);
 
   const calculatePercentage = (value, total) => {
     if (total === 0) return '0.00%';
@@ -474,6 +480,22 @@ export default function Index({ procesos, especies, variedades = [], filters, is
               ))}
             </div>
           </div>
+
+          {isAdmin && exportadoras.length > 0 && (
+            <div className="mb-4">
+              <label className="block text-sm text-gray-600 mb-1">Exportadora</label>
+              <select
+                className="border rounded px-2 py-2 text-sm max-w-xs"
+                value={data.exportadora}
+                onChange={handleExportadoraFilter}
+              >
+                <option value="">Todas</option>
+                {exportadoras.map((exportadora) => (
+                  <option key={exportadora} value={exportadora}>{exportadora}</option>
+                ))}
+              </select>
+            </div>
+          )}
 
           {data.especie_id && variedades.length > 0 && (
             <div className="mb-4 flex flex-wrap gap-2">
