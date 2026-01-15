@@ -26,36 +26,63 @@ class SendProcessDailySummary extends Command
         }
 
         $now = Carbon::now('America/Santiago');
-        $since = $now->copy()->startOfDay();
+        $since = $now->copy()->subDay()->startOfDay();
+        $until = $now->copy()->endOfDay();
 
-        $logs = NotificationLog::query()
-            ->where('context->channel', 'process')
-            ->whereBetween('created_at', [$since->toDateTimeString(), $now->copy()->endOfDay()->toDateTimeString()])
-            ->where('recipient','!=','carlos.alvarez@greenex.cl')
-            ->where('recipient','!=','+56966291494')
-            ->orderBy('created_at')
+        $processes = Proceso::query()
+            ->whereDate('fecha', '>=', $since->toDateString())
+            ->whereDate('fecha', '<=', $until->toDateString())
+            ->orderBy('fecha')
             ->get();
 
-        if ($logs->isEmpty()) {
-            $this->info('Process daily summary skipped: no process notifications found today.');
-            Log::info('Process daily summary skipped: no process notifications found today.', [
+        if ($processes->isEmpty()) {
+            $this->info('Process daily summary skipped: no processes found for the date range.');
+            Log::info('Process daily summary skipped: no processes found for the date range.', [
                 'since' => $since->toDateTimeString(),
-                'until' => $now->toDateTimeString(),
+                'until' => $until->toDateTimeString(),
             ]);
             return self::SUCCESS;
         }
 
-        $processIds = $logs->pluck('context.proceso_id')->filter()->unique()->values();
-        $processNumbers = $logs->pluck('context.n_proceso')->filter()->unique()->values();
+        $processIds = $processes->pluck('id')->filter()->unique()->values();
+        $processNumbers = $processes->pluck('n_proceso')->filter()->unique()->values();
 
-        $processesById = $processIds->isNotEmpty()
-            ? Proceso::query()->whereIn('id', $processIds)->get()->keyBy('id')
-            : collect();
-        $processesByNumber = $processNumbers->isNotEmpty()
-            ? Proceso::query()->whereIn('n_proceso', $processNumbers)->get()->keyBy('n_proceso')
-            : collect();
+        $logsQuery = NotificationLog::query()
+            ->where('context->channel', 'process')
+            ->whereNotIn('recipient', ['carlos.alvarez@greenex.cl', '+56966291494'])
+            ->orderBy('created_at');
+
+        $logsQuery->when($processIds->isNotEmpty() || $processNumbers->isNotEmpty(), function ($query) use ($processIds, $processNumbers) {
+            $query->where(function ($sub) use ($processIds, $processNumbers) {
+                if ($processIds->isNotEmpty()) {
+                    $sub->whereIn('context->proceso_id', $processIds);
+                }
+                if ($processNumbers->isNotEmpty()) {
+                    $sub->orWhereIn('context->n_proceso', $processNumbers);
+                }
+            });
+        });
+
+        $logs = $logsQuery->get();
+
+        $processesById = $processes->keyBy('id');
+        $processesByNumber = $processes->keyBy('n_proceso');
 
         $rowsByProcess = [];
+
+        foreach ($processes as $proceso) {
+            $rowsByProcess['id:' . $proceso->id] = [
+                'n_proceso' => $proceso->n_proceso,
+                'csg' => $proceso->c_productor,
+                'producer' => $proceso->agricola
+                    ?? $proceso->LLP_recepcion
+                    ?? $proceso->LPP_recepcion
+                    ?? null,
+                'estado' => 'sin envio',
+                'types' => [],
+                'statuses' => [],
+            ];
+        }
 
         foreach ($logs as $log) {
             $context = $log->context ?? [];
@@ -82,7 +109,7 @@ class SendProcessDailySummary extends Command
                         ?? $proceso->LLP_recepcion
                         ?? $proceso->LPP_recepcion
                         ?? null,
-                    'estado' => null,
+                    'estado' => 'sin envio',
                     'types' => [],
                     'statuses' => [],
                 ];
@@ -96,7 +123,7 @@ class SendProcessDailySummary extends Command
             $types = array_values(array_filter(array_unique($row['types'])));
             $statuses = array_values(array_filter(array_unique($row['statuses'])));
             $row['type'] = empty($types) ? null : implode(', ', $types);
-            $row['estado'] = empty($statuses) ? null : implode(', ', $statuses);
+            $row['estado'] = empty($statuses) ? $row['estado'] : implode(', ', $statuses);
             unset($row['types']);
             unset($row['statuses']);
 
