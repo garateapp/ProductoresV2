@@ -19,7 +19,7 @@ export default function ValidacionesMenu() {
       >
         <DropdownMenuItem asChild>
           <Link href={route('validaciones.recepciones-sin-contrato')} className="w-full">
-            Recepciones sin contrato
+            Datos de Productor
           </Link>
         </DropdownMenuItem>
       </DropdownMenuContent>
