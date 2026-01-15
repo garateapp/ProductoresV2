@@ -7,6 +7,7 @@ use App\Models\NotificationLog;
 use App\Models\Proceso;
 use Carbon\Carbon;
 use Illuminate\Console\Command;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Mail;
 
@@ -32,9 +33,15 @@ class SendProcessDailySummary extends Command
         $since = $now->copy()->subDay()->startOfDay();
         $until = $now->copy()->endOfDay();
 
+        $sinceDate = $since->toDateString();
+        $untilDate = $until->toDateString();
+
         $processes = Proceso::query()
-            ->whereDate('fecha', '>=', $since->toDateString())
-            ->whereDate('fecha', '<=', $until->toDateString())
+            ->where(function ($query) use ($sinceDate, $untilDate) {
+                $query->whereBetween(DB::raw("STR_TO_DATE(fecha, '%Y-%m-%d')"), [$sinceDate, $untilDate])
+                    ->orWhereBetween(DB::raw("STR_TO_DATE(fecha, '%d-%m-%Y')"), [$sinceDate, $untilDate])
+                    ->orWhereBetween(DB::raw("STR_TO_DATE(fecha, '%d/%m/%Y')"), [$sinceDate, $untilDate]);
+            })
             ->orderBy('fecha')
             ->get();
 

@@ -7,6 +7,7 @@ use App\Models\NotificationLog;
 use App\Models\Recepcion;
 use Carbon\Carbon;
 use Illuminate\Console\Command;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Mail;
 
@@ -32,9 +33,15 @@ class SendReceptionDailySummary extends Command
         $since = $now->copy()->subDay()->startOfDay();
         $until = $now->copy()->endOfDay();
 
+        $sinceDate = $since->toDateString();
+        $untilDate = $until->toDateString();
+
         $receptions = Recepcion::query()
-            ->whereDate('fecha_g_recepcion', '>=', $since->toDateString())
-            ->whereDate('fecha_g_recepcion', '<=', $until->toDateString())
+            ->where(function ($query) use ($sinceDate, $untilDate) {
+                $query->whereBetween(DB::raw("STR_TO_DATE(fecha_g_recepcion, '%Y-%m-%d')"), [$sinceDate, $untilDate])
+                    ->orWhereBetween(DB::raw("STR_TO_DATE(fecha_g_recepcion, '%d-%m-%Y')"), [$sinceDate, $untilDate])
+                    ->orWhereBetween(DB::raw("STR_TO_DATE(fecha_g_recepcion, '%d/%m/%Y')"), [$sinceDate, $untilDate]);
+            })
             ->orderBy('fecha_g_recepcion')
             ->get();
 
