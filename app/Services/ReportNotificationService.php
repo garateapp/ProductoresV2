@@ -207,7 +207,6 @@ class ReportNotificationService
                 $recepcion->numero_g_recepcion
                     ? 'Recepción #' . $recepcion->numero_g_recepcion
                     : 'Informe de recepción',
-                $documentLink,
             ];
             $this->sendWhatsappNotifications(
                 $phones,
@@ -523,7 +522,6 @@ class ReportNotificationService
                 $this->sendWhatsappTemplateMessage(
                     $normalized,
                     $template,
-                    $documentLink,
                     $filename,
                     $body,
                     $phoneContext,
@@ -643,7 +641,7 @@ class ReportNotificationService
                     'to' => "56966291494",
                     'type' => 'template',
                     'template' => [
-                        'name' => "proceso",
+                        'name' => $templateToUse,
                         'language' => [
                             'code' => 'es',
                         ],
@@ -1031,3 +1029,6 @@ class ReportNotificationService
         return "Envio automatizado de {$label}{$idPart} a lista de distribucion.{$urlPart}";
     }
 }
+
+
+
