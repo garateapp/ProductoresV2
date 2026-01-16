@@ -34,6 +34,10 @@ Schedule::command('tinker --execute="Artisan::call(\'reports:process-daily-summa
     ->dailyAt('15:00')
     ->description('Envia resumen de procesos enviados (12:00).');
 
+Schedule::command('reports:process-pending-summary')
+    ->dailyAt('16:00')
+    ->description('Envia resumen de procesos sin informe (>24h) a las 16:00.');
+
 Schedule::command('tinker --execute="Artisan::call(\'reports:reception-daily-summary\')"')
     ->dailyAt('12:00')
     ->description('Envia resumen de recepciones enviadas (12:00).');

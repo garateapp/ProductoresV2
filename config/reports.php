@@ -51,6 +51,13 @@ return [
         explode(',', env('PROCESS_DAILY_REPORT_RECIPIENTS', ''))
     ))),
 
+    'process_pending_recipients' => array_values(array_filter(array_map(
+        'trim',
+        explode(',', env('PROCESS_PENDING_REPORT_RECIPIENTS', ''))
+    ))),
+
+    'process_pending_threshold_hours' => (int) env('PROCESS_PENDING_REPORT_THRESHOLD_HOURS', 24),
+
     'reception_daily_recipients' => array_values(array_filter(array_map(
         'trim',
         explode(',', env('RECEPTION_DAILY_REPORT_RECIPIENTS', ''))
