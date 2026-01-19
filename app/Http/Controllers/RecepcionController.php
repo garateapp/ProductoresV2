@@ -6,6 +6,7 @@ use App\Models\Especie;
 use App\Models\Recepcion;
 
 use App\Models\Calidad;
+use App\Models\NotificationLog;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Database\Eloquent\Relations\BelongsToMany;
 use App\Models\Service;
@@ -24,6 +25,7 @@ class RecepcionController extends Controller
         $user = Auth::user();
         $isProducer = ! empty($user->idprod);
         $isAdmin = method_exists($user, 'hasRole') && ($user->hasRole('Admin') || $user->hasRole('Administrador') || ($user->hasRole('Calidad') || $user->hasRole('Gerencia')));
+        $canSeeNotifications = method_exists($user, 'hasRole') && ($user->hasRole('Admin') || $user->hasRole('Administrador') || $user->hasRole('Calidad'));
         $isExportadoraAdmin = method_exists($user, 'hasRole') && ($user->hasRole('Admin') || $user->hasRole('Administrador'));
         $isAgronomo = method_exists($user, 'hasRole') && ($user->hasRole('Agronomo') || $user->hasRole('Agrónomo'));
         $isCC=method_exists($user, 'hasRole') && ($user->hasRole('Calidad') || $user->hasRole('Gerencia'));
@@ -163,7 +165,50 @@ class RecepcionController extends Controller
         $totalRecepciones = $query->count();
         $totalKilos = (int) $query->sum('peso_neto');
 
-        $recepciones = $query->paginate(10)->withQueryString(); // Paginación de 10 elementos por página
+        $recepciones = $query->paginate(10)->withQueryString(); // Paginaci¢n de 10 elementos por p gina
+
+        if ($canSeeNotifications) {
+            $recepcionIds = $recepciones->pluck('id')->filter()->values();
+            $notificationMap = [];
+
+            if ($recepcionIds->isNotEmpty()) {
+                $logs = NotificationLog::query()
+                    ->where('status', 'success')
+                    ->where('context->channel', 'recepcion')
+                    ->whereIn('context->recepcion_id', $recepcionIds->all())
+                    ->get(['type', 'context']);
+
+                foreach ($logs as $log) {
+                    $recepcionId = (int) ($log->context['recepcion_id'] ?? 0);
+                    if (! $recepcionId) {
+                        continue;
+                    }
+
+                    $notificationMap[$recepcionId] = $notificationMap[$recepcionId] ?? [
+                        'email_sent' => false,
+                        'whatsapp_sent' => false,
+                    ];
+
+                    if ($log->type === 'email') {
+                        $notificationMap[$recepcionId]['email_sent'] = true;
+                    }
+
+                    if ($log->type === 'whatsapp') {
+                        $notificationMap[$recepcionId]['whatsapp_sent'] = true;
+                    }
+                }
+            }
+
+            $recepciones->getCollection()->transform(function ($recepcion) use ($notificationMap) {
+                $recepcion->notifications = $notificationMap[$recepcion->id] ?? [
+                    'email_sent' => false,
+                    'whatsapp_sent' => false,
+                ];
+
+                return $recepcion;
+            });
+        }
+ // Paginación de 10 elementos por página
 
         $especies = Especie::all();
 

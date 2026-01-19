@@ -11,7 +11,7 @@ import {
   TableRow,
 } from '@/Components/ui/table';
 import { Input } from '@/Components/ui/input';
-import { FileText, RefreshCw } from 'lucide-react'; // Import FileText icon
+import { FileText, RefreshCw, Mail, MessageCircle } from 'lucide-react'; // Import FileText icon
 import AuthenticatedLayout from '@/Layouts/AuthenticatedLayout';
 import { usePage } from '@inertiajs/react';
 
@@ -24,7 +24,8 @@ export default function Index({ recepciones, especies, variedades = [], exportad
     exportadora: filters.exportadora || '',
   });
   const userRoles = props?.auth?.user?.roles ?? [];
-  const isAdmin = userRoles.some((role) => ['Administrador', 'Admin','Calidad'].includes(role.name));
+  const isAdmin = userRoles.some((role) => ['Administrador', 'Admin', 'Calidad'].includes(role.name));
+  const canSeeNotifications = userRoles.some((role) => ['Administrador', 'Admin', 'Calidad'].includes(role.name));
   const canFilterExportadora = userRoles.some((role) => ['Administrador', 'Admin'].includes(role.name));
   const canManage = isAdmin && !isProducer;
 
@@ -190,11 +191,16 @@ export default function Index({ recepciones, especies, variedades = [], exportad
                 <TableHead>Kilos</TableHead>
                 <TableHead>Nota</TableHead>
                 <TableHead>Informe</TableHead>
+                {canSeeNotifications && <TableHead>Notificaciones</TableHead>}
               </TableRow>
             </TableHeader>
             <TableBody>
-              {recepciones.data.map(recepcion => (
-                <TableRow key={recepcion.id}>
+              {recepciones.data.map(recepcion => {
+                const emailSent = recepcion.notifications?.email_sent;
+                const whatsappSent = recepcion.notifications?.whatsapp_sent;
+
+                return (
+                  <TableRow key={recepcion.id}>
                   <TableCell>{recepcion.numero_g_recepcion}</TableCell>
                   <TableCell>{recepcion.n_emisor}</TableCell>
                   <TableCell>{recepcion.n_especie}</TableCell>
@@ -213,8 +219,22 @@ export default function Index({ recepciones, especies, variedades = [], exportad
                       '-'
                     )}
                   </TableCell>
+                  {canSeeNotifications && (
+                    <TableCell>
+                      <div className="flex items-center gap-2">
+                        <Mail
+                          className={`h-4 w-4 ${emailSent ? 'text-green-600' : 'text-red-500'}`}
+                          title={emailSent ? 'Informe enviado por email' : 'Email no enviado'}
+                        />
+                        <MessageCircle
+                          className={`h-4 w-4 ${whatsappSent ? 'text-green-600' : 'text-red-500'}`}
+                          title={whatsappSent ? 'Informe enviado por WhatsApp' : 'WhatsApp no enviado'}
+                        />
+                      </div>
+                    </TableCell>
+                  )}
                 </TableRow>
-              ))}
+              )})}
             </TableBody>
           </Table>
           {/* Paginación */}
