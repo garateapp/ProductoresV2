@@ -18,6 +18,7 @@
                 <th>Lote recepcion</th>
                 <th>Especie</th>
                 <th>Variedad</th>
+                <th>Exportadora</th>
                 <th>Fecha</th>
                 <th>Motivo</th>
             </tr>
@@ -30,6 +31,7 @@
                     <td>{{ $row['lote_recepcion'] ?? 'N/A' }}</td>
                     <td>{{ $row['especie'] ?? 'N/A' }}</td>
                     <td>{{ $row['variedad'] ?? 'N/A' }}</td>
+                    <td>{{ $row['exportadora'] ?? 'N/A' }}</td>
                     <td>{{ $row['fecha'] ?? 'N/A' }}</td>
                     <td>{{ $row['reason'] ?? 'N/A' }}</td>
                 </tr>

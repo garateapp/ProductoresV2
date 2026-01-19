@@ -78,6 +78,7 @@ class SendProcessPendingSummary extends Command
                 'lote_recepcion' => $proceso->LPP_recepcion ?? $proceso->lote_recepcion ?? null,
                 'especie' => $proceso->especie ?? null,
                 'variedad' => $proceso->variedad ?? null,
+                'exportadora' => $proceso->exportadora ?? null,
                 'fecha' => $processDate->toDateTimeString(),
                 'reason' => $hasReport ? 'Sin notificacion exitosa' : 'Sin informe',
             ];
