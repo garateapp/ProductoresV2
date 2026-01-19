@@ -52,10 +52,13 @@ export default function Index({ procesos, especies, variedades = [], exportadora
   const [fileErrors, setFileErrors] = useState([]);
   const [uploading, setUploading] = useState(false);
   const [resendingId, setResendingId] = useState(null);
+  const [syncingExportadoraId, setSyncingExportadoraId] = useState(null);
+  const [syncingExportadoras, setSyncingExportadoras] = useState(false);
   const fileInputRef = useRef(null);
 
   const userRoles = props?.auth?.user?.roles ?? [];
   const isAdmin = userRoles.some((role) => ['Administrador', 'Admin'].includes(role.name));
+  const canUpdateExportadora = userRoles.some((role) => ['Administrador', 'Admin', 'Calidad'].includes(role.name));
   const canManage = isAdmin && !isProducer;
   const csrfToken = props?.csrf_token ?? (typeof document !== 'undefined'
     ? document.querySelector('meta[name="csrf-token"]')?.getAttribute('content')
@@ -196,6 +199,73 @@ export default function Index({ procesos, especies, variedades = [], exportadora
     }
   };
 
+  const handleSyncExportadora = async (procesoId) => {
+    if (!canUpdateExportadora) {
+      return;
+    }
+    if (!csrfToken) {
+      alert('No se pudo obtener el token de seguridad. Actualiza la página e inténtalo nuevamente.');
+      return;
+    }
+    setSyncingExportadoraId(procesoId);
+    try {
+      const response = await fetch(route('procesos.sync-exportadora', procesoId), {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'X-CSRF-TOKEN': csrfToken,
+          Accept: 'application/json',
+        },
+        body: JSON.stringify({}),
+      });
+      const payload = await response.json().catch(() => ({}));
+      if (!response.ok) {
+        throw new Error(payload?.message || 'No se pudo actualizar la exportadora.');
+      }
+      alert(payload?.message || 'Exportadora actualizada correctamente.');
+      router.reload({ preserveScroll: true });
+    } catch (error) {
+      alert(error?.message || 'Ocurrió un error al actualizar la exportadora.');
+    } finally {
+      setSyncingExportadoraId(null);
+    }
+  };
+
+  const handleSyncExportadoras = async () => {
+    if (!canUpdateExportadora) {
+      return;
+    }
+    if (!csrfToken) {
+      alert('No se pudo obtener el token de seguridad. Actualiza la página e inténtalo nuevamente.');
+      return;
+    }
+    if (!confirm('¿Actualizar exportadora para todos los procesos?')) {
+      return;
+    }
+    setSyncingExportadoras(true);
+    try {
+      const response = await fetch(route('procesos.sync-exportadora-all'), {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'X-CSRF-TOKEN': csrfToken,
+          Accept: 'application/json',
+        },
+        body: JSON.stringify({}),
+      });
+      const payload = await response.json().catch(() => ({}));
+      if (!response.ok) {
+        throw new Error(payload?.message || 'No se pudo actualizar las exportadoras.');
+      }
+      alert(payload?.message || 'Exportadoras actualizadas correctamente.');
+      router.reload({ preserveScroll: true });
+    } catch (error) {
+      alert(error?.message || 'Ocurrió un error al actualizar las exportadoras.');
+    } finally {
+      setSyncingExportadoras(false);
+    }
+  };
+
   const handleDragOver = (event) => {
     event.preventDefault();
     event.stopPropagation();
@@ -294,6 +364,17 @@ export default function Index({ procesos, especies, variedades = [], exportadora
             <div className="flex items-center gap-2">
               <SyncButton />
               <LppSyncButton />
+              {canUpdateExportadora && (
+                <Button
+                  variant="secondary"
+                  onClick={handleSyncExportadoras}
+                  disabled={syncingExportadoras}
+                  title="Actualizar exportadora desde SQL"
+                >
+                  <RefreshCw className={`h-4 w-4 mr-2 ${syncingExportadoras ? 'animate-spin' : ''}`} />
+                  {syncingExportadoras ? 'Actualizando exportadoras...' : 'Actualizar exportadoras'}
+                </Button>
+              )}
             </div>
           )}
             </CardHeader>
@@ -716,6 +797,18 @@ export default function Index({ procesos, especies, variedades = [], exportadora
                 ) : (
                   <span className="text-gray-400 text-sm">-</span>
                 )}
+                {canUpdateExportadora ? (
+                  <Button
+                    variant="secondary"
+                    size="sm"
+                    onClick={() => handleSyncExportadora(proceso.id)}
+                    disabled={syncingExportadoraId === proceso.id}
+                    title="Actualizar exportadora desde SQL"
+                  >
+                    <RefreshCw className={`h-4 w-4 mr-1 ${syncingExportadoraId === proceso.id ? 'animate-spin' : ''}`} />
+                    {syncingExportadoraId === proceso.id ? 'Actualizando...' : 'Exportadora'}
+                  </Button>
+                ) : null}
               </div>
             </TableCell>
           </TableRow>

@@ -14,6 +14,7 @@ use App\Http\Controllers\FieldVisitController;
 use App\Http\Controllers\FieldManagementController;
 use App\Http\Controllers\ValidacionesController;
 use App\Http\Controllers\SystemLogController;
+use App\Http\Controllers\ProspectoProductorController;
 
 Route::get('/', function () {
     return redirect()->route('login');
@@ -82,6 +83,8 @@ Route::post('producers/{producer}/welcome-email', [App\Http\Controllers\Producer
     Route::resource('procesos', App\Http\Controllers\ProcesoController::class)->only(['index'])->names('procesos');
     Route::post('procesos/informes/upload', [App\Http\Controllers\ProcesoController::class, 'uploadInformes'])->name('procesos.informes.upload');
     Route::post('procesos/{proceso}/resend-report', [App\Http\Controllers\ProcesoController::class, 'resendReport'])->name('procesos.resend-report');
+    Route::post('procesos/{proceso}/sync-exportadora', [App\Http\Controllers\ProcesoController::class, 'syncExportadora'])->name('procesos.sync-exportadora');
+    Route::post('procesos/sync-exportadora', [App\Http\Controllers\ProcesoController::class, 'syncExportadoraAll'])->name('procesos.sync-exportadora-all');
     Route::post('procesos/sync', [App\Http\Controllers\ProcesoController::class, 'procesos_sync'])->name('procesos.sync');
     Route::post('procesos/sync-lpp', [App\Http\Controllers\ProcesoController::class, 'sync_lpp'])->name('procesos.sync-lpp');
 
@@ -113,6 +116,8 @@ Route::post('producers/{producer}/welcome-email', [App\Http\Controllers\Producer
     Route::get('admin/notification-logs', [NotificationLogController::class, 'index'])->name('notification-logs.index');
     Route::get('admin/notification-logs/export', [NotificationLogController::class, 'export'])->name('notification-logs.export');
     Route::get('admin/system-logs', [SystemLogController::class, 'index'])->name('system-logs.index');
+    Route::get('admin/prospectos-productores/create', [ProspectoProductorController::class, 'create'])->name('prospectos-productores.create');
+    Route::post('admin/prospectos-productores', [ProspectoProductorController::class, 'store'])->name('prospectos-productores.store');
     Route::get('field-visits', [FieldVisitController::class, 'index'])->name('field-visits.index');
     Route::post('field-visits', [FieldVisitController::class, 'store'])->name('field-visits.store');
 

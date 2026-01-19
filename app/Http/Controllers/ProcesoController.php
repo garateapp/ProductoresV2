@@ -431,6 +431,89 @@ class ProcesoController extends Controller
             'message' => 'Informe reenviado correctamente al productor.',
         ]);
     }
+
+    public function syncExportadora(Request $request, Proceso $proceso)
+    {
+        if (! $request->user() || ! $request->user()->hasAnyRole(['Administrador', 'Admin', 'Calidad'])) {
+            abort(403);
+        }
+
+        $exportadora = DB::connection('sqlsrv')
+            ->table('V_PKG_Produccion_Completo')
+            ->where('numero_proceso', $proceso->n_proceso)
+            ->where('id_empresa', $proceso->id_empresa)
+            ->whereNotNull('n_exportadora')
+            ->where('n_exportadora', '<>', '')
+            ->orderBy('n_exportadora')
+            ->value('n_exportadora');
+
+        if (! $exportadora) {
+            return response()->json([
+                'message' => 'No se encontró exportadora en origen para este proceso.',
+            ], 404);
+        }
+
+        $proceso->exportadora = $exportadora;
+        $proceso->save();
+
+        return response()->json([
+            'message' => 'Exportadora actualizada correctamente.',
+            'exportadora' => $exportadora,
+        ]);
+    }
+
+    public function syncExportadoraAll(Request $request)
+    {
+        if (! $request->user() || ! $request->user()->hasAnyRole(['Administrador', 'Admin', 'Calidad'])) {
+            abort(403);
+        }
+
+        $rows = DB::connection('sqlsrv')
+            ->table('V_PKG_Produccion_Completo')
+            ->select([
+                'numero_proceso',
+                'id_empresa',
+                DB::raw('MAX(n_exportadora) as n_exportadora'),
+            ])
+            ->whereNotNull('n_exportadora')
+            ->where('n_exportadora', '<>', '')
+            ->groupBy('numero_proceso', 'id_empresa')
+            ->get();
+
+        $updated = 0;
+        foreach ($rows as $row) {
+            $exportadora = $row->n_exportadora ?? null;
+            if (! $exportadora) {
+                continue;
+            }
+
+            $proceso = Proceso::where('n_proceso', $row->numero_proceso)
+                ->where('id_empresa', $row->id_empresa)
+                ->where('temporada', 'actual')
+                ->first();
+
+            if (! $proceso) {
+                $proceso = Proceso::where('n_proceso', $row->numero_proceso)
+                    ->where('id_empresa', $row->id_empresa)
+                    ->first();
+            }
+
+            if (! $proceso) {
+                continue;
+            }
+
+            if ($proceso->exportadora !== $exportadora) {
+                $proceso->exportadora = $exportadora;
+                $proceso->save();
+                $updated++;
+            }
+        }
+
+        return response()->json([
+            'message' => "Exportadoras actualizadas: {$updated}.",
+            'updated' => $updated,
+        ]);
+    }
     public function sync_proces()
     {
         // 1. Configuración de Fecha (Usando Carbon es más idiomático en Laravel)
