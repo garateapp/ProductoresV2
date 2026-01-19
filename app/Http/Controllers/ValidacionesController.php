@@ -83,7 +83,7 @@ class ValidacionesController extends Controller
             });
         }
 
-        $producers = $query
+        $producers = $query->where('is_active', true)
             //->withCount('recepciones')
             ->withCount('contracts')
             //->withMax('recepciones', 'fecha_g_recepcion')

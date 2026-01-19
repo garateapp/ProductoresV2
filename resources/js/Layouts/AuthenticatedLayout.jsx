@@ -380,6 +380,14 @@ export default function AuthenticatedLayout({ header, children }) {
                                 >
                                     Países
                                 </ResponsiveNavLink>
+                                <ResponsiveNavLink
+                                    {...mobileNavLinkProps}
+                                    href={route('system-logs.index')}
+                                    active={route().current('system-logs.index')}
+                                    onClick={() => setShowingNavigationDropdown(false)}
+                                >
+                                    Logs del sistema
+                                </ResponsiveNavLink>
                             </>
                         )}
                     </div>

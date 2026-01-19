@@ -13,6 +13,7 @@ use App\Http\Controllers\NotificationLogController;
 use App\Http\Controllers\FieldVisitController;
 use App\Http\Controllers\FieldManagementController;
 use App\Http\Controllers\ValidacionesController;
+use App\Http\Controllers\SystemLogController;
 
 Route::get('/', function () {
     return redirect()->route('login');
@@ -111,6 +112,7 @@ Route::post('producers/{producer}/welcome-email', [App\Http\Controllers\Producer
     Route::post('control-calidad/{recepcion}/report/resend', [App\Http\Controllers\ControlCalidadController::class, 'resendReport'])->name('control-calidad.resend-report');
     Route::get('admin/notification-logs', [NotificationLogController::class, 'index'])->name('notification-logs.index');
     Route::get('admin/notification-logs/export', [NotificationLogController::class, 'export'])->name('notification-logs.export');
+    Route::get('admin/system-logs', [SystemLogController::class, 'index'])->name('system-logs.index');
     Route::get('field-visits', [FieldVisitController::class, 'index'])->name('field-visits.index');
     Route::post('field-visits', [FieldVisitController::class, 'store'])->name('field-visits.store');
 

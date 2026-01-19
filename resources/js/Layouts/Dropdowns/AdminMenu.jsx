@@ -87,6 +87,12 @@ export default function AdminMenu() {
         </DropdownMenuItem>
 
         <DropdownMenuItem asChild>
+          <Link href={route("system-logs.index")} className="w-full">
+            Logs del sistema
+          </Link>
+        </DropdownMenuItem>
+
+        <DropdownMenuItem asChild>
           <Link href={route("login-activity.index")} className="w-full">
             Eventos de login
           </Link>
