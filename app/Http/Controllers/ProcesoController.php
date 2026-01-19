@@ -543,7 +543,8 @@ class ProcesoController extends Controller
                 DB::raw("SUM(CASE WHEN t_categoria = 'Desecho' THEN ppc.peso_neto ELSE 0 END) AS desecho"),
                 DB::raw("SUM(CASE WHEN t_categoria = 'Merma' THEN ppc.peso_neto ELSE 0 END) AS merma"),
                 DB::raw("SUM(CASE WHEN t_categoria = 'Sin Procesar' THEN ppc.peso_neto ELSE 0 END) AS kilos_netos"),
-                DB::raw("GETDATE() AS FechaConsulta")
+                DB::raw("GETDATE() AS FechaConsulta"),
+                'n_exportadora',
             )
             ->where('ppc.tipo_proceso', 'PRN')
             ->where('ppc.Estado', 'Finalizado')
@@ -559,7 +560,8 @@ class ProcesoController extends Controller
                 'id_empresa',
                 'ppc.estado',
                 'ppc.recepciones_trazabilidad',
-                'ppc.LPP_recepcion'
+                'ppc.LPP_recepcion',
+                'n_exportadora'
             )
             ->orderBy('numero_proceso', 'desc')
             ->get();
@@ -592,6 +594,7 @@ class ProcesoController extends Controller
                     'merma' =>  $procesosAgrupados->sum('kilos_netos')- $procesosAgrupados->sum('exp')- $procesosAgrupados->sum('comercial')- $procesosAgrupados->sum('desecho'),
                     'kilos_netos' => $procesosAgrupados->sum('kilos_netos'),
                     'lote_recepcion' => $loteRecepcion ?? $procesoBase->lote_recepcion,
+                    'n_exportadora' => $procesoBase->n_exportadora,
                 ];
             })
             ->values();
@@ -618,6 +621,7 @@ class ProcesoController extends Controller
                 'LPP_recepcion' => $proceso->LPP_recepcion,
                 'lote_recepcion' => $proceso->lote_recepcion,
                 'estado'=>$proceso->estado,
+                'exportadora'=>$proceso->n_exportadora
             ];
 
 
