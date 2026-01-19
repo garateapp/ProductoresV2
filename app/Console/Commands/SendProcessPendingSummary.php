@@ -44,7 +44,8 @@ class SendProcessPendingSummary extends Command
             ->when($processIds->isNotEmpty(), function ($query) use ($processIds) {
                 $query->whereIn('context->proceso_id', $processIds->all());
             })
-            ->pluck('context->proceso_id')
+            ->get(['context'])
+            ->pluck('context.proceso_id')
             ->filter()
             ->map(fn ($value) => (int) $value)
             ->unique()
