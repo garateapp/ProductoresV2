@@ -3,6 +3,7 @@
 namespace App\Console\Commands;
 
 use App\Mail\ProcessPendingSummary;
+use App\Models\NotificationLog;
 use App\Models\Proceso;
 use Carbon\Carbon;
 use Illuminate\Console\Command;
@@ -13,7 +14,7 @@ class SendProcessPendingSummary extends Command
 {
     protected $signature = 'reports:process-pending-summary';
 
-    protected $description = 'Send a daily summary of processes without a report after a delay threshold.';
+    protected $description = 'Send a daily summary of processes without a report or without successful notification after a delay threshold.';
 
     public function handle(): int
     {
@@ -33,12 +34,22 @@ class SendProcessPendingSummary extends Command
         $cutoff = $now->copy()->subHours($thresholdHours);
 
         $processes = Proceso::query()
-            ->where(function ($query) {
-                $query->whereNull('informe')
-                    ->orWhere('informe', '');
-            })
             ->whereNotNull('fecha')
             ->get();
+
+        $processIds = $processes->pluck('id')->filter()->values();
+        $notifiedProcessIds = NotificationLog::query()
+            ->where('status', 'success')
+            ->where('context->channel', 'process')
+            ->when($processIds->isNotEmpty(), function ($query) use ($processIds) {
+                $query->whereIn('context->proceso_id', $processIds->all());
+            })
+            ->pluck('context->proceso_id')
+            ->filter()
+            ->map(fn ($value) => (int) $value)
+            ->unique()
+            ->values()
+            ->all();
 
         $rows = [];
 
@@ -53,6 +64,13 @@ class SendProcessPendingSummary extends Command
                 continue;
             }
 
+            $hasReport = trim((string) $proceso->informe) !== '';
+            $hasSuccessNotification = in_array((int) $proceso->id, $notifiedProcessIds, true);
+
+            if ($hasReport && $hasSuccessNotification) {
+                continue;
+            }
+
             $rows[] = [
                 'n_proceso' => $proceso->n_proceso,
                 'producer' => $proceso->agricola ?? $proceso->LLP_recepcion ?? null,
@@ -60,12 +78,13 @@ class SendProcessPendingSummary extends Command
                 'especie' => $proceso->especie ?? null,
                 'variedad' => $proceso->variedad ?? null,
                 'fecha' => $processDate->toDateTimeString(),
+                'reason' => $hasReport ? 'Sin notificacion exitosa' : 'Sin informe',
             ];
         }
 
         if (empty($rows)) {
-            $this->info('Process pending summary skipped: no overdue processes found.');
-            Log::info('Process pending summary skipped: no overdue processes found.', [
+            $this->info('Process pending summary skipped: no pending processes found.');
+            Log::info('Process pending summary skipped: no pending processes found.', [
                 'threshold_hours' => $thresholdHours,
                 'cutoff' => $cutoff->toDateTimeString(),
             ]);
