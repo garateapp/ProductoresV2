@@ -2,11 +2,11 @@
 <html>
 <head>
     <meta charset="utf-8">
-    <title>Procesos sin informe</title>
+    <title>Procesos pendientes</title>
 </head>
 <body>
     <p>
-        Resumen de procesos sin informe por mas de {{ $thresholdHours }} horas.
+        Resumen de procesos pendientes (sin informe o sin notificacion exitosa) por mas de {{ $thresholdHours }} horas.
         Corte: {{ $cutoff->format('Y-m-d H:i') }}. Generado: {{ $now->format('Y-m-d H:i') }}.
     </p>
 
@@ -19,6 +19,7 @@
                 <th>Especie</th>
                 <th>Variedad</th>
                 <th>Fecha</th>
+                <th>Motivo</th>
             </tr>
         </thead>
         <tbody>
@@ -30,6 +31,7 @@
                     <td>{{ $row['especie'] ?? 'N/A' }}</td>
                     <td>{{ $row['variedad'] ?? 'N/A' }}</td>
                     <td>{{ $row['fecha'] ?? 'N/A' }}</td>
+                    <td>{{ $row['reason'] ?? 'N/A' }}</td>
                 </tr>
             @endforeach
         </tbody>

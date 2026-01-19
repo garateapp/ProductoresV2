@@ -25,7 +25,7 @@ class ProcessPendingSummary extends Mailable
     public function build(): self
     {
         return $this
-            ->subject("Procesos sin informe (>{$this->thresholdHours}h)")
+            ->subject("Procesos pendientes (>{$this->thresholdHours}h)")
             ->view('emails.processes.pending_summary', [
                 'rows' => $this->rows,
                 'thresholdHours' => $this->thresholdHours,
