@@ -81,23 +81,6 @@ class ReportNotificationService
                 'email' => $emailRecipient,
             ]);
         }
-
-        if ($phones->isEmpty()) {
-            Log::info('Report notification: no WhatsApp numbers found', $context);
-        } else {
-            $message = $this->buildProcessWhatsappBody($producer->name, $proceso->n_proceso, $formattedDate, $reportUrl);
-
-            $this->sendWhatsappNotifications(
-                $phones,
-                [
-                    'template' => config('process_notifications.whatsapp.templates.process', 'proceso'),
-                    'document_link' => $reportUrl,
-                    'filename' => $safeFilename,
-                    'body' => $message,
-                ],
-                $context
-            );
-        }
         $this->sendEmailToDistributionList(
             new ProcessReportUploaded(
                 $producer,
@@ -128,6 +111,23 @@ class ReportNotificationService
                 Log::info('Report notification: email enabled but no recipient resolved', $context);
             }
         }
+        if ($phones->isEmpty()) {
+            Log::info('Report notification: no WhatsApp numbers found', $context);
+        } else {
+            $message = $this->buildProcessWhatsappBody($producer->name, $proceso->n_proceso, $formattedDate, $reportUrl);
+
+            $this->sendWhatsappNotifications(
+                $phones,
+                [
+                    'template' => config('process_notifications.whatsapp.templates.process', 'proceso'),
+                    'document_link' => $reportUrl,
+                    'filename' => $safeFilename,
+                    'body' => $message,
+                ],
+                $context
+            );
+        }
+
     }
 
     public function notifyReceptionReport(Recepcion $recepcion, string $publicUrl, ?string $absolutePath = null, ?string $originalFilename = null): void
@@ -522,6 +522,7 @@ class ReportNotificationService
                 $this->sendWhatsappTemplateMessage(
                     $normalized,
                     $template,
+                    $documentLink,
                     $filename,
                     $body,
                     $phoneContext,
@@ -547,7 +548,10 @@ class ReportNotificationService
         $phoneId = config('process_notifications.whatsapp.phone_id');
         $apiVersion = config('process_notifications.whatsapp.api_version', 'v16.0');
         $templateToUse = $templateName ?: config('process_notifications.whatsapp.templates.process', 'proceso');
-        Log::info('Template: ' . $templateToUse, $context,$documentLink,$filename,$body);
+        Log::info('Template: ' . $templateToUse, $context + [
+            'document_link' => $documentLink,
+            'filename' => $filename,
+        ]);
         if (empty($token) || empty($phoneId)) {
             Log::warning('Report notification: WhatsApp credentials missing', $context);
 
@@ -1029,6 +1033,4 @@ class ReportNotificationService
         return "Envio automatizado de {$label}{$idPart} a lista de distribucion.{$urlPart}";
     }
 }
-
-
 
