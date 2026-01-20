@@ -797,9 +797,9 @@ class ReportNotificationService
         }
 
         if (str_starts_with($digits, '56')) {
-            $digits = '56' . substr($digits, -9);
+            $digits = '+56' . substr($digits, -9);
         } elseif (strlen($digits) === 9 && str_starts_with($digits, '9')) {
-            $digits = '56' . $digits;
+            $digits = '+56' . $digits;
         } elseif (strlen($digits) === 8) {
             $digits = '+569' . $digits;
         }
