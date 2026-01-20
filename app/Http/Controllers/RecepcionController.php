@@ -7,6 +7,7 @@ use App\Models\Recepcion;
 
 use App\Models\Calidad;
 use App\Models\NotificationLog;
+use App\Services\ReportNotificationService;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Database\Eloquent\Relations\BelongsToMany;
 use App\Models\Service;
@@ -308,6 +309,30 @@ class RecepcionController extends Controller
             Log::error($e->getTraceAsString());
             return redirect()->route('recepciones.index')->with('error', 'Error al sincronizar recepciones');
         }
+    }
+
+    public function sendWhatsappTest(Request $request, Recepcion $recepcion, ReportNotificationService $notificationService)
+    {
+        $user = $request->user();
+        if (! $user || strtolower((string) $user->email) !== 'carlos.alvarez@greenex.cl') {
+            abort(403);
+        }
+
+        if (! $recepcion->informe) {
+            return response()->json([
+                'message' => 'La recepcion no tiene informe disponible.',
+            ], 422);
+        }
+
+        $notificationService->sendReceptionWhatsappToPhone(
+            $recepcion,
+            $recepcion->informe,
+            '+56966291494'
+        );
+
+        return response()->json([
+            'message' => 'Mensaje WhatsApp enviado.',
+        ]);
     }
 
     public function production_refresh()

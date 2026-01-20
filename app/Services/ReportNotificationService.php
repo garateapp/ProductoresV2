@@ -350,6 +350,39 @@ class ReportNotificationService
         }
     }
 
+    public function sendReceptionWhatsappToPhone(Recepcion $recepcion, string $publicUrl, string $phone): void
+    {
+        $formattedDate = $this->formatDate($recepcion->fecha_g_recepcion);
+        $producerName = $recepcion->n_productor_rotulado ?: $recepcion->n_emisor ?: 'Productor';
+        $context = [
+            'channel' => 'recepcion',
+            'recepcion_id' => $recepcion->id,
+            'numero_g_recepcion' => $recepcion->numero_g_recepcion,
+            'manual_phone' => $phone,
+            'report_url' => $publicUrl,
+        ];
+
+        $message = $this->buildReceptionWhatsappBody($producerName, $recepcion->numero_g_recepcion, $formattedDate, $publicUrl);
+        $documentLink = $this->buildDocumentLink($publicUrl);
+        $bodyParams = [
+            $recepcion->numero_g_recepcion
+                ? 'Recepcion #' . $recepcion->numero_g_recepcion
+                : 'Informe de recepcion',
+        ];
+
+        $this->sendWhatsappNotifications(
+            collect([$phone]),
+            [
+                'template' => config('process_notifications.whatsapp.templates.reception', 'recepcion'),
+                'document_link' => $documentLink,
+                'filename' => $this->sanitizeFilename('reporte_recepcion_' . $recepcion->numero_g_recepcion . '.pdf'),
+                'body' => $message,
+                'body_params' => $bodyParams,
+            ],
+            $context
+        );
+    }
+
     private function resolveAbsolutePathFromDisk(string $storedPath): ?string
     {
         try {
@@ -1033,4 +1066,3 @@ class ReportNotificationService
         return "Envio automatizado de {$label}{$idPart} a lista de distribucion.{$urlPart}";
     }
 }
-

@@ -11,7 +11,7 @@ import {
   TableRow,
 } from '@/Components/ui/table';
 import { Input } from '@/Components/ui/input';
-import { FileText, RefreshCw, Mail, MessageCircle } from 'lucide-react'; // Import FileText icon
+import { FileText, RefreshCw, Mail, MessageCircle, Send } from 'lucide-react'; // Import FileText icon
 import AuthenticatedLayout from '@/Layouts/AuthenticatedLayout';
 import { usePage } from '@inertiajs/react';
 
@@ -28,6 +28,11 @@ export default function Index({ recepciones, especies, variedades = [], exportad
   const canSeeNotifications = userRoles.some((role) => ['Administrador', 'Admin', 'Calidad'].includes(role.name));
   const canFilterExportadora = userRoles.some((role) => ['Administrador', 'Admin'].includes(role.name));
   const canManage = isAdmin && !isProducer;
+  const isCarlos = (props?.auth?.user?.email || '').toLowerCase() === 'carlos.alvarez@greenex.cl';
+  const [sendingWhatsappId, setSendingWhatsappId] = useState(null);
+  const csrfToken = props?.csrf_token ?? (typeof document !== 'undefined'
+    ? document.querySelector('meta[name="csrf-token"]')?.getAttribute('content')
+    : null);
 
   const handleSearchChange = (e) => {
     setData('search', e.target.value);
@@ -65,6 +70,37 @@ export default function Index({ recepciones, especies, variedades = [], exportad
 
     return () => clearTimeout(delayDebounceFn);
   }, [data.search, data.especie_id, data.variedad_id, data.exportadora, props?.flash?.sync_output, props?.flash?.success, props?.flash?.error]);
+
+  const handleSendWhatsappTest = async (recepcionId) => {
+    if (!isCarlos) {
+      return;
+    }
+    if (!csrfToken) {
+      alert('No se pudo obtener el token de seguridad. Actualiza la pagina e intentalo nuevamente.');
+      return;
+    }
+    setSendingWhatsappId(recepcionId);
+    try {
+      const response = await fetch(route('recepciones.send-whatsapp-test', recepcionId), {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'X-CSRF-TOKEN': csrfToken,
+          Accept: 'application/json',
+        },
+        body: JSON.stringify({}),
+      });
+      const payload = await response.json().catch(() => ({}));
+      if (!response.ok) {
+        throw new Error(payload?.message || 'No se pudo enviar el WhatsApp.');
+      }
+      alert(payload?.message || 'WhatsApp enviado.');
+    } catch (error) {
+      alert(error?.message || 'Ocurrio un error al enviar el WhatsApp.');
+    } finally {
+      setSendingWhatsappId(null);
+    }
+  };
 
   return (
     <div className="container mx-auto py-10">
@@ -192,6 +228,7 @@ export default function Index({ recepciones, especies, variedades = [], exportad
                 <TableHead>Nota</TableHead>
                 <TableHead>Informe</TableHead>
                 {canSeeNotifications && <TableHead>Notificaciones</TableHead>}
+                {isCarlos && <TableHead>Acciones</TableHead>}
               </TableRow>
             </TableHeader>
             <TableBody>
@@ -231,6 +268,20 @@ export default function Index({ recepciones, especies, variedades = [], exportad
                           title={whatsappSent ? 'Informe enviado por WhatsApp' : 'WhatsApp no enviado'}
                         />
                       </div>
+                    </TableCell>
+                  )}
+                  {isCarlos && (
+                    <TableCell>
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={() => handleSendWhatsappTest(recepcion.id)}
+                        disabled={sendingWhatsappId === recepcion.id}
+                        title="Enviar WhatsApp a +56966291494"
+                      >
+                        <Send className="h-4 w-4 mr-1" />
+                        {sendingWhatsappId === recepcion.id ? 'Enviando...' : 'WhatsApp'}
+                      </Button>
                     </TableCell>
                   )}
                 </TableRow>

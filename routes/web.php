@@ -79,6 +79,7 @@ Route::post('producers/{producer}/welcome-email', [App\Http\Controllers\Producer
 
     Route::resource('recepciones', App\Http\Controllers\RecepcionController::class)->only(['index'])->names('recepciones');
     Route::post('recepciones/sync', [App\Http\Controllers\RecepcionController::class, 'recepction_sync'])->name('recepciones.sync');
+    Route::post('recepciones/{recepcion}/send-whatsapp-test', [App\Http\Controllers\RecepcionController::class, 'sendWhatsappTest'])->name('recepciones.send-whatsapp-test');
 
     Route::resource('procesos', App\Http\Controllers\ProcesoController::class)->only(['index'])->names('procesos');
     Route::post('procesos/informes/upload', [App\Http\Controllers\ProcesoController::class, 'uploadInformes'])->name('procesos.informes.upload');
@@ -116,8 +117,13 @@ Route::post('producers/{producer}/welcome-email', [App\Http\Controllers\Producer
     Route::get('admin/notification-logs', [NotificationLogController::class, 'index'])->name('notification-logs.index');
     Route::get('admin/notification-logs/export', [NotificationLogController::class, 'export'])->name('notification-logs.export');
     Route::get('admin/system-logs', [SystemLogController::class, 'index'])->name('system-logs.index');
+    Route::get('admin/prospectos-productores', [ProspectoProductorController::class, 'index'])->name('prospectos-productores.index');
     Route::get('admin/prospectos-productores/create', [ProspectoProductorController::class, 'create'])->name('prospectos-productores.create');
     Route::post('admin/prospectos-productores', [ProspectoProductorController::class, 'store'])->name('prospectos-productores.store');
+    Route::get('admin/prospectos-productores/{prospecto}/edit', [ProspectoProductorController::class, 'edit'])->name('prospectos-productores.edit');
+    Route::put('admin/prospectos-productores/{prospecto}', [ProspectoProductorController::class, 'update'])->name('prospectos-productores.update');
+    Route::post('admin/prospectos-productores/{prospecto}/validate', [ProspectoProductorController::class, 'validateProspecto'])->name('prospectos-productores.validate');
+    Route::post('admin/prospectos-productores/{prospecto}/create-producer', [ProspectoProductorController::class, 'createProducer'])->name('prospectos-productores.create-producer');
     Route::get('field-visits', [FieldVisitController::class, 'index'])->name('field-visits.index');
     Route::post('field-visits', [FieldVisitController::class, 'store'])->name('field-visits.store');
 
