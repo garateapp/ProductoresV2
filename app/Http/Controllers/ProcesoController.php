@@ -175,7 +175,7 @@ class ProcesoController extends Controller
         $totalComercial =  $query->sum('comercial');
         $totalMerma =  $query->sum('merma');
         $query->where('exp','>',0);
-        $query->where('comercial','>',0);
+        //$query->where('comercial','>',0);
 
         // Calculate totals for the chart
         $chartDataQuery = clone $query; // Clone the query
