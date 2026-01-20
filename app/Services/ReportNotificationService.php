@@ -203,11 +203,12 @@ class ReportNotificationService
         } else {
             $message = $this->buildReceptionWhatsappBody($producer->name, $recepcion->numero_g_recepcion, $formattedDate, $publicUrl);
             $documentLink = $this->buildDocumentLink($publicUrl);
-            $bodyParams = [
+            $bodyParams = array_values(array_filter([
                 $recepcion->numero_g_recepcion
                     ? 'Recepción #' . $recepcion->numero_g_recepcion
                     : 'Informe de recepción',
-            ];
+                $publicUrl,
+            ]));
             $this->sendWhatsappNotifications(
                 $phones,
                 [
@@ -364,11 +365,12 @@ class ReportNotificationService
 
         $message = $this->buildReceptionWhatsappBody($producerName, $recepcion->numero_g_recepcion, $formattedDate, $publicUrl);
         $documentLink = $this->buildDocumentLink($publicUrl);
-        $bodyParams = [
+        $bodyParams = array_values(array_filter([
             $recepcion->numero_g_recepcion
                 ? 'Recepcion #' . $recepcion->numero_g_recepcion
                 : 'Informe de recepcion',
-        ];
+            $publicUrl,
+        ]));
 
         $this->sendWhatsappNotifications(
             collect([$phone]),
