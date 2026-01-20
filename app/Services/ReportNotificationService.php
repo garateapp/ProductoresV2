@@ -177,6 +177,7 @@ class ReportNotificationService
             'recepcion_id' => $recepcion->id,
             'numero_g_recepcion' => $recepcion->numero_g_recepcion,
             'report_url' => $publicUrl,
+            'usuario_solicita' => auth()->user()->name ?? null,
         ];
         Log::info('Reception notification: sending report', $context);
         $phones = $this->gatherPhones($producer);
@@ -361,6 +362,7 @@ class ReportNotificationService
             'numero_g_recepcion' => $recepcion->numero_g_recepcion,
             'manual_phone' => $phone,
             'report_url' => $publicUrl,
+            'usuario_solicita' => auth()->user()->name ?? null,
         ];
 
         $message = $this->buildReceptionWhatsappBody($producerName, $recepcion->numero_g_recepcion, $formattedDate, $publicUrl);
