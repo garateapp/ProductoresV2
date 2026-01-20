@@ -36,6 +36,7 @@ export default function Edit({ producer }) {
     certificaciones: producer.certificaciones || '',
     status: producer.status || '',
     enviomasivo: producer.enviomasivo || false,
+    sync_email_by_rut: false,
     stay: false,
     send_welcome_email: false,
   });
@@ -110,6 +111,17 @@ export default function Edit({ producer }) {
                     onChange={(e) => setData('email', e.target.value)}
                   />
                   {errors.email && <div className="text-red-500 text-sm">{errors.email}</div>}
+                </div>
+                <div className="flex items-center gap-3">
+                  <Switch
+                    id="sync_email_by_rut"
+                    checked={data.sync_email_by_rut}
+                    onCheckedChange={(v) => setData('sync_email_by_rut', !!v)}
+                  />
+                  <Label htmlFor="sync_email_by_rut">Actualizar email para todos con el mismo RUT</Label>
+                  {errors.sync_email_by_rut && (
+                    <div className="text-red-500 text-sm">{errors.sync_email_by_rut}</div>
+                  )}
                 </div>
                 <div>
                   <Label htmlFor="rut">RUT</Label>

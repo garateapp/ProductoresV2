@@ -236,6 +236,7 @@ class ProducerController extends Controller
             'enviomasivo' => 'boolean',
             'send_welcome_email' => 'boolean',
             'stay' => 'boolean',
+            'sync_email_by_rut' => 'boolean',
         ]);
 
         $producer->update([
@@ -262,6 +263,12 @@ class ProducerController extends Controller
             'status' => $request->status,
             'enviomasivo' => $request->boolean('enviomasivo'),
         ]);
+
+        if ($request->boolean('sync_email_by_rut') && ! empty($producer->rut)) {
+            User::where('rut', $producer->rut)->update([
+                'email' => $request->email,
+            ]);
+        }
 
         if ($request->boolean('send_welcome_email')) {
             if (empty($producer->email)) {
