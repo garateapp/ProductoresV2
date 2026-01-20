@@ -327,7 +327,7 @@ class RecepcionController extends Controller
         $notificationService->sendReceptionWhatsappToPhone(
             $recepcion,
             $recepcion->informe,
-            '56966291494'
+            '+56966291494'
         );
 
         return response()->json([
