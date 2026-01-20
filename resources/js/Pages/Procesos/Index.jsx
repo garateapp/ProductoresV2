@@ -11,6 +11,8 @@ import {
   TableRow,
 } from '@/Components/ui/table';
 import { Input } from '@/Components/ui/input';
+import { Label } from '@/Components/ui/label';
+import { Switch } from '@/Components/ui/switch';
 import { FileText, RefreshCw, Send, Upload as UploadIcon, X, Mail, MessageCircle, Truck } from 'lucide-react';
 import Chart from 'react-apexcharts';
 import AuthenticatedLayout from '@/Layouts/AuthenticatedLayout';
@@ -54,12 +56,15 @@ export default function Index({ procesos, especies, variedades = [], exportadora
   const [resendingId, setResendingId] = useState(null);
   const [syncingExportadoraId, setSyncingExportadoraId] = useState(null);
   const [syncingExportadoras, setSyncingExportadoras] = useState(false);
+  const [skipNotifications, setSkipNotifications] = useState(false);
   const fileInputRef = useRef(null);
 
   const userRoles = props?.auth?.user?.roles ?? [];
   const isAdmin = userRoles.some((role) => ['Administrador', 'Admin'].includes(role.name));
   const canUpdateExportadora = userRoles.some((role) => ['Administrador', 'Admin', 'Calidad'].includes(role.name));
   const canManage = isAdmin && !isProducer;
+  const canSkipNotifications = ['david.rosas@greenex.cl', 'fabien.garay@greenex.cl', 'carlos.alvarez@greenex.cl']
+    .includes((props?.auth?.user?.email || '').toLowerCase());
   const csrfToken = props?.csrf_token ?? (typeof document !== 'undefined'
     ? document.querySelector('meta[name="csrf-token"]')?.getAttribute('content')
     : null);
@@ -313,6 +318,9 @@ export default function Index({ procesos, especies, variedades = [], exportadora
     setFileErrors([]);
     const formData = new FormData();
     selectedFiles.forEach((file) => formData.append('files[]', file));
+    if (canSkipNotifications && skipNotifications) {
+      formData.append('skip_notifications', '1');
+    }
 
     setUploading(true);
     router.post(route('procesos.informes.upload'), formData, {
@@ -445,6 +453,16 @@ export default function Index({ procesos, especies, variedades = [], exportadora
               />
               <UploadIcon className="h-8 w-8 text-gray-500" />
               <p className="mt-3 text-sm text-gray-700">Arrastra y suelta los informes en PDF o usa el boton para seleccionar archivos.</p>
+              {canSkipNotifications && (
+                <div className="mt-4 flex items-center gap-2">
+                  <Switch
+                    id="skip_notifications"
+                    checked={skipNotifications}
+                    onCheckedChange={(value) => setSkipNotifications(!!value)}
+                  />
+                  <Label htmlFor="skip_notifications">No enviar email ni WhatsApp</Label>
+                </div>
+              )}
               <Button
                 type="button"
                 variant="outline"

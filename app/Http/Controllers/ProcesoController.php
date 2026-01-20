@@ -284,7 +284,20 @@ class ProcesoController extends Controller
         $validated = $request->validate([
             'files' => ['required', 'array', 'min:1'],
             'files.*' => ['file', 'mimes:pdf', 'max:20480'],
+            'skip_notifications' => ['nullable', 'boolean'],
         ]);
+        $skipNotifications = $request->boolean('skip_notifications');
+        if ($skipNotifications) {
+            $email = strtolower((string) ($request->user()?->email ?? ''));
+            $allowed = [
+                'david.rosas@greenex.cl',
+                'fabien.garay@greenex.cl',
+                'carlos.alvarez@greenex.cl',
+            ];
+            if (! in_array($email, $allowed, true)) {
+                abort(403);
+            }
+        }
 
         $files = $request->file('files', []);
         $summary = [
@@ -346,23 +359,25 @@ class ProcesoController extends Controller
 
 
             $summary['updated']++;
-             try {
-            $reportNotificationService->notifyProcessReport(
-                $proceso,
-                $proceso->informe,
-                basename($proceso->informe)
-            );
-        } catch (\Throwable $e) {
-            Log::error('Process report resend failed', [
-                'proceso_id' => $proceso->id,
-                'n_proceso' => $proceso->n_proceso,
-                'error' => $e->getMessage(),
-            ]);
+            if (! $skipNotifications) {
+                try {
+                    $reportNotificationService->notifyProcessReport(
+                        $proceso,
+                        $proceso->informe,
+                        basename($proceso->informe)
+                    );
+                } catch (\Throwable $e) {
+                    Log::error('Process report resend failed', [
+                        'proceso_id' => $proceso->id,
+                        'n_proceso' => $proceso->n_proceso,
+                        'error' => $e->getMessage(),
+                    ]);
 
-            return response()->json([
-                'message' => 'No se pudo reenviar el informe. Intenta nuevamente.',
-            ], 500);
-        }
+                    return response()->json([
+                        'message' => 'No se pudo reenviar el informe. Intenta nuevamente.',
+                    ], 500);
+                }
+            }
             try {
               //  $reportNotificationService->notifyProcessReport($proceso, $storedPath, $originalName);
             } catch (\Throwable $e) {
