@@ -1200,6 +1200,13 @@
 
 
 
+    @php
+        $normalizedSpecies = strtolower($recepcion->n_especie);
+        if (strtolower($recepcion->n_variedad ?? '') === 'dagen') {
+            $normalizedSpecies = 'plum';
+        }
+    @endphp
+
 </head>
 
 
@@ -1316,7 +1323,7 @@
 
         @endphp
 
-        const currentSpecies = "{{ strtolower($recepcion->n_especie) }}";
+        const currentSpecies = "{{ $normalizedSpecies }}";
 
         function getChartColors(species) {
 
@@ -2301,7 +2308,7 @@ default: // Default colors if species not matched
                 const defectosCalidad = {{ $defectos_calidad_sum }};
                 const defectosCondicion = {{ $defectos_condicion_sum }};
                 const danosPlaga = {{ $danos_plaga_sum }};
-                const species = "{{ $recepcion->n_especie }}";
+                const species = "{{ $normalizedSpecies }}";
                 const precalibre = Number(@json($precalibrePercentage));
                 const exportableAdjusted = Math.max(exportable, 0);
                 const colors = getChartColors(species);
@@ -2470,7 +2477,7 @@ default: // Default colors if species not matched
 
 
 
-                const species = "{{ $recepcion->n_especie }}";
+                const species = "{{ $normalizedSpecies }}";
 
 
 
@@ -3308,7 +3315,7 @@ default: // Default colors if species not matched
 
 
 
-            const speciesForColorChart = "{{ $recepcion->n_especie }}";
+            const speciesForColorChart = "{{ $normalizedSpecies }}";
 
 
 
@@ -3384,7 +3391,7 @@ default: // Default colors if species not matched
                         });
                     };
                     //const palette = buildPalette();
-                    const palette = getColorFondoPalette(@json($recepcion->n_especie), labels.length);
+                    const palette = getColorFondoPalette(@json($normalizedSpecies), labels.length);
                     const backgroundColors = labels.map((_, idx) => palette[idx % palette.length]);
                     const colorChart = new Chart(ctxColor, {
                         type: 'pie',
@@ -4073,7 +4080,7 @@ default: // Default colors if species not matched
             if (ctxColorFondo && Array.isArray(colorFondoData) && colorFondoData.length) {
                 const labels = colorFondoData.map(item => item.color || 'N/A');
                 const data = colorFondoData.map(item => Number(item.percentage) || 0);
-                const palette = getColorFondoPalette(@json($recepcion->n_especie), labels.length);
+                const palette = getColorFondoPalette(@json($normalizedSpecies), labels.length);
 
                 ColorFondoChart = new Chart(ctxColorFondo, {
                     type: 'pie',
@@ -5580,7 +5587,7 @@ default: // Default colors if species not matched
                                         @php
                                             echo $html_tabla_color;
                                         @endphp
-                                         @if ($recepcion->n_especie != 'Cherries' && $recepcion->n_especie != 'Dagen' )
+                                         @if ($recepcion->n_especie != 'Cherries')
                                             <h3>Distribución de Firmeza Grande</h3>
                                             @php
                                                 echo $html_tabla_firmeza_grande;
