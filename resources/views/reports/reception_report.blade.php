@@ -3320,7 +3320,7 @@ default: // Default colors if species not matched
                     const distribucionColor = (coverageColor || []);
                     const labels = distribucionColor.map(item => item.color || 'N/A');
                     const data = distribucionColor.map(item => Number(item.percentage) || 0);
-
+                    console.log('Color Distribution Data:', { labels, data });
                     // Derivar paleta a partir del color de especie (misma lógica que otros gráficos)
                     const speciesPalette = @json($colors ?? []);
                     const baseColors = ['#FF9999', '#FF0000', '#D60000', '#960000', '#640000', '#000000', '#4B5563'];
