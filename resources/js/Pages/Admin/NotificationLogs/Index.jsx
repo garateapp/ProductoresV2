@@ -293,8 +293,12 @@ export default function NotificationLogsIndex({ logs, filters }) {
                               log.numero_g_recepcion && (
                               <div><strong>N° Recepcion:</strong> {log.numero_g_recepcion}</div>
                             )}
+
                             {log.c_productor && <div><strong>CSG:</strong> {log.c_productor}</div>}
                             {log.producer_name && <div><strong>Productor:</strong> {log.producer_name}</div>}
+
+                             {typeof log.channel === 'string' &&
+                              log.channel.toLowerCase().includes('usuario_solicita') && log.usuario_solicita && <div><strong>Usuario:</strong> {log.usuario_solicita}</div>}
                           </div>
                         </td>
                         <td className="px-3 py-2 text-gray-700 whitespace-nowrap">{log.created_at}</td>

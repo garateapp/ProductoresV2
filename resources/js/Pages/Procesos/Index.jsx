@@ -747,7 +747,7 @@ export default function Index({ procesos, especies, variedades = [], exportadora
                   <TableRow key={proceso.id}>
                     <TableCell>{proceso.LPP_recepcion}</TableCell>
                     <TableCell>{proceso.n_proceso}</TableCell>
-                    <TableCell>{proceso.lote_recepcion ?? '-'}</TableCell>
+                    <TableCell className="max-w-[12rem] whitespace-normal break-words">{proceso.lote_recepcion ?? '-'}</TableCell>
                     <TableCell>{proceso.especie}</TableCell>
                     <TableCell className="min-w-[13rem]">{proceso.variedad}</TableCell>
 
