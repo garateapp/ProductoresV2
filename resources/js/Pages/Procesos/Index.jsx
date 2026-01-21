@@ -747,7 +747,22 @@ export default function Index({ procesos, especies, variedades = [], exportadora
                   <TableRow key={proceso.id}>
                     <TableCell>{proceso.LPP_recepcion}</TableCell>
                     <TableCell>{proceso.n_proceso}</TableCell>
-                    <TableCell className="max-w-[12rem] whitespace-normal break-words">{proceso.lote_recepcion ?? '-'}</TableCell>
+                    <TableCell className="max-w-[12rem] whitespace-normal">
+                      {(() => {
+                        const lote = proceso.lote_recepcion ?? '-';
+                        if (typeof lote !== 'string') {
+                          return lote;
+                        }
+
+                        const parts = lote.split(',');
+                        return parts.map((part, index) => (
+                          <span key={`${part}-${index}`}>
+                            {part}
+                            {index < parts.length - 1 ? ',\u200b' : null}
+                          </span>
+                        ));
+                      })()}
+                    </TableCell>
                     <TableCell>{proceso.especie}</TableCell>
                     <TableCell className="min-w-[13rem]">{proceso.variedad}</TableCell>
 
