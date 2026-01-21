@@ -1514,6 +1514,7 @@ public function previewPage(Recepcion $recepcion)
             $total_defectos_sum = $defectos_calidad_sum + $defectos_condicion_sum + $danos_plaga_sum+$defectos_calidad_precalibre;
             $porcentaje_exportable = max(0, 100 - $total_defectos_sum);
             Log::info("Defectos Calidad: ",[$calidad]);
+            Log::info("Detalle: ",[$calidad->detalle()]);
         }
 
         $receptions = collect([$recepcion]);
