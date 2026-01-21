@@ -1524,7 +1524,7 @@ public function previewPage(Recepcion $recepcion)
         $coverageColor = QualityChartsService::getColorCubrimientoData($receptions);
         $colorFondo = [];
         $firmnessBySize = ['categories' => [], 'series' => [], 'mode' => null];
-        $speciesKey = strtolower((string) ($recepcion->n_especie ?? ''));
+        $speciesKey = $this->normalizeSpeciesKey($recepcion);
         $colorSwitchSpecies = ['plums', 'plum', 'peaches', 'peach', 'apples', 'apple', 'nectarines', 'nectarine'];
         $isLbBrixMode = ($averageFirmness['mode'] ?? null) === 'lb_brix';
 
@@ -2059,6 +2059,18 @@ public function previewPage(Recepcion $recepcion)
         return response()->json($results);
     }
 
+    private function normalizeSpeciesKey(Recepcion $recepcion): string
+    {
+        $species = strtolower((string) ($recepcion->n_especie ?? ''));
+        $variety = strtolower((string) ($recepcion->n_variedad ?? ''));
+
+        if ($variety === 'dagen' || $species === 'dagen') {
+            return 'plum';
+        }
+
+        return $species;
+    }
+
     private function calculateExportablePercentage(Recepcion $recepcion): float
     {
         $calidad = $recepcion->calidad;
@@ -2171,7 +2183,7 @@ public function previewPage(Recepcion $recepcion)
         $ch_color_categories = [];
         $ch_color_series = [];
         $ch_color_counts_series = [];
-        $speciesKey = strtolower((string) ($recepcion->n_especie ?? ''));
+        $speciesKey = $this->normalizeSpeciesKey($recepcion);
         $colorSwitchSpecies = ['plums', 'plum', 'peaches', 'peach', 'apples', 'apple', 'nectarines', 'nectarine'];
         $isLbBrixMode = ($averageFirmness['mode'] ?? null) === 'lb_brix';
 

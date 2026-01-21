@@ -204,7 +204,7 @@ public static function getPromedioFirmezasData(Collection $receptions): array
     public static function getColorCubrimientoData(Collection $receptions): array
     {
         $first = $receptions->first();
-        $species = strtolower((string) ($first->n_especie ?? ''));
+        $species = self::normalizeSpecies($receptions);
         $countByDetalleSpecies = ['plums', 'plum', 'peaches', 'peach', 'apples', 'apple', 'nectarines', 'nectarine'];
 
         // Para estas especies usamos distribución por cantidad (detalle_item) en COLOR DE CUBRIMIENTO
@@ -515,10 +515,22 @@ public static function getPromedioFirmezasData(Collection $receptions): array
 
     private static function isLbBrixSpecies(Collection $receptions): bool
     {
-        $first = $receptions->first();
-        $species = strtolower((string) ($first->n_especie ?? ''));
+        $species = self::normalizeSpecies($receptions);
         $targets = ['nectirnes', 'nectarine', 'nectarines', 'plum', 'plums', 'peach', 'peaches', 'apple', 'apples', 'pear', 'pears'];
 
         return in_array($species, $targets, true);
+    }
+
+    private static function normalizeSpecies(Collection $receptions): string
+    {
+        $first = $receptions->first();
+        $species = strtolower((string) ($first->n_especie ?? ''));
+        $variety = strtolower((string) ($first->n_variedad ?? ''));
+
+        if ($variety === 'dagen' || $species === 'dagen') {
+            return 'plum';
+        }
+
+        return $species;
     }
 }
