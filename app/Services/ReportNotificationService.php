@@ -61,6 +61,7 @@ class ReportNotificationService
             'proceso_id' => $proceso->id,
             'n_proceso' => $proceso->n_proceso,
             'report_path' => $storedPath,
+            'usuario_solicita' => auth()->user()->name ?? null,
         ];
 
         $phones = $this->gatherPhones($producer);
