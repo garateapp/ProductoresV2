@@ -45,6 +45,7 @@ class NotificationLogController extends Controller
                 'n_proceso' => $context['n_proceso'] ?? null,
                 'proceso_id' => $context['proceso_id'] ?? null,
                 'numero_g_recepcion' => $context['numero_g_recepcion'] ?? null,
+                'usuario_solicita' => $context['usuario_solicita'] ?? null,
                 'c_productor' => $context['c_productor'] ?? null,
                 'producer_name' => $context['producer_name'] ?? null,
                 'created_at' => optional($log->created_at)->format('Y-m-d H:i:s'),
