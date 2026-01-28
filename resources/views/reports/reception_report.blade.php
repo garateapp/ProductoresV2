@@ -4566,7 +4566,7 @@ default: // Default colors if species not matched
 
 
 
-                <p><strong>Productor:</strong> {{ $recepcion->n_emisor }}</p>
+                <p><strong>Productor:</strong> {{ $recepcion->n_productor_rotulado }}</p>
 
 
 
