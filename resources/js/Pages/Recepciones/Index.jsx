@@ -239,7 +239,7 @@ export default function Index({ recepciones, especies, variedades = [], exportad
                 return (
                   <TableRow key={recepcion.id}>
                   <TableCell>{recepcion.numero_g_recepcion}</TableCell>
-                  <TableCell>{recepcion.n_emisor}</TableCell>
+                  <TableCell>{recepcion.n_productor_rotulado}</TableCell>
                   <TableCell>{recepcion.n_especie}</TableCell>
                   <TableCell>{recepcion.n_variedad}</TableCell>
                   <TableCell>{new Date(recepcion.fecha_g_recepcion).toLocaleDateString('es-CL')}</TableCell>
