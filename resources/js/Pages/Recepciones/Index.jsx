@@ -135,7 +135,7 @@ export default function Index({ recepciones, especies, variedades = [], exportad
           <div className="mb-4 flex flex-col md:flex-row justify-between items-center gap-4">
             <Input
               type="text"
-              placeholder="Buscar por lote, agrícola, especie o variedad..."
+              placeholder="Buscar por lote, agrícola, especie, variedad o Guía de Recepción..."
               value={data.search}
               onChange={handleSearchChange}
               className="max-w-sm"

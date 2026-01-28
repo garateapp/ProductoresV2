@@ -144,7 +144,7 @@ class RecepcionController extends Controller
             if ($especie) {
                 $query->where('n_especie', $especie->name);
                 // Load varieties for the selected species
-                $variedades = $especie->variedads; // Assuming Especie model has a hasMany relationship to Variedad
+                $variedades = $especie->variedads()->orderBy('name', 'asc')->get();; // Assuming Especie model has a hasMany relationship to Variedad
             }
         }
 
