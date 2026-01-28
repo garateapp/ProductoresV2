@@ -128,7 +128,7 @@ class RecepcionController extends Controller
                 $q->where('n_variedad', 'like', '%'.$searchTerm.'%')
                     ->orWhere('n_especie', 'like', '%'.$searchTerm.'%')
                     ->orWhere('numero_g_recepcion', 'like', '%'.$searchTerm.'%')
-                    ->orWhere('n_productor_rotulado', 'like', '%'.$searchTerm.'%');
+                    ->orWhere('n_productor_rotulado', 'like', '%'.$searchTerm.'%')
                     ->orWhere('numero_documento_recepcion', 'like', '%'.$searchTerm.'%');
                 // Add lote if it exists in recepcions table
                 // ->orWhere('lote', 'like', '%' . $searchTerm . '%');
