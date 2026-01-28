@@ -218,11 +218,11 @@ export default function Index({ recepciones, especies, variedades = [], exportad
             <TableHeader>
               <TableRow>
                 <TableHead>Lote</TableHead>
-                <TableHead>Agricola</TableHead>
+                <TableHead>Agrícola</TableHead>
                 <TableHead>Especie</TableHead>
                 <TableHead>Variedad</TableHead>
                 <TableHead>Fecha</TableHead>
-                <TableHead>Guia</TableHead>
+                <TableHead>Guía</TableHead>
                 <TableHead>Cantidad</TableHead>
                 <TableHead>Kilos</TableHead>
                 <TableHead>Nota</TableHead>
