@@ -4573,11 +4573,10 @@ default: // Default colors if species not matched
                 <p><strong>Cuartel:</strong> GE001</p>
 
 
-                @if($recepcion->n_productor_rotulado == $recepcion->n_productor)
-                <p><strong>CSG:</strong> {{ $recepcion->Codigo_Sag_emisor }}</p>
-                @else
-                <p><strong>-</strong> </p>
-                @endif
+
+                <p><strong>CSG:</strong> {{ $recepcion->csg_productor_rotulado }}</p>
+
+
 
 
 
