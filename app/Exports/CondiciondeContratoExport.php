@@ -29,7 +29,7 @@ class CondiciondeContratoExport implements FromCollection, WithHeadings, WithMap
 
 
         return [
-            'Productor'
+            'Productor',
             'Comision',
             'Flete a Huerto',
             'Desc. Hidrocooler',
