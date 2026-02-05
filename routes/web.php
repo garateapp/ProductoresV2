@@ -15,6 +15,7 @@ use App\Http\Controllers\FieldManagementController;
 use App\Http\Controllers\ValidacionesController;
 use App\Http\Controllers\SystemLogController;
 use App\Http\Controllers\ProspectoProductorController;
+use App\Http\Controllers\ContractProducerFlowController;
 
 Route::get('/', function () {
     return redirect()->route('login');
@@ -119,6 +120,7 @@ Route::post('producers/{producer}/welcome-email', [App\Http\Controllers\Producer
     Route::get('admin/system-logs', [SystemLogController::class, 'index'])->name('system-logs.index');
     Route::get('admin/prospectos-productores', [ProspectoProductorController::class, 'index'])->name('prospectos-productores.index');
     Route::get('admin/prospectos-productores/create', [ProspectoProductorController::class, 'create'])->name('prospectos-productores.create');
+    Route::get('admin/prospectos-productores/lookup-rut/{rut}', [ProspectoProductorController::class, 'lookupByRut'])->name('prospectos-productores.lookup-rut');
     Route::post('admin/prospectos-productores', [ProspectoProductorController::class, 'store'])->name('prospectos-productores.store');
     Route::get('admin/prospectos-productores/{prospecto}/edit', [ProspectoProductorController::class, 'edit'])->name('prospectos-productores.edit');
     Route::put('admin/prospectos-productores/{prospecto}', [ProspectoProductorController::class, 'update'])->name('prospectos-productores.update');
@@ -211,6 +213,11 @@ Route::post('producers/{producer}/welcome-email', [App\Http\Controllers\Producer
     // SAG Module Routes
     Route::get('sag', [App\Http\Controllers\SagController::class, 'index'])->name('sag.index');
     Route::get('sag/export', [App\Http\Controllers\SagController::class, 'export'])->name('sag.export');
+    Route::get('sag/sdp-assignments', [App\Http\Controllers\SagSdpAssignmentController::class, 'index'])->name('sag.sdp-assignments.index');
+    Route::get('sag/sdp-assignments/sdp', [App\Http\Controllers\SagSdpAssignmentController::class, 'fetchSdp'])->name('sag.sdp-assignments.sdp');
+    Route::get('sag/sdp-assignments/{rut}/data', [App\Http\Controllers\SagSdpAssignmentController::class, 'data'])->name('sag.sdp-assignments.data');
+    Route::post('sag/sdp-assignments/{rut}', [App\Http\Controllers\SagSdpAssignmentController::class, 'store'])->name('sag.sdp-assignments.store');
+    Route::get('sag/sdp-assignments/{rut}', [App\Http\Controllers\SagSdpAssignmentController::class, 'show'])->name('sag.sdp-assignments.show');
     Route::get('sag/{rut}', [App\Http\Controllers\SagController::class, 'show'])->name('sag.show');
     Route::post('sag/update-country-status', [App\Http\Controllers\SagController::class, 'updateCountryAuthorizationStatus'])->name('sag.updateCountryStatus'); // New route
     Route::post('sag/certifications/upload', [App\Http\Controllers\SagController::class, 'uploadCertification'])->name('sag.certifications.upload'); // New route
@@ -228,18 +235,98 @@ Route::post('producers/{producer}/welcome-email', [App\Http\Controllers\Producer
     Route::get('/api/variedades-by-especie/{especieId}', [App\Http\Controllers\MrlSampleController::class, 'getVariedadesByEspecie'])->name('api.variedades-by-especie');
     Route::get('/api/csgs-by-rut/{rut}', [App\Http\Controllers\MrlSampleController::class, 'getCsgsByRut'])->name('api.csgs-by-rut');
 
-    Route::resource('contracts', App\Http\Controllers\ContractController::class)->names('contracts');
+
+    Route::resource('contracts', App\Http\Controllers\ContractController::class)
+        ->except(['show'])
+        ->names('contracts');
+        Route::get('/contract/export', [App\Http\Controllers\ContractController::class, 'export'])->name('contracts.export');
+    Route::get('contracts/producer-flow', [ContractProducerFlowController::class, 'index'])->name('contracts.producer-flow');
+    Route::post('contracts/producer-flow/check-rut', [ContractProducerFlowController::class, 'checkRut'])->name('contracts.producer-flow.check-rut');
+    Route::post('contracts/producer-flow/activate', [ContractProducerFlowController::class, 'activate'])->name('contracts.producer-flow.activate');
+    Route::get('contracts/producer-flow/sag', [ContractProducerFlowController::class, 'fetchSag'])->name('contracts.producer-flow.sag');
+    Route::get('contracts/producer-flow/sdp', [ContractProducerFlowController::class, 'fetchSdp'])->name('contracts.producer-flow.sdp');
+    Route::post('contracts/producer-flow/sdp/sync', [ContractProducerFlowController::class, 'syncSdp'])->name('contracts.producer-flow.sdp.sync');
+    Route::post('contracts/producer-flow/sag/store', [ContractProducerFlowController::class, 'storeSag'])->name('contracts.producer-flow.sag.store');
+    Route::post('contracts/producer-flow/sqlsrv/check', [ContractProducerFlowController::class, 'sqlsrvCheck'])->name('contracts.producer-flow.sqlsrv.check');
+    Route::post('contracts/producer-flow/sqlsrv/create', [ContractProducerFlowController::class, 'sqlsrvCreate'])->name('contracts.producer-flow.sqlsrv.create');
     Route::get('validaciones/recepciones-sin-contrato', [ValidacionesController::class, 'recepcionesSinContrato'])->name('validaciones.recepciones-sin-contrato');
 
     Route::get('reporteria/calidad', [ReporteriaController::class, 'index'])->name('reporteria.calidad');
     Route::get('reporteria/export-consolidated', [ReporteriaController::class, 'exportConsolidated'])->name('reporteria.export.consolidated');
 
     Route::get('login-activity', [App\Http\Controllers\LoginActivityController::class, 'index'])->name('login-activity.index');
+    Route::get('notifications', [App\Http\Controllers\NotificationController::class, 'index'])->name('notifications.index');
+    Route::get('notifications/unread-count', [App\Http\Controllers\NotificationController::class, 'unreadCount'])->name('notifications.unread-count');
+    Route::post('notifications/read-all', [App\Http\Controllers\NotificationController::class, 'markAllRead'])->name('notifications.read-all');
+    Route::post('notifications/{notification}/read', [App\Http\Controllers\NotificationController::class, 'markAsRead'])->name('notifications.read');
 
     // Weekly Harvest Estimates
     Route::resource('weekly-harvest-estimates', App\Http\Controllers\WeeklyHarvestEstimateController::class)->names('weekly-harvest-estimates');
     Route::post('weekly-harvest-estimates/import', [App\Http\Controllers\WeeklyHarvestEstimateController::class, 'import'])->name('weekly-harvest-estimates.import');
     Route::get('/api/producers/{producer}/agronomists', [App\Http\Controllers\WeeklyHarvestEstimateController::class, 'getProducerAgronomists'])->name('api.producer-agronomists');
+
+    // Estimations (versioned)
+    Route::prefix('estimations')->name('estimations.')->group(function () {
+        Route::get('/', [App\Http\Controllers\EstimationVersionController::class, 'index'])->name('index');
+        Route::get('maintainers', [App\Http\Controllers\EstimationMaintainerController::class, 'index'])->name('maintainers');
+        Route::post('upload', [App\Http\Controllers\EstimationVersionController::class, 'upload'])->name('upload');
+        Route::get('template', [App\Http\Controllers\EstimationVersionController::class, 'downloadTemplate'])->name('template');
+        Route::post('{estimation_version}/clone', [App\Http\Controllers\EstimationVersionController::class, 'clone'])->name('clone');
+        Route::patch('{estimation_version}/rows/{estimation_row}', [App\Http\Controllers\EstimationRowController::class, 'update'])->name('rows.update');
+
+        Route::get('seasons', [App\Http\Controllers\EstimationSeasonController::class, 'index'])->name('seasons.index');
+        Route::post('seasons', [App\Http\Controllers\EstimationSeasonController::class, 'store'])->name('seasons.store');
+        Route::patch('seasons/{estimation_season}', [App\Http\Controllers\EstimationSeasonController::class, 'update'])->name('seasons.update');
+        Route::delete('seasons/{estimation_season}', [App\Http\Controllers\EstimationSeasonController::class, 'destroy'])->name('seasons.destroy');
+
+        Route::post('seasons/{estimation_season}/weeks', [App\Http\Controllers\EstimationWeekController::class, 'store'])->name('weeks.store');
+        Route::patch('weeks/{estimation_week}', [App\Http\Controllers\EstimationWeekController::class, 'update'])->name('weeks.update');
+        Route::delete('weeks/{estimation_week}', [App\Http\Controllers\EstimationWeekController::class, 'destroy'])->name('weeks.destroy');
+
+        Route::get('statuses', [App\Http\Controllers\EstimationStatusController::class, 'index'])->name('statuses.index');
+        Route::post('statuses', [App\Http\Controllers\EstimationStatusController::class, 'store'])->name('statuses.store');
+        Route::patch('statuses/{estimation_status}', [App\Http\Controllers\EstimationStatusController::class, 'update'])->name('statuses.update');
+        Route::delete('statuses/{estimation_status}', [App\Http\Controllers\EstimationStatusController::class, 'destroy'])->name('statuses.destroy');
+
+        Route::prefix('bisemanal')->name('biweekly.')->group(function () {
+            Route::get('/', [App\Http\Controllers\EstimationBiweeklyVersionController::class, 'index'])->name('index');
+            Route::post('upload', [App\Http\Controllers\EstimationBiweeklyVersionController::class, 'upload'])->name('upload');
+            Route::patch('{estimation_biweekly_version}/rows/{estimation_biweekly_row}', [App\Http\Controllers\EstimationBiweeklyRowController::class, 'update'])->name('rows.update');
+            Route::get('{estimation_biweekly_version}', [App\Http\Controllers\EstimationBiweeklyVersionController::class, 'show'])->name('show');
+        });
+
+        Route::get('{estimation_version}', [App\Http\Controllers\EstimationVersionController::class, 'show'])->name('show');
+    });
+
+    // Planificación de Proceso (Packing)
+    Route::prefix('planning')->name('planning.')->group(function () {
+        Route::get('fruit-flow', [App\Http\Controllers\Planning\FruitFlowController::class, 'index'])->name('fruit-flow.index');
+
+        Route::get('processes', [App\Http\Controllers\Planning\PackingProcessController::class, 'index'])->name('processes.index');
+        Route::get('processes/create', [App\Http\Controllers\Planning\PackingProcessController::class, 'create'])->name('processes.create');
+        Route::post('processes', [App\Http\Controllers\Planning\PackingProcessController::class, 'store'])->name('processes.store');
+        Route::get('processes/{process}', [App\Http\Controllers\Planning\PackingProcessController::class, 'show'])->name('processes.show');
+
+        Route::post('processes/{process}/generate', [App\Http\Controllers\Planning\PackingProcessController::class, 'generate'])->name('processes.generate');
+        Route::patch('processes/{process}/lots', [App\Http\Controllers\Planning\PackingProcessController::class, 'updateLots'])->name('processes.lots.update');
+        Route::post('processes/{process}/confirm', [App\Http\Controllers\Planning\PackingProcessController::class, 'confirm'])->name('processes.confirm');
+        Route::get('processes/{process}/instruction', [App\Http\Controllers\Planning\PackingProcessController::class, 'instruction'])->name('processes.instruction');
+
+        Route::get('packaging/search', [App\Http\Controllers\Planning\PackagingController::class, 'search'])->name('packaging.search');
+
+        // Settings (CRUD básico)
+        Route::get('settings/lines', [App\Http\Controllers\Planning\Settings\PackingLineController::class, 'index'])->name('settings.lines.index');
+        Route::post('settings/lines', [App\Http\Controllers\Planning\Settings\PackingLineController::class, 'store'])->name('settings.lines.store');
+        Route::patch('settings/lines/{packingLine}', [App\Http\Controllers\Planning\Settings\PackingLineController::class, 'update'])->name('settings.lines.update');
+
+        Route::get('settings/shifts', [App\Http\Controllers\Planning\Settings\ShiftController::class, 'index'])->name('settings.shifts.index');
+        Route::post('settings/shifts', [App\Http\Controllers\Planning\Settings\ShiftController::class, 'store'])->name('settings.shifts.store');
+        Route::patch('settings/shifts/{shift}', [App\Http\Controllers\Planning\Settings\ShiftController::class, 'update'])->name('settings.shifts.update');
+
+        Route::get('settings/capacities', [App\Http\Controllers\Planning\Settings\LineCapacityController::class, 'index'])->name('settings.capacities.index');
+        Route::post('settings/capacities', [App\Http\Controllers\Planning\Settings\LineCapacityController::class, 'store'])->name('settings.capacities.store');
+        Route::patch('settings/capacities/{lineCapacity}', [App\Http\Controllers\Planning\Settings\LineCapacityController::class, 'update'])->name('settings.capacities.update');
+    });
 
     // Producer Groups
     Route::resource('producer-groups', App\Http\Controllers\ProducerGroupController::class)->except(['show', 'create'])->names('producer-groups');

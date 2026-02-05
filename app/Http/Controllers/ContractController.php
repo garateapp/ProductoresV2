@@ -7,6 +7,8 @@ use App\Models\User;
 use Illuminate\Http\Request;
 use Inertia\Inertia;
 use Illuminate\Support\Facades\Storage;
+use Maatwebsite\Excel\Facades\Excel;
+use App\Exports\CondiciondeContratoExport;
 
 class ContractController extends Controller
 {
@@ -62,6 +64,15 @@ class ContractController extends Controller
         }
 
         Contract::create($validatedData);
+
+        if ($request->boolean('flow_redirect')) {
+            return redirect()
+                ->route('contracts.producer-flow', [
+                    'rut' => $request->input('flow_rut'),
+                    'user_id' => $validatedData['user_id'],
+                ])
+                ->with('success', 'Contrato creado exitosamente.');
+        }
 
         return redirect()->route('contracts.index')->with('success', 'Contrato creado exitosamente.');
     }
@@ -126,4 +137,16 @@ class ContractController extends Controller
 
         return redirect()->route('contracts.index')->with('success', 'Contrato eliminado exitosamente.');
     }
+     public function export(Request $request)
+    {
+
+
+        $logs = Contract::with('user')->get();
+
+        return Excel::download(
+            new CondiciondeContratoExport($logs),
+            'condiciones-contrato.xlsx'
+        );
+    }
+
 }

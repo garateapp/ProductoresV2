@@ -64,6 +64,16 @@ export default function ContractsIndex({ auth, contracts }) {
         return arr;
     }, [contracts, search, filter60, filter90, filterExpired]);
 
+    const exportExcel = () => {
+        const params = new URLSearchParams();
+        if (search.trim()) params.append('search', search.trim());
+        if (filterExpired) params.append('filterExpired', '1');
+        if (filter60) params.append('filter60', '1');
+        if (filter90) params.append('filter90', '1');
+        const query = params.toString();
+        const url = query ? `${route('contracts.export')}?${query}` : route('contracts.export');
+        window.location.href = url;
+    };
     const sorted = useMemo(() => {
         const arr = [...filtered];
         arr.sort((a, b) => {
@@ -140,9 +150,17 @@ export default function ContractsIndex({ auth, contracts }) {
                                         </div>
                                     </div>
                                 </div>
-                                <Link href={route('contracts.create')} className="inline-flex items-center px-4 py-2 bg-gray-800 border border-transparent rounded-md font-semibold text-xs text-white uppercase tracking-widest hover:bg-gray-700 focus:bg-gray-700 active:bg-gray-900 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:ring-offset-2 transition ease-in-out duration-150">
-                                    Agregar Contrato
-                                </Link>
+                                <div className="flex flex-wrap gap-2">
+                                    <Link href={route('contracts.producer-flow')} className="inline-flex items-center px-4 py-2 border rounded-md">
+                                        Flujo productores
+                                    </Link>
+                                    <Link href={route('contracts.create')} className="inline-flex items-center px-4 py-2 bg-gray-800 border border-transparent rounded-md font-semibold text-xs text-white uppercase tracking-widest hover:bg-gray-700 focus:bg-gray-700 active:bg-gray-900 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:ring-offset-2 transition ease-in-out duration-150">
+                                        Agregar Contrato
+                                    </Link>
+                                    <Button type="button" variant="secondary" onClick={exportExcel}>
+                                        Exportar Condiciones de Contrato
+                                    </Button>
+                                </div>
                             </div>
                             <h3 className="text-lg font-medium text-gray-900 mb-2">Listado de Contratos</h3>
 
