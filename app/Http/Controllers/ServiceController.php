@@ -412,6 +412,7 @@ class ServiceController extends Controller
             ])
             ->where('ppc.tipo_proceso', 'PRN')
             ->where('ppc.estado', 'Finalizado')
+            ->where('ppc.t_categoria', 'Exportacion')
             ->whereNotIn('ppc.id_calibre', [73, 75, 104, 91, 96])
             ->where(function ($query) use ($producerCsgs, $producerCodes, $producerNames) {
                 $applied = false;
@@ -437,22 +438,33 @@ class ServiceController extends Controller
                 if ($row->calibre !== null) {
                     $row->calibre = preg_replace('/\.$/', '', (string) $row->calibre);
                 }
+                $row->calibre = $this->normalizeCalibreForSpecies($row->calibre, $row->especie);
                 return $row;
-            });
+            })
+            ->groupBy(function ($row) {
+                return ($row->especie ?: 'SIN_ESPECIE').'|'.($row->variedad ?: 'SIN_VARIEDAD').'|'.($row->calibre ?? 'SIN_CALIBRE');
+            })
+            ->map(function ($items) {
+                $first = $items->first();
+                return (object) [
+                    'especie' => $first->especie,
+                    'variedad' => $first->variedad,
+                    'calibre' => $first->calibre,
+                    'kilos' => $items->sum('kilos'),
+                ];
+            })
+            ->values();
 
         if ($rows->isEmpty()) {
             return ['categories' => [], 'series' => []];
         }
 
         $categories = $rows->pluck('calibre')->filter()->unique()->values()->all();
-        usort($categories, function ($a, $b) {
-            $na = is_numeric($a) ? (float) $a : $a;
-            $nb = is_numeric($b) ? (float) $b : $b;
-            if (is_numeric($na) && is_numeric($nb)) {
-                return $na <=> $nb;
-            }
-            return strnatcasecmp((string) $na, (string) $nb);
+        $hasCherry = $rows->contains(function ($row) {
+            $sp = (string) $row->especie;
+            return stripos($sp, 'cherr') !== false || stripos($sp, 'cereza') !== false;
         });
+        $categories = $this->sortCalibres($categories, $hasCherry);
 
         $series = [];
         $calibresBySpecies = [];
@@ -470,6 +482,7 @@ class ServiceController extends Controller
                 $data[] = (float) ($match->kilos ?? 0);
             }
             $calibresBySpecies[$species] = array_values(array_unique(array_merge($calibresBySpecies[$species] ?? [], $items->pluck('calibre')->filter()->all())));
+            $calibresBySpecies[$species] = $this->sortCalibres($calibresBySpecies[$species], stripos((string) $species, 'cherr') !== false || stripos((string) $species, 'cereza') !== false);
             $series[] = [
                 'name' => trim($species.' - '.$variety),
                 'especie' => $species,
@@ -484,18 +497,6 @@ class ServiceController extends Controller
             ->map(fn ($items) => $items->pluck('variedad')->unique()->values()->all())
             ->toArray();
 
-        foreach ($calibresBySpecies as $sp => $values) {
-            usort($values, function ($a, $b) {
-                $na = is_numeric($a) ? (float) $a : $a;
-                $nb = is_numeric($b) ? (float) $b : $b;
-                if (is_numeric($na) && is_numeric($nb)) {
-                    return $na <=> $nb;
-                }
-                return strnatcasecmp((string) $na, (string) $nb);
-            });
-            $calibresBySpecies[$sp] = $values;
-        }
-
         return [
             'categories' => $categories,
             'series' => $series,
@@ -503,5 +504,57 @@ class ServiceController extends Controller
             'varietiesBySpecies' => $varietiesBySpecies,
             'calibresBySpecies' => $calibresBySpecies,
         ];
+    }
+
+    private function normalizeCalibreForSpecies($calibre, $species)
+    {
+        $normalized = trim((string) $calibre);
+        $isCherry = stripos((string) $species, 'cherr') !== false || stripos((string) $species, 'cereza') !== false;
+
+        if (! $isCherry || $normalized === '') {
+            return $normalized;
+        }
+
+        $normalized = str_ireplace('XLD', 'XL', $normalized);
+        $normalized = str_ireplace('LD', 'L', $normalized);
+        $normalized = str_ireplace('JD', 'J', $normalized);
+        $normalized = preg_replace('/\s+/', '', $normalized);
+
+        return strtoupper($normalized);
+    }
+
+    private function sortCalibres(array $categories, bool $isCherry): array
+    {
+        $normalized = array_map(function ($c) {
+            return strtoupper(trim((string) $c));
+        }, $categories);
+
+        $order = ['L','XL','J','2J','3J','4J','5J','6J','7J'];
+        $isCherryDetected = $isCherry || count(array_intersect($order, $normalized)) > 0;
+
+        if ($isCherryDetected) {
+            usort($normalized, function ($a, $b) use ($order) {
+                $ia = array_search($a, $order, true);
+                $ib = array_search($b, $order, true);
+                if ($ia === false && $ib === false) {
+                    return strnatcasecmp($a, $b);
+                }
+                if ($ia === false) return 1;
+                if ($ib === false) return -1;
+                return $ia <=> $ib;
+            });
+            return $normalized;
+        }
+
+        usort($normalized, function ($a, $b) {
+            $na = is_numeric($a) ? (float) $a : $a;
+            $nb = is_numeric($b) ? (float) $b : $b;
+            if (is_numeric($na) && is_numeric($nb)) {
+                return $na <=> $nb;
+            }
+            return strnatcasecmp($a, $b);
+        });
+
+        return $normalized;
     }
 }

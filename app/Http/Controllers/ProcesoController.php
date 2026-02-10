@@ -291,7 +291,7 @@ class ProcesoController extends Controller
             $email = strtolower((string) ($request->user()?->email ?? ''));
             $allowed = [
                 'david.rosas@greenex.cl',
-                'fabien.garay@greenex.cl',
+                'fabian.garay@greenex.cl',
                 'carlos.alvarez@greenex.cl',
             ];
             if (! in_array($email, $allowed, true)) {
@@ -321,7 +321,7 @@ class ProcesoController extends Controller
                 $summary['invalid_name'][] = $originalName;
                 continue;
             }
-
+            Log::info('hasCompany: '.$hasCompany);
             $procesoId = (int) ($procesoMatches[1] ?? 0);
             $empresaId = $hasCompany ? (int) ($procesoMatches[2] ?? 0) : null;
 
@@ -351,15 +351,30 @@ class ProcesoController extends Controller
             $sanitizedName = preg_replace('/[^A-Za-z0-9._-]/', '_', $originalName);
 
             $storedPath = $file->storeAs('pdf-procesos', $sanitizedName, 'public');
-
+ try{
             $proceso->informe = $storedPath;//Storage::disk('public')->url($storedPath);
             $proceso->informe_uploaded_at = Carbon::now('America/Santiago');
+            Log::info('Uploading process report', [
+                'proceso_id' => $proceso->id,
+                'n_proceso' => $proceso->n_proceso,
+                'file_name' => $originalName,
+                'stored_path' => $storedPath,
+            ]);
 
             $proceso->save();
+            }catch(\Throwable $e){
+                Log::error('Process report save failed', [
+                    'proceso_id' => $proceso->id,
+                    'n_proceso' => $proceso->n_proceso,
+                    'error' => $e->getMessage(),
+                ]);
+                $summary['not_found'][] = $originalName;
+                continue;
+            }
 
 
             $summary['updated']++;
-            if (! $skipNotifications) {
+            if (!$skipNotifications) {
                 try {
                     $reportNotificationService->notifyProcessReport(
                         $proceso,

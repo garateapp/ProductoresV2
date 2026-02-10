@@ -1,0 +1,142 @@
+<?php
+
+namespace App\Services\Planning;
+
+use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Log;
+use Illuminate\Support\Facades\Cache;
+class PackagingRepositorySqlsrv
+{
+    /**
+     * Busca embalajes en SQL Server (SOLO LECTURA).
+     *
+     * Query obligatoria (según requerimiento):
+     * SELECT id, c_item, n_item, tipo_embalaje, CP1, CP2, CP3
+     * FROM V_ADM_P_Items
+     * WHERE tipo_item like '%IN-EM%' AND n_item like 'ESPECIE%'
+     */
+    public function searchPackagings(string $q, int $limit = 20): array
+    {
+        $q = trim($q);
+        if ($q === '') {
+            return [];
+        }
+        Log::debug('Searching packagings with query: '.$q);
+        $rows = DB::connection('sqlsrv')
+            ->table('V_ADM_P_Items')
+            ->select(['id', 'c_item', 'n_item', 'tipo_embalaje', 'tipo_item', 'CP1', 'CP2', 'CP3'])
+            ->where('tipo_item', 'like', '%IN-EM%')
+            ->where('n_item', 'like', '%'.$q.'%')
+            ->limit($limit)
+            ->get();
+        Log::debug('Found '.count($rows).' packagings for query: '.$q);
+        return collect($rows)->map(function ($row) {
+            $cp1 = trim((string) ($row->CP1 ?? ''));
+            $cp3 = trim((string) ($row->CP3 ?? ''));
+            // Según requerimiento:
+            // - CP1 = Etiqueta
+            // - CP2 = Envases/Pallet
+            // - CP3 = Altura
+            $etiqueta = $cp1;
+            $altura = $cp3;
+            return [
+                'id' => $row->id,
+                'c_item' => (string) ($row->c_item ?? ''),
+                'n_item' => (string) ($row->n_item ?? ''),
+                'tipo_embalaje' => $row->tipo_embalaje ?? null,
+                'tipo_item' => $row->tipo_item ?? null,
+                'cp2_cajas_por_pallet' => $this->normalizeCp2ToInt($row->CP2 ?? null),
+                'etiqueta' => $etiqueta !== '' ? $etiqueta : null,
+                'altura' => $altura !== '' ? $altura : null,
+                'cp1' => $cp1 !== '' ? $cp1 : null, // raw
+                'cp3' => $cp3 !== '' ? $cp3 : null, // raw
+            ];
+        })->filter(fn ($row) => $row['c_item'] !== '' || $row['n_item'] !== '')->values()->all();
+    }
+
+    /**
+     * Obtiene embalajes por código(s) c_item (SQLSRV) para completar nombre/CP2 desde el catálogo.
+     *
+     * Query base requerida:
+     * SELECT id, c_item, n_item, tipo_embalaje, tipo_item, CP1, CP2, CP3
+     * FROM V_ADM_P_Items
+     * WHERE tipo_item like '%IN-EM%'
+     */
+    public function getPackagingsByCodes(array $codes): array
+    {
+        $list = collect($codes)
+            ->map(fn ($v) => trim((string) $v))
+            ->filter()
+            ->unique()
+            ->values()
+            ->all();
+        if (empty($list)) {
+            return [];
+        }
+
+        $rows = DB::connection('sqlsrv')
+            ->table('V_ADM_P_Items')
+            ->select(['id', 'c_item', 'n_item', 'tipo_embalaje', 'tipo_item', 'CP1', 'CP2', 'CP3'])
+            ->where('tipo_item', 'like', '%IN-EM%')
+            ->whereIn('c_item', $list)
+            ->get();
+
+        $map = [];
+        foreach ($rows as $row) {
+            $cItem = trim((string) ($row->c_item ?? ''));
+            if ($cItem === '') {
+                continue;
+            }
+            $cp1 = trim((string) ($row->CP1 ?? ''));
+            $cp3 = trim((string) ($row->CP3 ?? ''));
+            $etiqueta = $cp1;
+            $altura = $cp3;
+            $map[$cItem] = [
+                'id' => $row->id,
+                'c_item' => $cItem,
+                'n_item' => (string) ($row->n_item ?? ''),
+                'tipo_embalaje' => $row->tipo_embalaje ?? null,
+                'tipo_item' => $row->tipo_item ?? null,
+                'cp2_cajas_por_pallet' => $this->normalizeCp2ToInt($row->CP2 ?? null),
+                'etiqueta' => $etiqueta !== '' ? $etiqueta : null,
+                'altura' => $altura !== '' ? $altura : null,
+                'cp1' => $cp1 !== '' ? $cp1 : null, // raw
+                'cp3' => $cp3 !== '' ? $cp3 : null, // raw
+            ];
+        }
+        return $map;
+    }
+
+    public function getPackagingByCode(string $code): ?array
+    {
+        $code = trim($code);
+        if ($code === '') {
+            return null;
+        }
+
+        $cacheKey = 'planning:packaging_catalog:'.$code;
+        return Cache::remember($cacheKey, now()->addMinutes(60), function () use ($code) {
+            $map = $this->getPackagingsByCodes([$code]);
+            return $map[$code] ?? null;
+        });
+    }
+
+    private function normalizeCp2ToInt(mixed $value): ?int
+    {
+        if ($value === null) {
+            return null;
+        }
+
+        $stringValue = trim((string) $value);
+        if ($stringValue === '') {
+            return null;
+        }
+
+        // CP2 viene a veces con texto/unidades → extraemos el primer número entero.
+        if (preg_match('/(\d+)/', $stringValue, $matches)) {
+            return (int) $matches[1];
+        }
+
+        return null;
+    }
+}

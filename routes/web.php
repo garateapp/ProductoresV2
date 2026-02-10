@@ -302,6 +302,15 @@ Route::post('producers/{producer}/welcome-email', [App\Http\Controllers\Producer
     Route::prefix('planning')->name('planning.')->group(function () {
         Route::get('fruit-flow', [App\Http\Controllers\Planning\FruitFlowController::class, 'index'])->name('fruit-flow.index');
 
+        // Plan semanal (multi-día)
+        Route::get('batches', [App\Http\Controllers\Planning\PackingProcessBatchController::class, 'index'])->name('batches.index');
+        Route::get('batches/create', [App\Http\Controllers\Planning\PackingProcessBatchController::class, 'create'])->name('batches.create');
+        Route::get('batches/estimation-species', [App\Http\Controllers\Planning\PackingProcessBatchController::class, 'estimationSpecies'])->name('batches.estimation-species');
+        Route::post('batches', [App\Http\Controllers\Planning\PackingProcessBatchController::class, 'store'])->name('batches.store');
+        Route::get('batches/{batch}', [App\Http\Controllers\Planning\PackingProcessBatchController::class, 'show'])->name('batches.show');
+        Route::post('batches/{batch}/generate', [App\Http\Controllers\Planning\PackingProcessBatchController::class, 'generate'])->name('batches.generate');
+        Route::post('batches/{batch}/confirm', [App\Http\Controllers\Planning\PackingProcessBatchController::class, 'confirm'])->name('batches.confirm');
+
         Route::get('processes', [App\Http\Controllers\Planning\PackingProcessController::class, 'index'])->name('processes.index');
         Route::get('processes/create', [App\Http\Controllers\Planning\PackingProcessController::class, 'create'])->name('processes.create');
         Route::post('processes', [App\Http\Controllers\Planning\PackingProcessController::class, 'store'])->name('processes.store');
@@ -312,7 +321,15 @@ Route::post('producers/{producer}/welcome-email', [App\Http\Controllers\Producer
         Route::post('processes/{process}/confirm', [App\Http\Controllers\Planning\PackingProcessController::class, 'confirm'])->name('processes.confirm');
         Route::get('processes/{process}/instruction', [App\Http\Controllers\Planning\PackingProcessController::class, 'instruction'])->name('processes.instruction');
 
+        // Vista operacional por línea (todos los procesos del día/turno en una línea).
+        Route::get('lines/{packingLine}/day', [App\Http\Controllers\Planning\LineDayController::class, 'show'])->name('lines.day');
+
         Route::get('packaging/search', [App\Http\Controllers\Planning\PackagingController::class, 'search'])->name('packaging.search');
+        Route::get('packaging/suggestions', [App\Http\Controllers\Planning\PackagingSuggestionsController::class, 'forReception'])->name('packaging.suggestions');
+
+        // Curvas de calidad (helpers UI)
+        Route::post('quality/size-distribution', [App\Http\Controllers\Planning\QualityCurveController::class, 'sizeDistribution'])
+            ->name('quality.size-distribution');
 
         // Settings (CRUD básico)
         Route::get('settings/lines', [App\Http\Controllers\Planning\Settings\PackingLineController::class, 'index'])->name('settings.lines.index');
@@ -326,6 +343,15 @@ Route::post('producers/{producer}/welcome-email', [App\Http\Controllers\Producer
         Route::get('settings/capacities', [App\Http\Controllers\Planning\Settings\LineCapacityController::class, 'index'])->name('settings.capacities.index');
         Route::post('settings/capacities', [App\Http\Controllers\Planning\Settings\LineCapacityController::class, 'store'])->name('settings.capacities.store');
         Route::patch('settings/capacities/{lineCapacity}', [App\Http\Controllers\Planning\Settings\LineCapacityController::class, 'update'])->name('settings.capacities.update');
+
+        // Configuración · Matriz Embalajes (carozos) - mantenible en la app
+        Route::get('settings/packaging-matrix', [App\Http\Controllers\Planning\Settings\PackagingMatrixController::class, 'index'])->name('settings.packaging-matrix.index');
+        Route::post('settings/packaging-matrix', [App\Http\Controllers\Planning\Settings\PackagingMatrixController::class, 'store'])->name('settings.packaging-matrix.store');
+        Route::patch('settings/packaging-matrix/{rule}', [App\Http\Controllers\Planning\Settings\PackagingMatrixController::class, 'update'])->name('settings.packaging-matrix.update');
+        Route::delete('settings/packaging-matrix/{rule}', [App\Http\Controllers\Planning\Settings\PackagingMatrixController::class, 'destroy'])->name('settings.packaging-matrix.destroy');
+        Route::post('settings/packaging-matrix/import-csv', [App\Http\Controllers\Planning\Settings\PackagingMatrixController::class, 'importCsv'])->name('settings.packaging-matrix.import');
+        Route::post('settings/packaging-matrix/import-upload', [App\Http\Controllers\Planning\Settings\PackagingMatrixController::class, 'importUpload'])->name('settings.packaging-matrix.import-upload');
+        Route::get('settings/packaging-matrix/export-csv', [App\Http\Controllers\Planning\Settings\PackagingMatrixController::class, 'exportCsv'])->name('settings.packaging-matrix.export');
     });
 
     // Producer Groups

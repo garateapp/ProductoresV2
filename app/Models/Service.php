@@ -4,6 +4,7 @@ namespace App\Models;
 
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
+use Illuminate\Database\Eloquent\Relations\HasMany;
 
 class Service extends Model
 {
@@ -29,5 +30,10 @@ class Service extends Model
     public function emails()
     {
         return $this->hasMany(ServiceEmail::class);
+    }
+
+    public function prospectosProductores(): HasMany
+    {
+        return $this->hasMany(ProspectoProductor::class);
     }
 }

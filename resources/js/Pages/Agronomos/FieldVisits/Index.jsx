@@ -14,7 +14,7 @@ export default function FieldVisitsIndex({ auth, visits, filters }) {
     search: filters?.search || '',
   });
 
-  // Subida
+  // Subida y grabación
   const { data, setData, post, processing, reset } = useForm({
     audio: null,
     visited_at: new Date().toISOString().slice(0, 16),
@@ -26,6 +26,8 @@ export default function FieldVisitsIndex({ auth, visits, filters }) {
   const [error, setError] = useState('');
   const [recording, setRecording] = useState(false);
   const [recordingError, setRecordingError] = useState('');
+  const [recordingStatus, setRecordingStatus] = useState('');
+  const [startingRecord, setStartingRecord] = useState(false);
   const mediaRecorderRef = useRef(null);
   const chunksRef = useRef([]);
 
@@ -98,11 +100,17 @@ export default function FieldVisitsIndex({ auth, visits, filters }) {
       return;
     }
     try {
+      setStartingRecord(true);
+      setRecordingStatus('Inicializando micrófono...');
       const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
       const mimeType = pickMimeType();
       const recorder = mimeType ? new MediaRecorder(stream, { mimeType }) : new MediaRecorder(stream);
       chunksRef.current = [];
-      recorder.onstart = () => setRecording(true);
+      recorder.onstart = () => {
+        setRecording(true);
+        setStartingRecord(false);
+        setRecordingStatus('Grabando... habla cerca del micrófono');
+      };
       recorder.ondataavailable = (event) => {
         if (event.data.size > 0) {
           chunksRef.current.push(event.data);
@@ -116,14 +124,17 @@ export default function FieldVisitsIndex({ auth, visits, filters }) {
         setData('audio', file);
         stream.getTracks().forEach((t) => t.stop());
         setRecording(false);
+        setStartingRecord(false);
+        setRecordingStatus('');
       };
       mediaRecorderRef.current = recorder;
       recorder.start(250);
-      setRecording(true);
     } catch (err) {
       console.error('recording error', err);
       setRecordingError(err?.message || 'No se pudo acceder al micrófono o MediaRecorder no está soportado.');
       setRecording(false);
+      setStartingRecord(false);
+      setRecordingStatus('');
     }
   };
 
@@ -132,6 +143,8 @@ export default function FieldVisitsIndex({ auth, visits, filters }) {
       mediaRecorderRef.current.stop();
     }
     setRecording(false);
+    setStartingRecord(false);
+    setRecordingStatus('');
   };
 
   return (
@@ -167,8 +180,13 @@ export default function FieldVisitsIndex({ auth, visits, filters }) {
                       onChange={(e) => setData('audio', e.target.files?.[0] || null)}
                     />
                     <p className="text-xs text-gray-500">Formatos: mp3, wav, m4a, webm, ogg. Máx 20MB.</p>
-                    <div className="flex flex-wrap gap-2">
-                      <Button type="button" variant={recording ? 'destructive' : 'outline'} onClick={recording ? stopRecording : startRecording}>
+                    <div className="flex flex-wrap gap-2 items-center">
+                      <Button
+                        type="button"
+                        variant={recording ? 'destructive' : 'outline'}
+                        onClick={recording ? stopRecording : startRecording}
+                        disabled={startingRecord}
+                      >
                         {recording ? (
                           <>
                             <Square className="h-4 w-4 mr-2" /> Detener grabación
@@ -179,7 +197,11 @@ export default function FieldVisitsIndex({ auth, visits, filters }) {
                           </>
                         )}
                       </Button>
-                      {recording && <span className="text-sm text-red-600">Grabando...</span>}
+                      {recording && <span className="text-sm text-red-600 font-semibold">Grabando...</span>}
+                      {recordingStatus && !recordingError && (
+                        <span className="text-sm text-gray-600">{recordingStatus}</span>
+                      )}
+                      {startingRecord && !recording && <span className="text-sm text-gray-500">Iniciando grabación...</span>}
                       {data.audio && (
                         <Badge variant="secondary" className="mt-1">
                           Seleccionado: {data.audio.name}

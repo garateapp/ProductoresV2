@@ -65,7 +65,9 @@ return [
     |
     */
 
-    'timezone' => 'UTC',
+    // Zona horaria operacional (Packing/Planificación).
+    // Nota: no usar UTC, porque los horarios estimados se calculan por turno local.
+    'timezone' => env('APP_TIMEZONE', 'America/Santiago'),
 
     /*
     |--------------------------------------------------------------------------

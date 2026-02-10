@@ -23,6 +23,7 @@
         "vite": "^7.0.4"
     },
     "dependencies": {
+        "@hello-pangea/dnd": "^18.0.1",
         "@inertiajs/inertia": "^0.11.1",
         "@radix-ui/react-accordion": "^1.2.12",
         "@radix-ui/react-aspect-ratio": "^1.1.7",
@@ -40,6 +41,7 @@
         "@radix-ui/react-switch": "^1.2.5",
         "@radix-ui/react-tabs": "^1.1.12",
         "apexcharts": "^5.3.2",
+        "assemblyai": "^4.19.0",
         "chart.js": "^4.5.0",
         "class-variance-authority": "^0.7.1",
         "clsx": "^2.1.1",
@@ -47,9 +49,9 @@
         "embla-carousel-react": "^8.6.0",
         "lucide-react": "^0.537.0",
         "next-themes": "^0.4.6",
+        "node-record-lpcm16": "^1.0.1",
         "puppeteer": "^24.16.2",
         "react-apexcharts": "^1.7.0",
-        "react-beautiful-dnd": "^13.1.1",
         "react-select": "^5.10.2",
         "recharts": "^3.1.2",
         "sonner": "^2.0.7",

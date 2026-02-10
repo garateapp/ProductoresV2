@@ -21,6 +21,9 @@ export default function SagMenu() {
 
         </DropdownMenuItem>
         <DropdownMenuItem asChild>
+            <Link href={route('sag.sdp-assignments.index')} className="w-full">Asignación SDP</Link>
+        </DropdownMenuItem>
+        <DropdownMenuItem asChild>
             <Link href={route('sdp-sites.index')} className="w-full">SDP (Sitios)</Link>
         </DropdownMenuItem>
          <DropdownMenuItem asChild>

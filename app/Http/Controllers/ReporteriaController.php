@@ -137,6 +137,62 @@ class ReporteriaController extends Controller
         $firmnessDistribution = $ready ? QualityChartsService::getDistribucionFirmezasData($receptions) : [];
         $solubleSolids = $ready ? QualityChartsService::getSolidosSolublesData($receptions) : [];
         $coverageColor = $ready ? QualityChartsService::getColorCubrimientoData($receptions) : [];
+        $colorFondo = [];
+        $firmnessBySize = ['categories' => [], 'series' => [], 'mode' => null];
+        if ($ready) {
+            $speciesKey = strtolower((string) ($receptions->first()->n_especie ?? ''));
+            $colorSwitchSpecies = ['plums', 'plum', 'peaches', 'peach', 'apples', 'apple', 'nectarines', 'nectarine'];
+            $isLbBrixMode = ($averageFirmness['mode'] ?? null) === 'lb_brix';
+
+            if ($isLbBrixMode) {
+                $colorFondo = QualityChartsService::getColorFondoData($receptions);
+            }
+
+            if (! $isLbBrixMode && in_array($speciesKey, $colorSwitchSpecies, true)) {
+                $colorFondo = QualityChartsService::getColorFondoData($receptions);
+                $averageFirmness = [
+                    'categories' => array_map(fn ($item) => $item['color'] ?? 'N/A', $colorFondo),
+                    'series' => [
+                        [
+                            'name' => 'Color de Fondo',
+                            'data' => array_map(fn ($item) => $item['percentage'] ?? 0, $colorFondo),
+                        ],
+                    ],
+                    'mode' => 'color_fondo',
+                ];
+
+                $categoriesFirm = [];
+                $valuesByType = ['GRANDE' => [], 'MEDIANO' => [], 'CHICO' => []];
+                foreach ($receptions as $rec) {
+                    if ($rec->calidad) {
+                        foreach ($rec->calidad->detalles->whereIn('tipo_item', ['GRANDE', 'MEDIANO', 'CHICO']) as $detalle) {
+                            $cat = $detalle->detalle_item ?? 'N/A';
+                            $categoriesFirm[$cat] = true;
+                            $valuesByType[$detalle->tipo_item][$cat] = (float) ($detalle->valor_ss ?? 0);
+                        }
+                    }
+                }
+                $categoriesFirm = array_keys($categoriesFirm);
+                sort($categoriesFirm);
+                $seriesFirm = [];
+                foreach (['GRANDE', 'MEDIANO', 'CHICO'] as $tipo) {
+                    $data = [];
+                    foreach ($categoriesFirm as $cat) {
+                        $data[] = $valuesByType[$tipo][$cat] ?? 0;
+                    }
+                    $seriesFirm[] = [
+                        'name' => ucfirst(strtolower($tipo)),
+                        'data' => $data,
+                    ];
+                }
+                $firmnessBySize = [
+                    'categories' => $categoriesFirm,
+                    'series' => $seriesFirm,
+                    'mode' => 'firmness_by_size',
+                ];
+                $solubleSolids = []; // ocultar brix tradicional
+            }
+        }
         $qualityDefects = $ready ? $this->getDefectosCalidadData($receptions) : [];
         $conditionDefects = $ready ? $this->getDefectosCondicionData($receptions) : [];
         $pestDamage = $ready ? $this->getDanoPlagaData($receptions) : [];
@@ -176,6 +232,8 @@ class ReporteriaController extends Controller
             'firmnessDistribution' => $firmnessDistribution,
             'solubleSolids' => $solubleSolids,
             'coverageColor' => $coverageColor,
+            'colorFondo' => $colorFondo,
+            'firmnessBySize' => $firmnessBySize,
             'qualityDefects' => $qualityDefects,
             'conditionDefects' => $conditionDefects,
             'pestDamage' => $pestDamage,

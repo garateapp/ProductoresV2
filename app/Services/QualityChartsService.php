@@ -6,13 +6,14 @@ use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
+use Illuminate\Support\Str;
 
 class QualityChartsService
 {
         public static function getSizeDistributionData(Collection $receptions): array
     {
         $first = $receptions->first();
-        if ($first && ($first->n_especie === 'Cherries')) {
+        if ($first && self::isCherriesSpecies((string) ($first->n_especie ?? ''))) {
             $reception_numbers = $receptions->pluck('numero_g_recepcion')->filter()->unique()->map(fn ($n) => (string) $n)->values()->all();
             if (empty($reception_numbers)) {
                 return ['categories' => [], 'series' => [], 'countsSeries' => []];
@@ -52,9 +53,20 @@ class QualityChartsService
         foreach ($receptions as $reception) {
             if ($reception->calidad) {
                 foreach ($reception->calidad->detalles as $detail) {
-                    if ($detail->tipo_item === 'DISTRIBUCIÓN DE CALIBRES') {
+                    if (self::normalizeItemType((string) ($detail->tipo_item ?? '')) === 'DISTRIBUCION DE CALIBRES') {
                         $name = $detail->detalle_item ?? 'N/A';
-                        $calibreCounts[$name] = ($calibreCounts[$name] ?? 0) + ($detail->porcentaje_muestra ?? 0);
+                        $name = trim((string) $name);
+                        if ($name === '') {
+                            $name = 'N/A';
+                        }
+                        // En este proyecto, para curvas de calibre se usa:
+                        // - etiqueta: detalle_item
+                        // - cantidad: cantidad (fallback a porcentaje_muestra si no existe)
+                        $qty = $detail->cantidad ?? null;
+                        if ($qty === null || $qty === '') {
+                            $qty = $detail->porcentaje_muestra ?? 0;
+                        }
+                        $calibreCounts[$name] = ($calibreCounts[$name] ?? 0) + (float) $qty;
                     }
                 }
             }
@@ -64,6 +76,34 @@ class QualityChartsService
         }
 
         return array_values($chartData);
+    }
+
+    private static function normalizeItemType(string $value): string
+    {
+        $s = trim($value);
+        if ($s === '') {
+            return '';
+        }
+        // En algunos entornos (Windows/SQL Server), iconv puede fallar con acentos.
+        // Para comparaciones estables usamos Str::ascii().
+        $s = mb_strtoupper($s);
+        $s = Str::ascii($s);
+        $s = preg_replace('/\s+/', ' ', (string) $s);
+        return trim((string) $s);
+    }
+
+    private static function isCherriesSpecies(string $value): bool
+    {
+        $s = trim($value);
+        if ($s === '') {
+            return false;
+        }
+        $s = mb_strtolower($s);
+        $s = Str::ascii($s);
+        $s = preg_replace('/\s+/', ' ', (string) $s);
+        $s = trim((string) $s);
+
+        return str_contains($s, 'cherr') || str_contains($s, 'cerez');
     }
 
 public static function getPromedioFirmezasData(Collection $receptions): array

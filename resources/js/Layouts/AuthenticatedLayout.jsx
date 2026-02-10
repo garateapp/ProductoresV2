@@ -2,7 +2,9 @@
 import ApplicationLogo from '@/Components/ApplicationLogo';
 import ResponsiveNavLink from '@/Components/ResponsiveNavLink';
 import { Link, usePage } from '@inertiajs/react';
-import { useState } from 'react';
+import { Inbox } from 'lucide-react';
+import axios from 'axios';
+import { useEffect, useState } from 'react';
 import {
     NavigationMenu,
     NavigationMenuList,
@@ -17,6 +19,9 @@ import UserMenu from './Dropdowns/UserMenu.jsx';  // sin llaves
 import ControlCalidadMenu from './Dropdowns/ControlCalidadMenu.jsx';
 import SagMenu from './Dropdowns/SagMenu.jsx';
 import ValidacionesMenu from './Dropdowns/ValidacionesMenu.jsx';
+import ContratosMenu from './Dropdowns/ContratosMenu.jsx';
+import EstimacionesMenu from './Dropdowns/EstimacionesMenu.jsx';
+import PlanningMenu from './Dropdowns/PlanningMenu.jsx';
 
 const navLinkClasses =
     "group inline-flex h-9 w-max items-center justify-center rounded-md bg-greenex-dark-green px-4 py-2 text-sm font-medium transition-colors hover:bg-greenex-vibrant-green hover:text-greenex-orange focus:bg-greenex-vibrant-green focus:text-greenex-orange focus:outline-none disabled:pointer-events-none disabled:opacity-50 text-greenex-white";
@@ -29,15 +34,45 @@ const mobileNavLinkProps = {
     className: mobileNavLinkClasses,
 };
 export default function AuthenticatedLayout({ header, children }) {
-    const { user } = usePage().props.auth;
+    const { auth, unread_notifications_count: unreadCount = 0 } = usePage().props;
+    const { user } = auth;
     const [showingNavigationDropdown, setShowingNavigationDropdown] = useState(false);
+    const [liveUnreadCount, setLiveUnreadCount] = useState(unreadCount);
 
     const hasRole = (roleName) => user.roles?.some(role => role.name === roleName);
 
     const hasAnyRole = (roles) => roles.some(role => hasRole(role));
 
+    useEffect(() => {
+        setLiveUnreadCount(unreadCount);
+    }, [unreadCount]);
+
+    useEffect(() => {
+        if (!user) return;
+        let isMounted = true;
+
+        const fetchCount = async () => {
+            try {
+                const response = await axios.get(route('notifications.unread-count'));
+                if (isMounted && typeof response.data?.count === 'number') {
+                    setLiveUnreadCount(response.data.count);
+                }
+            } catch (error) {
+                // Silent fail to avoid UI noise.
+            }
+        };
+
+        fetchCount();
+        const interval = setInterval(fetchCount, 15000);
+
+        return () => {
+            isMounted = false;
+            clearInterval(interval);
+        };
+    }, [user]);
+
     return (
-        <div className="min-h-screen bg-greenex-white">
+        <div className="w-full flex flex-col  bg-greenex-white">
             <nav className="bg-greenex-dark-green border-b border-greenex-vibrant-green shadow-md">
                 <div className="mx-auto max-w-7xl px-6 sm:px-8 lg:px-10">
                     <div className="flex h-16 justify-between">
@@ -87,18 +122,30 @@ export default function AuthenticatedLayout({ header, children }) {
 
                                         {hasAnyRole(['Administrador', 'Agronomo', 'Sag']) && <SagMenu/>}
 
+                                        {hasAnyRole(['Administrador', 'Agronomo']) && <EstimacionesMenu />}
+
                                         {hasAnyRole(['Administrador',  'Gerencia', 'Contrato']) && (
-                                            <NavigationMenuItem>
-                                                <NavigationMenuLink asChild className={navLinkClasses}>
-                                                    <Link href={route('contracts.index')}>Contratos</Link>
-                                                </NavigationMenuLink>
-                                            </NavigationMenuItem>
+                                            <ContratosMenu showProspectos={hasRole('Administrador')} />
                                         )}
+
+                                        {hasAnyRole(['Administrador', 'Calidad', 'Gerencia']) && <PlanningMenu />}
 
                                         {/* Submenús extraídos */}
                                         {hasAnyRole(['Administrador', 'Gerencia', 'Agronomo', 'Sag']) && <DocumentationMenu />}
                                         {hasAnyRole(['Administrador', 'Gerencia', 'Contrato']) && <ValidacionesMenu />}
                                         {hasRole('Administrador') && <AdminMenu />}
+                                        <NavigationMenuItem>
+                                            <NavigationMenuLink asChild className={navLinkClasses}>
+                                                <Link href={route('notifications.index')} className="relative inline-flex items-center justify-center">
+                                                    <Inbox className="h-4 w-4" />
+                                                    {liveUnreadCount > 0 && (
+                                                        <span className="absolute -right-2 -top-2 inline-flex min-w-[18px] items-center justify-center rounded-full bg-greenex-orange px-1 text-[10px] font-semibold text-greenex-dark-green">
+                                                            {liveUnreadCount}
+                                                        </span>
+                                                    )}
+                                                </Link>
+                                            </NavigationMenuLink>
+                                        </NavigationMenuItem>
                                         <UserMenu user={user} />
                                     </NavigationMenuList>
                                 </NavigationMenu>
@@ -144,6 +191,22 @@ export default function AuthenticatedLayout({ header, children }) {
                             Inicio
                         </ResponsiveNavLink>
 
+                        <ResponsiveNavLink
+                            {...mobileNavLinkProps}
+                            href={route('notifications.index')}
+                            active={route().current('notifications.*')}
+                            onClick={() => setShowingNavigationDropdown(false)}
+                        >
+                            <span className="flex w-full items-center justify-between">
+                                Notificaciones
+                                {liveUnreadCount > 0 && (
+                                    <span className="inline-flex items-center justify-center rounded-full bg-greenex-orange px-2 text-xs font-semibold text-greenex-dark-green">
+                                        {liveUnreadCount}
+                                    </span>
+                                )}
+                            </span>
+                        </ResponsiveNavLink>
+
                         {hasAnyRole(['Administrador', 'Productor', 'Gerencia']) && (
                             <>
                                 <ResponsiveNavLink
@@ -162,6 +225,16 @@ export default function AuthenticatedLayout({ header, children }) {
                                 >
                                     Procesos
                                 </ResponsiveNavLink>
+                                {hasAnyRole(['Administrador', 'Calidad', 'Gerencia']) && (
+                                    <ResponsiveNavLink
+                                        {...mobileNavLinkProps}
+                                        href={route('planning.processes.index')}
+                                        active={route().current('planning.processes.*')}
+                                        onClick={() => setShowingNavigationDropdown(false)}
+                                    >
+                                        Planificación
+                                    </ResponsiveNavLink>
+                                )}
                                 <ResponsiveNavLink
                                     {...mobileNavLinkProps}
                                     href={route('contracts.index')}
@@ -170,6 +243,16 @@ export default function AuthenticatedLayout({ header, children }) {
                                 >
                                     Contratos
                                 </ResponsiveNavLink>
+                                {hasRole('Administrador') && (
+                                    <ResponsiveNavLink
+                                        {...mobileNavLinkProps}
+                                        href={route('prospectos-productores.index')}
+                                        active={route().current('prospectos-productores.*')}
+                                        onClick={() => setShowingNavigationDropdown(false)}
+                                    >
+                                        Prospectos productores
+                                    </ResponsiveNavLink>
+                                )}
                             </>
                         )}
 
@@ -193,6 +276,35 @@ export default function AuthenticatedLayout({ header, children }) {
                             >
                                 Visitas
                             </ResponsiveNavLink>
+                        )}
+
+                        {hasAnyRole(['Administrador', 'Agronomo']) && (
+                            <>
+                                <ResponsiveNavLink
+                                    {...mobileNavLinkProps}
+                                    href={route('estimations.index')}
+                                    active={route().current('estimations.index')}
+                                    onClick={() => setShowingNavigationDropdown(false)}
+                                >
+                                    Estimaciones
+                                </ResponsiveNavLink>
+                                <ResponsiveNavLink
+                                    {...mobileNavLinkProps}
+                                    href={route('estimations.maintainers')}
+                                    active={route().current('estimations.maintainers')}
+                                    onClick={() => setShowingNavigationDropdown(false)}
+                                >
+                                    Mantenedores Estimaciones
+                                </ResponsiveNavLink>
+                                <ResponsiveNavLink
+                                    {...mobileNavLinkProps}
+                                    href={route('estimations.biweekly.index')}
+                                    active={route().current('estimations.biweekly.*')}
+                                    onClick={() => setShowingNavigationDropdown(false)}
+                                >
+                                    Estimaciones Bisemanales
+                                </ResponsiveNavLink>
+                            </>
                         )}
 
                         {hasAnyRole(['Administrador', 'Calidad']) && (
@@ -241,6 +353,14 @@ export default function AuthenticatedLayout({ header, children }) {
                                     onClick={() => setShowingNavigationDropdown(false)}
                                 >
                                     Certificaciones SAG
+                                </ResponsiveNavLink>
+                                <ResponsiveNavLink
+                                    {...mobileNavLinkProps}
+                                    href={route('sag.sdp-assignments.index')}
+                                    active={route().current('sag.sdp-assignments.*')}
+                                    onClick={() => setShowingNavigationDropdown(false)}
+                                >
+                                    Asignación SDP
                                 </ResponsiveNavLink>
                                 <ResponsiveNavLink
                                     {...mobileNavLinkProps}

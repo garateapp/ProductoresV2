@@ -132,6 +132,7 @@ class ProducerCertificationController extends Controller
         $validated = $request->validate([
             'certifying_house_id' => 'required|exists:certifying_houses,id',
             'name' => 'required|string|max:255',
+            'certificate_code' => 'nullable|string|max:255|unique:producer_certifications,certificate_code',
             'certificate_type_id' => 'required|exists:certificate_types,id',
             'especie_id' => 'required|exists:especies,id',
             'audit_date' => 'required|date',
@@ -194,6 +195,7 @@ class ProducerCertificationController extends Controller
         $validated = $request->validate([
             'certifying_house_id' => 'required|exists:certifying_houses,id',
             'name' => 'required|string|max:255',
+            'certificate_code' => 'nullable|string|max:255|unique:producer_certifications,certificate_code,'.$certification->id,
             'certificate_type_id' => 'required|exists:certificate_types,id',
             'especie_id' => 'required|exists:especies,id',
             'audit_date' => 'required|date',

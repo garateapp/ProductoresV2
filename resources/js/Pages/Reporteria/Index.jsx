@@ -34,6 +34,15 @@ function getChartColors(species) {
                 danosPlaga: 'rgba(100, 0, 0, 0.6)', // Darkest red
                 borderColor: 'rgba(255, 255, 255, 1)'
             };
+        case 'plums':
+        case 'plum':
+            return {
+                exportable: 'rgba(123, 97, 255, 0.6)', // Soft violet
+                defectosCalidad: 'rgba(98, 72, 200, 0.6)', // Darker violet
+                defectosCondicion: 'rgba(75, 55, 160, 0.6)', // Even darker
+                danosPlaga: 'rgba(55, 40, 130, 0.6)', // Deep violet
+                borderColor: 'rgba(255, 255, 255, 1)',
+            };
         case 'apples':
             return {
                 exportable: 'rgba(75, 192, 192, 0.6)', // Green tone
@@ -42,13 +51,23 @@ function getChartColors(species) {
                 danosPlaga: 'rgba(0, 50, 0, 0.6)', // Darkest green
                 borderColor: 'rgba(255, 255, 255, 1)'
             };
-        case 'nectarines':
+        case 'peaches':
+        case 'peach':
             return {
-                exportable: 'rgba(255, 159, 64, 0.6)', // Orange tone
-                defectosCalidad: 'rgba(200, 100, 0, 0.6)', // Darker orange
-                defectosCondicion: 'rgba(150, 50, 0, 0.6)', // Even darker orange
-                danosPlaga: 'rgba(100, 25, 0, 0.6)', // Darkest orange
-                borderColor: 'rgba(255, 255, 255, 1)'
+                exportable: 'rgba(255, 190, 150, 0.7)', // Pastel peach
+                defectosCalidad: 'rgba(245, 150, 120, 0.65)', // Slightly darker peach
+                defectosCondicion: 'rgba(220, 110, 90, 0.65)', // Deeper peach
+                danosPlaga: 'rgba(190, 80, 70, 0.65)', // Darkest peach
+                borderColor: 'rgba(255, 255, 255, 1)',
+            };
+        case 'nectarines':
+        case 'nectarine':
+            return {
+                exportable: 'rgba(255, 183, 94, 0.7)', // Pastel orange
+                defectosCalidad: 'rgba(230, 140, 70, 0.65)', // Darker pastel orange
+                defectosCondicion: 'rgba(200, 110, 55, 0.65)', // Even darker
+                danosPlaga: 'rgba(170, 85, 45, 0.65)', // Deep orange
+                borderColor: 'rgba(255, 255, 255, 1)',
             };
         default: // Default colors if species not matched
             return {
@@ -87,7 +106,7 @@ const coerceNumber = (value) => {
     return 0;
 };
 
-export default function Index({ auth, especies, producers, lotes, filters, filterMatrix = [], kpiSummary, kpiTrend, sizeDistribution, averageFirmness, firmnessDistribution, solubleSolids, coverageColor, qualityDefects, conditionDefects, pestDamage, receptionDetails, ready }) {
+export default function Index({ auth, especies, producers, lotes, filters, filterMatrix = [], kpiSummary, kpiTrend, sizeDistribution, averageFirmness, firmnessDistribution, solubleSolids, coverageColor, colorFondo, firmnessBySize, qualityDefects, conditionDefects, pestDamage, receptionDetails, ready }) {
     const [selectedEspecie, setSelectedEspecie] = useState(filters.especie_id || '');
     const [selectedVariedad, setSelectedVariedad] = useState(filters.variedad_id || '');
     const [selectedProductor, setSelectedProductor] = useState(filters.productor_id || 'all');
@@ -334,6 +353,8 @@ export default function Index({ auth, especies, producers, lotes, filters, filte
 
     const currentEspecie = (especies || []).find(e => e.id === parseInt(selectedEspecie));
     const chartColors = getChartColors(currentEspecie ? currentEspecie.name : 'default');
+    const isColorFondoMode = averageFirmness?.mode === 'color_fondo';
+    const isFirmnessBySizeMode = firmnessBySize?.mode === 'firmness_by_size';
 
     const cherryCoverageColorsMap = {
         "ROJO": "#FF0000",
@@ -1188,88 +1209,120 @@ export default function Index({ auth, especies, producers, lotes, filters, filte
                                     )
                                 )}
                             </div>
-                            <div>
-                                <h3 className="text-lg font-semibold mb-4">% Distribución de Firmezas por Segregación de Color</h3>
-                                {averageFirmness && averageFirmness.categories && averageFirmness.series ? (
-                                    <Chart
-                                        options={{
-                                            chart: {
-                                                type: 'bar',
-                                                height: 350,
-                                                stacked: true,
-                                            },
-                                            plotOptions: {
-                                                bar: {
-                                                    horizontal: false,
-                                                },
-                                            },
-                                            stroke: {
-                                                width: 1,
-                                                colors: ['#fff']
-                                            },
+                            {!isFirmnessBySizeMode && (
+                                <>
+                                    <div>
+                                        <h3 className="text-lg font-semibold mb-4">% Distribución de Firmezas por Segregación de Color</h3>
+                                        {averageFirmness && averageFirmness.categories && averageFirmness.series ? (
+                                            <Chart
+                                                options={{
+                                                    chart: {
+                                                        type: 'bar',
+                                                        height: 350,
+                                                        stacked: !isColorFondoMode,
+                                                    },
+                                                    plotOptions: {
+                                                        bar: {
+                                                            horizontal: false,
+                                                        },
+                                                    },
+                                                    stroke: {
+                                                        width: 1,
+                                                        colors: ['#fff']
+                                                    },
+                                                    xaxis: {
+                                                        categories: averageFirmness.categories,
+                                                    },
+                                                    yaxis: {
+                                                        title: {
+                                                            text: isColorFondoMode ? 'Porcentaje' : 'Cantidad de Frutas'
+                                                        },
+                                                    },
+                                                    fill: {
+                                                        opacity: 1
+                                                    },
+                                                    colors: isColorFondoMode
+                                                        ? [chartColors.exportable]
+                                                        : ['#dc0c15', '#71160e', '#2b1d16'],
+                                                    legend: {
+                                                        position: 'top',
+                                                        horizontalAlign: 'left',
+                                                        offsetX: 40
+                                                    }
+                                                }}
+                                                series={averageFirmness.series}
+                                                type="bar"
+                                                height={350}
+                                            />
+                                        ) : (
+                                            <div className="border-dashed border-2 border-gray-300 rounded-lg h-full flex items-center justify-center">
+                                                <p className='text-center text-gray-500'>
+                                                    {isColorFondoMode ? 'No hay datos de color de fondo para la selección actual.' : 'No hay datos de firmeza para la selección actual.'}
+                                                </p>
+                                            </div>
+                                        )}
+                                    </div>
+                                    <div>
+                                        <h3 className="text-lg font-semibold mb-4">Promedio de Distribución de Firmezas</h3>
+                                        {console.log("FD:", firmnessDistribution)}
+                                        {firmnessDistribution && firmnessDistribution.length > 0 ? (
 
-                                            xaxis: {
-                                                categories: averageFirmness.categories,
-                                            },
-                                            yaxis: {
-                                                title: {
-                                                    text: 'Cantidad de Frutas'
-                                                },
-                                            },
-                                            fill: {
-                                                opacity: 1
-                                            },
-                                            //
-                                            colors:['#dc0c15', '#71160e', '#2b1d16'],
-                                            legend: {
-                                                position: 'top',
-                                                horizontalAlign: 'left',
-                                                offsetX: 40
-                                            }
-                                        }}
-                                        series={averageFirmness.series}
-                                        type="bar"
-                                        height={350}
-                                    />
-                                ) : (
-                                    <div className="border-dashed border-2 border-gray-300 rounded-lg h-full flex items-center justify-center">
-                                        <p className='text-center text-gray-500'>No hay datos de firmeza para la selección actual.</p>
+                                            <Chart
+                                                options={distFirmezaOptions}
+                                                series={distFirmezaSeries}
+                                                type="bar"
+                                                height={350}
+                                            />
+                                        ) : (
+                                            <div className="border-dashed border-2 border-gray-300 rounded-lg h-full flex items-center justify-center">
+                                                <p className='text-center text-gray-500'>No hay datos de distribución de firmeza para la selección actual.</p>
+                                            </div>
+                                        )}
                                     </div>
-                                )}
-                            </div>
-                            <div>
-                                <h3 className="text-lg font-semibold mb-4">Promedio de Distribución de Firmezas</h3>
-                                {console.log("FD:", firmnessDistribution)}
-                                {firmnessDistribution && firmnessDistribution.length > 0 ? (
-
-                                    <Chart
-                                        options={distFirmezaOptions}
-                                        series={distFirmezaSeries}
-                                        type="bar"
-                                        height={350}
-                                    />
-                                ) : (
-                                    <div className="border-dashed border-2 border-gray-300 rounded-lg h-full flex items-center justify-center">
-                                        <p className='text-center text-gray-500'>No hay datos de distribución de firmeza para la selección actual.</p>
+                                    <div>
+                                        <h3 className="text-lg font-semibold mb-4">Promedio °BRIX</h3>
+                                        {console.log("SS:", solubleSolids)}
+                                        {solubleSolids && solubleSolids.length > 0 ? (
+                                            <Chart
+                                                options={brixOptions}
+                                                series={brixSeries}
+                                                type="bar"
+                                                height={350}
+                                            />
+                                        ) : (
+                                            <div className="border-dashed border-2 border-gray-300 rounded-lg h-full flex items-center justify-center">
+                                                <p className='text-center text-gray-500'>No hay datos de sólidos solubles para la selección actual.</p>
+                                            </div>
+                                        )}
                                     </div>
-                                )}
-                            </div>
-                            <div>
-                                <h3 className="text-lg font-semibold mb-4">Promedio °BRIX</h3>
-                                {console.log("SS:", solubleSolids)}
-                                {solubleSolids && solubleSolids.length > 0 ? (
-                                    <Chart
-                                        options={brixOptions}
-                                        series={brixSeries}
-                                        type="bar"
-                                        height={350}
-                                    />
-                                ) : (
-                                    <div className="border-dashed border-2 border-gray-300 rounded-lg h-full flex items-center justify-center">
-                                        <p className='text-center text-gray-500'>No hay datos de sólidos solubles para la selección actual.</p>
-                                    </div>
-                                )}
-                            </div>
+                                </>
+                            )}
+                            {isFirmnessBySizeMode && (
+                                <div>
+                                    <h3 className="text-lg font-semibold mb-4">Firmezas y Brix (GRANDE / MEDIANO / CHICO)</h3>
+                                    {(firmnessBySize?.categories?.length ?? 0) > 0 ? (
+                                        <Chart
+                                            options={{
+                                                chart: { type: 'bar', height: 350, stacked: false },
+                                                plotOptions: { bar: { horizontal: false, columnWidth: '55%', endingShape: 'rounded' } },
+                                                dataLabels: { enabled: false },
+                                                stroke: { show: true, width: 2, colors: ['transparent'] },
+                                                xaxis: { categories: firmnessBySize.categories },
+                                                yaxis: { title: { text: 'Valor' } },
+                                                fill: { opacity: 0.9, colors: [chartColors.exportable, chartColors.defectosCalidad, chartColors.defectosCondicion] },
+                                                legend: { position: 'top', horizontalAlign: 'left' },
+                                            }}
+                                            series={firmnessBySize.series}
+                                            type="bar"
+                                            height={350}
+                                        />
+                                    ) : (
+                                        <div className="border-dashed border-2 border-gray-300 rounded-lg h-full flex items-center justify-center">
+                                            <p className='text-center text-gray-500'>No hay datos de firmeza por tamaño para la selección actual.</p>
+                                        </div>
+                                    )}
+                                </div>
+                            )}
                             <div>
                                 <h3 className="text-lg font-semibold mb-4">Color de Cubrimiento</h3>
                                 {isCherries ? (

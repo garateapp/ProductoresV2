@@ -33,6 +33,15 @@ class HandleInertiaRequests extends Middleware
             'auth' => [
                 'user' => $request->user() ? $request->user()->load('roles') : null,
             ],
+            'import_errors' => function () use ($request) {
+                $user = $request->user();
+                if (! $user) {
+                    return null;
+                }
+
+                return cache()->pull('import_errors:'.$user->id);
+            },
+            'unread_notifications_count' => fn () => $request->user()?->unreadNotifications()->count() ?? 0,
             'flash' => [
                 'success' => fn () => $request->session()->get('success'),
                 'error' => fn () => $request->session()->get('error'),

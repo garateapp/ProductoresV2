@@ -1,0 +1,256 @@
+<?php
+
+namespace App\Services\Planning;
+
+use App\Enums\PlanningLotStatus;
+use App\Enums\PlanningProcessStatus;
+use App\Models\PackingProcess;
+use App\Models\PackingProcessLot;
+use App\Models\PackingProcessLineOverride;
+use App\Models\Recepcion;
+use App\Models\Reservation;
+use Illuminate\Support\Facades\DB;
+
+class ProcessConfirmationService
+{
+    public function __construct(
+        private readonly InventoryRepositorySqlsrv $inventoryRepository,
+        private readonly ProcessGeneratorService $generator,
+    ) {
+    }
+
+    /**
+     * Confirma proceso:
+     * - Revalida existencia en SQLSRV
+     * - Evita doble reserva con `reservations.n_g_recepcion` unique
+     * - Marca conflictos en lotes y proceso si aplica
+     */
+    public function confirm(PackingProcess $process): array
+    {
+        $process->loadMissing(['lots']);
+
+        $numbers = $process->lots
+            ->pluck('n_g_recepcion')
+            ->filter()
+            ->map(fn ($n) => (string) $n)
+            ->unique()
+            ->values();
+
+        // Exportadora (snapshot a nivel de proceso):
+        // - Si es 1 lote: usamos Recepción.exportadora.
+        // - Si son varios lotes: VARIAS (si hay más de una exportadora) o la única encontrada.
+        $exportadora = null;
+        if ($numbers->count() === 1) {
+            $exportadora = Recepcion::query()
+                ->where('numero_g_recepcion', (string) $numbers->first())
+                ->value('exportadora');
+            $exportadora = is_string($exportadora) && trim($exportadora) !== '' ? trim($exportadora) : null;
+        } elseif ($numbers->count() > 1) {
+            $vals = Recepcion::query()
+                ->whereIn('numero_g_recepcion', $numbers->all())
+                ->pluck('exportadora')
+                ->filter(fn ($v) => is_string($v) && trim($v) !== '')
+                ->map(fn ($v) => trim((string) $v))
+                ->unique()
+                ->values();
+            if ($vals->count() === 1) {
+                $exportadora = $vals->first();
+            } elseif ($vals->count() > 1) {
+                $exportadora = 'VARIAS';
+            }
+        }
+
+        $inventory = $this->inventoryRepository->getAvailableLots([
+            'especie' => $process->especie,
+            'limit' => 1000,
+        ])->keyBy('n_g_recepcion');
+
+        $conflicts = [];
+
+        DB::transaction(function () use ($process, $numbers, $inventory, $exportadora, &$conflicts) {
+            foreach ($numbers as $n) {
+                $plannedBins = (int) $process->lots->where('n_g_recepcion', $n)->sum('cantidad_bins');
+                $invRow = $inventory->get($n);
+                $availableBins = $invRow ? (int) ($invRow['cantidad_bins'] ?? 0) : 0;
+
+                $alreadyReserved = Reservation::query()
+                    ->where('n_g_recepcion', $n)
+                    ->where('process_id', '!=', $process->id)
+                    ->exists();
+
+                if ($availableBins < $plannedBins || $alreadyReserved) {
+                    $conflicts[] = [
+                        'n_g_recepcion' => $n,
+                        'planned_bins' => $plannedBins,
+                        'available_bins' => $availableBins,
+                        'already_reserved' => $alreadyReserved,
+                    ];
+
+                    $process->lots
+                        ->where('n_g_recepcion', $n)
+                        ->each(fn ($lot) => $lot->forceFill(['estado' => PlanningLotStatus::CONFLICTO])->save());
+
+                    continue;
+                }
+
+                // Reserva (1 por n_g_recepcion aunque esté dividido en varios tramos)
+                Reservation::query()->firstOrCreate(
+                    ['n_g_recepcion' => $n],
+                    ['process_id' => $process->id, 'estado' => 'ACTIVA']
+                );
+
+                $process->lots
+                    ->where('n_g_recepcion', $n)
+                    ->each(fn ($lot) => $lot->forceFill(['estado' => PlanningLotStatus::CONFIRMADO])->save());
+            }
+
+            $nextStatus = empty($conflicts)
+                ? PlanningProcessStatus::CONFIRMADO
+                : PlanningProcessStatus::CONFLICTO;
+
+            $process->forceFill([
+                'estado' => $nextStatus,
+                'exportadora' => $exportadora ?: ($process->exportadora ?? null),
+            ])->save();
+        });
+
+        return [
+            'ok' => empty($conflicts),
+            'conflicts' => $conflicts,
+        ];
+    }
+
+    /**
+     * Finaliza la planificación:
+     * - Permite que el usuario asigne varios lotes a líneas/cámaras en un solo "proceso de planificación".
+     * - Al confirmar, se generan procesos "reales" 1 por lote (n_g_recepcion).
+     *   Si el lote está dividido en varias líneas, esas partes se mantienen dentro del mismo proceso del lote.
+     *
+     * @return array{mode:string, ok:bool, created_process_ids:array<int,int>, conflicts:array<int,array<string,mixed>>}
+     */
+    public function finalizeAndConfirm(PackingProcess $process): array
+    {
+        $process->loadMissing(['shift', 'lots', 'lineOverrides']);
+
+        $groups = $process->lots
+            ->filter(fn ($l) => (string) ($l->n_g_recepcion ?? '') !== '')
+            ->groupBy('n_g_recepcion');
+
+        // Caso simple: ya es 1 lote.
+        if ($groups->count() <= 1) {
+            $res = $this->confirm($process);
+            return [
+                'mode' => 'single',
+                'ok' => (bool) ($res['ok'] ?? false),
+                'created_process_ids' => [$process->id],
+                'conflicts' => $res['conflicts'] ?? [],
+            ];
+        }
+
+        // Exportadoras por lote (prefetch) para setear el campo a nivel proceso.
+        $exportadorasByLot = Recepcion::query()
+            ->whereIn('numero_g_recepcion', $groups->keys()->map(fn ($n) => (string) $n)->values()->all())
+            ->pluck('exportadora', 'numero_g_recepcion')
+            ->map(fn ($v) => is_string($v) && trim($v) !== '' ? trim((string) $v) : null)
+            ->all();
+
+        $extraByLine = $process->lineOverrides
+            ->mapWithKeys(fn ($r) => [(int) $r->packing_line_id => (float) $r->extra_horas])
+            ->all();
+
+        $createdIds = DB::transaction(function () use ($process, $groups, $extraByLine, $exportadorasByLot) {
+            $created = [];
+
+            foreach ($groups as $n => $lots) {
+                $lineIds = $lots->pluck('packing_line_id')
+                    ->map(fn ($id) => (int) $id)
+                    ->filter(fn ($id) => $id > 0)
+                    ->unique()
+                    ->values()
+                    ->all();
+
+                $exportadora = $exportadorasByLot[(string) $n] ?? null;
+                $newProcess = PackingProcess::create([
+                    'process_batch_id' => $process->process_batch_id,
+                    'especie' => (string) $process->especie,
+                    'exportadora' => $exportadora,
+                    'fecha' => $process->fecha,
+                    'shift_id' => (int) $process->shift_id,
+                    'extra_horas' => 0,
+                    'estado' => PlanningProcessStatus::BORRADOR,
+                    'creado_por' => $process->creado_por,
+                    'included_packing_line_ids' => $lineIds ?: null,
+                    'pedidos' => $process->pedidos,
+                ]);
+
+                // Copiar horas extra por línea (solo las líneas efectivamente usadas por este lote).
+                foreach ($lineIds as $lineId) {
+                    $extra = (float) ($extraByLine[(int) $lineId] ?? 0);
+                    if ($extra <= 0) {
+                        continue;
+                    }
+                    PackingProcessLineOverride::create([
+                        'process_id' => $newProcess->id,
+                        'packing_line_id' => (int) $lineId,
+                        'extra_horas' => $extra,
+                    ]);
+                }
+
+                // Mover partes del lote (incluye divisiones entre líneas).
+                PackingProcessLot::query()
+                    ->where('process_id', $process->id)
+                    ->where('n_g_recepcion', (string) $n)
+                    ->update(['process_id' => $newProcess->id]);
+
+                // Renumerar orden por línea dentro del proceso nuevo (para que sea prolijo).
+                $newLots = PackingProcessLot::query()
+                    ->where('process_id', $newProcess->id)
+                    ->orderBy('packing_line_id')
+                    ->orderBy('orden')
+                    ->orderBy('id')
+                    ->get();
+
+                foreach ($newLots->groupBy('packing_line_id') as $lineId => $lineLots) {
+                    $i = 1;
+                    foreach ($lineLots as $lot) {
+                        if ((int) $lot->orden !== $i) {
+                            $lot->forceFill(['orden' => $i])->save();
+                        }
+                        $i++;
+                    }
+                }
+
+                $this->generator->estimateTimes($newProcess);
+                $created[] = $newProcess->id;
+            }
+
+            // El proceso original era solo de planificación: queda sin lotes luego de mover.
+            $process->delete();
+
+            return $created;
+        });
+
+        $okAll = true;
+        $conflictsAll = [];
+        foreach ($createdIds as $pid) {
+            $p = PackingProcess::find($pid);
+            if (! $p) {
+                continue;
+            }
+            $res = $this->confirm($p);
+            if (! ($res['ok'] ?? false)) {
+                $okAll = false;
+                foreach (($res['conflicts'] ?? []) as $c) {
+                    $conflictsAll[] = ['process_id' => $pid] + (array) $c;
+                }
+            }
+        }
+
+        return [
+            'mode' => 'split',
+            'ok' => $okAll,
+            'created_process_ids' => $createdIds,
+            'conflicts' => $conflictsAll,
+        ];
+    }
+}
