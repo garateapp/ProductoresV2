@@ -112,8 +112,17 @@ export default function Edit({ process, shift, lineId, latestVersion, sheet, dow
   const initialRows = useMemo(() => {
     return packaging.map((r) => ({
       key: String(r?.key || ''),
+      destino: String(r?.destino || ''),
+      c_item: String(r?.c_item || ''),
+      desc_embalaje: String(r?.desc_embalaje || ''),
+      etiqueta: String(r?.etiqueta || ''),
+      peso_caja: r?.peso_caja != null && String(r.peso_caja) !== '' ? String(r.peso_caja) : '',
+      cp2: r?.cp2 != null && String(r.cp2) !== '' ? String(r.cp2) : '',
+      altura: String(r?.altura || ''),
       calibres: String(r?.calibres || '').trim() === '-' ? '' : String(r?.calibres || ''),
+      indications: String(r?.indications || ''),
       observaciones: String(r?.observaciones || '').trim() === '-' ? '' : String(r?.observaciones || ''),
+      count: String(r?.count || ''),
       pedido: String(r?.pedido || '').trim() === '-' ? '' : String(r?.pedido || ''),
     }))
   }, [packaging])
@@ -123,6 +132,14 @@ export default function Edit({ process, shift, lineId, latestVersion, sheet, dow
     change_reason: '',
     rows: initialRows,
   })
+
+  const updateRow = (idx, key, patch) => {
+    const current = Array.isArray(data.rows) ? data.rows : []
+    const next = [...current]
+    const base = (next[idx] && typeof next[idx] === 'object') ? next[idx] : {}
+    next[idx] = { ...base, ...patch, key: String(key || base.key || '') }
+    setData('rows', next)
+  }
 
   const onSubmit = (e) => {
     e.preventDefault()
@@ -234,59 +251,127 @@ export default function Edit({ process, shift, lineId, latestVersion, sheet, dow
                   <tbody>
                     {packaging.length ? packaging.map((r, idx) => (
                       <tr key={String(r?.key || idx)}>
-                        <td>{r?.destino || ''}</td>
-                        <td className="font-bold">{r?.c_item || ''}</td>
-                        <td>{r?.desc_embalaje || ''}</td>
-                        <td>{r?.etiqueta || ''}</td>
-                        <td>{r?.peso_caja != null ? Number(r.peso_caja).toLocaleString('es-CL', { maximumFractionDigits: 1 }) : ''}</td>
-                        <td>{r?.cp2 ?? ''}</td>
-                        <td>{r?.altura || ''}</td>
+                        {(() => {
+                          const rowKey = String(r?.key || '')
+                          return (
+                            <>
+                        <td style={{ minWidth: 120 }}>
+                          <Input
+                            value={data.rows?.[idx]?.destino ?? ''}
+                            onChange={(e) => {
+                              updateRow(idx, rowKey, { destino: e.target.value })
+                            }}
+                            placeholder="Ej: CHINA"
+                          />
+                        </td>
+                        <td style={{ minWidth: 140 }}>
+                          <Input
+                            value={data.rows?.[idx]?.c_item ?? ''}
+                            onChange={(e) => {
+                              updateRow(idx, rowKey, { c_item: e.target.value })
+                            }}
+                            placeholder="Código"
+                          />
+                        </td>
+                        <td style={{ minWidth: 320 }}>
+                          <Textarea
+                            value={data.rows?.[idx]?.desc_embalaje ?? ''}
+                            onChange={(e) => {
+                              updateRow(idx, rowKey, { desc_embalaje: e.target.value })
+                            }}
+                            rows={2}
+                            placeholder="Descripción..."
+                          />
+                        </td>
+                        <td style={{ minWidth: 160 }}>
+                          <Input
+                            value={data.rows?.[idx]?.etiqueta ?? ''}
+                            onChange={(e) => {
+                              updateRow(idx, rowKey, { etiqueta: e.target.value })
+                            }}
+                            placeholder="Etiqueta"
+                          />
+                        </td>
+                        <td style={{ minWidth: 120 }}>
+                          <Input
+                            type="number"
+                            step="0.1"
+                            value={data.rows?.[idx]?.peso_caja ?? ''}
+                            onChange={(e) => {
+                              updateRow(idx, rowKey, { peso_caja: e.target.value })
+                            }}
+                            placeholder="Kg"
+                          />
+                        </td>
+                        <td style={{ minWidth: 130 }}>
+                          <Input
+                            type="number"
+                            value={data.rows?.[idx]?.cp2 ?? ''}
+                            onChange={(e) => {
+                              updateRow(idx, rowKey, { cp2: e.target.value })
+                            }}
+                            placeholder="Env/Pallet"
+                          />
+                        </td>
+                        <td style={{ minWidth: 120 }}>
+                          <Input
+                            value={data.rows?.[idx]?.altura ?? ''}
+                            onChange={(e) => {
+                              updateRow(idx, rowKey, { altura: e.target.value })
+                            }}
+                            placeholder="Altura"
+                          />
+                        </td>
                         <td style={{ minWidth: 220 }}>
                           <Input
                             value={data.rows?.[idx]?.calibres ?? ''}
                             onChange={(e) => {
-                              setData('rows', (prev) => {
-                                const next = Array.isArray(prev) ? [...prev] : []
-                                next[idx] = { ...next[idx], key: String(r?.key || ''), calibres: e.target.value }
-                                return next
-                              })
+                              updateRow(idx, rowKey, { calibres: e.target.value })
                             }}
                             placeholder="Ej: 36 AL 56 o L, XL, 2J"
                           />
                         </td>
                         <td style={{ minWidth: 220 }}>
-                          <div className="text-xs text-slate-700 whitespace-pre-wrap">
-                            {String(r?.indications || '')}
-                          </div>
+                          <Textarea
+                            value={data.rows?.[idx]?.indications ?? ''}
+                            onChange={(e) => {
+                              updateRow(idx, rowKey, { indications: e.target.value })
+                            }}
+                            rows={2}
+                            placeholder="Indicaciones (pallets, etc)..."
+                          />
                         </td>
                         <td style={{ minWidth: 320 }}>
                           <Textarea
                             value={data.rows?.[idx]?.observaciones ?? ''}
                             onChange={(e) => {
-                              setData('rows', (prev) => {
-                                const next = Array.isArray(prev) ? [...prev] : []
-                                next[idx] = { ...next[idx], key: String(r?.key || ''), observaciones: e.target.value }
-                                return next
-                              })
+                              updateRow(idx, rowKey, { observaciones: e.target.value })
                             }}
                             rows={2}
                             placeholder="Observaciones..."
                           />
                         </td>
-                        <td>{r?.count || ''}</td>
+                        <td style={{ minWidth: 140 }}>
+                          <Input
+                            value={data.rows?.[idx]?.count ?? ''}
+                            onChange={(e) => {
+                              updateRow(idx, rowKey, { count: e.target.value })
+                            }}
+                            placeholder="Bins/Kg"
+                          />
+                        </td>
                         <td style={{ minWidth: 220 }}>
                           <Input
                             value={data.rows?.[idx]?.pedido ?? ''}
                             onChange={(e) => {
-                              setData('rows', (prev) => {
-                                const next = Array.isArray(prev) ? [...prev] : []
-                                next[idx] = { ...next[idx], key: String(r?.key || ''), pedido: e.target.value }
-                                return next
-                              })
+                              updateRow(idx, rowKey, { pedido: e.target.value })
                             }}
                             placeholder="Ej: Pedido 123 / Cliente X"
                           />
                         </td>
+                            </>
+                          )
+                        })()}
                       </tr>
                     )) : (
                       <tr>

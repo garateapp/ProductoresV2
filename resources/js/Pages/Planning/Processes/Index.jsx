@@ -198,6 +198,15 @@ function LineGroupGantt({ group }) {
                         <span className="text-[11px] font-semibold whitespace-nowrap">
                             {label}
                         </span>
+                        <span className="text-[11px] font-semibold whitespace-nowrap">
+                          #{p?.id || ''}
+                        </span>
+                        <span className="text-[11px] text-gray-700 whitespace-nowrap">
+                          Lote {p?.first_lot?.n_g_recepcion || '-'}
+                        </span>
+                        <span className="text-[11px] text-gray-600 truncate">
+                          {p?.first_lot?.producer || '-'}
+                        </span>
                         <span className="text-[11px] text-gray-600 whitespace-nowrap">
                           {Number(lt?.bins || 0) ? `${Number(lt.bins).toLocaleString('es-CL')} bins` : ''}
                           {Number(lt?.kilos || 0) ? ` · ${Math.round(Number(lt.kilos)).toLocaleString('es-CL')} kg` : ''}

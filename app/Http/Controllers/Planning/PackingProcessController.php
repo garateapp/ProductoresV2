@@ -1591,8 +1591,18 @@ class PackingProcessController extends Controller
             'change_reason' => ['required', 'string', 'min:3', 'max:500'],
             'rows' => ['nullable', 'array'],
             'rows.*.key' => ['required_with:rows', 'string'],
+            // Campos editables del bloque "Destino + Embalajes"
+            'rows.*.destino' => ['nullable', 'string', 'max:30'],
+            'rows.*.c_item' => ['nullable', 'string', 'max:60'],
+            'rows.*.desc_embalaje' => ['nullable', 'string', 'max:200'],
+            'rows.*.etiqueta' => ['nullable', 'string', 'max:80'],
+            'rows.*.peso_caja' => ['nullable', 'numeric', 'min:0', 'max:100'],
+            'rows.*.cp2' => ['nullable', 'integer', 'min:0', 'max:2000'],
+            'rows.*.altura' => ['nullable', 'string', 'max:80'],
             'rows.*.calibres' => ['nullable', 'string', 'max:500'],
+            'rows.*.indications' => ['nullable', 'string', 'max:2000'],
             'rows.*.observaciones' => ['nullable', 'string', 'max:2000'],
+            'rows.*.count' => ['nullable', 'string', 'max:120'],
             'rows.*.pedido' => ['nullable', 'string', 'max:500'],
         ]);
 
@@ -1615,9 +1625,33 @@ class PackingProcessController extends Controller
             if ($key === '') {
                 continue;
             }
+
+            $destino = trim((string) ($row['destino'] ?? ''));
+            $cItem = trim((string) ($row['c_item'] ?? ''));
+            $descEmb = trim((string) ($row['desc_embalaje'] ?? ''));
+            $etiq = trim((string) ($row['etiqueta'] ?? ''));
+            $altura = trim((string) ($row['altura'] ?? ''));
+            $indications = trim((string) ($row['indications'] ?? ''));
+            $count = trim((string) ($row['count'] ?? ''));
+
+            $pesoCaja = $row['peso_caja'] ?? null;
+            $pesoCaja = is_numeric($pesoCaja) ? (float) $pesoCaja : null;
+
+            $cp2 = $row['cp2'] ?? null;
+            $cp2 = is_numeric($cp2) ? (int) $cp2 : null;
+
             $ov = [
+                'destino' => $destino !== '' ? $destino : null,
+                'c_item' => $cItem !== '' ? $cItem : null,
+                'desc_embalaje' => $descEmb !== '' ? $descEmb : null,
+                'etiqueta' => $etiq !== '' ? $etiq : null,
+                'peso_caja' => $pesoCaja,
+                'cp2' => $cp2,
+                'altura' => $altura !== '' ? $altura : null,
                 'calibres' => ($v = trim((string) ($row['calibres'] ?? ''))) !== '' ? $v : null,
+                'indications' => $indications !== '' ? $indications : null,
                 'observaciones' => ($v = trim((string) ($row['observaciones'] ?? ''))) !== '' ? $v : null,
+                'count' => $count !== '' ? $count : null,
                 'pedido' => ($v = trim((string) ($row['pedido'] ?? ''))) !== '' ? $v : null,
             ];
             $overrides[$key] = $ov;
@@ -2525,12 +2559,43 @@ class PackingProcessController extends Controller
                 $rule = $row['rule'] ?? null;
                 $override = is_array($row['override'] ?? null) ? $row['override'] : [];
 
+                $destinoFinal = (string) ($row['destino'] ?? '');
+                if (! empty($override['destino'])) {
+                    $destinoFinal = (string) $override['destino'];
+                }
+
+                $codeFinal = (string) ($row['c_item'] ?? '');
+                if (! empty($override['c_item'])) {
+                    $codeFinal = (string) $override['c_item'];
+                }
+
                 $desc = (string) ($row['n_item'] ?? '');
                 if (trim($desc) === '' && $rule?->desc_embalaje) {
                     $desc = (string) $rule->desc_embalaje;
                 }
+                if (! empty($override['desc_embalaje'])) {
+                    $desc = (string) $override['desc_embalaje'];
+                }
+
+                $etiquetaFinal = (string) ($row['etiqueta'] ?? '');
+                if (! empty($override['etiqueta'])) {
+                    $etiquetaFinal = (string) $override['etiqueta'];
+                }
+
+                $cp2Final = $row['cp2'] ?? null;
+                if (array_key_exists('cp2', $override) && $override['cp2'] !== null && $override['cp2'] !== '') {
+                    $cp2Final = is_numeric($override['cp2']) ? (int) $override['cp2'] : $override['cp2'];
+                }
+
+                $alturaFinal = (string) ($row['altura'] ?? '');
+                if (! empty($override['altura'])) {
+                    $alturaFinal = (string) $override['altura'];
+                }
 
                 $peso = $rule?->peso_caja ?? null;
+                if (array_key_exists('peso_caja', $override) && $override['peso_caja'] !== null && $override['peso_caja'] !== '') {
+                    $peso = is_numeric($override['peso_caja']) ? (float) $override['peso_caja'] : $peso;
+                }
                 $allowed = is_array($rule?->allowed_calibres) ? $rule->allowed_calibres : [];
                 $numeric = [];
                 foreach ($allowed as $a) {
@@ -2559,22 +2624,30 @@ class PackingProcessController extends Controller
                 $bins = (int) ($row['cantidad_bins'] ?? 0);
                 $kgs = (float) ($row['kilos'] ?? 0);
                 $countTxt = ($bins > 0 || $kgs > 0) ? ('Bins: '.$bins.' · Kg: '.((int) round($kgs))) : '';
+                if (! empty($override['count'])) {
+                    $countTxt = (string) $override['count'];
+                }
+
+                $indicationsFinal = (string) (is_string($row['indications'] ?? null) ? trim((string) $row['indications']) : '');
+                if (! empty($override['indications'])) {
+                    $indicationsFinal = (string) $override['indications'];
+                }
 
                 $packRows[] = [
                     'key' => (string) ($row['key'] ?? ''),
-                    'destino' => (string) ($row['destino'] ?? ''),
-                    'c_item' => (string) ($row['c_item'] ?? ''),
+                    'destino' => (string) ($destinoFinal ?? ''),
+                    'c_item' => (string) ($codeFinal ?? ''),
                     'desc_embalaje' => (string) ($desc ?: '-'),
-                    'etiqueta' => (string) ($row['etiqueta'] ?? ''),
+                    'etiqueta' => (string) ($etiquetaFinal ?? ''),
                     'peso_caja' => $peso !== null ? (float) $peso : null,
-                    'cp2' => $row['cp2'] ?? null,
-                    'altura' => (string) ($row['altura'] ?? ''),
+                    'cp2' => $cp2Final ?? null,
+                    'altura' => (string) ($alturaFinal ?? ''),
                     'calibres' => (string) ($calibresResumen ?: '-'),
                     'nota' => (string) ($rule?->nota ?? ''),
                     // Observaciones editables (override). Las indicaciones operativas del embalaje van aparte,
                     // para que no se "dupliquen" al guardar una versión del instructivo.
                     'observaciones' => (string) ($obsFinal ?: '-'),
-                    'indications' => (string) (is_string($row['indications'] ?? null) ? trim((string) $row['indications']) : ''),
+                    'indications' => (string) ($indicationsFinal ?? ''),
                     'count' => $countTxt,
                     'pedido' => (string) ($pedidoFinal ?: '-'),
                 ];
@@ -2887,6 +2960,7 @@ class PackingProcessController extends Controller
             'Envases/Pallet',
             'Altura',
             'Calibres',
+            'Indicaciones',
             'Observaciones',
             'count',
             'Pedido',
@@ -2896,12 +2970,47 @@ class PackingProcessController extends Controller
         foreach ($packagingSummary as $row) {
             $rule = $row['rule'] ?? null;
             $override = is_array($row['override'] ?? null) ? $row['override'] : null;
+
+            $destinoFinal = (string) ($row['destino'] ?? '');
+            if ($override && ! empty($override['destino'])) {
+                $destinoFinal = (string) $override['destino'];
+            }
+
+            $codeFinal = (string) ($row['c_item'] ?? '');
+            if ($override && ! empty($override['c_item'])) {
+                $codeFinal = (string) $override['c_item'];
+            }
+
             // Descripción: se toma del catálogo SQLSRV (n_item). Fallback a la regla DB (desc_embalaje).
             $desc = (string) ($row['n_item'] ?? '');
             if (trim($desc) === '' && $rule?->desc_embalaje) {
                 $desc = (string) $rule->desc_embalaje;
             }
+            if ($override && ! empty($override['desc_embalaje'])) {
+                $desc = (string) $override['desc_embalaje'];
+            }
+
+            $etiquetaFinal = (string) ($row['etiqueta'] ?? '');
+            if ($override && ! empty($override['etiqueta'])) {
+                $etiquetaFinal = (string) $override['etiqueta'];
+            }
+
+            $cp2Final = (string) ($row['cp2'] ?? '');
+            if ($override && array_key_exists('cp2', $override) && $override['cp2'] !== null && $override['cp2'] !== '') {
+                $cp2Final = (string) $override['cp2'];
+            }
+
+            $alturaFinal = (string) ($row['altura'] ?? '');
+            if ($override && ! empty($override['altura'])) {
+                $alturaFinal = (string) $override['altura'];
+            }
+
             $pesoCaja = $rule?->peso_caja ?? null;
+            if ($override && array_key_exists('peso_caja', $override) && $override['peso_caja'] !== null && $override['peso_caja'] !== '') {
+                if (is_numeric($override['peso_caja'])) {
+                    $pesoCaja = (float) $override['peso_caja'];
+                }
+            }
             $allowed = is_array($rule?->allowed_calibres) ? $rule->allowed_calibres : [];
 
             $calibresResumen = '';
@@ -2930,12 +3039,12 @@ class PackingProcessController extends Controller
                 $obsFinal = (string) $override['observaciones'];
             }
 
-            $ind = null;
+            $indFinal = '';
             if (isset($row['indications']) && is_string($row['indications']) && trim((string) $row['indications']) !== '') {
-                $ind = trim((string) $row['indications']);
+                $indFinal = trim((string) $row['indications']);
             }
-            if ($ind) {
-                $obsFinal = trim(($obsFinal !== '' ? $obsFinal : '-').' · '.$ind);
+            if ($override && ! empty($override['indications'])) {
+                $indFinal = (string) $override['indications'];
             }
 
             $pedidoFinal = '';
@@ -2946,16 +3055,20 @@ class PackingProcessController extends Controller
             $bins = (int) ($row['cantidad_bins'] ?? 0);
             $kgs = (float) ($row['kilos'] ?? 0);
             $countTxt = ($bins > 0 || $kgs > 0) ? ('Bins: '.$bins.' · Kg: '.((int) round($kgs))) : '';
+            if ($override && ! empty($override['count'])) {
+                $countTxt = (string) $override['count'];
+            }
 
             $cells = [
-                (string) ($row['destino'] ?? ''),
-                (string) ($row['c_item'] ?? ''),
+                (string) ($destinoFinal ?? ''),
+                (string) ($codeFinal ?? ''),
                 (string) ($desc ?: ''),
-                (string) ($row['etiqueta'] ?? ''),
+                (string) ($etiquetaFinal ?? ''),
                 $pesoCaja !== null ? (string) $pesoCaja : '',
-                (string) ($row['cp2'] ?? ''),
-                (string) ($row['altura'] ?? ''),
+                (string) ($cp2Final ?? ''),
+                (string) ($alturaFinal ?? ''),
                 (string) ($calibresResumen ?: ''),
+                (string) ($indFinal ?: ''),
                 (string) ($obsFinal ?: ''),
                 $countTxt,
                 (string) ($pedidoFinal ?: ''),

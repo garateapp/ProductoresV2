@@ -4,6 +4,7 @@ namespace App\Http\Controllers\Api;
 
 use App\Http\Controllers\Controller;
 use App\Models\FolioDeduction;
+use App\Models\PackingProcessLot;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
@@ -21,6 +22,33 @@ class FolioDeductionController extends Controller
         $processId = $validated['processNumber'];
         $folio = $validated['barcode'];
 
+
+        $packingProcessLot = PackingProcessLot::where('process_id', $processId)->first();
+
+        if (! $packingProcessLot) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Proceso no encontrado',
+                'error' => [
+                    'code' => 'PROCESS_NOT_FOUND',
+                    'details' => "No existe el proceso {$processId}",
+                ],
+            ], 404);
+        }
+        $foliosLote=DB::connection('sqlsrv')
+        ->table('V_PKG_Recepcion_FG')
+        ->where('numero_g_Recepcion',$packingProcessLot->n_g_recepcion)->get();
+
+        if(! $foliosLote->contains('folio', $folio)){
+            return response()->json([
+                'success' => false,
+                'message' => 'Folio no válido para este proceso',
+                'error' => [
+                    'code' => 'INVALID_FOLIO',
+                    'details' => "El folio {$folio} no pertenece al proceso {$processId}",
+                ],
+            ], 400);
+        }
         // Validar que el proceso exista en SQL Server
         $produccion = DB::connection('sqlsrv')
             ->table('PKG_G_Produccion')
