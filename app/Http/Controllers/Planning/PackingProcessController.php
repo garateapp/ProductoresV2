@@ -1185,13 +1185,38 @@ class PackingProcessController extends Controller
 
         $grouped = $lots->groupBy(fn ($lot) => $lot->packingLine?->nombre ?? ('Línea '.$lot->packing_line_id));
 
-        $codes = $lots
-            ->pluck('c_embalaje')
-            ->filter(fn ($v) => is_string($v) && trim($v) !== '')
-            ->map(fn ($v) => trim((string) $v))
-            ->unique()
-            ->values()
-            ->all();
+        $codes = (function () use ($lots): array {
+            $base = $lots
+                ->pluck('c_embalaje')
+                ->filter(fn ($v) => is_string($v) && trim($v) !== '')
+                ->map(fn ($v) => trim((string) $v))
+                ->values()
+                ->all();
+
+            $extra = [];
+            foreach ($lots as $lot) {
+                $rows = $lot?->extra_packagings;
+                if (! is_array($rows)) {
+                    continue;
+                }
+                foreach ($rows as $r) {
+                    if (! is_array($r)) {
+                        continue;
+                    }
+                    $c = isset($r['c_embalaje']) ? trim((string) $r['c_embalaje']) : '';
+                    if ($c !== '') {
+                        $extra[] = $c;
+                    }
+                }
+            }
+
+            return collect(array_merge($base, $extra))
+                ->filter(fn ($v) => is_string($v) && trim($v) !== '')
+                ->map(fn ($v) => trim((string) $v))
+                ->unique()
+                ->values()
+                ->all();
+        })();
 
         $matrixRules = [];
         $matrixRulesByDestCode = [];
@@ -1899,13 +1924,38 @@ class PackingProcessController extends Controller
         $grouped = $lots->groupBy(fn ($lot) => $lot->packingLine?->nombre ?? ('Línea '.$lot->packing_line_id));
 
         // Reglas de matriz por embalaje (para sección Destino+Embalajes del instructivo).
-        $codes = $lots
-            ->pluck('c_embalaje')
-            ->filter(fn ($v) => is_string($v) && trim($v) !== '')
-            ->map(fn ($v) => trim((string) $v))
-            ->unique()
-            ->values()
-            ->all();
+        $codes = (function () use ($lots): array {
+            $base = $lots
+                ->pluck('c_embalaje')
+                ->filter(fn ($v) => is_string($v) && trim($v) !== '')
+                ->map(fn ($v) => trim((string) $v))
+                ->values()
+                ->all();
+
+            $extra = [];
+            foreach ($lots as $lot) {
+                $rows = $lot?->extra_packagings;
+                if (! is_array($rows)) {
+                    continue;
+                }
+                foreach ($rows as $r) {
+                    if (! is_array($r)) {
+                        continue;
+                    }
+                    $c = isset($r['c_embalaje']) ? trim((string) $r['c_embalaje']) : '';
+                    if ($c !== '') {
+                        $extra[] = $c;
+                    }
+                }
+            }
+
+            return collect(array_merge($base, $extra))
+                ->filter(fn ($v) => is_string($v) && trim($v) !== '')
+                ->map(fn ($v) => trim((string) $v))
+                ->unique()
+                ->values()
+                ->all();
+        })();
 
         $matrixRules = [];
         $matrixRulesByDestCode = [];
@@ -2521,14 +2571,10 @@ class PackingProcessController extends Controller
                     'altura' => (string) ($row['altura'] ?? ''),
                     'calibres' => (string) ($calibresResumen ?: '-'),
                     'nota' => (string) ($rule?->nota ?? ''),
-                    'observaciones' => (function () use ($obsFinal, $row) {
-                        $obsFinal = (string) ($obsFinal ?: '-');
-                        $ind = $row['indications'] ?? null;
-                        if (is_string($ind) && trim($ind) !== '') {
-                            $obsFinal = trim($obsFinal.' · '.trim($ind));
-                        }
-                        return $obsFinal;
-                    })(),
+                    // Observaciones editables (override). Las indicaciones operativas del embalaje van aparte,
+                    // para que no se "dupliquen" al guardar una versión del instructivo.
+                    'observaciones' => (string) ($obsFinal ?: '-'),
+                    'indications' => (string) (is_string($row['indications'] ?? null) ? trim((string) $row['indications']) : ''),
                     'count' => $countTxt,
                     'pedido' => (string) ($pedidoFinal ?: '-'),
                 ];

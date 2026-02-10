@@ -225,6 +225,7 @@ export default function Edit({ process, shift, lineId, latestVersion, sheet, dow
                       <th>Envases/Pallet</th>
                       <th>Altura</th>
                       <th>Calibres</th>
+                      <th>Indicaciones</th>
                       <th>Observaciones</th>
                       <th>count</th>
                       <th>Pedido</th>
@@ -252,6 +253,11 @@ export default function Edit({ process, shift, lineId, latestVersion, sheet, dow
                             }}
                             placeholder="Ej: 36 AL 56 o L, XL, 2J"
                           />
+                        </td>
+                        <td style={{ minWidth: 220 }}>
+                          <div className="text-xs text-slate-700 whitespace-pre-wrap">
+                            {String(r?.indications || '')}
+                          </div>
                         </td>
                         <td style={{ minWidth: 320 }}>
                           <Textarea
@@ -284,7 +290,7 @@ export default function Edit({ process, shift, lineId, latestVersion, sheet, dow
                       </tr>
                     )) : (
                       <tr>
-                        <td colSpan={11} className="text-gray-600">Sin embalajes asignados todavía para esta línea.</td>
+                        <td colSpan={12} className="text-gray-600">Sin embalajes asignados todavía para esta línea.</td>
                       </tr>
                     )}
                   </tbody>

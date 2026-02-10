@@ -226,14 +226,24 @@ export default function AuthenticatedLayout({ header, children }) {
                                     Procesos
                                 </ResponsiveNavLink>
                                 {hasAnyRole(['Administrador', 'Calidad', 'Gerencia']) && (
-                                    <ResponsiveNavLink
-                                        {...mobileNavLinkProps}
-                                        href={route('planning.processes.index')}
-                                        active={route().current('planning.processes.*')}
-                                        onClick={() => setShowingNavigationDropdown(false)}
-                                    >
-                                        Planificación
-                                    </ResponsiveNavLink>
+                                    <>
+                                        <ResponsiveNavLink
+                                            {...mobileNavLinkProps}
+                                            href={route('planning.processes.index')}
+                                            active={route().current('planning.processes.*')}
+                                            onClick={() => setShowingNavigationDropdown(false)}
+                                        >
+                                            Planificación · Procesos
+                                        </ResponsiveNavLink>
+                                        <ResponsiveNavLink
+                                            {...mobileNavLinkProps}
+                                            href={route('planning.cameras.index')}
+                                            active={route().current('planning.cameras.*')}
+                                            onClick={() => setShowingNavigationDropdown(false)}
+                                        >
+                                            Planificación · Cámaras
+                                        </ResponsiveNavLink>
+                                    </>
                                 )}
                                 <ResponsiveNavLink
                                     {...mobileNavLinkProps}

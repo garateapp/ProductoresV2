@@ -29,6 +29,11 @@ export default function PlanningMenu() {
           </Link>
         </DropdownMenuItem>
         <DropdownMenuItem asChild>
+          <Link href={route("planning.cameras.index")} className="w-full">
+            Cámaras (monitoreo)
+          </Link>
+        </DropdownMenuItem>
+        <DropdownMenuItem asChild>
           <Link href={route("planning.batches.index")} className="w-full">
             Plan semanal
           </Link>

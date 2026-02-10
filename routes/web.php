@@ -326,6 +326,11 @@ Route::post('producers/{producer}/welcome-email', [App\Http\Controllers\Producer
         // Vista operacional por línea (todos los procesos del día/turno en una línea).
         Route::get('lines/{packingLine}/day', [App\Http\Controllers\Planning\LineDayController::class, 'show'])->name('lines.day');
 
+        // Monitoreo operacional (cámaras/líneas): anterior · actual · siguiente + bins descontados.
+        Route::get('cameras', [App\Http\Controllers\Planning\PackingLineMonitorController::class, 'index'])->name('cameras.index');
+        Route::post('cameras/bind-sqlsrv', [App\Http\Controllers\Planning\PackingLineMonitorController::class, 'bindSqlsrvProcess'])->name('cameras.bind-sqlsrv');
+        Route::get('cameras/live', [App\Http\Controllers\Planning\PackingLineMonitorController::class, 'live'])->name('cameras.live');
+
         Route::get('packaging/search', [App\Http\Controllers\Planning\PackagingController::class, 'search'])->name('packaging.search');
         Route::get('packaging/suggestions', [App\Http\Controllers\Planning\PackagingSuggestionsController::class, 'forReception'])->name('packaging.suggestions');
 

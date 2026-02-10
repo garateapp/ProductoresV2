@@ -130,6 +130,7 @@ function PackagingTable({ rows }) {
             <th>Envases/Pallet</th>
             <th>Altura</th>
             <th>Calibres</th>
+            <th>Indicaciones</th>
             <th>Observaciones</th>
             <th>count</th>
             <th>Pedido</th>
@@ -146,13 +147,14 @@ function PackagingTable({ rows }) {
               <td>{r?.cp2 ?? ''}</td>
               <td>{r?.altura || ''}</td>
               <td>{r?.calibres || ''}</td>
+              <td>{r?.indications || ''}</td>
               <td>{r?.observaciones || ''}</td>
               <td>{r?.count || ''}</td>
               <td>{r?.pedido || ''}</td>
             </tr>
           )) : (
             <tr>
-              <td colSpan={11} className="text-gray-600">Sin embalajes sugeridos (falta destino y/o embalaje en los lotes).</td>
+              <td colSpan={12} className="text-gray-600">Sin embalajes sugeridos (falta destino y/o embalaje en los lotes).</td>
             </tr>
           )}
         </tbody>
