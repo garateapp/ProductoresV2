@@ -356,13 +356,26 @@ export default function Show({ process, lines = [], allLines = [], inventory = [
   const [packagingEdit, setPackagingEdit] = useState(null) // { lot, nextPack, reason }
   const confirmedReasonStorageKey = useMemo(() => `planning.process.confirmed_change_reason.${process?.id}`, [process?.id])
   const [changeReason, setChangeReason] = useState('')
+  const [inventoryDraftFilters, setInventoryDraftFilters] = useState(() => ({ ...(inventoryFilters || {}) }))
 
   useEffect(() => {
     setLots(process?.lots || [])
     setDirty(false)
     setRemovedIds([])
     setPedidos(String(process?.pedidos || ''))
+    setInventoryDraftFilters({ ...(inventoryFilters || {}) })
   }, [process?.id, process?.updated_at])
+
+  useEffect(() => {
+    // Mantener el borrador consistente cuando se actualiza desde backend (paginación/volver/actualización).
+    setInventoryDraftFilters({ ...(inventoryFilters || {}) })
+  }, [
+    inventoryFilters?.q,
+    inventoryFilters?.variedad,
+    inventoryFilters?.nota_calidad,
+    inventoryFilters?.brix_min,
+    inventoryFilters?.brix_max,
+  ])
 
   useEffect(() => {
     if (!isConfirmed) {
@@ -820,8 +833,23 @@ export default function Show({ process, lines = [], allLines = [], inventory = [
   }
 
   const applyInventoryFilters = (patch) => {
-    const next = { ...(inventoryFilters || {}), ...patch }
+    // Solo cambia el borrador. La búsqueda se ejecuta con el botón “Buscar”.
+    setInventoryDraftFilters((prev) => ({ ...(prev || {}), ...(patch || {}) }))
+  }
+
+  const runInventorySearch = () => {
+    const next = { ...(inventoryDraftFilters || {}) }
     router.get(route('planning.processes.show', process.id), next, {
+      preserveState: true,
+      replace: true,
+      only: ['inventory', 'inventoryFilters'],
+    })
+  }
+
+  const clearInventorySearch = () => {
+    const cleared = { q: '', variedad: '', nota_calidad: '', brix_min: '', brix_max: '' }
+    setInventoryDraftFilters(cleared)
+    router.get(route('planning.processes.show', process.id), cleared, {
       preserveState: true,
       replace: true,
       only: ['inventory', 'inventoryFilters'],
@@ -1149,8 +1177,14 @@ export default function Show({ process, lines = [], allLines = [], inventory = [
               <div>
                 <Label>Buscar (n° recepción)</Label>
                 <Input
-                  value={inventoryFilters.q || ''}
+                  value={inventoryDraftFilters.q || ''}
                   onChange={(e) => applyInventoryFilters({ q: e.target.value })}
+                  onKeyDown={(e) => {
+                    if (e.key === 'Enter') {
+                      e.preventDefault()
+                      runInventorySearch()
+                    }
+                  }}
                   placeholder="Ej: 123456"
                 />
               </div>
@@ -1158,8 +1192,14 @@ export default function Show({ process, lines = [], allLines = [], inventory = [
               <div>
                 <Label>Variedad</Label>
                 <Input
-                  value={inventoryFilters.variedad || ''}
+                  value={inventoryDraftFilters.variedad || ''}
                   onChange={(e) => applyInventoryFilters({ variedad: e.target.value })}
+                  onKeyDown={(e) => {
+                    if (e.key === 'Enter') {
+                      e.preventDefault()
+                      runInventorySearch()
+                    }
+                  }}
                   placeholder="Ej: SANTINA"
                 />
               </div>
@@ -1168,8 +1208,14 @@ export default function Show({ process, lines = [], allLines = [], inventory = [
                 <div>
                   <Label>Nota Calidad</Label>
                   <Input
-                    value={inventoryFilters.nota_calidad || ''}
+                    value={inventoryDraftFilters.nota_calidad || ''}
                     onChange={(e) => applyInventoryFilters({ nota_calidad: e.target.value })}
+                    onKeyDown={(e) => {
+                      if (e.key === 'Enter') {
+                        e.preventDefault()
+                        runInventorySearch()
+                      }
+                    }}
                     placeholder="Ej: 2 o S/N"
                   />
                 </div>
@@ -1195,21 +1241,42 @@ export default function Show({ process, lines = [], allLines = [], inventory = [
                   <div>
                     <Label>Brix min</Label>
                     <Input
-                      value={inventoryFilters.brix_min || ''}
+                      value={inventoryDraftFilters.brix_min || ''}
                       onChange={(e) => applyInventoryFilters({ brix_min: e.target.value })}
+                      onKeyDown={(e) => {
+                        if (e.key === 'Enter') {
+                          e.preventDefault()
+                          runInventorySearch()
+                        }
+                      }}
                       placeholder="Ej: 16"
                     />
                   </div>
                   <div>
                     <Label>Brix max</Label>
                     <Input
-                      value={inventoryFilters.brix_max || ''}
+                      value={inventoryDraftFilters.brix_max || ''}
                       onChange={(e) => applyInventoryFilters({ brix_max: e.target.value })}
+                      onKeyDown={(e) => {
+                        if (e.key === 'Enter') {
+                          e.preventDefault()
+                          runInventorySearch()
+                        }
+                      }}
                       placeholder="Ej: 22"
                     />
                   </div>
                 </div>
               </details>
+
+              <div className="flex items-center justify-end gap-2">
+                <Button type="button" variant="outline" onClick={clearInventorySearch}>
+                  Limpiar
+                </Button>
+                <Button type="button" onClick={runInventorySearch}>
+                  Buscar
+                </Button>
+              </div>
             </div>
 
             <Droppable droppableId="inv" isDropDisabled>
