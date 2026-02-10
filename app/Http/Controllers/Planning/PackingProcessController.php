@@ -1957,6 +1957,42 @@ class PackingProcessController extends Controller
         $startTime = $process->shift?->hora_inicio ? (string) $process->shift->hora_inicio : '08:00:00';
         $shiftStart = Carbon::parse($date.' '.$startTime, $tz);
 
+        // Overrides guardados por versión (Observaciones/Calibres/Pedido) para el instructivo.
+        // Nota: este método (instruction) construye el instructivo "operativo" (por línea/turno/día),
+        // por lo que los overrides deben aplicarse aquí también (PDF/HTML/edición previa).
+        $instructionOverridesByLineId = [];
+        try {
+            $linesForOverrides = $lineIds->isNotEmpty()
+                ? $lineIds->all()
+                : $lots->pluck('packing_line_id')->filter()->map(fn ($v) => (int) $v)->unique()->values()->all();
+
+            foreach ($linesForOverrides as $lid) {
+                $lid = (int) $lid;
+                if ($lid <= 0) {
+                    continue;
+                }
+                $q = PlanningInstructionVersion::query()
+                    ->where('fecha', $date)
+                    ->where('shift_id', $shiftId)
+                    ->where('packing_line_id', $lid);
+
+                // Si se solicita explícitamente una versión para la línea, la usamos.
+                if ($lineIdParam && (int) $lineIdParam === $lid && $versionParam && (int) $versionParam > 0) {
+                    $q->where('version', (int) $versionParam);
+                } else {
+                    $q->orderByDesc('version');
+                }
+
+                $rec = $q->first();
+                if ($rec && is_array($rec->overrides)) {
+                    $instructionOverridesByLineId[$lid] = $rec->overrides;
+                }
+            }
+        } catch (\Throwable $e) {
+            $instructionOverridesByLineId = [];
+            Log::debug('No se pudieron cargar overrides del instructivo (instruction): '.$e->getMessage());
+        }
+
         $lineSheets = [];
         foreach ($grouped as $lineName => $lineLots) {
             $cursor = $shiftStart->copy();
