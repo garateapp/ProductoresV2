@@ -299,6 +299,21 @@ class ControlCalidadController extends Controller
 
         $calidad = Calidad::with('photos.photoType')->find($recepcion->calidad->id);
 
+        // Importante (performance / estabilidad):
+        // QualityControlPhoto tiene appends (url, inline_url). inline_url base64-encodea el archivo
+        // y puede generar respuestas JSON enormes, causando fallos de red (ej: ERR_HTTP2_PING_FAILED).
+        // En la UI (ControlCalidad/Index.jsx) usamos "url", no necesitamos inline_url aquí.
+        if ($calidad && $calidad->relationLoaded('photos')) {
+            $calidad->photos->each(function ($photo) {
+                if (method_exists($photo, 'setAppends')) {
+                    $photo->setAppends(['url']);
+                }
+                if (method_exists($photo, 'makeHidden')) {
+                    $photo->makeHidden(['inline_url']);
+                }
+            });
+        }
+
         return response()->json($calidad);
     }
 
