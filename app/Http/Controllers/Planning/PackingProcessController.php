@@ -31,6 +31,7 @@ use Carbon\Carbon;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
+use Illuminate\Support\Facades\Schema;
 use Illuminate\Support\Str;
 use Inertia\Inertia;
 use PhpOffice\PhpSpreadsheet\IOFactory;
@@ -266,6 +267,37 @@ class PackingProcessController extends Controller
         $this->authorizePlanning($request);
 
         $process->load(['shift', 'lots.packingLine', 'lots.lastPackagingChange.user', 'lineOverrides']);
+
+        // Exportadora (snapshot) para mostrar en UI: si aún no está seteada, la inferimos desde Recepción.
+        // No guardamos aquí para evitar side-effects; se persiste al confirmar.
+        if (! is_string($process->exportadora) || trim((string) $process->exportadora) === '') {
+            try {
+                $ngs = $process->lots
+                    ->pluck('n_g_recepcion')
+                    ->filter()
+                    ->map(fn ($n) => trim((string) $n))
+                    ->filter(fn ($n) => $n !== '')
+                    ->unique()
+                    ->values()
+                    ->all();
+                if (! empty($ngs)) {
+                    $vals = Recepcion::query()
+                        ->whereIn('numero_g_recepcion', $ngs)
+                        ->pluck('exportadora')
+                        ->filter(fn ($v) => is_string($v) && trim($v) !== '')
+                        ->map(fn ($v) => trim((string) $v))
+                        ->unique()
+                        ->values();
+                    if ($vals->count() === 1) {
+                        $process->setAttribute('exportadora', $vals->first());
+                    } elseif ($vals->count() > 1) {
+                        $process->setAttribute('exportadora', 'VARIAS');
+                    }
+                }
+            } catch (\Throwable) {
+                // noop
+            }
+        }
 
         $extraByLine = $process->lineOverrides
             ->mapWithKeys(fn ($r) => [(int) $r->packing_line_id => (float) $r->extra_horas])
@@ -710,39 +742,49 @@ class PackingProcessController extends Controller
                     'c_embalaje' => $newC,
                     'n_embalaje' => $newN,
                     'cp2_cajas_por_pallet' => $lotData['cp2_cajas_por_pallet'] ?? null,
-                    'packaging_indications' => isset($lotData['packaging_indications']) && trim((string) $lotData['packaging_indications']) !== ''
-                        ? trim((string) $lotData['packaging_indications'])
-                        : null,
-                    'extra_packagings' => (function () use ($lotData) {
-                        $rows = $lotData['extra_packagings'] ?? null;
-                        if (! is_array($rows)) {
-                            return null;
-                        }
-                        $out = [];
-                        foreach ($rows as $r) {
-                            if (! is_array($r)) {
-                                continue;
-                            }
-                            $c = isset($r['c_embalaje']) ? trim((string) $r['c_embalaje']) : '';
-                            $n = isset($r['n_embalaje']) ? trim((string) $r['n_embalaje']) : '';
-                            $cp2 = $r['cp2_cajas_por_pallet'] ?? null;
-                            $ind = isset($r['indications']) ? trim((string) $r['indications']) : '';
-
-                            // Evitar basura: si no hay código ni texto, no guardar.
-                            if ($c === '' && $n === '' && $ind === '') {
-                                continue;
-                            }
-
-                            $out[] = [
-                                'c_embalaje' => $c !== '' ? $c : null,
-                                'n_embalaje' => $n !== '' ? $n : null,
-                                'cp2_cajas_por_pallet' => is_numeric($cp2) ? (int) $cp2 : null,
-                                'indications' => $ind !== '' ? $ind : null,
-                            ];
-                        }
-                        return empty($out) ? null : $out;
-                    })(),
                 ])->save();
+                // Compatibilidad: si la migración aún no se ha corrido, no intentar escribir columnas nuevas.
+                // (Evita: Unknown column 'packaging_indications' / 'extra_packagings')
+                if (Schema::hasColumn('process_lots', 'packaging_indications')) {
+                    $lot->forceFill([
+                        'packaging_indications' => isset($lotData['packaging_indications']) && trim((string) $lotData['packaging_indications']) !== ''
+                            ? trim((string) $lotData['packaging_indications'])
+                            : null,
+                    ])->save();
+                }
+                if (Schema::hasColumn('process_lots', 'extra_packagings')) {
+                    $lot->forceFill([
+                        'extra_packagings' => (function () use ($lotData) {
+                            $rows = $lotData['extra_packagings'] ?? null;
+                            if (! is_array($rows)) {
+                                return null;
+                            }
+                            $out = [];
+                            foreach ($rows as $r) {
+                                if (! is_array($r)) {
+                                    continue;
+                                }
+                                $c = isset($r['c_embalaje']) ? trim((string) $r['c_embalaje']) : '';
+                                $n = isset($r['n_embalaje']) ? trim((string) $r['n_embalaje']) : '';
+                                $cp2 = $r['cp2_cajas_por_pallet'] ?? null;
+                                $ind = isset($r['indications']) ? trim((string) $r['indications']) : '';
+
+                                // Evitar basura: si no hay código ni texto, no guardar.
+                                if ($c === '' && $n === '' && $ind === '') {
+                                    continue;
+                                }
+
+                                $out[] = [
+                                    'c_embalaje' => $c !== '' ? $c : null,
+                                    'n_embalaje' => $n !== '' ? $n : null,
+                                    'cp2_cajas_por_pallet' => is_numeric($cp2) ? (int) $cp2 : null,
+                                    'indications' => $ind !== '' ? $ind : null,
+                                ];
+                            }
+                            return empty($out) ? null : $out;
+                        })(),
+                    ])->save();
+                }
 
                 $after = [
                     'packing_line_id' => (int) $lot->packing_line_id,
@@ -1103,6 +1145,44 @@ class PackingProcessController extends Controller
             return [];
         }
 
+        // Exportadora por lote (desde MySQL recepcions): se muestra en la tabla del instructivo.
+        // Importante: buildInstructionLineSheets() se usa para vista/edición (Inertia), no solo para PDF.
+        $exportadoraByNg = [];
+        try {
+            $ngs = $lots
+                ->pluck('n_g_recepcion')
+                ->filter()
+                ->map(fn ($n) => trim((string) $n))
+                ->filter(fn ($n) => $n !== '')
+                ->unique()
+                ->values()
+                ->all();
+            if (! empty($ngs)) {
+                $exportadoraByNg = Recepcion::query()
+                    ->whereIn('numero_g_recepcion', $ngs)
+                    ->pluck('exportadora', 'numero_g_recepcion')
+                    ->map(fn ($v) => is_string($v) && trim($v) !== '' ? trim((string) $v) : null)
+                    ->all();
+            }
+        } catch (\Throwable $e) {
+            $exportadoraByNg = [];
+            Log::debug('No se pudo obtener exportadora desde recepcions (buildInstructionLineSheets): '.$e->getMessage());
+        }
+
+        foreach ($lots as $lot) {
+            $n = trim((string) ($lot?->n_g_recepcion ?? ''));
+            if ($n === '') {
+                continue;
+            }
+            $exp = $exportadoraByNg[$n] ?? null;
+            if (! $exp) {
+                $exp = $lot?->process?->exportadora ?? null;
+            }
+            if (is_string($exp) && trim($exp) !== '') {
+                $lot->setAttribute('exportadora', trim($exp));
+            }
+        }
+
         $grouped = $lots->groupBy(fn ($lot) => $lot->packingLine?->nombre ?? ('Línea '.$lot->packing_line_id));
 
         $codes = $lots
@@ -1369,7 +1449,7 @@ class PackingProcessController extends Controller
                 'kilos' => (float) $lineLots->sum(fn ($l) => (float) ($l->peso_neto ?? 0)),
                 'exportadoraLabel' => (function () use ($lineLots) {
                     $vals = $lineLots
-                        ->map(fn ($l) => $l->process?->exportadora)
+                        ->map(fn ($l) => $l->exportadora ?? ($l->process?->exportadora ?? null))
                         ->filter(fn ($v) => is_string($v) && trim($v) !== '')
                         ->map(fn ($v) => trim((string) $v))
                         ->unique()
