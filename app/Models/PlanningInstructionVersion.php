@@ -15,6 +15,7 @@ class PlanningInstructionVersion extends Model
         'packing_line_id',
         'version',
         'html',
+        'overrides',
         'reason',
         'changed_by',
         'changed_at',
@@ -24,6 +25,7 @@ class PlanningInstructionVersion extends Model
         'fecha' => 'date',
         'version' => 'integer',
         'changed_at' => 'datetime',
+        'overrides' => 'array',
     ];
 
     public function shift(): BelongsTo
@@ -41,4 +43,3 @@ class PlanningInstructionVersion extends Model
         return $this->belongsTo(User::class, 'changed_by');
     }
 }
-

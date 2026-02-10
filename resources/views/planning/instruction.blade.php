@@ -23,6 +23,7 @@
         .badge { display:inline-block; padding:2px 8px; border-radius:999px; font-size:12px; border:1px solid var(--border); background:#fff; }
         @media print {
             .btns { display:none; }
+            .btn { display:none; }
             .wrap { margin: 0; max-width: none; }
             .section { break-inside: avoid; }
         }
@@ -47,9 +48,46 @@
         </div>
     </div>
 
-    @foreach($groupedLots as $lineName => $lots)
+    @php
+        $sheets = [];
+        if (isset($lineSheets) && is_array($lineSheets)) {
+            $sheets = $lineSheets;
+        } elseif (isset($groupedLots) && is_iterable($groupedLots)) {
+            foreach ($groupedLots as $lineName => $lots) {
+                $sheets[] = [
+                    'lineId' => null,
+                    'lineName' => $lineName,
+                    'speciesLabel' => (string) ($process->especie ?? 'VARIAS'),
+                    'lots' => $lots,
+                ];
+            }
+        }
+    @endphp
+
+    @foreach($sheets as $sheet)
+        @php
+            $lineId = (int) ($sheet['lineId'] ?? 0);
+            $lineName = (string) ($sheet['lineName'] ?? '-');
+            $speciesLabel = (string) ($sheet['speciesLabel'] ?? ($process->especie ?? 'VARIAS'));
+            $lots = $sheet['lots'] ?? [];
+            $packagingSummary = $sheet['packagingSummary'] ?? [];
+
+            $pdfUrl = $lineId > 0
+                ? route('planning.processes.instruction', ['process' => $process->id, 'format' => 'pdf', 'download' => 1, 'line_id' => $lineId])
+                : null;
+        @endphp
         <div class="section">
-            <h2>{{ $lineName }}</h2>
+            <h2 style="display:flex; align-items:center; justify-content:space-between; gap:12px;">
+                <span>{{ $lineName }}</span>
+                <span style="display:flex; gap:8px;">
+                    @if($lineId > 0)
+                        <a class="btn" href="{{ route('planning.processes.instruction.edit', ['process' => $process->id, 'line_id' => $lineId]) }}">Editar</a>
+                    @endif
+                    @if($pdfUrl)
+                        <a class="btn" href="{{ $pdfUrl }}">Descargar PDF</a>
+                    @endif
+                </span>
+            </h2>
             <table>
                 <thead>
                 <tr>
@@ -92,6 +130,78 @@
                 @endforeach
                 </tbody>
             </table>
+
+            @if(!empty($packagingSummary))
+                <div style="padding:10px 14px; border-top:1px solid var(--border); background:#fafafa; font-size:12px; font-weight:800;">
+                    Destino + Embalajes (matriz)
+                    @if($pdfUrl)
+                        <span class="muted" style="font-weight:600;">· editable desde “Editar instructivo”</span>
+                    @endif
+                </div>
+                <table>
+                    <thead>
+                    <tr>
+                        <th style="width:80px;">Destino</th>
+                        <th style="width:105px;">Código Embalaje</th>
+                        <th>Descripcion de Embalaje</th>
+                        <th style="width:90px;">Etiqueta</th>
+                        <th class="right nowrap" style="width:85px;">Peso Estandar</th>
+                        <th class="right nowrap" style="width:95px;">Envases/Pallet</th>
+                        <th style="width:70px;">Altura</th>
+                        <th style="width:220px;">Calibres</th>
+                        <th style="width:300px;">Observaciones</th>
+                        <th style="width:170px;">Pedido</th>
+                    </tr>
+                    </thead>
+                    <tbody>
+                    @foreach($packagingSummary as $row)
+                        @php
+                            $rule = $row['rule'] ?? null;
+                            $override = is_array($row['override'] ?? null) ? $row['override'] : [];
+                            $desc = $rule?->desc_embalaje ?? ($row['n_item'] ?? '');
+                            $peso = $rule?->peso_caja ?? null;
+                            $allowed = is_array($rule?->allowed_calibres) ? $rule->allowed_calibres : [];
+
+                            $numeric = [];
+                            foreach ($allowed as $a) {
+                                $a = trim((string) $a);
+                                if ($a === '') continue;
+                                if (is_numeric($a)) $numeric[] = (float) $a;
+                            }
+                            $calibresResumen = '-';
+                            if (!empty($numeric)) {
+                                $calibresResumen = ((int) min($numeric)).' AL '.((int) max($numeric));
+                            } elseif (!empty($allowed)) {
+                                $calibresResumen = implode(', ', array_map('strval', $allowed));
+                            }
+                            if (! empty($override['calibres'])) {
+                                $calibresResumen = (string) $override['calibres'];
+                            }
+
+                            $obs = trim((string) ($rule?->calibres_note ?? ''));
+                            $sobre = trim((string) ($rule?->sobre_calibre_note ?? ''));
+                            if ($sobre !== '') {
+                                $obs = ($obs !== '' ? ($obs.' · ') : '').$sobre;
+                            }
+                            $obsFinal = ! empty($override['observaciones']) ? (string) $override['observaciones'] : ($obs !== '' ? $obs : '-');
+                            $pedidoFinal = ! empty($override['pedido']) ? (string) $override['pedido'] : '-';
+                        @endphp
+                        <tr>
+                            <td class="nowrap">{{ $row['destino'] ?? '-' }}</td>
+                            <td class="nowrap"><strong>{{ $row['c_item'] ?? '-' }}</strong></td>
+                            <td class="wrap-any">{{ $desc ?: '-' }}</td>
+                            <td class="wrap-any">{{ $row['etiqueta'] ?? '-' }}</td>
+                            <td class="right nowrap">{{ $peso !== null ? number_format((float) $peso, 1, ',', '.') : '-' }}</td>
+                            <td class="right nowrap">{{ $row['cp2'] ?? '-' }}</td>
+                            <td class="nowrap">{{ $row['altura'] ?? '-' }}</td>
+                            <td class="wrap-any">{{ $calibresResumen }}</td>
+                            <td class="wrap-any">{{ $obsFinal }}</td>
+                            <td class="wrap-any">{{ $pedidoFinal }}</td>
+                        </tr>
+                    @endforeach
+                    </tbody>
+                </table>
+            @endif
         </div>
     @endforeach
 </div>

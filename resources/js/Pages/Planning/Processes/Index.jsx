@@ -128,7 +128,7 @@ function LineGroupGantt({ group }) {
 
           {Number(lineId) > 0 && printableProcessId ? (
             <a
-              href={`${route('planning.processes.instruction', printableProcessId)}?format=pdf&line_id=${lineId}`}
+              href={`${route('planning.processes.instruction', printableProcessId)}?line_id=${lineId}`}
               target="_blank"
               rel="noopener noreferrer"
             >
@@ -210,7 +210,7 @@ function LineGroupGantt({ group }) {
                         </Link>
                         {status === 'CONFIRMADO' ? (
                           <a
-                            href={`${route('planning.processes.instruction', p.id)}?format=pdf${Number(lineId) > 0 ? `&line_id=${Number(lineId)}` : ''}`}
+                            href={`${route('planning.processes.instruction', p.id)}${Number(lineId) > 0 ? `?line_id=${Number(lineId)}` : ''}`}
                             target="_blank"
                             rel="noopener noreferrer"
                           >
@@ -461,7 +461,7 @@ export default function Index({ processes, filters }) {
 
                             {g.lineId > 0 && g.printableProcessId ? (
                               <a
-                                href={`${route('planning.processes.instruction', g.printableProcessId)}?format=pdf&line_id=${g.lineId}`}
+                                href={`${route('planning.processes.instruction', g.printableProcessId)}?line_id=${g.lineId}`}
                                 target="_blank"
                                 rel="noopener noreferrer"
                               >
@@ -533,7 +533,7 @@ export default function Index({ processes, filters }) {
                                     </Link>
                                     {(p.estado?.value ?? p.estado) === 'CONFIRMADO' ? (
                                       <a
-                                        href={`${route('planning.processes.instruction', p.id)}?format=pdf${g.lineId > 0 ? `&line_id=${g.lineId}` : ''}`}
+                                        href={`${route('planning.processes.instruction', p.id)}${g.lineId > 0 ? `?line_id=${g.lineId}` : ''}`}
                                         target="_blank"
                                         rel="noopener noreferrer"
                                       >

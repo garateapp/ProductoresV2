@@ -39,6 +39,12 @@ class UpdatePackingProcessLotsRequest extends FormRequest
             'lots.*.n_embalaje' => ['nullable', 'string', 'max:160'],
             'lots.*.cp2_cajas_por_pallet' => ['nullable', 'integer', 'min:1'],
             'lots.*.packaging_change_reason' => ['nullable', 'string', 'max:500'],
+            'lots.*.packaging_indications' => ['nullable', 'string', 'max:1000'],
+            'lots.*.extra_packagings' => ['nullable', 'array'],
+            'lots.*.extra_packagings.*.c_embalaje' => ['nullable', 'string', 'max:60'],
+            'lots.*.extra_packagings.*.n_embalaje' => ['nullable', 'string', 'max:160'],
+            'lots.*.extra_packagings.*.cp2_cajas_por_pallet' => ['nullable', 'integer', 'min:1'],
+            'lots.*.extra_packagings.*.indications' => ['nullable', 'string', 'max:1000'],
 
             // Eliminar lotes
             'remove_ids' => ['nullable', 'array'],

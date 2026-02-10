@@ -46,7 +46,7 @@
     <div class="top">
         <div>
             <img class="logo" src="{{ asset('img/logogreenex.png') }}" alt="Greenex" />
-            <h1 class="title">INSTRUCTIVO DE EMBALAJE HAND PACK</h1>
+            <h1 class="title">INSTRUCTIVO DE EMBALAJE</h1>
         </div>
         <div class="btns">
             <button class="btn" onclick="window.print()">Imprimir</button>
@@ -60,16 +60,27 @@
     @foreach($lineSheets as $sheet)
         @php
             $kilos = (float) ($sheet['kilos'] ?? 0);
+            $lineId = (int) ($sheet['lineId'] ?? 0);
             $lineName = (string) ($sheet['lineName'] ?? '-');
             $speciesLabel = (string) ($sheet['speciesLabel'] ?? '-');
             $exportadoraLabel = (string) ($sheet['exportadoraLabel'] ?? '-');
             $pedidosLabel = (string) ($sheet['pedidosLabel'] ?? '-');
             $lots = $sheet['lots'] ?? [];
             $packagingSummary = $sheet['packagingSummary'] ?? [];
+
+            $pdfUrl = $lineId > 0
+                ? route('planning.processes.instruction', ['process' => $process->id, 'format' => 'pdf', 'download' => 1, 'line_id' => $lineId])
+                : route('planning.processes.instruction', ['process' => $process->id, 'format' => 'pdf', 'download' => 1]);
         @endphp
 
         <div class="sheet">
             <div class="sheet-header">
+                <div class="btns" style="justify-content:flex-end; margin-bottom:8px;">
+                    @if($lineId > 0)
+                        <a class="btn" href="{{ route('planning.processes.instruction.edit', ['process' => $process->id, 'line_id' => $lineId]) }}">Editar</a>
+                    @endif
+                    <a class="btn" href="{{ $pdfUrl }}">Descargar PDF</a>
+                </div>
                 <div class="sheet-grid">
                     <div class="cell"><strong>Especie</strong> {{ $speciesLabel }}</div>
                     <div class="cell"><strong>Exportadora</strong> {{ $exportadoraLabel }}</div>
@@ -183,6 +194,7 @@
                             $desc = $rule?->desc_embalaje ?? ($row['n_item'] ?? '');
                             $peso = $rule?->peso_caja ?? null;
                             $allowed = is_array($rule?->allowed_calibres) ? $rule->allowed_calibres : [];
+                            $override = is_array($row['override'] ?? null) ? $row['override'] : [];
 
                             // Resumen tipo "36 AL 56" cuando hay calibres numéricos.
                             $calibresResumen = '-';
@@ -197,6 +209,9 @@
                             } elseif (!empty($allowed)) {
                                 $calibresResumen = implode(', ', array_map('strval', $allowed));
                             }
+                            if (! empty($override['calibres'])) {
+                                $calibresResumen = (string) $override['calibres'];
+                            }
 
                             $nota = $rule?->nota ?? null;
                             $obs = trim((string) ($rule?->calibres_note ?? ''));
@@ -204,6 +219,8 @@
                             if ($sobre !== '') {
                                 $obs = ($obs !== '' ? ($obs.' · ') : '').$sobre;
                             }
+                            $obsFinal = ! empty($override['observaciones']) ? (string) $override['observaciones'] : ($obs !== '' ? $obs : '-');
+                            $pedidoFinal = ! empty($override['pedido']) ? (string) $override['pedido'] : '-';
                         @endphp
                         <tr>
                             <td class="nowrap">{{ $row['destino'] ?? '-' }}</td>
@@ -215,9 +232,9 @@
                             <td class="nowrap">{{ $row['altura'] ?? '-' }}</td>
                             <td class="wrap-any">{{ $calibresResumen }}</td>
                             <td class="nowrap">{{ $nota ?: '-' }}</td>
-                            <td class="wrap-any">{{ $obs !== '' ? $obs : '-' }}</td>
+                            <td class="wrap-any">{{ $obsFinal }}</td>
                             <td class="wrap-any">-</td>
-                            <td class="wrap-any">-</td>
+                            <td class="wrap-any">{{ $pedidoFinal }}</td>
                         </tr>
                     @endforeach
                     </tbody>

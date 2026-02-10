@@ -40,6 +40,8 @@ class PackingProcessLot extends Model
         'c_embalaje',
         'n_embalaje',
         'cp2_cajas_por_pallet',
+        'extra_packagings',
+        'packaging_indications',
         'cantidad_bins',
         'peso_neto',
         'orden',
@@ -60,6 +62,7 @@ class PackingProcessLot extends Model
         'estado' => PlanningLotStatus::class,
         'cp2_cajas_por_pallet' => 'integer',
         'id_productor' => 'integer',
+        'extra_packagings' => 'array',
     ];
 
     public function process(): BelongsTo

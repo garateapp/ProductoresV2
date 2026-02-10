@@ -305,7 +305,7 @@ export default function Show({ batch, processes, gantt }) {
                           <Button size="sm" variant="outline">Abrir</Button>
                         </Link>
                         {p.estado === 'CONFIRMADO' ? (
-                          <a href={`${route('planning.processes.instruction', p.id)}?format=pdf`} target="_blank" rel="noopener noreferrer">
+                          <a href={route('planning.processes.instruction', p.id)} target="_blank" rel="noopener noreferrer">
                             <Button size="sm" variant="secondary">Imprimir</Button>
                           </a>
                         ) : (

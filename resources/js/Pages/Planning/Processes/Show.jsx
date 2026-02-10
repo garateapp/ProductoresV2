@@ -11,7 +11,7 @@ import { Alert, AlertDescription, AlertTitle } from '@/Components/ui/alert'
 import { Popover, PopoverContent, PopoverTrigger } from '@/Components/ui/popover'
 import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem } from '@/Components/ui/command'
 import axios from 'axios'
-import { ArrowDown, ArrowUp, Bug, Check, GripVertical, Printer, RefreshCw, Trash2, Wand2 } from 'lucide-react'
+import { ArrowDown, ArrowUp, Bug, Check, GripVertical, Plus, Printer, RefreshCw, Trash2, Wand2 } from 'lucide-react'
 import { DragDropContext, Draggable, Droppable } from '@hello-pangea/dnd'
 
 function statusLabel(status) {
@@ -557,6 +557,49 @@ export default function Show({ process, lines = [], allLines = [], inventory = [
     setPackagingEdit({ lot, nextPack, reason: '' })
   }
 
+  const addExtraPackagingRow = (lotId) => {
+    if (isLocked) return
+    setLots((prev) => {
+      const next = prev.map((l) => {
+        if (Number(l.id) !== Number(lotId)) return l
+        const arr = Array.isArray(l.extra_packagings) ? [...l.extra_packagings] : []
+        arr.push({ c_embalaje: null, n_embalaje: null, cp2_cajas_por_pallet: null, indications: '' })
+        return { ...l, extra_packagings: arr }
+      })
+      setDirty(true)
+      return next
+    })
+  }
+
+  const removeExtraPackagingRow = (lotId, index) => {
+    if (isLocked) return
+    setLots((prev) => {
+      const next = prev.map((l) => {
+        if (Number(l.id) !== Number(lotId)) return l
+        const arr = Array.isArray(l.extra_packagings) ? [...l.extra_packagings] : []
+        arr.splice(Number(index), 1)
+        return { ...l, extra_packagings: arr }
+      })
+      setDirty(true)
+      return next
+    })
+  }
+
+  const setExtraPackagingRow = (lotId, index, patch) => {
+    if (isLocked) return
+    setLots((prev) => {
+      const next = prev.map((l) => {
+        if (Number(l.id) !== Number(lotId)) return l
+        const arr = Array.isArray(l.extra_packagings) ? [...l.extra_packagings] : []
+        const cur = arr[Number(index)] || { c_embalaje: null, n_embalaje: null, cp2_cajas_por_pallet: null, indications: '' }
+        arr[Number(index)] = { ...cur, ...(patch || {}) }
+        return { ...l, extra_packagings: arr }
+      })
+      setDirty(true)
+      return next
+    })
+  }
+
   const renumberLine = (lineId, nextLots) => {
     const lineLots = nextLots.filter((l) => l.packing_line_id === lineId).sort((a, b) => (a.orden ?? 0) - (b.orden ?? 0))
     const map = new Map(lineLots.map((l, idx) => [l.id, idx + 1]))
@@ -702,6 +745,8 @@ export default function Show({ process, lines = [], allLines = [], inventory = [
           n_embalaje: lot.n_embalaje ?? null,
           cp2_cajas_por_pallet: lot.cp2_cajas_por_pallet ?? null,
           packaging_change_reason: lot.packaging_change_reason ?? null,
+          packaging_indications: lot.packaging_indications ?? null,
+          extra_packagings: Array.isArray(lot.extra_packagings) ? lot.extra_packagings : [],
         })
       })
     })
@@ -1057,24 +1102,47 @@ export default function Show({ process, lines = [], allLines = [], inventory = [
               >
                 Confirmar
               </Button>
-              <a href={`${route('planning.processes.instruction', process.id)}?format=pdf`} target="_blank" rel="noopener noreferrer">
-                <Button variant="outline" className="min-w-28" disabled={status !== 'CONFIRMADO'}>
+              {(() => {
+                const lineId = lines?.[0]?.id
+                const htmlUrl = `${route('planning.processes.instruction', process.id)}${lineId ? `?line_id=${lineId}` : ''}`
+                const pdfUrl = `${route('planning.processes.instruction', process.id)}?format=pdf${lineId ? `&line_id=${lineId}` : ''}`
+                return (
+                  <>
+                    <a href={htmlUrl} target="_blank" rel="noopener noreferrer">
+                      <Button variant="outline" className="min-w-28" disabled={status !== 'CONFIRMADO'}>
+                        <Printer className="h-4 w-4 mr-2" />
+                        Imprimir
+                      </Button>
+                    </a>
+                    <a href={`${pdfUrl}&download=1`}>
+                      <Button variant="secondary" className="min-w-28" disabled={status !== 'CONFIRMADO'} title="Descargar PDF">
+                        Descargar PDF
+                      </Button>
+                    </a>
+                  </>
+                )
+              })()}
+            </>
+          ) : (
+            <>
+              <a
+                href={`${route('planning.processes.instruction', lineDay?.print_process_id || process.id)}?line_id=${lineDay?.line?.id || lines?.[0]?.id || ''}`}
+                target="_blank"
+                rel="noopener noreferrer"
+              >
+                <Button variant="secondary" className="min-w-28" disabled={!lineDay?.print_process_id}>
                   <Printer className="h-4 w-4 mr-2" />
-                  Imprimir
+                  Imprimir línea
+                </Button>
+              </a>
+              <a
+                href={`${route('planning.processes.instruction', lineDay?.print_process_id || process.id)}?format=pdf&line_id=${lineDay?.line?.id || lines?.[0]?.id || ''}&download=1`}
+              >
+                <Button variant="outline" className="min-w-28" disabled={!lineDay?.print_process_id}>
+                  Descargar PDF
                 </Button>
               </a>
             </>
-          ) : (
-            <a
-              href={`${route('planning.processes.instruction', lineDay?.print_process_id || process.id)}?format=pdf&line_id=${lineDay?.line?.id || lines?.[0]?.id || ''}`}
-              target="_blank"
-              rel="noopener noreferrer"
-            >
-              <Button variant="secondary" className="min-w-28" disabled={!lineDay?.print_process_id}>
-                <Printer className="h-4 w-4 mr-2" />
-                Imprimir línea
-              </Button>
-            </a>
           )}
         </div>
           </div>
@@ -1658,14 +1726,81 @@ export default function Show({ process, lines = [], allLines = [], inventory = [
                                           ))}
                                         </select>
 
-                                        <PackagingPicker
-                                          lot={lot}
-                                          disabled={isLocked}
-                                          destinos={String(lot?.destino || '').trim() ? [String(lot.destino)] : selectedDestinos}
-                                          onPick={(pack) => {
-                                            requestPackagingChange(lot, pack)
-                                          }}
-                                        />
+                                        <div className="flex items-start gap-2">
+                                          <Button
+                                            type="button"
+                                            size="icon"
+                                            variant="outline"
+                                            disabled={isLocked}
+                                            title="Agregar otro embalaje a este lote"
+                                            onClick={() => addExtraPackagingRow(lot.id)}
+                                          >
+                                            <Plus className="h-4 w-4" />
+                                          </Button>
+
+                                          <div className="flex flex-col gap-2">
+                                            <div className="flex items-center gap-2">
+                                              <PackagingPicker
+                                                lot={lot}
+                                                disabled={isLocked}
+                                                destinos={String(lot?.destino || '').trim() ? [String(lot.destino)] : selectedDestinos}
+                                                onPick={(pack) => {
+                                                  requestPackagingChange(lot, pack)
+                                                }}
+                                              />
+                                              <Input
+                                                className="w-64"
+                                                placeholder="Indicaciones embalaje…"
+                                                value={String(lot.packaging_indications || '')}
+                                                onChange={(e) => setLot(lot.id, { packaging_indications: e.target.value })}
+                                                disabled={isLocked}
+                                              />
+                                            </div>
+
+                                            {(Array.isArray(lot.extra_packagings) ? lot.extra_packagings : []).map((p, pIdx) => {
+                                              const rowLot = {
+                                                ...lot,
+                                                c_embalaje: p?.c_embalaje ?? null,
+                                                n_embalaje: p?.n_embalaje ?? null,
+                                                cp2_cajas_por_pallet: p?.cp2_cajas_por_pallet ?? null,
+                                              }
+                                              return (
+                                                <div key={`ex-${lot.id}-${pIdx}`} className="flex items-center gap-2">
+                                                  <Button
+                                                    type="button"
+                                                    size="icon"
+                                                    variant="outline"
+                                                    onClick={() => removeExtraPackagingRow(lot.id, pIdx)}
+                                                    disabled={isLocked}
+                                                    title="Quitar este embalaje extra"
+                                                  >
+                                                    <Trash2 className="h-4 w-4" />
+                                                  </Button>
+
+                                                  <PackagingPicker
+                                                    lot={rowLot}
+                                                    disabled={isLocked}
+                                                    destinos={String(lot?.destino || '').trim() ? [String(lot.destino)] : selectedDestinos}
+                                                    onPick={(pack) => {
+                                                      setExtraPackagingRow(lot.id, pIdx, {
+                                                        c_embalaje: pack?.c_embalaje ?? null,
+                                                        n_embalaje: pack?.n_embalaje ?? null,
+                                                        cp2_cajas_por_pallet: pack?.cp2_cajas_por_pallet ?? null,
+                                                      })
+                                                    }}
+                                                  />
+                                                  <Input
+                                                    className="w-64"
+                                                    placeholder="Indicaciones…"
+                                                    value={String(p?.indications || '')}
+                                                    onChange={(e) => setExtraPackagingRow(lot.id, pIdx, { indications: e.target.value })}
+                                                    disabled={isLocked}
+                                                  />
+                                                </div>
+                                              )
+                                            })}
+                                          </div>
+                                        </div>
                                       </div>
                                     </div>
                                   </div>

@@ -320,6 +320,8 @@ Route::post('producers/{producer}/welcome-email', [App\Http\Controllers\Producer
         Route::patch('processes/{process}/lots', [App\Http\Controllers\Planning\PackingProcessController::class, 'updateLots'])->name('processes.lots.update');
         Route::post('processes/{process}/confirm', [App\Http\Controllers\Planning\PackingProcessController::class, 'confirm'])->name('processes.confirm');
         Route::get('processes/{process}/instruction', [App\Http\Controllers\Planning\PackingProcessController::class, 'instruction'])->name('processes.instruction');
+        Route::get('processes/{process}/instruction/edit', [App\Http\Controllers\Planning\PackingProcessController::class, 'instructionEdit'])->name('processes.instruction.edit');
+        Route::post('processes/{process}/instruction/edit', [App\Http\Controllers\Planning\PackingProcessController::class, 'instructionUpdate'])->name('processes.instruction.update');
 
         // Vista operacional por línea (todos los procesos del día/turno en una línea).
         Route::get('lines/{packingLine}/day', [App\Http\Controllers\Planning\LineDayController::class, 'show'])->name('lines.day');

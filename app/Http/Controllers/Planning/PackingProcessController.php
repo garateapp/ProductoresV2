@@ -710,6 +710,38 @@ class PackingProcessController extends Controller
                     'c_embalaje' => $newC,
                     'n_embalaje' => $newN,
                     'cp2_cajas_por_pallet' => $lotData['cp2_cajas_por_pallet'] ?? null,
+                    'packaging_indications' => isset($lotData['packaging_indications']) && trim((string) $lotData['packaging_indications']) !== ''
+                        ? trim((string) $lotData['packaging_indications'])
+                        : null,
+                    'extra_packagings' => (function () use ($lotData) {
+                        $rows = $lotData['extra_packagings'] ?? null;
+                        if (! is_array($rows)) {
+                            return null;
+                        }
+                        $out = [];
+                        foreach ($rows as $r) {
+                            if (! is_array($r)) {
+                                continue;
+                            }
+                            $c = isset($r['c_embalaje']) ? trim((string) $r['c_embalaje']) : '';
+                            $n = isset($r['n_embalaje']) ? trim((string) $r['n_embalaje']) : '';
+                            $cp2 = $r['cp2_cajas_por_pallet'] ?? null;
+                            $ind = isset($r['indications']) ? trim((string) $r['indications']) : '';
+
+                            // Evitar basura: si no hay código ni texto, no guardar.
+                            if ($c === '' && $n === '' && $ind === '') {
+                                continue;
+                            }
+
+                            $out[] = [
+                                'c_embalaje' => $c !== '' ? $c : null,
+                                'n_embalaje' => $n !== '' ? $n : null,
+                                'cp2_cajas_por_pallet' => is_numeric($cp2) ? (int) $cp2 : null,
+                                'indications' => $ind !== '' ? $ind : null,
+                            ];
+                        }
+                        return empty($out) ? null : $out;
+                    })(),
                 ])->save();
 
                 $after = [
@@ -1022,9 +1054,10 @@ class PackingProcessController extends Controller
      * Arma el "lineSheets" del instructivo (por turno/línea).
      *
      * @param array<int,int>|null $lineIds
+     * @param array<int, array<string, mixed>> $overridesByLineId Mapa: lineId => [key => override]
      * @return array<int, array<string, mixed>>
      */
-    private function buildInstructionLineSheets(PackingProcess $process, string $date, int $shiftId, ?array $lineIds = null): array
+    private function buildInstructionLineSheets(PackingProcess $process, string $date, int $shiftId, ?array $lineIds = null, array $overridesByLineId = []): array
     {
         $process->loadMissing(['shift', 'lots:process_id,packing_line_id']);
 
@@ -1128,6 +1161,40 @@ class PackingProcessController extends Controller
         $startTime = $process->shift?->hora_inicio ? (string) $process->shift->hora_inicio : '08:00:00';
         $shiftStart = Carbon::parse($date.' '.$startTime, $tz);
 
+        // Overrides guardados por versión (Observaciones/Calibres/Pedido) para el instructivo.
+        $instructionOverridesByLineId = [];
+        try {
+            $linesForOverrides = $lineIds->isNotEmpty()
+                ? $lineIds->all()
+                : $lots->pluck('packing_line_id')->filter()->map(fn ($v) => (int) $v)->unique()->values()->all();
+
+            foreach ($linesForOverrides as $lid) {
+                $lid = (int) $lid;
+                if ($lid <= 0) {
+                    continue;
+                }
+                $q = PlanningInstructionVersion::query()
+                    ->where('fecha', $date)
+                    ->where('shift_id', $shiftId)
+                    ->where('packing_line_id', $lid);
+
+                // Si se solicita explícitamente una versión para la línea, la usamos.
+                if ($lineIdParam && (int) $lineIdParam === $lid && $versionParam && (int) $versionParam > 0) {
+                    $q->where('version', (int) $versionParam);
+                } else {
+                    $q->orderByDesc('version');
+                }
+
+                $rec = $q->first();
+                if ($rec && is_array($rec->overrides)) {
+                    $instructionOverridesByLineId[$lid] = $rec->overrides;
+                }
+            }
+        } catch (\Throwable $e) {
+            $instructionOverridesByLineId = [];
+            Log::debug('No se pudieron cargar overrides del instructivo: '.$e->getMessage());
+        }
+
         $lineSheets = [];
         foreach ($grouped as $lineName => $lineLots) {
             $cursor = $shiftStart->copy();
@@ -1161,15 +1228,39 @@ class PackingProcessController extends Controller
                 $lot->setAttribute('instruction_fin', $end);
                 $lot->setAttribute('instruction_bins_por_hora', $binsPorHora);
 
-                $code = trim((string) ($lot->c_embalaje ?? ''));
                 $destino = trim((string) ($lot->destino ?? ''));
-                if ($code !== '') {
-                    $destKey = $destino !== '' ? mb_strtoupper($destino) : '-';
+                $destKey = $destino !== '' ? mb_strtoupper($destino) : '-';
+
+                $appendPackaging = function (?string $code, ?string $name, ?int $cp2, ?string $indications, bool $count) use (
+                    &$packSummary,
+                    $destKey,
+                    $especieLot,
+                    $lot,
+                    $packCatalogByCode,
+                    $matrixRules,
+                    $matrixRulesByDestCode,
+                    $matrixRulesByCode,
+                    $destino,
+                    $overridesByLineId,
+                ): void {
+                    $code = trim((string) ($code ?? ''));
+                    if ($code === '') {
+                        return;
+                    }
+
                     $k = $destKey.'|'.$code.'|'.mb_strtolower(trim($especieLot));
                     $catalog = $packCatalogByCode[$code] ?? null;
 
                     if (! isset($packSummary[$k])) {
+                        $override = null;
+                        try {
+                            $override = $overridesByLineId[(int) $lot->packing_line_id][$k] ?? null;
+                        } catch (\Throwable) {
+                            $override = null;
+                        }
+
                         $packSummary[$k] = [
+                            'key' => $k,
                             'destino' => $destKey,
                             'especie' => $especieLot,
                             'c_item' => $code,
@@ -1180,21 +1271,40 @@ class PackingProcessController extends Controller
                             'cantidad_bins' => 0,
                             'kilos' => 0,
                             'rule' => null,
+                            'override' => is_array($override) ? $override : null,
+                            'indications' => null,
                         ];
 
-                        if (empty($packSummary[$k]['n_item']) && ! empty($lot->n_embalaje)) {
+                        if (empty($packSummary[$k]['n_item']) && is_string($name) && trim($name) !== '') {
+                            $packSummary[$k]['n_item'] = trim($name);
+                        } elseif (empty($packSummary[$k]['n_item']) && ! empty($lot->n_embalaje)) {
                             $packSummary[$k]['n_item'] = (string) $lot->n_embalaje;
                         }
-                        if (empty($packSummary[$k]['cp2']) && $lot->cp2_cajas_por_pallet) {
+
+                        if (empty($packSummary[$k]['cp2']) && $cp2) {
+                            $packSummary[$k]['cp2'] = (int) $cp2;
+                        } elseif (empty($packSummary[$k]['cp2']) && $lot->cp2_cajas_por_pallet) {
                             $packSummary[$k]['cp2'] = (int) $lot->cp2_cajas_por_pallet;
                         }
+
                         if (empty($packSummary[$k]['altura']) && ! empty($lot->altura_origen)) {
                             $packSummary[$k]['altura'] = (string) $lot->altura_origen;
                         }
                     }
 
-                    $packSummary[$k]['cantidad_bins'] += (int) ($lot->cantidad_bins ?? 0);
-                    $packSummary[$k]['kilos'] += (float) ($lot->peso_neto ?? 0);
+                    if ($count) {
+                        $packSummary[$k]['cantidad_bins'] += (int) ($lot->cantidad_bins ?? 0);
+                        $packSummary[$k]['kilos'] += (float) ($lot->peso_neto ?? 0);
+                    }
+
+                    if (is_string($indications) && trim($indications) !== '') {
+                        $txt = trim($indications);
+                        if (! empty($packSummary[$k]['indications'])) {
+                            $packSummary[$k]['indications'] = trim((string) $packSummary[$k]['indications']).' | '.$txt;
+                        } else {
+                            $packSummary[$k]['indications'] = $txt;
+                        }
+                    }
 
                     $rule = null;
                     if ($destino !== '') {
@@ -1213,6 +1323,32 @@ class PackingProcessController extends Controller
                     }
                     if ($rule) {
                         $packSummary[$k]['rule'] = $rule;
+                    }
+                };
+
+                // Embalaje principal (cuenta bins/kilos).
+                $appendPackaging(
+                    $lot->c_embalaje ? (string) $lot->c_embalaje : null,
+                    $lot->n_embalaje ? (string) $lot->n_embalaje : null,
+                    $lot->cp2_cajas_por_pallet ? (int) $lot->cp2_cajas_por_pallet : null,
+                    $lot->packaging_indications ? (string) $lot->packaging_indications : null,
+                    true,
+                );
+
+                // Embalajes extra (solo informativos: no suman bins/kilos).
+                $extras = $lot->extra_packagings;
+                if (is_array($extras)) {
+                    foreach ($extras as $ex) {
+                        if (! is_array($ex)) {
+                            continue;
+                        }
+                        $appendPackaging(
+                            isset($ex['c_embalaje']) ? (string) $ex['c_embalaje'] : null,
+                            isset($ex['n_embalaje']) ? (string) $ex['n_embalaje'] : null,
+                            isset($ex['cp2_cajas_por_pallet']) && is_numeric($ex['cp2_cajas_por_pallet']) ? (int) $ex['cp2_cajas_por_pallet'] : null,
+                            isset($ex['indications']) ? (string) $ex['indications'] : null,
+                            false,
+                        );
                     }
                 }
             }
@@ -1270,6 +1406,156 @@ class PackingProcessController extends Controller
         }
 
         return $lineSheets;
+    }
+
+    public function instructionEdit(Request $request, PackingProcess $process)
+    {
+        $this->authorizePlanning($request);
+
+        $process->load(['shift']);
+
+        $lineId = (int) $request->query('line_id', 0);
+        if ($lineId <= 0) {
+            abort(404);
+        }
+
+        $date = $process->fecha ? Carbon::parse($process->fecha)->toDateString() : now()->toDateString();
+        $shiftId = (int) ($process->shift_id ?? 0);
+
+        $latest = PlanningInstructionVersion::query()
+            ->where('fecha', $date)
+            ->where('shift_id', $shiftId)
+            ->where('packing_line_id', $lineId)
+            ->orderByDesc('version')
+            ->with('changer')
+            ->first();
+
+        $overridesByLineId = [];
+        if ($latest && is_array($latest->overrides)) {
+            $overridesByLineId[$lineId] = $latest->overrides;
+        }
+
+        $lineSheets = $this->buildInstructionLineSheets($process, $date, $shiftId, [$lineId], $overridesByLineId);
+        $sheet = $lineSheets[0] ?? null;
+        if (! is_array($sheet)) {
+            abort(404);
+        }
+
+        $downloadUrl = route('planning.processes.instruction', [
+            'process' => $process->id,
+            'format' => 'pdf',
+            'download' => 1,
+            'line_id' => $lineId,
+            'version' => $latest?->version,
+        ]);
+
+        return Inertia::render('Planning/Instructions/Edit', [
+            'process' => [
+                'id' => (int) $process->id,
+                'fecha' => $date,
+                'especie' => $process->especie,
+                'estado' => $process->estado?->value ?? $process->estado,
+            ],
+            'shift' => $process->shift ? [
+                'id' => (int) $process->shift->id,
+                'codigo' => $process->shift->codigo,
+                'nombre' => $process->shift->nombre,
+                'horas' => $process->shift->horas,
+                'hora_inicio' => $process->shift->hora_inicio,
+            ] : null,
+            'lineId' => $lineId,
+            'latestVersion' => $latest ? [
+                'version' => (int) $latest->version,
+                'changed_at' => $latest->changed_at?->tz('America/Santiago')->toDateTimeString(),
+                'changed_by_name' => $latest->changer?->name,
+                'reason' => $latest->reason,
+            ] : null,
+            'sheet' => $this->serializeInstructionLineSheets([$sheet])[0] ?? null,
+            'downloadUrl' => $downloadUrl,
+        ]);
+    }
+
+    public function instructionUpdate(Request $request, PackingProcess $process)
+    {
+        $this->authorizePlanning($request);
+
+        $process->load(['shift']);
+
+        $data = $request->validate([
+            'line_id' => ['required', 'integer', 'min:1'],
+            'change_reason' => ['required', 'string', 'min:3', 'max:500'],
+            'rows' => ['nullable', 'array'],
+            'rows.*.key' => ['required_with:rows', 'string'],
+            'rows.*.calibres' => ['nullable', 'string', 'max:500'],
+            'rows.*.observaciones' => ['nullable', 'string', 'max:2000'],
+            'rows.*.pedido' => ['nullable', 'string', 'max:500'],
+        ]);
+
+        $lineId = (int) $data['line_id'];
+        $reason = trim((string) $data['change_reason']);
+
+        $date = $process->fecha ? Carbon::parse($process->fecha)->toDateString() : now()->toDateString();
+        $shiftId = (int) ($process->shift_id ?? 0);
+
+        $baseVersion = (int) PlanningInstructionVersion::query()
+            ->where('fecha', $date)
+            ->where('shift_id', $shiftId)
+            ->where('packing_line_id', $lineId)
+            ->max('version');
+        $nextVersion = max(1, $baseVersion + 1);
+
+        $overrides = [];
+        foreach (($data['rows'] ?? []) as $row) {
+            $key = trim((string) ($row['key'] ?? ''));
+            if ($key === '') {
+                continue;
+            }
+            $ov = [
+                'calibres' => ($v = trim((string) ($row['calibres'] ?? ''))) !== '' ? $v : null,
+                'observaciones' => ($v = trim((string) ($row['observaciones'] ?? ''))) !== '' ? $v : null,
+                'pedido' => ($v = trim((string) ($row['pedido'] ?? ''))) !== '' ? $v : null,
+            ];
+            $overrides[$key] = $ov;
+        }
+
+        $user = $request->user();
+        $changedAt = now('America/Santiago');
+
+        $lineSheets = $this->buildInstructionLineSheets($process, $date, $shiftId, [$lineId], [$lineId => $overrides]);
+
+        $metaByLineId = [
+            $lineId => [
+                'version' => $nextVersion,
+                'changed_by_name' => $user?->name,
+                'changed_at' => $changedAt->toDateTimeString(),
+                'reason' => $reason,
+            ],
+        ];
+
+        $html = view('planning.instruction', [
+            'process' => $process,
+            'date' => $date,
+            'shift' => $process->shift,
+            'lineSheets' => $lineSheets,
+            'metaByLineId' => $metaByLineId,
+            'logoDataUri' => $this->getPlanningLogoDataUri(),
+        ])->render();
+
+        PlanningInstructionVersion::create([
+            'fecha' => $date,
+            'shift_id' => $shiftId,
+            'packing_line_id' => $lineId,
+            'version' => $nextVersion,
+            'html' => $html,
+            'overrides' => $overrides,
+            'reason' => $reason,
+            'changed_by' => $user?->id,
+            'changed_at' => $changedAt,
+        ]);
+
+        return redirect()
+            ->route('planning.processes.instruction.edit', ['process' => $process->id, 'line_id' => $lineId])
+            ->with('success', 'Instructivo guardado. Versión '.$nextVersion.'.');
     }
 
     private function addInventoryLotToProcess(PackingProcess $process, string $n, int $lineId): void
@@ -1430,31 +1716,11 @@ class PackingProcessController extends Controller
         $format = (string) $request->query('format', 'html');
         $lineIdParam = $request->filled('line_id') ? (int) $request->query('line_id') : null;
         $versionParam = $request->filled('version') ? (int) $request->query('version') : null;
+        $download = $request->boolean('download', false);
 
-        // Si se está imprimiendo por línea, intentamos servir desde el versionado.
-        if ($lineIdParam && $lineIdParam > 0) {
-            if ($versionParam && $versionParam > 0) {
-                $rec = PlanningInstructionVersion::query()
-                    ->where('fecha', $date)
-                    ->where('shift_id', $shiftId)
-                    ->where('packing_line_id', $lineIdParam)
-                    ->where('version', $versionParam)
-                    ->first();
-                if ($rec) {
-                    return $this->respondInstructionHtmlOrPdf((string) $rec->html, $format, $date, $shiftId, $lineIdParam, (int) $rec->version);
-                }
-            }
-
-            $latest = PlanningInstructionVersion::query()
-                ->where('fecha', $date)
-                ->where('shift_id', $shiftId)
-                ->where('packing_line_id', $lineIdParam)
-                ->orderByDesc('version')
-                ->first();
-            if ($latest) {
-                return $this->respondInstructionHtmlOrPdf((string) $latest->html, $format, $date, $shiftId, $lineIdParam, (int) $latest->version);
-            }
-        }
+        // Nota: no servimos el HTML "congelado" desde planning_instruction_versions.html.
+        // Siempre renderizamos el instructivo desde Blade para poder mostrar botones (Editar/Descargar)
+        // y aplicar overrides guardados (observaciones/calibres/pedido).
 
         $lineIds = collect();
         if ($request->filled('line_id')) {
@@ -1644,49 +1910,76 @@ class PackingProcessController extends Controller
                 $lot->setAttribute('instruction_fin', $end);
                 $lot->setAttribute('instruction_bins_por_hora', $binsPorHora);
 
-                $code = trim((string) ($lot->c_embalaje ?? ''));
-                // Destino puede estar vacío en BORRADOR (vista previa): aun así mostramos embalajes.
                 $destino = trim((string) ($lot->destino ?? ''));
-                if ($code !== '') {
-                    $destKey = $destino !== '' ? mb_strtoupper($destino) : '-';
+                $destKey = $destino !== '' ? mb_strtoupper($destino) : '-';
+
+                $appendPackaging = function (?string $code, ?string $name, ?int $cp2, ?string $indications, bool $count) use (
+                    &$packSummary,
+                    $destKey,
+                    $especieLot,
+                    $lot,
+                    $packCatalogByCode,
+                    $matrixRules,
+                    $matrixRulesByDestCode,
+                    $matrixRulesByCode,
+                    $destino,
+                    $instructionOverridesByLineId,
+                ): void {
+                    $code = trim((string) ($code ?? ''));
+                    if ($code === '') {
+                        return;
+                    }
+
                     $k = $destKey.'|'.$code.'|'.mb_strtolower(trim($especieLot));
                     $catalog = $packCatalogByCode[$code] ?? null;
 
                     if (! isset($packSummary[$k])) {
+                        $override = $instructionOverridesByLineId[(int) $lot->packing_line_id][$k] ?? null;
                         $packSummary[$k] = [
+                            'key' => $k,
                             'destino' => $destKey,
                             'especie' => $especieLot,
                             'c_item' => $code,
-                            // Descripción (n_item) viene del catálogo SQLSRV; fallback a snapshot del lote.
                             'n_item' => is_array($catalog) ? ($catalog['n_item'] ?? null) : null,
                             'etiqueta' => is_array($catalog) ? ($catalog['etiqueta'] ?? null) : null,
-                            // CP2 (Envases/Pallet) viene del catálogo; fallback al snapshot del lote.
                             'cp2' => is_array($catalog) ? ($catalog['cp2_cajas_por_pallet'] ?? null) : null,
-                            // Altura viene del catálogo (CP3); fallback al snapshot del lote.
                             'altura' => is_array($catalog) ? ($catalog['altura'] ?? null) : null,
                             'cantidad_bins' => 0,
                             'kilos' => 0,
                             'rule' => null,
+                            'override' => is_array($override) ? $override : null,
+                            'indications' => null,
                         ];
 
-                        // fallback n_item si no viene del catálogo
-                        if (empty($packSummary[$k]['n_item']) && ! empty($lot->n_embalaje)) {
+                        if (empty($packSummary[$k]['n_item']) && is_string($name) && trim($name) !== '') {
+                            $packSummary[$k]['n_item'] = trim($name);
+                        } elseif (empty($packSummary[$k]['n_item']) && ! empty($lot->n_embalaje)) {
                             $packSummary[$k]['n_item'] = (string) $lot->n_embalaje;
                         }
-                        // fallback cp2 si viene en el lote
-                        if (empty($packSummary[$k]['cp2']) && $lot->cp2_cajas_por_pallet) {
+                        if (empty($packSummary[$k]['cp2']) && $cp2) {
+                            $packSummary[$k]['cp2'] = (int) $cp2;
+                        } elseif (empty($packSummary[$k]['cp2']) && $lot->cp2_cajas_por_pallet) {
                             $packSummary[$k]['cp2'] = (int) $lot->cp2_cajas_por_pallet;
                         }
-                        // fallback altura si viene en el lote
                         if (empty($packSummary[$k]['altura']) && ! empty($lot->altura_origen)) {
                             $packSummary[$k]['altura'] = (string) $lot->altura_origen;
                         }
                     }
 
-                    $packSummary[$k]['cantidad_bins'] += (int) ($lot->cantidad_bins ?? 0);
-                    $packSummary[$k]['kilos'] += (float) ($lot->peso_neto ?? 0);
+                    if ($count) {
+                        $packSummary[$k]['cantidad_bins'] += (int) ($lot->cantidad_bins ?? 0);
+                        $packSummary[$k]['kilos'] += (float) ($lot->peso_neto ?? 0);
+                    }
 
-                    // Match regla: preferimos (especie+destino+code), luego (destino+code), luego (code).
+                    if (is_string($indications) && trim($indications) !== '') {
+                        $txt = trim($indications);
+                        if (! empty($packSummary[$k]['indications'])) {
+                            $packSummary[$k]['indications'] = trim((string) $packSummary[$k]['indications']).' | '.$txt;
+                        } else {
+                            $packSummary[$k]['indications'] = $txt;
+                        }
+                    }
+
                     $rule = null;
                     if ($destino !== '') {
                         $rk = mb_strtolower(trim($especieLot)).'|'.mb_strtoupper($destino).'|'.$code;
@@ -1702,9 +1995,32 @@ class PackingProcessController extends Controller
                     if (! $rule && isset($matrixRulesByCode[$code])) {
                         $rule = $matrixRulesByCode[$code];
                     }
-
                     if ($rule) {
                         $packSummary[$k]['rule'] = $rule;
+                    }
+                };
+
+                $appendPackaging(
+                    $lot->c_embalaje ? (string) $lot->c_embalaje : null,
+                    $lot->n_embalaje ? (string) $lot->n_embalaje : null,
+                    $lot->cp2_cajas_por_pallet ? (int) $lot->cp2_cajas_por_pallet : null,
+                    $lot->packaging_indications ? (string) $lot->packaging_indications : null,
+                    true,
+                );
+
+                $extras = $lot->extra_packagings;
+                if (is_array($extras)) {
+                    foreach ($extras as $ex) {
+                        if (! is_array($ex)) {
+                            continue;
+                        }
+                        $appendPackaging(
+                            isset($ex['c_embalaje']) ? (string) $ex['c_embalaje'] : null,
+                            isset($ex['n_embalaje']) ? (string) $ex['n_embalaje'] : null,
+                            isset($ex['cp2_cajas_por_pallet']) && is_numeric($ex['cp2_cajas_por_pallet']) ? (int) $ex['cp2_cajas_por_pallet'] : null,
+                            isset($ex['indications']) ? (string) $ex['indications'] : null,
+                            false,
+                        );
                     }
                 }
             }
@@ -1802,6 +2118,30 @@ class PackingProcessController extends Controller
             }
         }
 
+        // Vista en el sistema (dentro de AuthenticatedLayout): devolvemos Inertia con data estructurada.
+        // El PDF sigue saliendo por `format=pdf`.
+        if (mb_strtolower(trim($format)) === 'html' && ! $download) {
+            return Inertia::render('Planning/Instructions/Show', [
+                'process' => [
+                    'id' => (int) $process->id,
+                    'fecha' => $date,
+                    'especie' => $process->especie,
+                    'estado' => $process->estado?->value ?? $process->estado,
+                ],
+                'shift' => $process->shift ? [
+                    'id' => (int) $process->shift->id,
+                    'codigo' => $process->shift->codigo,
+                    'nombre' => $process->shift->nombre,
+                    'horas' => $process->shift->horas,
+                    'hora_inicio' => $process->shift->hora_inicio,
+                ] : null,
+                'line_id' => $lineIdParam,
+                'version' => $versionParam,
+                'lineSheets' => $this->serializeInstructionLineSheets($lineSheets),
+                'metaByLineId' => $metaByLineId,
+            ]);
+        }
+
         $templatePathHtml = base_path('instructivo-proceso.html');
         $templatePathXlsx = base_path('instructivo-proceso.xlsx');
 
@@ -1833,10 +2173,69 @@ class PackingProcessController extends Controller
             ])->render();
         }
 
-        return $this->respondInstructionHtmlOrPdf((string) $html, $format, $date, $shiftId, $lineIdParam, null);
+        // PDF: mantener el formato del instructivo histórico (template instructivo-proceso.html / xlsx).
+        // OJO: el PDF igual aplica overrides porque se inyectan en $lineSheets (packagingSummary.override).
+
+        $lineNameForDownload = null;
+        if ($lineIdParam && $lineIdParam > 0) {
+            $lineNameForDownload = PackingLine::query()->where('id', $lineIdParam)->value('nombre');
+        }
+
+        $speciesLabelForFilename = (string) ($process->especie ?? 'VARIAS');
+        if ($lineIdParam && $lineIdParam > 0) {
+            foreach ($lineSheets as $s) {
+                if (! is_array($s)) {
+                    continue;
+                }
+                if ((int) ($s['lineId'] ?? 0) === (int) $lineIdParam) {
+                    $speciesLabelForFilename = (string) ($s['speciesLabel'] ?? $speciesLabelForFilename);
+                    break;
+                }
+            }
+            $speciesLabelForFilename = trim($speciesLabelForFilename) !== '' ? trim($speciesLabelForFilename) : 'VARIAS';
+        }
+
+        $versionForFilename = null;
+        if ($lineIdParam && $lineIdParam > 0) {
+            if ($versionParam && $versionParam > 0) {
+                $versionForFilename = $versionParam;
+            } else {
+                $rec = PlanningInstructionVersion::query()
+                    ->where('fecha', $date)
+                    ->where('shift_id', $shiftId)
+                    ->where('packing_line_id', $lineIdParam)
+                    ->selectRaw('max(version) as v')
+                    ->first();
+                $v = (int) ($rec?->v ?? 0);
+                if ($v > 0) {
+                    $versionForFilename = $v;
+                }
+            }
+        }
+        return $this->respondInstructionHtmlOrPdf(
+            (string) $html,
+            $format,
+            $date,
+            $shiftId,
+            $lineIdParam,
+            $versionForFilename,
+            $lineNameForDownload ? (string) $lineNameForDownload : null,
+            $speciesLabelForFilename,
+            $download,
+        );
     }
 
-    private function respondInstructionHtmlOrPdf(string $html, string $format, string $date, int $shiftId, ?int $lineId, ?int $version)
+    private function respondInstructionHtmlOrPdf(
+        string $html,
+        string $format,
+        string $date,
+        int $shiftId,
+        ?int $lineId,
+        ?int $version,
+        ?string $lineName = null,
+        ?string $speciesLabel = null,
+        bool $download = false,
+    )
     {
         $format = mb_strtolower(trim($format ?: 'html'));
         $safeDate = preg_replace('/[^0-9\\-]/', '-', (string) $date) ?: now('America/Santiago')->toDateString();
@@ -1847,6 +2246,25 @@ class PackingProcessController extends Controller
         }
         if ($version && $version > 0) {
             $base .= "_v{$version}";
+        }
+
+        // Nombre solicitado (para descarga): Linea-especie-fecha(ddMMyyyy)_version.pdf
+        $downloadFilename = null;
+        if ($download) {
+            $dmy = Carbon::parse($safeDate, 'America/Santiago')->format('dmY');
+            $linePart = trim((string) ($lineName ?: 'Linea'));
+            $specPart = trim((string) ($speciesLabel ?: 'VARIAS'));
+            $verPart = (int) ($version ?: 1);
+
+            $slug = function (string $v): string {
+                $v = iconv('UTF-8', 'ASCII//TRANSLIT//IGNORE', $v) ?: $v;
+                $v = preg_replace('/[^A-Za-z0-9\\-\\s_\\.]/', '', $v) ?: $v;
+                $v = preg_replace('/\\s+/', '-', trim($v)) ?: $v;
+                $v = preg_replace('/\\-+/', '-', $v) ?: $v;
+                return $v !== '' ? $v : 'X';
+            };
+
+            $downloadFilename = $slug($linePart).'-'.$slug($specPart).'-'.$dmy.'_'.$verPart.'.'.$format;
         }
 
         if ($format === 'pdf') {
@@ -1860,7 +2278,7 @@ class PackingProcessController extends Controller
 
                 return response($pdf, 200, [
                     'Content-Type' => 'application/pdf',
-                    'Content-Disposition' => 'inline; filename="'.$base.'.pdf"',
+                    'Content-Disposition' => ($download ? 'attachment' : 'inline').'; filename="'.($downloadFilename ?: ($base.'.pdf')).'"',
                     'X-Planning-Instructivo-Version' => $version ? (string) $version : '',
                 ]);
             } catch (\Throwable $e) {
@@ -1871,14 +2289,164 @@ class PackingProcessController extends Controller
                     'version' => $version,
                     'error' => $e->getMessage(),
                 ]);
+
+                // Importante: no devolver HTML con nombre ".pdf" porque termina como archivo corrupto
+                // (“No se pudo cargar el documento PDF”). Si falla el PDF, entregamos HTML claro.
+                $fallbackName = $base.'.html';
+                if ($download) {
+                    $fallbackName = preg_replace('/\\.pdf$/i', '.html', (string) ($downloadFilename ?: $fallbackName)) ?: $fallbackName;
+                }
+                $banner = "<div style='padding:10px 12px;border:1px solid #fecaca;background:#fef2f2;color:#991b1b;font-family:Arial,Helvetica,sans-serif;font-size:13px;font-weight:800;margin:10px;border-radius:10px'>No se pudo generar el PDF. Mostrando versión HTML para imprimir.</div>\n";
+                return response($banner.$html, 200, [
+                    'Content-Type' => 'text/html; charset=UTF-8',
+                    'Content-Disposition' => 'inline; filename="'.$fallbackName.'"',
+                    'X-Planning-PDF-Failed' => '1',
+                ]);
             }
         }
 
         return response($html, 200, [
             'Content-Type' => 'text/html; charset=UTF-8',
-            'Content-Disposition' => 'inline; filename="'.$base.'.html"',
+            'Content-Disposition' => ($download ? 'attachment' : 'inline').'; filename="'.($downloadFilename ?: ($base.'.html')).'"',
             'X-Planning-Instructivo-Version' => $version ? (string) $version : '',
         ]);
+    }
+
+    /**
+     * @param array<int, array<string, mixed>> $lineSheets
+     * @return array<int, array<string, mixed>>
+     */
+    private function serializeInstructionLineSheets(array $lineSheets): array
+    {
+        $out = [];
+        foreach ($lineSheets as $sheet) {
+            if (! is_array($sheet)) {
+                continue;
+            }
+
+            $lots = [];
+            foreach (($sheet['lots'] ?? []) as $lot) {
+                /** @var PackingProcessLot|mixed $lot */
+                $start = $lot?->getAttribute('instruction_inicio') ?: ($lot?->inicio_estimado ?? null);
+                $end = $lot?->getAttribute('instruction_fin') ?: ($lot?->fin_estimado ?? null);
+
+                $lots[] = [
+                    'id' => (int) ($lot?->id ?? 0),
+                    'process_id' => (int) ($lot?->process_id ?? 0),
+                    'n_g_recepcion' => (string) ($lot?->n_g_recepcion ?? ''),
+                    'tipo_proceso' => (string) (($lot?->tipo_proceso ?? '') !== '' ? $lot->tipo_proceso : 'Normal'),
+                    'variedad_original' => (string) ($lot?->variedad_original ?? ''),
+                    'productor_real' => (string) (($lot?->productor_real ?? '') !== '' ? $lot->productor_real : ($lot?->n_productor ?? '')),
+                    'csg_productor' => (string) ($lot?->csg_productor ?? ''),
+                    'categoria_origen' => (string) ($lot?->categoria_origen ?? ''),
+                    'fecha_recepcion' => $lot?->fecha_recepcion ? (string) $lot->fecha_recepcion : null,
+                    'cantidad_bins' => (int) ($lot?->cantidad_bins ?? 0),
+                    'peso_neto' => $lot?->peso_neto !== null ? (float) $lot->peso_neto : null,
+                    'sdp_centrocosto' => (string) ($lot?->sdp_centrocosto ?? ''),
+                    'nota_calidad' => (string) ($lot?->setup_nota_calidad ?? ''),
+                    'exportadora' => (string) ($lot?->exportadora ?? ''),
+                    'n_variedad' => (string) ($lot?->n_variedad ?? ''),
+                    'inicio' => $start ? Carbon::parse($start)->tz('America/Santiago')->toDateTimeString() : null,
+                    'fin' => $end ? Carbon::parse($end)->tz('America/Santiago')->toDateTimeString() : null,
+                ];
+            }
+
+            $packRows = [];
+            foreach (($sheet['packagingSummary'] ?? []) as $row) {
+                if (! is_array($row)) {
+                    continue;
+                }
+                $rule = $row['rule'] ?? null;
+                $override = is_array($row['override'] ?? null) ? $row['override'] : [];
+
+                $desc = (string) ($row['n_item'] ?? '');
+                if (trim($desc) === '' && $rule?->desc_embalaje) {
+                    $desc = (string) $rule->desc_embalaje;
+                }
+
+                $peso = $rule?->peso_caja ?? null;
+                $allowed = is_array($rule?->allowed_calibres) ? $rule->allowed_calibres : [];
+                $numeric = [];
+                foreach ($allowed as $a) {
+                    $a = trim((string) $a);
+                    if ($a === '') continue;
+                    if (is_numeric($a)) $numeric[] = (float) $a;
+                }
+                $calibresResumen = '-';
+                if (! empty($numeric)) {
+                    $calibresResumen = ((int) min($numeric)).' AL '.((int) max($numeric));
+                } elseif (! empty($allowed)) {
+                    $calibresResumen = implode(', ', array_map('strval', $allowed));
+                }
+                if (! empty($override['calibres'])) {
+                    $calibresResumen = (string) $override['calibres'];
+                }
+
+                $obs = trim((string) ($rule?->calibres_note ?? ''));
+                $sobre = trim((string) ($rule?->sobre_calibre_note ?? ''));
+                if ($sobre !== '') {
+                    $obs = ($obs !== '' ? ($obs.' · ') : '').$sobre;
+                }
+                $obsFinal = ! empty($override['observaciones']) ? (string) $override['observaciones'] : ($obs !== '' ? $obs : '-');
+                $pedidoFinal = ! empty($override['pedido']) ? (string) $override['pedido'] : '-';
+
+                $bins = (int) ($row['cantidad_bins'] ?? 0);
+                $kgs = (float) ($row['kilos'] ?? 0);
+                $countTxt = ($bins > 0 || $kgs > 0) ? ('Bins: '.$bins.' · Kg: '.((int) round($kgs))) : '';
+
+                $packRows[] = [
+                    'key' => (string) ($row['key'] ?? ''),
+                    'destino' => (string) ($row['destino'] ?? ''),
+                    'c_item' => (string) ($row['c_item'] ?? ''),
+                    'desc_embalaje' => (string) ($desc ?: '-'),
+                    'etiqueta' => (string) ($row['etiqueta'] ?? ''),
+                    'peso_caja' => $peso !== null ? (float) $peso : null,
+                    'cp2' => $row['cp2'] ?? null,
+                    'altura' => (string) ($row['altura'] ?? ''),
+                    'calibres' => (string) ($calibresResumen ?: '-'),
+                    'nota' => (string) ($rule?->nota ?? ''),
+                    'observaciones' => (function () use ($obsFinal, $row) {
+                        $obsFinal = (string) ($obsFinal ?: '-');
+                        $ind = $row['indications'] ?? null;
+                        if (is_string($ind) && trim($ind) !== '') {
+                            $obsFinal = trim($obsFinal.' · '.trim($ind));
+                        }
+                        return $obsFinal;
+                    })(),
+                    'count' => $countTxt,
+                    'pedido' => (string) ($pedidoFinal ?: '-'),
+                ];
+            }
+
+            $out[] = [
+                'lineId' => (int) ($sheet['lineId'] ?? 0),
+                'lineName' => (string) ($sheet['lineName'] ?? ''),
+                'speciesLabel' => (string) ($sheet['speciesLabel'] ?? ''),
+                'kilos' => (float) ($sheet['kilos'] ?? 0),
+                'exportadoraLabel' => $sheet['exportadoraLabel'] ?? null,
+                'pedidosLabel' => $sheet['pedidosLabel'] ?? null,
+                'lots' => $lots,
+                'packagingSummary' => $packRows,
+            ];
+        }
+        return $out;
+    }
+
+    private function getPlanningLogoDataUri(): ?string
+    {
+        try {
+            $logoPath = public_path('img/logogreenex.png');
+            if (! is_file($logoPath)) {
+                return null;
+            }
+            $bin = @file_get_contents($logoPath);
+            if (! is_string($bin) || $bin === '') {
+                return null;
+            }
+            return 'data:image/png;base64,'.base64_encode($bin);
+        } catch (\Throwable) {
+            return null;
+        }
     }
 
     /**
@@ -2015,7 +2583,7 @@ class PackingProcessController extends Controller
             ."<div class='doc-header'>"
             .$logoHtml
             ."<div style='flex:1;min-width:0'>"
-            ."<div class='title'>INSTRUCTIVO DE EMBALAJE · HAND PACK</div>"
+            ."<div class='title'>INSTRUCTIVO DE EMBALAJE</div>"
             ."<div class='subtitle'>Fecha: ".$this->escapeHtml($headerDate)." · Turno: ".$this->escapeHtml($shiftLabel).$this->escapeHtml($headerExtra)."</div>"
             ."</div>"
             ."</div>\n"
@@ -2165,6 +2733,7 @@ class PackingProcessController extends Controller
         $packRows = '';
         foreach ($packagingSummary as $row) {
             $rule = $row['rule'] ?? null;
+            $override = is_array($row['override'] ?? null) ? $row['override'] : null;
             // Descripción: se toma del catálogo SQLSRV (n_item). Fallback a la regla DB (desc_embalaje).
             $desc = (string) ($row['n_item'] ?? '');
             if (trim($desc) === '' && $rule?->desc_embalaje) {
@@ -2185,11 +2754,31 @@ class PackingProcessController extends Controller
             } elseif (! empty($allowed)) {
                 $calibresResumen = implode(', ', array_map('strval', $allowed));
             }
+            if ($override && ! empty($override['calibres'])) {
+                $calibresResumen = (string) $override['calibres'];
+            }
 
             $obs = trim((string) ($rule?->calibres_note ?? ''));
             $sobre = trim((string) ($rule?->sobre_calibre_note ?? ''));
             if ($sobre !== '') {
                 $obs = ($obs !== '' ? ($obs.' · ') : '').$sobre;
+            }
+            $obsFinal = $obs !== '' ? $obs : '';
+            if ($override && ! empty($override['observaciones'])) {
+                $obsFinal = (string) $override['observaciones'];
+            }
+
+            $ind = null;
+            if (isset($row['indications']) && is_string($row['indications']) && trim((string) $row['indications']) !== '') {
+                $ind = trim((string) $row['indications']);
+            }
+            if ($ind) {
+                $obsFinal = trim(($obsFinal !== '' ? $obsFinal : '-').' · '.$ind);
+            }
+
+            $pedidoFinal = '';
+            if ($override && ! empty($override['pedido'])) {
+                $pedidoFinal = (string) $override['pedido'];
             }
 
             $bins = (int) ($row['cantidad_bins'] ?? 0);
@@ -2205,9 +2794,9 @@ class PackingProcessController extends Controller
                 (string) ($row['cp2'] ?? ''),
                 (string) ($row['altura'] ?? ''),
                 (string) ($calibresResumen ?: ''),
-                (string) ($obs ?: ''),
+                (string) ($obsFinal ?: ''),
                 $countTxt,
-                '',
+                (string) ($pedidoFinal ?: ''),
             ];
 
             $packRows .= "<tr>\n";
