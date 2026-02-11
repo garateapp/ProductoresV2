@@ -122,7 +122,7 @@ function LineGroupGantt({ group }) {
               target="_blank"
               rel="noopener noreferrer"
             >
-              <Button size="sm" variant="outline">Abrir línea</Button>
+              <Button size="sm" variant="outline">Ver línea</Button>
             </a>
           ) : null}
 
@@ -215,7 +215,7 @@ function LineGroupGantt({ group }) {
 
                       <div className="absolute inset-y-0 right-2 flex items-center gap-2">
                         <Link href={route('planning.processes.show', p.id)}>
-                          <Button variant="outline" size="sm">Abrir</Button>
+                          <Button variant="outline" size="sm">Editar</Button>
                         </Link>
                         {status === 'CONFIRMADO' ? (
                           <a
@@ -464,7 +464,7 @@ export default function Index({ processes, filters }) {
                                 target="_blank"
                                 rel="noopener noreferrer"
                               >
-                                <Button size="sm" variant="outline">Abrir línea</Button>
+                                <Button size="sm" variant="outline">Ver línea</Button>
                               </a>
                             ) : null}
 
@@ -538,7 +538,7 @@ export default function Index({ processes, filters }) {
                                 <TableCell className="text-right">
                                   <div className="flex items-center justify-end gap-2">
                                     <Link href={route('planning.processes.show', p.id)}>
-                                      <Button variant="outline" size="sm">Abrir</Button>
+                                      <Button variant="outline" size="sm">Editar</Button>
                                     </Link>
                                     {(p.estado?.value ?? p.estado) === 'CONFIRMADO' ? (
                                       <a

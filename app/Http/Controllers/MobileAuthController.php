@@ -57,4 +57,51 @@ class MobileAuthController extends Controller
             ],
         ]);
     }
+
+    /**
+     * Devuelve un token Sanctum para la app Lector de Folios.
+     */
+    public function folioLogin(Request $request): JsonResponse
+    {
+        $credentials = $request->validate([
+            'email' => ['required', 'string', 'email'],
+            'password' => ['required', 'string'],
+        ]);
+
+        $email = strtolower($credentials['email']);
+        $limiterKey = 'folio-login:'.$email.'|'.$request->ip();
+
+        if (RateLimiter::tooManyAttempts($limiterKey, 5)) {
+            throw ValidationException::withMessages([
+                'email' => 'Demasiados intentos. Intenta más tarde.',
+            ]);
+        }
+
+        $user = User::where('email', $email)->first();
+
+        if (! $user || ! Hash::check($credentials['password'], $user->password)) {
+            RateLimiter::hit($limiterKey);
+
+            throw ValidationException::withMessages([
+                'email' => 'Credenciales inválidas.',
+            ]);
+        }
+
+        RateLimiter::clear($limiterKey);
+
+        // Limpia tokens anteriores del lector de folios para este usuario.
+        $user->tokens()->where('name', 'lector-folios')->delete();
+
+        $token = $user->createToken('lector-folios', ['folio-deduct'])->plainTextToken;
+
+        return response()->json([
+            'token' => $token,
+            'token_type' => 'Bearer',
+            'user' => [
+                'id' => $user->id,
+                'name' => $user->name,
+                'email' => $user->email,
+            ],
+        ]);
+    }
 }
