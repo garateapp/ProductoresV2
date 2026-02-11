@@ -23,21 +23,23 @@ class FolioDeductionController extends Controller
         $folio = $validated['barcode'];
 
 
-        $packingProcessLot = PackingProcessLot::where('process_id', $processId)->first();
+        //$packingProcessLot = PackingProcessLot::where('process_id', $processId)->first();
 
-        if (! $packingProcessLot) {
-            return response()->json([
-                'success' => false,
-                'message' => 'Proceso no encontrado',
-                'error' => [
-                    'code' => 'PROCESS_NOT_FOUND',
-                    'details' => "No existe el proceso {$processId}",
-                ],
-            ], 404);
-        }
+        $lote_recepcion=substr($folio, 0, 4); // Asumiendo que el número de lote está en los primeros 10 caracteres del código de barras
+
+        // if (! $packingProcessLot) {
+        //     return response()->json([
+        //         'success' => false,
+        //         'message' => 'Proceso no encontrado',
+        //         'error' => [
+        //             'code' => 'PROCESS_NOT_FOUND',
+        //             'details' => "No existe el proceso {$processId}",
+        //         ],
+        //     ], 404);
+        // }
         $foliosLote=DB::connection('sqlsrv')
         ->table('V_PKG_Recepcion_FG')
-        ->where('numero_g_Recepcion',$packingProcessLot->n_g_recepcion)
+        ->where('numero_g_Recepcion',$lote_recepcion)
         ->where('id_empresa','1')
         ->get();
 
@@ -114,10 +116,10 @@ class FolioDeductionController extends Controller
 
         $totalDeductions = FolioDeduction::where('process_id', $produccion->id)->count();
         Log::debug("Updating stock det with id {$stockDet->id} to set destruccion_tipo=PRN and destruccion_id={$produccion->id}");
-             DB::connection('sqlsrv')
-             ->table('PKG_Stock_Det')
-             ->where('id', $stockDet->id)
-             ->update(['destruccion_tipo' => 'PRN', 'destruccion_id' => $produccion->id]);
+            //  DB::connection('sqlsrv')
+            //  ->table('PKG_Stock_Det')
+            //  ->where('id', $stockDet->id)
+            //  ->update(['destruccion_tipo' => 'PRN', 'destruccion_id' => $produccion->id]);
 
         return response()->json([
             'success' => true,

@@ -11,6 +11,7 @@ class Reservation extends Model
         'n_g_recepcion',
         'process_id',
         'estado',
+        'reserved_bins',
     ];
 
     public function process(): BelongsTo
@@ -18,4 +19,3 @@ class Reservation extends Model
         return $this->belongsTo(PackingProcess::class, 'process_id');
     }
 }
-

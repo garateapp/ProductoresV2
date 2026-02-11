@@ -9,6 +9,7 @@ use App\Models\PackingProcessLot;
 use App\Models\PackingProcessLineOverride;
 use App\Models\Recepcion;
 use App\Models\Reservation;
+use Illuminate\Support\Facades\Schema;
 use Illuminate\Support\Facades\DB;
 
 class ProcessConfirmationService
@@ -22,7 +23,7 @@ class ProcessConfirmationService
     /**
      * Confirma proceso:
      * - Revalida existencia en SQLSRV
-     * - Evita doble reserva con `reservations.n_g_recepcion` unique
+     * - Evita sobre-reserva por `n_g_recepcion` (permite saldo en otros turnos/días)
      * - Marca conflictos en lotes y proceso si aplica
      */
     public function confirm(PackingProcess $process): array
@@ -73,17 +74,26 @@ class ProcessConfirmationService
                 $invRow = $inventory->get($n);
                 $availableBins = $invRow ? (int) ($invRow['cantidad_bins'] ?? 0) : 0;
 
-                $alreadyReserved = Reservation::query()
-                    ->where('n_g_recepcion', $n)
-                    ->where('process_id', '!=', $process->id)
-                    ->exists();
+                // Regla nueva: si el lote tiene saldo, puede planificarse en otro turno/día.
+                // Conflicto SOLO si la planificación sobrepasa las existencias disponibles.
+                $reservedOtherBins = 0;
+                if (Schema::hasTable('reservations') && Schema::hasColumn('reservations', 'reserved_bins')) {
+                    $reservedOtherBins = (int) Reservation::query()
+                        ->where('n_g_recepcion', $n)
+                        ->where('process_id', '!=', $process->id)
+                        ->where('estado', 'ACTIVA')
+                        ->sum('reserved_bins');
+                }
 
-                if ($availableBins < $plannedBins || $alreadyReserved) {
+                $remainingBins = max(0, $availableBins - $reservedOtherBins);
+
+                if ($remainingBins < $plannedBins) {
                     $conflicts[] = [
                         'n_g_recepcion' => $n,
                         'planned_bins' => $plannedBins,
                         'available_bins' => $availableBins,
-                        'already_reserved' => $alreadyReserved,
+                        'reserved_bins_other_processes' => $reservedOtherBins,
+                        'remaining_bins' => $remainingBins,
                     ];
 
                     $process->lots
@@ -93,11 +103,20 @@ class ProcessConfirmationService
                     continue;
                 }
 
-                // Reserva (1 por n_g_recepcion aunque esté dividido en varios tramos)
-                Reservation::query()->firstOrCreate(
-                    ['n_g_recepcion' => $n],
-                    ['process_id' => $process->id, 'estado' => 'ACTIVA']
-                );
+                // Reserva por proceso (1 por n_g_recepcion, aunque esté dividido en varios tramos).
+                // Nota: si aún no existe la columna reserved_bins (migración pendiente),
+                // hacemos un "best effort" y no marcamos conflicto por reservas previas.
+                if (Schema::hasTable('reservations') && Schema::hasColumn('reservations', 'reserved_bins')) {
+                    Reservation::query()->updateOrCreate(
+                        ['n_g_recepcion' => $n, 'process_id' => $process->id],
+                        ['estado' => 'ACTIVA', 'reserved_bins' => $plannedBins]
+                    );
+                } else {
+                    Reservation::query()->firstOrCreate(
+                        ['n_g_recepcion' => $n],
+                        ['process_id' => $process->id, 'estado' => 'ACTIVA']
+                    );
+                }
 
                 $process->lots
                     ->where('n_g_recepcion', $n)

@@ -8,6 +8,8 @@ use App\Models\Especie;
 use App\Models\PackagingMatrixRule;
 use App\Services\Planning\PackagingRepositorySqlsrv;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Cache;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\File;
 use Illuminate\Support\Str;
 use Inertia\Inertia;
@@ -92,7 +94,101 @@ class PackagingMatrixController extends Controller
             ];
         })->values();
 
-        $especies = Especie::query()->orderBy('name')->pluck('name')->map(fn ($v) => (string) $v)->values()->all();
+        // Especies disponibles:
+        // - Preferimos catálogo maestro (tabla `especies`)
+        // - Pero también unimos con las especies ya usadas en reglas (por si el catálogo está incompleto
+        //   o hay diferencias de nomenclatura/caso en datos históricos).
+        $master = Especie::query()
+            ->orderBy('name')
+            ->pluck('name')
+            ->map(fn ($v) => trim((string) $v))
+            ->filter(fn ($v) => $v !== '')
+            ->values()
+            ->all();
+
+        $fromRules = PackagingMatrixRule::query()
+            ->where('matrix', $matrix)
+            ->whereNotNull('especie')
+            ->where('especie', '!=', '')
+            ->distinct()
+            ->orderBy('especie')
+            ->pluck('especie')
+            ->map(fn ($v) => trim((string) $v))
+            ->filter(fn ($v) => $v !== '')
+            ->values()
+            ->all();
+
+        // También unimos con SQLSRV (existencias) y con estimaciones, porque en la práctica
+        // el catálogo maestro puede estar incompleto/desactualizado.
+        $fromSqlsrv = [];
+        try {
+            $fromSqlsrv = Cache::remember('planning:packaging-matrix:especies:sqlsrv', now()->addHours(4), function () {
+                return DB::connection('sqlsrv')
+                    ->table('V_PKG_Stock_Inventario')
+                    ->select('n_especie')
+                    ->whereNotNull('n_especie')
+                    ->where('n_especie', '!=', '')
+                    ->distinct()
+                    ->orderBy('n_especie')
+                    ->limit(250)
+                    ->pluck('n_especie')
+                    ->map(fn ($v) => trim((string) $v))
+                    ->filter(fn ($v) => $v !== '')
+                    ->values()
+                    ->all();
+            });
+        } catch (\Throwable $e) {
+            $fromSqlsrv = [];
+        }
+
+        $fromEstimations = [];
+        try {
+            $fromEstimations = Cache::remember('planning:packaging-matrix:especies:estimations', now()->addHours(4), function () {
+                return DB::table('estimation_biweekly_rows')
+                    ->select('especie')
+                    ->whereNotNull('especie')
+                    ->where('especie', '!=', '')
+                    ->distinct()
+                    ->orderBy('especie')
+                    ->limit(250)
+                    ->pluck('especie')
+                    ->map(fn ($v) => trim((string) $v))
+                    ->filter(fn ($v) => $v !== '')
+                    ->values()
+                    ->all();
+            });
+        } catch (\Throwable $e) {
+            $fromEstimations = [];
+        }
+
+        $map = [];
+        foreach ($master as $name) {
+            $k = mb_strtolower($name);
+            if (! isset($map[$k])) {
+                $map[$k] = $name;
+            }
+        }
+        foreach ($fromRules as $name) {
+            $k = mb_strtolower($name);
+            if (! isset($map[$k])) {
+                $map[$k] = $name;
+            }
+        }
+        foreach ($fromSqlsrv as $name) {
+            $k = mb_strtolower($name);
+            if (! isset($map[$k])) {
+                $map[$k] = $name;
+            }
+        }
+        foreach ($fromEstimations as $name) {
+            $k = mb_strtolower($name);
+            if (! isset($map[$k])) {
+                $map[$k] = $name;
+            }
+        }
+
+        $especies = array_values($map);
+        usort($especies, fn ($a, $b) => strcasecmp((string) $a, (string) $b));
         $destinos = PackagingMatrixRule::query()
             ->where('matrix', $matrix)
             ->whereNotNull('destino')
