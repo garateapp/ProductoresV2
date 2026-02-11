@@ -513,6 +513,11 @@ export default function Index({ processes, filters }) {
                                     <div className="min-w-0">
                                       <div className="font-medium truncate">{p.first_lot.producer || '-'}</div>
                                       <div className="text-xs text-gray-600 flex flex-wrap items-center gap-2">
+                                        {p.first_lot.n_g_recepcion ? (
+                                          <Badge variant="outline">Lote {p.first_lot.n_g_recepcion}</Badge>
+                                        ) : (
+                                          <Badge variant="outline" className="text-gray-500">Lote -</Badge>
+                                        )}
                                         <span className="truncate">{p.first_lot.variedad || '-'}</span>
                                         {p.first_lot.csg ? (
                                           <Badge variant="outline">CSG {p.first_lot.csg}</Badge>

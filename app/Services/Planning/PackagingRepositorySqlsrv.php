@@ -24,9 +24,14 @@ class PackagingRepositorySqlsrv
         Log::debug('Searching packagings with query: '.$q);
         $rows = DB::connection('sqlsrv')
             ->table('V_ADM_P_Items')
-            ->select(['id', 'c_item', 'n_item', 'tipo_embalaje', 'tipo_item', 'CP1', 'CP2', 'CP3'])
-            ->where('tipo_item', 'like', '%IN-EM%')
-            ->where('n_item', 'like', '%'.$q.'%')
+            ->select(['id', 'c_item', 'n_item', 'tipo_embalaje', 'tipo_item', 'CP1', 'CP2', 'CP3', 'CP4', 'CP5', 'CP6'])
+            // Catálogo para planificación: IN-EM (embalajes) e IN-EN (envases/otros).
+            ->whereIn('tipo_item', ['IN-EM', 'IN-EN'])
+            ->where(function ($w) use ($q) {
+                $w->where('n_item', 'like', '%'.$q.'%')
+                    ->orWhere('c_item', 'like', '%'.$q.'%');
+            })
+            ->orderBy('n_item')
             ->limit($limit)
             ->get();
         Log::debug('Found '.count($rows).' packagings for query: '.$q);
@@ -50,6 +55,9 @@ class PackagingRepositorySqlsrv
                 'altura' => $altura !== '' ? $altura : null,
                 'cp1' => $cp1 !== '' ? $cp1 : null, // raw
                 'cp3' => $cp3 !== '' ? $cp3 : null, // raw
+                'cp4' => isset($row->CP4) ? (string) $row->CP4 : null,
+                'cp5' => isset($row->CP5) ? (string) $row->CP5 : null,
+                'cp6' => isset($row->CP6) ? (string) $row->CP6 : null,
             ];
         })->filter(fn ($row) => $row['c_item'] !== '' || $row['n_item'] !== '')->values()->all();
     }
@@ -76,8 +84,8 @@ class PackagingRepositorySqlsrv
 
         $rows = DB::connection('sqlsrv')
             ->table('V_ADM_P_Items')
-            ->select(['id', 'c_item', 'n_item', 'tipo_embalaje', 'tipo_item', 'CP1', 'CP2', 'CP3'])
-            ->where('tipo_item', 'like', '%IN-EM%')
+            ->select(['id', 'c_item', 'n_item', 'tipo_embalaje', 'tipo_item', 'CP1', 'CP2', 'CP3', 'CP4', 'CP5', 'CP6'])
+            ->whereIn('tipo_item', ['IN-EM', 'IN-EN'])
             ->whereIn('c_item', $list)
             ->get();
 
@@ -102,6 +110,9 @@ class PackagingRepositorySqlsrv
                 'altura' => $altura !== '' ? $altura : null,
                 'cp1' => $cp1 !== '' ? $cp1 : null, // raw
                 'cp3' => $cp3 !== '' ? $cp3 : null, // raw
+                'cp4' => isset($row->CP4) ? (string) $row->CP4 : null,
+                'cp5' => isset($row->CP5) ? (string) $row->CP5 : null,
+                'cp6' => isset($row->CP6) ? (string) $row->CP6 : null,
             ];
         }
         return $map;

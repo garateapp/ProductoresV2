@@ -1,4 +1,4 @@
-import React, { useMemo } from 'react'
+import React, { useEffect, useMemo, useRef, useState } from 'react'
 import { Link, useForm } from '@inertiajs/react'
 import AuthenticatedLayout from '@/Layouts/AuthenticatedLayout'
 import { Button } from '@/Components/ui/button'
@@ -7,6 +7,7 @@ import { Textarea } from '@/Components/ui/textarea'
 import { Input } from '@/Components/ui/input'
 import { Label } from '@/Components/ui/label'
 import { FileDown, Save, ArrowLeft } from 'lucide-react'
+import Combobox from '@/Components/ui/combobox'
 
 function fmtDate(dateString) {
   if (!dateString) return '-'
@@ -102,6 +103,77 @@ function LotsTable({ lots }) {
         </tbody>
       </table>
     </div>
+  )
+}
+
+function PackagingPicker({ value, disabled, onPick }) {
+  const [query, setQuery] = useState('')
+  const [loading, setLoading] = useState(false)
+  const [options, setOptions] = useState([])
+  const lastFetchRef = useRef({ term: '', ts: 0 })
+
+  useEffect(() => {
+    let ignore = false
+    const term = String(query || '').trim()
+    if (term.length < 2) {
+      setOptions([])
+      return
+    }
+    const now = Date.now()
+    if (lastFetchRef.current.term === term && (now - lastFetchRef.current.ts) < 800) {
+      return
+    }
+    lastFetchRef.current = { term, ts: now }
+
+    const t = setTimeout(async () => {
+      try {
+        setLoading(true)
+        const res = await fetch(`${route('planning.packaging.search')}?q=${encodeURIComponent(term)}`, {
+          headers: { Accept: 'application/json' },
+        })
+        const json = await res.json()
+        const data = Array.isArray(json?.data) ? json.data : []
+        const mapped = data.map((it) => {
+          const code = String(it?.c_item || '')
+          const name = String(it?.n_item || '')
+          return {
+            value: code,
+            label: code && name ? `${code} — ${name}` : (code || name || '-'),
+            searchValue: `${code} ${name}`.trim(),
+            raw: it,
+          }
+        })
+        if (!ignore) setOptions(mapped)
+      } catch {
+        if (!ignore) setOptions([])
+      } finally {
+        if (!ignore) setLoading(false)
+      }
+    }, 250)
+
+    return () => {
+      ignore = true
+      clearTimeout(t)
+    }
+  }, [query])
+
+  return (
+    <Combobox
+      value={String(value || '')}
+      onChange={(val) => {
+        const opt = options.find((o) => String(o.value) === String(val))
+        const raw = opt?.raw || null
+        if (raw) onPick(raw)
+      }}
+      options={options}
+      placeholder={loading ? 'Buscando…' : (String(value || '') ? String(value) : 'Buscar embalaje…')}
+      searchPlaceholder="Buscar por código o descripción…"
+      emptyMessage={loading ? 'Buscando…' : 'Sin resultados'}
+      className="w-full"
+      disabled={disabled}
+      searchValue={query}
+      onSearchChange={setQuery}
+    />
   )
 }
 
@@ -265,12 +337,18 @@ export default function Edit({ process, shift, lineId, latestVersion, sheet, dow
                           />
                         </td>
                         <td style={{ minWidth: 140 }}>
-                          <Input
+                          <PackagingPicker
                             value={data.rows?.[idx]?.c_item ?? ''}
-                            onChange={(e) => {
-                              updateRow(idx, rowKey, { c_item: e.target.value })
+                            disabled={processing}
+                            onPick={(it) => {
+                              updateRow(idx, rowKey, {
+                                c_item: String(it?.c_item || ''),
+                                desc_embalaje: String(it?.n_item || ''),
+                                etiqueta: String(it?.CP1 || it?.etiqueta || ''),
+                                cp2: it?.cp2_cajas_por_pallet != null ? String(it.cp2_cajas_por_pallet) : String(it?.CP2 || ''),
+                                altura: String(it?.CP3 || it?.altura || ''),
+                              })
                             }}
-                            placeholder="Código"
                           />
                         </td>
                         <td style={{ minWidth: 320 }}>
@@ -282,6 +360,21 @@ export default function Edit({ process, shift, lineId, latestVersion, sheet, dow
                             rows={2}
                             placeholder="Descripción..."
                           />
+                          <div className="mt-2">
+                            <PackagingPicker
+                              value={data.rows?.[idx]?.c_item ?? ''}
+                              disabled={processing}
+                              onPick={(it) => {
+                                updateRow(idx, rowKey, {
+                                  c_item: String(it?.c_item || ''),
+                                  desc_embalaje: String(it?.n_item || ''),
+                                  etiqueta: String(it?.CP1 || it?.etiqueta || ''),
+                                  cp2: it?.cp2_cajas_por_pallet != null ? String(it.cp2_cajas_por_pallet) : String(it?.CP2 || ''),
+                                  altura: String(it?.CP3 || it?.altura || ''),
+                                })
+                              }}
+                            />
+                          </div>
                         </td>
                         <td style={{ minWidth: 160 }}>
                           <Input

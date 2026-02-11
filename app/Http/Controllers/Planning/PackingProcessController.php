@@ -150,6 +150,7 @@ class PackingProcessController extends Controller
                 ->get([
                     'id',
                     'process_id',
+                    'n_g_recepcion',
                     'n_productor',
                     'n_variedad',
                     'csg_productor',
@@ -201,6 +202,7 @@ class PackingProcessController extends Controller
                 $key = ($csg && $variedad) ? mb_strtolower($csg.'|'.$variedad) : null;
 
                 $process->setAttribute('first_lot', $lot ? [
+                    'n_g_recepcion' => $lot->n_g_recepcion ?: null,
                     'producer' => $lot->n_productor ?: null,
                     'variedad' => $lot->n_variedad ?: null,
                     'csg' => $lot->csg_productor ?: null,

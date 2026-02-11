@@ -13,8 +13,20 @@ export default function Combobox({
   emptyMessage = 'Sin resultados',
   className = 'w-56',
   disabled = false,
+  searchValue,
+  onSearchChange,
 }) {
-  const [searchTerm, setSearchTerm] = useState('')
+  const [internalSearchTerm, setInternalSearchTerm] = useState('')
+  const searchTerm = searchValue !== undefined ? String(searchValue) : internalSearchTerm
+  const setSearchTerm = (val) => {
+    const v = String(val ?? '')
+    if (searchValue === undefined) {
+      setInternalSearchTerm(v)
+    }
+    if (typeof onSearchChange === 'function') {
+      onSearchChange(v)
+    }
+  }
   const selected = options.find(o => String(o.value) === String(value))
   const normalizedOptions = options.map(opt => ({
     ...opt,
@@ -22,7 +34,7 @@ export default function Combobox({
   }))
   const normalizedValue = String(value)
   const filteredOptions = normalizedOptions.filter(opt =>
-    opt.searchValue.toLowerCase().includes(searchTerm),
+    opt.searchValue.toLowerCase().includes(searchTerm.toLowerCase()),
   )
 
   return (
@@ -43,7 +55,8 @@ export default function Combobox({
         <Command>
           <CommandInput
             placeholder={searchPlaceholder}
-            onValueChange={(val) => setSearchTerm(val.toLowerCase())}
+            value={searchTerm}
+            onValueChange={(val) => setSearchTerm(val)}
           />
           <CommandEmpty>{emptyMessage}</CommandEmpty>
           <div className="max-h-60 overflow-y-auto">
