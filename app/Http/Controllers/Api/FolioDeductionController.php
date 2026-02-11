@@ -37,8 +37,10 @@ class FolioDeductionController extends Controller
         //         ],
         //     ], 404);
         // }
+        Log::info("lote_recepcion: ".$lote_recepcion);
         $foliosLote=DB::connection('sqlsrv')
         ->table('V_PKG_Recepcion_FG')
+        ->select('folio')
         ->where('numero_g_Recepcion',$lote_recepcion)
         ->where('id_empresa','1')
         ->get();
