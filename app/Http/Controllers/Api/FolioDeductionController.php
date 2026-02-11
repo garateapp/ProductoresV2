@@ -37,7 +37,9 @@ class FolioDeductionController extends Controller
         }
         $foliosLote=DB::connection('sqlsrv')
         ->table('V_PKG_Recepcion_FG')
-        ->where('numero_g_Recepcion',$packingProcessLot->n_g_recepcion)->get();
+        ->where('numero_g_Recepcion',$packingProcessLot->n_g_recepcion)
+        ->where('id_empresa','1')
+        ->get();
 
         if(! $foliosLote->contains('folio', $folio)){
             return response()->json([
