@@ -1777,9 +1777,12 @@ class PackingProcessController extends Controller
 
         if ($incomingLots->isNotEmpty()) {
             $lotsToUpdate = PackingProcessLot::query()
-                ->where('process_id', $process->id)
                 ->where('packing_line_id', $lineId)
                 ->whereIn('id', $incomingLots->keys()->all())
+                ->whereHas('process', function ($q) use ($date, $shiftId) {
+                    $q->whereDate('fecha', $date)
+                        ->where('shift_id', $shiftId);
+                })
                 ->get();
 
             $variedadNames = $lotsToUpdate
