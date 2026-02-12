@@ -1715,7 +1715,7 @@ class PackingProcessController extends Controller
             'rows.*.count' => ['nullable', 'string', 'max:120'],
             'rows.*.pedido' => ['nullable', 'string', 'max:500'],
         ]);
-
+        Log::info('instructionUpdate', $data);
         $lineId = (int) $data['line_id'];
         $reason = trim((string) $data['change_reason']);
 
