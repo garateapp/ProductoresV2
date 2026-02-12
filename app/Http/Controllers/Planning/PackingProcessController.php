@@ -1686,18 +1686,10 @@ class PackingProcessController extends Controller
 
     public function instructionUpdate(Request $request, PackingProcess $process)
     {
-        Log::info('PackingProcessController::instructionUpdate', [
-            'request' => $request->all(),
-
-        ]);
-
-
         $this->authorizePlanning($request);
 
         $process->load(['shift']);
-        Log::info('PackingProcessController::instructionUpdate2', [
-            $process->shift->id
-        ]);
+
         $data = $request->validate([
             'line_id' => ['required', 'integer', 'min:1'],
             'change_reason' => ['required', 'string', 'min:3', 'max:500'],
@@ -1724,7 +1716,7 @@ class PackingProcessController extends Controller
             'rows.*.count' => ['nullable', 'string', 'max:120'],
             'rows.*.pedido' => ['nullable', 'string', 'max:500'],
         ]);
-        Log::info('instructionUpdate', $data);
+
         $lineId = (int) $data['line_id'];
         $reason = trim((string) $data['change_reason']);
 
@@ -1831,7 +1823,7 @@ class PackingProcessController extends Controller
                         ? $huerto
                         : null;
                 }
-                Log::debug('PackingProcessController::updateProcessLots: lot ' . $lot->id . ' payload: ' . json_encode($payload));
+
                 $lot->forceFill($payload)->save();
                 $updatedLotsCount++;
             }

@@ -347,7 +347,7 @@ export default function Edit({ process, shift, lineId, latestVersion, sheet, dow
   }
 
   return (
-    <div className="space-y-4">
+    <div className="space-y-4 px-8">
       <InstructionCss />
 
       <div className="flex items-start justify-between gap-3">
