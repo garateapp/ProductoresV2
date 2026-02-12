@@ -73,6 +73,7 @@ function LotsTable({ lots }) {
             <th>CSG</th>
             <th>Categoria</th>
             <th>Fecha Recepción</th>
+            <th>% Exportación</th>
             <th>Cantidad (bins)</th>
             <th>Kilos</th>
             <th>SDP</th>
@@ -94,6 +95,11 @@ function LotsTable({ lots }) {
               <td>{r?.csg_productor || ''}</td>
               <td>{r?.categoria_origen || ''}</td>
               <td>{r?.fecha_recepcion ? fmtDate(String(r.fecha_recepcion).slice(0, 10)) : ''}</td>
+              <td>
+                {r?.porcentaje_exportacion !== null && r?.porcentaje_exportacion !== undefined
+                  ? `${Number(r.porcentaje_exportacion).toLocaleString('es-CL', { minimumFractionDigits: 0, maximumFractionDigits: 2 })}%`
+                  : ''}
+              </td>
               <td>{Number(r?.cantidad_bins || 0) ? Number(r.cantidad_bins).toLocaleString('es-CL') : ''}</td>
               <td>{Number(r?.peso_neto || 0) ? Math.round(Number(r.peso_neto)).toLocaleString('es-CL') : ''}</td>
               <td>{r?.sdp_centrocosto || ''}</td>
@@ -104,7 +110,7 @@ function LotsTable({ lots }) {
             </tr>
           ))}
           <tr>
-            <td colSpan={9} className="font-bold">TOTAL</td>
+            <td colSpan={10} className="font-bold">TOTAL</td>
             <td className="font-bold">{sumBins ? sumBins.toLocaleString('es-CL') : ''}</td>
             <td className="font-bold">{sumKgs ? Math.round(sumKgs).toLocaleString('es-CL') : ''}</td>
             <td colSpan={5} />

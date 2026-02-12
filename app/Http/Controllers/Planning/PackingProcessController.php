@@ -2656,6 +2656,41 @@ class PackingProcessController extends Controller
      */
     private function serializeInstructionLineSheets(array $lineSheets): array
     {
+        $ngs = collect($lineSheets)
+            ->flatMap(function ($sheet) {
+                if (! is_array($sheet)) {
+                    return [];
+                }
+                return collect($sheet['lots'] ?? [])->map(function ($lot) {
+                    return trim((string) ($lot?->n_g_recepcion ?? ''));
+                });
+            })
+            ->filter(fn ($n) => $n !== '')
+            ->unique()
+            ->values()
+            ->all();
+
+        $exportableByNg = [];
+        if (! empty($ngs)) {
+            $recepciones = Recepcion::query()
+                ->select(['id', 'numero_g_recepcion'])
+                ->whereIn('numero_g_recepcion', $ngs)
+                ->with([
+                    'calidad:id,recepcion_id',
+                    'calidad.detalles:id,calidad_id,tipo_item,detalle_item,porcentaje_muestra',
+                ])
+                ->get();
+
+            foreach ($recepciones as $recepcion) {
+                $ng = trim((string) ($recepcion->numero_g_recepcion ?? ''));
+                if ($ng === '') {
+                    continue;
+                }
+                $detalles = $recepcion->calidad?->detalles ?? collect();
+                $exportableByNg[$ng] = $this->calculateExportablePercentageFromDetalles($detalles);
+            }
+        }
+
         $out = [];
         foreach ($lineSheets as $sheet) {
             if (! is_array($sheet)) {
@@ -2672,6 +2707,12 @@ class PackingProcessController extends Controller
                     'id' => (int) ($lot?->id ?? 0),
                     'process_id' => (int) ($lot?->process_id ?? 0),
                     'n_g_recepcion' => (string) ($lot?->n_g_recepcion ?? ''),
+                    'porcentaje_exportacion' => (function () use ($lot, $exportableByNg) {
+                        $ng = trim((string) ($lot?->n_g_recepcion ?? ''));
+                        return $ng !== '' && array_key_exists($ng, $exportableByNg)
+                            ? (float) $exportableByNg[$ng]
+                            : null;
+                    })(),
                     'tipo_proceso' => (string) (($lot?->tipo_proceso ?? '') !== '' ? $lot->tipo_proceso : 'Normal'),
                     'variedad_original' => (string) ($lot?->variedad_original ?? ''),
                     'productor_real' => (string) (($lot?->productor_real ?? '') !== '' ? $lot->productor_real : ($lot?->n_productor ?? '')),
