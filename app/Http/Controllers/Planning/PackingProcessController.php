@@ -1672,6 +1672,8 @@ class PackingProcessController extends Controller
                 'hora_inicio' => $process->shift->hora_inicio,
             ] : null,
             'lineId' => $lineId,
+            'processTypeOptions' => $this->getInstructionProcessTypeOptions(),
+            'categoryOptions' => $this->getInstructionCategoryOptions(),
             'latestVersion' => $latest ? [
                 'version' => (int) $latest->version,
                 'changed_at' => $latest->changed_at?->tz('America/Santiago')->toDateTimeString(),
@@ -1692,6 +1694,11 @@ class PackingProcessController extends Controller
         $data = $request->validate([
             'line_id' => ['required', 'integer', 'min:1'],
             'change_reason' => ['required', 'string', 'min:3', 'max:500'],
+            'lots' => ['nullable', 'array'],
+            'lots.*.id' => ['required_with:lots', 'integer', 'min:1'],
+            'lots.*.tipo_proceso' => ['nullable', 'string', 'in:Normal,Reembalaje'],
+            'lots.*.categoria_origen' => ['nullable', 'string', 'max:120'],
+            'lots.*.pulpa' => ['nullable', 'string', 'max:120'],
             'rows' => ['nullable', 'array'],
             'rows.*.key' => ['required_with:rows', 'string'],
             // Campos editables del bloque "Destino + Embalajes"
@@ -1763,6 +1770,55 @@ class PackingProcessController extends Controller
         $user = $request->user();
         $changedAt = now('America/Santiago');
 
+        // Persistir cambios de "Procesos / lotes" (tipo/categoría/pulpa) en process_lots.
+        $incomingLots = collect($data['lots'] ?? [])
+            ->filter(fn ($row) => is_array($row) && (int) ($row['id'] ?? 0) > 0)
+            ->keyBy(fn ($row) => (int) ($row['id'] ?? 0));
+
+        if ($incomingLots->isNotEmpty()) {
+            $lotsToUpdate = PackingProcessLot::query()
+                ->where('process_id', $process->id)
+                ->where('packing_line_id', $lineId)
+                ->whereIn('id', $incomingLots->keys()->all())
+                ->get();
+
+            $variedadNames = $lotsToUpdate
+                ->map(fn ($lot) => trim((string) ($lot->n_variedad ?: $lot->variedad_original)))
+                ->filter(fn ($v) => $v !== '')
+                ->unique()
+                ->values()
+                ->all();
+            $pulpaByVariedad = $this->getPulpaByVariedadNames($variedadNames);
+
+            foreach ($lotsToUpdate as $lot) {
+                $row = (array) ($incomingLots->get((int) $lot->id) ?? []);
+                $tipo = trim((string) ($row['tipo_proceso'] ?? ''));
+                $categoria = trim((string) ($row['categoria_origen'] ?? ''));
+                $pulpa = trim((string) ($row['pulpa'] ?? ''));
+
+                if ($tipo === '') {
+                    $tipo = 'Normal';
+                }
+                if ($categoria === '') {
+                    $categoria = 'CAT 1';
+                }
+                if ($pulpa === '') {
+                    $varKey = trim((string) ($lot->n_variedad ?: $lot->variedad_original));
+                    $pulpa = $varKey !== '' ? (string) ($pulpaByVariedad[$varKey] ?? '') : '';
+                }
+
+                $payload = [
+                    'tipo_proceso' => $tipo,
+                    'categoria_origen' => $categoria,
+                ];
+                if (Schema::hasColumn('process_lots', 'pulpa')) {
+                    $payload['pulpa'] = $pulpa !== '' ? $pulpa : null;
+                }
+
+                $lot->forceFill($payload)->save();
+            }
+        }
+
         $lineSheets = $this->buildInstructionLineSheets($process, $date, $shiftId, [$lineId], [$lineId => $overrides]);
 
         $metaByLineId = [
@@ -1821,8 +1877,11 @@ class PackingProcessController extends Controller
             ->max('orden');
 
         $pack = $this->carozosPackagingMatrix->suggest($row, $snap);
+        $variedadName = trim((string) ($row['variedad'] ?? ($row['n_variedad'] ?? '')));
+        $pulpaByVariedad = $this->getPulpaByVariedadNames($variedadName !== '' ? [$variedadName] : []);
+        $pulpa = $variedadName !== '' ? ($pulpaByVariedad[$variedadName] ?? null) : null;
 
-        PackingProcessLot::create([
+        $newLotData = [
             'process_id' => $process->id,
             'packing_line_id' => $lineId,
             'n_g_recepcion' => $n,
@@ -1845,10 +1904,10 @@ class PackingProcessController extends Controller
             'n_productor' => $row['n_productor'] ?? ($row['productor'] ?? null),
             // Snapshots para instructivo (formato xlsx)
             'fecha_recepcion' => $row['fecha_recepcion'] ?? null,
-            'tipo_proceso' => $row['descripcion_tipo'] ?? null,
+            'tipo_proceso' => $row['descripcion_tipo'] ?? 'Normal',
             'variedad_original' => $row['n_variedad_original'] ?? null,
             'productor_real' => $row['n_productor_original'] ?? ($row['n_productor'] ?? ($row['productor'] ?? null)),
-            'categoria_origen' => $row['categoria'] ?? ($row['n_categoria'] ?? null),
+            'categoria_origen' => $row['categoria'] ?? ($row['n_categoria'] ?? 'CAT 1'),
             'sdp_centrocosto' => $row['sdp_centrocosto'] ?? null,
             'envase_origen' => $row['n_embalaje'] ?? null,
             'altura_origen' => $row['n_altura'] ?? null,
@@ -1862,7 +1921,13 @@ class PackingProcessController extends Controller
             'inicio_estimado' => null,
             'fin_estimado' => null,
             'estado' => 'PROPUESTO',
-        ]);
+        ];
+
+        if (Schema::hasColumn('process_lots', 'pulpa')) {
+            $newLotData['pulpa'] = $pulpa;
+        }
+
+        PackingProcessLot::create($newLotData);
     }
 
     public function confirm(Request $request, PackingProcess $process)
@@ -2691,6 +2756,23 @@ class PackingProcessController extends Controller
             }
         }
 
+        $variedadNames = collect($lineSheets)
+            ->flatMap(function ($sheet) {
+                if (! is_array($sheet)) {
+                    return [];
+                }
+                return collect($sheet['lots'] ?? [])->map(function ($lot) {
+                    $nVariedad = trim((string) ($lot?->n_variedad ?? ''));
+                    $varOriginal = trim((string) ($lot?->variedad_original ?? ''));
+                    return $nVariedad !== '' ? $nVariedad : $varOriginal;
+                });
+            })
+            ->filter(fn ($v) => $v !== '')
+            ->unique()
+            ->values()
+            ->all();
+        $pulpaByVariedad = $this->getPulpaByVariedadNames($variedadNames);
+
         $out = [];
         foreach ($lineSheets as $sheet) {
             if (! is_array($sheet)) {
@@ -2717,7 +2799,17 @@ class PackingProcessController extends Controller
                     'variedad_original' => (string) ($lot?->variedad_original ?? ''),
                     'productor_real' => (string) (($lot?->productor_real ?? '') !== '' ? $lot->productor_real : ($lot?->n_productor ?? '')),
                     'csg_productor' => (string) ($lot?->csg_productor ?? ''),
-                    'categoria_origen' => (string) ($lot?->categoria_origen ?? ''),
+                    'categoria_origen' => (string) (($lot?->categoria_origen ?? '') !== '' ? $lot->categoria_origen : 'CAT 1'),
+                    'pulpa' => (function () use ($lot, $pulpaByVariedad) {
+                        $current = trim((string) ($lot?->pulpa ?? ''));
+                        if ($current !== '') {
+                            return $current;
+                        }
+                        $nVar = trim((string) ($lot?->n_variedad ?? ''));
+                        $vOrig = trim((string) ($lot?->variedad_original ?? ''));
+                        $key = $nVar !== '' ? $nVar : $vOrig;
+                        return $key !== '' ? (string) ($pulpaByVariedad[$key] ?? '') : '';
+                    })(),
                     'fecha_recepcion' => $lot?->fecha_recepcion ? (string) $lot->fecha_recepcion : null,
                     'cantidad_bins' => (int) ($lot?->cantidad_bins ?? 0),
                     'peso_neto' => $lot?->peso_neto !== null ? (float) $lot->peso_neto : null,
@@ -2844,6 +2936,93 @@ class PackingProcessController extends Controller
             ];
         }
         return $out;
+    }
+
+    private function getInstructionProcessTypeOptions(): array
+    {
+        return ['Normal', 'Reembalaje'];
+    }
+
+    private function getInstructionCategoryOptions(): array
+    {
+        try {
+            $rows = DB::connection('sqlsrv')->select("
+                SELECT codigo, nombre
+                FROM FX6_Packing_Garate_Operaciones.dbo.PRO_P_Categorias
+                WHERE id_pro_p_categorias_st IN (2,4,6,10)
+                ORDER BY codigo
+            ");
+
+            $options = collect($rows)
+                ->map(function ($row) {
+                    $code = trim((string) ($row->codigo ?? ''));
+                    $name = trim((string) ($row->nombre ?? ''));
+                    if ($name === '') {
+                        return null;
+                    }
+                    return [
+                        'value' => $name,
+                        'label' => $code !== '' ? ($code.' - '.$name) : $name,
+                    ];
+                })
+                ->filter()
+                ->values()
+                ->all();
+
+            $hasCat1 = collect($options)->contains(fn ($o) => Str::upper(trim((string) ($o['value'] ?? ''))) === 'CAT 1');
+            if (! $hasCat1) {
+                array_unshift($options, ['value' => 'CAT 1', 'label' => 'CAT 1']);
+            }
+
+            return $options;
+        } catch (\Throwable $e) {
+            Log::warning('No se pudieron cargar categorías de instructivo desde SQLSRV', [
+                'error' => $e->getMessage(),
+            ]);
+            return [['value' => 'CAT 1', 'label' => 'CAT 1']];
+        }
+    }
+
+    /**
+     * @param array<int, string> $names
+     * @return array<string, string>
+     */
+    private function getPulpaByVariedadNames(array $names): array
+    {
+        $list = collect($names)
+            ->map(fn ($v) => trim((string) $v))
+            ->filter(fn ($v) => $v !== '')
+            ->unique()
+            ->values()
+            ->all();
+
+        if (empty($list)) {
+            return [];
+        }
+
+        try {
+            $rows = DB::connection('sqlsrv')
+                ->table('PRO_P_Variedades')
+                ->select(['nombre', 'cp1'])
+                ->whereIn('nombre', $list)
+                ->get();
+
+            return collect($rows)
+                ->mapWithKeys(function ($row) {
+                    $name = trim((string) ($row->nombre ?? ''));
+                    $cp1 = trim((string) ($row->cp1 ?? ''));
+                    if ($name === '') {
+                        return [];
+                    }
+                    return [$name => $cp1];
+                })
+                ->all();
+        } catch (\Throwable $e) {
+            Log::warning('No se pudo cargar pulpa por variedad desde SQLSRV', [
+                'error' => $e->getMessage(),
+            ]);
+            return [];
+        }
     }
 
     private function getPlanningLogoDataUri(): ?string

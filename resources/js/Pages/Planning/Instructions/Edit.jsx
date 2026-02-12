@@ -45,7 +45,7 @@ function InstructionCss() {
   )
 }
 
-function LotsTable({ lots }) {
+function LotsTable({ lots, editable = false, onUpdateLot, processTypeOptions = [], categoryOptions = [] }) {
   const rows = Array.isArray(lots) ? lots : []
   const sumBins = rows.reduce((acc, r) => acc + Number(r?.cantidad_bins || 0), 0)
   const sumKgs = rows.reduce((acc, r) => acc + Number(r?.peso_neto || 0), 0)
@@ -63,6 +63,7 @@ function LotsTable({ lots }) {
             <th>Productor Real</th>
             <th>CSG</th>
             <th>Categoria</th>
+            <th>Pulpa</th>
             <th>Fecha Recepción</th>
             <th>% Exportación</th>
             <th>Cantidad (bins)</th>
@@ -80,11 +81,38 @@ function LotsTable({ lots }) {
               <td>{fmtTime(r?.inicio) || ''}</td>
               <td>{r?.process_id || ''}</td>
               <td>{r?.n_g_recepcion || ''}</td>
-              <td>{r?.tipo_proceso || ''}</td>
+              <td>
+                {editable ? (
+                  <select
+                    className="w-full rounded border px-2 py-1 text-xs"
+                    value={String(r?.tipo_proceso || 'Normal')}
+                    onChange={(e) => onUpdateLot?.(r?.id, { tipo_proceso: String(e.target.value || 'Normal') })}
+                  >
+                    {(processTypeOptions || []).map((opt) => (
+                      <option key={String(opt)} value={String(opt)}>{String(opt)}</option>
+                    ))}
+                  </select>
+                ) : (r?.tipo_proceso || 'Normal')}
+              </td>
               <td>{r?.variedad_original || ''}</td>
               <td>{r?.productor_real || ''}</td>
               <td>{r?.csg_productor || ''}</td>
-              <td>{r?.categoria_origen || ''}</td>
+              <td>
+                {editable ? (
+                  <select
+                    className="w-full rounded border px-2 py-1 text-xs"
+                    value={String(r?.categoria_origen || 'CAT 1')}
+                    onChange={(e) => onUpdateLot?.(r?.id, { categoria_origen: String(e.target.value || 'CAT 1') })}
+                  >
+                    {(categoryOptions || []).map((opt) => (
+                      <option key={String(opt?.value || '')} value={String(opt?.value || '')}>
+                        {String(opt?.label || opt?.value || '')}
+                      </option>
+                    ))}
+                  </select>
+                ) : (r?.categoria_origen || 'CAT 1')}
+              </td>
+              <td>{r?.pulpa || ''}</td>
               <td>{r?.fecha_recepcion ? fmtDate(String(r.fecha_recepcion).slice(0, 10)) : ''}</td>
               <td>
                 {r?.porcentaje_exportacion !== null && r?.porcentaje_exportacion !== undefined
@@ -101,7 +129,7 @@ function LotsTable({ lots }) {
             </tr>
           ))}
           <tr>
-            <td colSpan={10} className="font-bold">TOTAL</td>
+            <td colSpan={11} className="font-bold">TOTAL</td>
             <td className="font-bold">{sumBins ? sumBins.toLocaleString('es-CL') : ''}</td>
             <td className="font-bold">{sumKgs ? Math.round(sumKgs).toLocaleString('es-CL') : ''}</td>
             <td colSpan={5} />
@@ -183,7 +211,7 @@ function PackagingPicker({ value, disabled, onPick }) {
   )
 }
 
-export default function Edit({ process, shift, lineId, latestVersion, sheet, downloadUrl }) {
+export default function Edit({ process, shift, lineId, latestVersion, sheet, downloadUrl, processTypeOptions = [], categoryOptions = [] }) {
   const lots = sheet?.lots || []
   const packaging = Array.isArray(sheet?.packagingSummary) ? sheet.packagingSummary : []
 
@@ -205,9 +233,41 @@ export default function Edit({ process, shift, lineId, latestVersion, sheet, dow
     }))
   }, [packaging])
 
+  const initialLots = useMemo(() => {
+    return (Array.isArray(lots) ? lots : []).map((l) => ({
+      ...l,
+      tipo_proceso: String(l?.tipo_proceso || 'Normal'),
+      categoria_origen: String(l?.categoria_origen || 'CAT 1'),
+      pulpa: String(l?.pulpa || ''),
+    }))
+  }, [lots])
+
+  const normalizedProcessTypeOptions = useMemo(() => {
+    const base = Array.isArray(processTypeOptions) && processTypeOptions.length > 0 ? processTypeOptions : ['Normal', 'Reembalaje']
+    const uniq = Array.from(new Set(base.map((v) => String(v)).filter(Boolean)))
+    return uniq.length > 0 ? uniq : ['Normal', 'Reembalaje']
+  }, [processTypeOptions])
+
+  const normalizedCategoryOptions = useMemo(() => {
+    const base = Array.isArray(categoryOptions) ? categoryOptions : []
+    const mapped = base
+      .map((o) => ({
+        value: String(o?.value || '').trim(),
+        label: String(o?.label || o?.value || '').trim(),
+      }))
+      .filter((o) => o.value !== '')
+
+    const hasCat1 = mapped.some((o) => o.value.toUpperCase() === 'CAT 1')
+    if (!hasCat1) {
+      mapped.unshift({ value: 'CAT 1', label: 'CAT 1' })
+    }
+    return mapped
+  }, [categoryOptions])
+
   const { data, setData, post, processing, errors } = useForm({
     line_id: Number(lineId || 0),
     change_reason: '',
+    lots: initialLots,
     rows: initialRows,
   })
 
@@ -217,6 +277,17 @@ export default function Edit({ process, shift, lineId, latestVersion, sheet, dow
     const base = (next[idx] && typeof next[idx] === 'object') ? next[idx] : {}
     next[idx] = { ...base, ...patch, key: String(key || base.key || '') }
     setData('rows', next)
+  }
+
+  const updateLot = (lotId, patch) => {
+    const id = Number(lotId || 0)
+    if (id <= 0) return
+    const current = Array.isArray(data.lots) ? data.lots : []
+    const next = current.map((l) => {
+      if (Number(l?.id || 0) !== id) return l
+      return { ...l, ...(patch || {}) }
+    })
+    setData('lots', next)
   }
 
   const onSubmit = (e) => {
@@ -305,7 +376,13 @@ export default function Edit({ process, shift, lineId, latestVersion, sheet, dow
               </div>
 
               <h2>Procesos / lotes</h2>
-              <LotsTable lots={lots} />
+              <LotsTable
+                lots={data.lots}
+                editable
+                onUpdateLot={updateLot}
+                processTypeOptions={normalizedProcessTypeOptions}
+                categoryOptions={normalizedCategoryOptions}
+              />
 
               <h2>Destino + Embalajes (editable)</h2>
               <div className="table-wrap">
