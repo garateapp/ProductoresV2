@@ -2468,6 +2468,13 @@ class PackingProcessController extends Controller
                     @mkdir($tmpDir, 0755, true);
                 }
 
+                // Forzar instructivo en una sola hoja (A4 horizontal) usando escala de impresión.
+                // Ajustable por entorno: PLANNING_INSTRUCTION_PDF_SCALE (0.1 - 2.0)
+                $pdfScale = (float) env('PLANNING_INSTRUCTION_PDF_SCALE', 0.70);
+                if ($pdfScale < 0.1 || $pdfScale > 2.0) {
+                    $pdfScale = 0.70;
+                }
+
                 $chrome = env(
                     'BROWSERSHOT_CHROME_PATH',
                     env('CHROME_PATH', '/home/forge/.cache/puppeteer/chrome/linux-139.0.7258.138/chrome-linux64/chrome')
@@ -2489,7 +2496,9 @@ class PackingProcessController extends Controller
                     ->showBackground()
                     ->format('A4')
                     ->landscape()
-                    ->margins(10, 10, 10, 10);
+                    ->margins(5, 5, 5, 5)
+                    ->setOption('scale', $pdfScale)
+                    ->setOption('preferCSSPageSize', false);
 
                 // En producción forzamos binario de Chrome para evitar fallas de Puppeteer cache/path.
                 if (! app()->environment('local')) {
