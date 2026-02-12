@@ -1502,13 +1502,9 @@ class PackingProcessController extends Controller
                     return mb_strlen($text) > 180 ? (mb_substr($text, 0, 177).'...') : $text;
                 })(),
                 'lots' => $lineLots->values(),
-                'packagingSummary' => collect(array_values($packSummary))
-                    ->sortBy([
-                        ['destino', 'asc'],
-                        ['c_item', 'asc'],
-                    ])
-                    ->values()
-                    ->all(),
+                // Respetar el orden operativo definido en Planning/Processes/Show:
+                // primer uso por secuencia de lotes (orden) + embalajes extra en el orden configurado.
+                'packagingSummary' => array_values($packSummary),
             ];
         }
 
@@ -2267,13 +2263,9 @@ class PackingProcessController extends Controller
                     return mb_strlen($text) > 180 ? (mb_substr($text, 0, 177).'...') : $text;
                 })(),
                 'lots' => $lineLots->values(),
-                'packagingSummary' => collect(array_values($packSummary))
-                    ->sortBy([
-                        ['destino', 'asc'],
-                        ['c_item', 'asc'],
-                    ])
-                    ->values()
-                    ->all(),
+                // Respetar el orden operativo definido en Planning/Processes/Show:
+                // primer uso por secuencia de lotes (orden) + embalajes extra en el orden configurado.
+                'packagingSummary' => array_values($packSummary),
             ];
         }
 
@@ -2471,12 +2463,42 @@ class PackingProcessController extends Controller
 
         if ($format === 'pdf') {
             try {
-                $pdf = Browsershot::html($html)
+                $tmpDir = storage_path('app/tmp');
+                if (! is_dir($tmpDir)) {
+                    @mkdir($tmpDir, 0755, true);
+                }
+
+                $chrome = env(
+                    'BROWSERSHOT_CHROME_PATH',
+                    env('CHROME_PATH', '/home/forge/.cache/puppeteer/chrome/linux-139.0.7258.138/chrome-linux64/chrome')
+                );
+
+                $shot = Browsershot::html($html)
+                    ->setTemporaryDirectory($tmpDir)
+                    ->setOption('headless', true)
+                    ->noSandbox()
+                    ->addChromiumArguments([
+                        '--no-sandbox',
+                        '--disable-dev-shm-usage',
+                        '--disable-gpu',
+                        '--font-render-hinting=none',
+                        '--headless=new',
+                    ])
+                    ->waitUntilNetworkIdle()
+                    ->wait(2)
                     ->showBackground()
                     ->format('A4')
                     ->landscape()
-                    ->margins(10, 10, 10, 10)
-                    ->pdf();
+                    ->margins(10, 10, 10, 10);
+
+                // En producción forzamos binario de Chrome para evitar fallas de Puppeteer cache/path.
+                if (! app()->environment('local')) {
+                    $shot
+                        ->setChromePath($chrome)
+                        ->setOption('executablePath', $chrome);
+                }
+
+                $pdf = $shot->pdf();
 
                 return response($pdf, 200, [
                     'Content-Type' => 'application/pdf',

@@ -1108,7 +1108,7 @@ export default function Show({ process, lines = [], allLines = [], inventory = [
                 const pdfUrl = `${route('planning.processes.instruction', process.id)}?format=pdf${lineId ? `&line_id=${lineId}` : ''}`
                 return (
                   <>
-                    <a href={htmlUrl} target="_blank" rel="noopener noreferrer">
+                    <a href={htmlUrl}>
                       <Button variant="outline" className="min-w-28" disabled={status !== 'CONFIRMADO'}>
                         <Printer className="h-4 w-4 mr-2" />
                         Imprimir
@@ -1127,8 +1127,6 @@ export default function Show({ process, lines = [], allLines = [], inventory = [
             <>
               <a
                 href={`${route('planning.processes.instruction', lineDay?.print_process_id || process.id)}?line_id=${lineDay?.line?.id || lines?.[0]?.id || ''}`}
-                target="_blank"
-                rel="noopener noreferrer"
               >
                 <Button variant="secondary" className="min-w-28" disabled={!lineDay?.print_process_id}>
                   <Printer className="h-4 w-4 mr-2" />
