@@ -1686,6 +1686,12 @@ class PackingProcessController extends Controller
 
     public function instructionUpdate(Request $request, PackingProcess $process)
     {
+        Log::info('PackingProcessController::instructionUpdate', [
+            'request' => $request->all(),
+            'process' => $process->serialize(),
+        ]);
+
+
         $this->authorizePlanning($request);
 
         $process->load(['shift']);
