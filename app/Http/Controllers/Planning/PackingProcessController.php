@@ -1688,7 +1688,7 @@ class PackingProcessController extends Controller
     {
         Log::info('PackingProcessController::instructionUpdate', [
             'request' => $request->all(),
-            'process' => $process->serialize(),
+
         ]);
 
 
