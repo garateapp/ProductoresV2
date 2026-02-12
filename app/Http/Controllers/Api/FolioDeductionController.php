@@ -152,7 +152,7 @@ class FolioDeductionController extends Controller
             $stockUpdateData['id_pro_p_turno_destruccion'] = $turnoId;
         }
 
-        Log::debug("Updating stock det with id {$stockDet->id} to set destruccion_tipo=PRN, destruccion_id={$produccion->id}" . ($turnoId !== null ? " and id_pro_p_turno_destruccion={$turnoId}" : ''));
+        Log::debug("Updating stock det with id {$stockDet->id} to set destruccion_tipo=PRN, destruccion_id={$produccion->id}" . ($turnoId !== null ? " and id_pro_p_turnos_destruccion={$turnoId}" : ''));
              DB::connection('sqlsrv')
              ->table('PKG_Stock_Det')
              ->where('id', $stockDet->id)
