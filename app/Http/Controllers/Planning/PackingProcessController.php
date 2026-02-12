@@ -1697,7 +1697,7 @@ class PackingProcessController extends Controller
         $process->load(['shift']);
         Log::info('PackingProcessController::instructionUpdate2', [
             $process->shift->id
-        ])
+        ]);
         $data = $request->validate([
             'line_id' => ['required', 'integer', 'min:1'],
             'change_reason' => ['required', 'string', 'min:3', 'max:500'],

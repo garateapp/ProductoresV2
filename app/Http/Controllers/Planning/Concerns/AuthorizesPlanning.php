@@ -9,7 +9,7 @@ trait AuthorizesPlanning
     protected function authorizePlanning(Request $request): void
     {
         $user = $request->user();
-        $allowed = ['Admin', 'Administrador', 'Calidad', 'Gerencia'];
+        $allowed = ['Admin', 'Administrador', 'Planificador','Gerencia Planta'];
 
         $hasRole = method_exists($user, 'hasRole') && collect($allowed)->some(fn ($r) => $user->hasRole($r));
         abort_unless($hasRole, 403, 'No tienes permisos para acceder a Planificación.');
