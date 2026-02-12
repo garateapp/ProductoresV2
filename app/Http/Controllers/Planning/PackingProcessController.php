@@ -1701,7 +1701,8 @@ class PackingProcessController extends Controller
             'change_reason' => ['required', 'string', 'min:3', 'max:500'],
             'lots' => ['nullable', 'array'],
             'lots.*.id' => ['required_with:lots', 'integer', 'min:1'],
-            'lots.*.tipo_proceso' => ['nullable', 'string', 'in:Normal,Reembalaje'],
+            // Puede venir snapshot histórico (ej: "Recepcion Fruta Gran"), luego lo normalizamos.
+            'lots.*.tipo_proceso' => ['nullable', 'string', 'max:120'],
             'lots.*.categoria_origen' => ['nullable', 'string', 'max:120'],
             'lots.*.pulpa' => ['nullable', 'string', 'max:120'],
             'lots.*.huerto' => ['nullable', 'string', 'in:Tipo A,Tipo B,Tipo C,Tipo C*'],
@@ -1798,15 +1799,15 @@ class PackingProcessController extends Controller
 
             foreach ($lotsToUpdate as $lot) {
                 $row = (array) ($incomingLots->get((int) $lot->id) ?? []);
-                $tipo = trim((string) ($row['tipo_proceso'] ?? ''));
+                $tipoRaw = trim((string) ($row['tipo_proceso'] ?? ''));
                 $categoria = trim((string) ($row['categoria_origen'] ?? ''));
                 $pulpa = trim((string) ($row['pulpa'] ?? ''));
                 $huerto = trim((string) ($row['huerto'] ?? ''));
                 $destino = trim((string) ($lot->destino ?? ''));
 
-                if ($tipo === '') {
-                    $tipo = 'Normal';
-                }
+                // Normalización de tipo de proceso para persistencia consistente.
+                $tipoNorm = Str::upper(Str::ascii($tipoRaw));
+                $tipo = str_contains($tipoNorm, 'REEMB') ? 'Reembalaje' : 'Normal';
                 if ($categoria === '') {
                     $categoria = 'Cat 1';
                 }
@@ -1828,7 +1829,7 @@ class PackingProcessController extends Controller
                         ? $huerto
                         : null;
                 }
-
+                Log::debug('PackingProcessController::updateProcessLots: lot ' . $lot->id . ' payload: ' . json_encode($payload));
                 $lot->forceFill($payload)->save();
                 $updatedLotsCount++;
             }
