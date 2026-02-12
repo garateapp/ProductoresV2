@@ -123,16 +123,16 @@ class FolioDeductionController extends Controller
         ->table('PRO_P_Turnos')
          ->where(function ($q) use ($now) {
         // NO cruza medianoche: inicio < termino  AND now in [inicio, termino)
-        $q->whereRaw('TIME(hora_inicio) < TIME(hora_termino)')
-          ->whereRaw('TIME(?) >= TIME(hora_inicio)', [$now])
-          ->whereRaw('TIME(?) <  TIME(hora_termino)', [$now]);
+        $q->whereRaw('CAST(hora_inicio AS time) < CAST(hora_termino AS time)')
+          ->whereRaw('CAST(? AS time) >= CAST(hora_inicio AS time)', [$now])
+          ->whereRaw('CAST(? AS time) <  CAST(hora_termino AS time)', [$now]);
     })
     ->orWhere(function ($q) use ($now) {
         // SÍ cruza medianoche: inicio > termino AND (now >= inicio OR now < termino)
-        $q->whereRaw('TIME(hora_inicio) > TIME(hora_termino)')
+        $q->whereRaw('CAST(hora_inicio AS time) > CAST(hora_termino AS time)')
           ->where(function ($q2) use ($now) {
-              $q2->whereRaw('TIME(?) >= TIME(hora_inicio)', [$now])
-                 ->orWhereRaw('TIME(?) <  TIME(hora_termino)', [$now]);
+              $q2->whereRaw('CAST(? AS time) >= CAST(hora_inicio AS time)', [$now])
+                 ->orWhereRaw('CAST(? AS time) <  CAST(hora_termino AS time)', [$now]);
           });
     })
     ->first();
