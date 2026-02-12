@@ -42,6 +42,7 @@ export default function AuthenticatedLayout({ header, children }) {
     const hasRole = (roleName) => user.roles?.some(role => role.name === roleName);
 
     const hasAnyRole = (roles) => roles.some(role => hasRole(role));
+    const validacionesAllowedRoles = ['Planificador', 'Administración', 'Gerencia de Planta', 'Administrador'];
 
     useEffect(() => {
         setLiveUnreadCount(unreadCount);
@@ -132,7 +133,7 @@ export default function AuthenticatedLayout({ header, children }) {
 
                                         {/* Submenús extraídos */}
                                         {hasAnyRole(['Administrador', 'Gerencia', 'Agronomo', 'Sag']) && <DocumentationMenu />}
-                                        {hasAnyRole(['Administrador', 'Gerencia', 'Contrato']) && <ValidacionesMenu />}
+                                        {hasAnyRole(validacionesAllowedRoles) && <ValidacionesMenu />}
                                         {hasRole('Administrador') && <AdminMenu />}
                                         <NavigationMenuItem>
                                             <NavigationMenuLink asChild className={navLinkClasses}>
@@ -266,7 +267,7 @@ export default function AuthenticatedLayout({ header, children }) {
                             </>
                         )}
 
-                        {hasAnyRole(['Administrador', 'Gerencia', 'Contrato']) && (
+                        {hasAnyRole(validacionesAllowedRoles) && (
                             <ResponsiveNavLink
                                 {...mobileNavLinkProps}
                                 href={route('validaciones.recepciones-sin-contrato')}

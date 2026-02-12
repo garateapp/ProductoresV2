@@ -1776,14 +1776,37 @@ class PackingProcessController extends Controller
             ->keyBy(fn ($row) => (int) ($row['id'] ?? 0));
 
         if ($incomingLots->isNotEmpty()) {
-            $lotsToUpdate = PackingProcessLot::query()
+            $lotsQuery = PackingProcessLot::query()
                 ->where('packing_line_id', $lineId)
-                ->whereIn('id', $incomingLots->keys()->all())
-                ->whereHas('process', function ($q) use ($date, $shiftId) {
-                    $q->whereDate('fecha', $date)
-                        ->where('shift_id', $shiftId);
-                })
-                ->get();
+                ->whereIn('id', $incomingLots->keys()->all());
+
+            $lotsQuery->whereHas('process', function ($q) use ($date, $shiftId) {
+                $q->whereDate('fecha', $date);
+                if ($shiftId > 0) {
+                    $q->where('shift_id', $shiftId);
+                }
+            });
+
+            $lotsToUpdate = $lotsQuery->get();
+
+            // Fallback defensivo: si no encontró por fecha/turno, intenta por proceso actual.
+            if ($lotsToUpdate->isEmpty()) {
+                $lotsToUpdate = PackingProcessLot::query()
+                    ->where('process_id', $process->id)
+                    ->where('packing_line_id', $lineId)
+                    ->whereIn('id', $incomingLots->keys()->all())
+                    ->get();
+            }
+
+            if ($lotsToUpdate->isEmpty()) {
+                Log::warning('instructionUpdate: no se encontraron lotes para actualizar', [
+                    'process_id' => (int) $process->id,
+                    'line_id' => $lineId,
+                    'incoming_ids' => $incomingLots->keys()->values()->all(),
+                    'date' => $date,
+                    'shift_id' => $shiftId,
+                ]);
+            }
 
             $variedadNames = $lotsToUpdate
                 ->map(fn ($lot) => trim((string) ($lot->n_variedad ?: $lot->variedad_original)))

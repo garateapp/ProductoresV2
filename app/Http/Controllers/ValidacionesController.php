@@ -13,6 +13,12 @@ class ValidacionesController extends Controller
 {
     public function recepcionesSinContrato(Request $request)
     {
+        $user = $request->user();
+        $allowedRoles = ['Planificador', 'Administración', 'Gerencia de Planta', 'Administrador'];
+        if (! $user || ! method_exists($user, 'hasAnyRole') || ! $user->hasAnyRole($allowedRoles)) {
+            abort(403);
+        }
+
         $excludedServiceIds = [1, 2, 3, 5, 7, 8];
 
         $query = User::role('Productor')
