@@ -142,7 +142,7 @@ class FolioDeductionController extends Controller
          ->where('id', $stockDet->id)
          ->update(['destruccion_tipo' => 'PRN', 'destruccion_id' => $produccion->id,'turno_id'=>$turno_id]);
         $totalDeductions = FolioDeduction::where('process_id', $produccion->id)->count();
-        Log::debug("Updating stock det with id {$stockDet->id} to set destruccion_tipo=PRN and destruccion_id={$produccion->id}");
+        Log::debug("Updating stock det with id {$stockDet->id} to set destruccion_tipo=PRN and destruccion_id={$produccion->id} and turno_id={$turno_id}");
              DB::connection('sqlsrv')
              ->table('PKG_Stock_Det')
              ->where('id', $stockDet->id)
