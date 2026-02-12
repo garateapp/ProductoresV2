@@ -35,6 +35,7 @@ class PackingProcessLot extends Model
         'productor_real',
         'categoria_origen',
         'pulpa',
+        'huerto',
         'sdp_centrocosto',
         'envase_origen',
         'altura_origen',

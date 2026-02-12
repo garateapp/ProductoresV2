@@ -1,5 +1,5 @@
 import React, { useEffect, useMemo, useRef, useState } from 'react'
-import { Link, useForm } from '@inertiajs/react'
+import { Link, useForm, usePage } from '@inertiajs/react'
 import AuthenticatedLayout from '@/Layouts/AuthenticatedLayout'
 import { Button } from '@/Components/ui/button'
 import { Card, CardContent, CardHeader, CardTitle } from '@/Components/ui/card'
@@ -71,6 +71,7 @@ function commentsByLots(lots) {
 
 function LotsTable({ lots, editable = false, onUpdateLot, processTypeOptions = [], categoryOptions = [] }) {
   const rows = Array.isArray(lots) ? lots : []
+  const hasMexico = rows.some((r) => String(r?.destino || '').trim().toUpperCase() === 'MEXICO')
   const sumBins = rows.reduce((acc, r) => acc + Number(r?.cantidad_bins || 0), 0)
   const sumKgs = rows.reduce((acc, r) => acc + Number(r?.peso_neto || 0), 0)
 
@@ -88,6 +89,7 @@ function LotsTable({ lots, editable = false, onUpdateLot, processTypeOptions = [
             <th>Productor Real</th>
             <th>CSG</th>
             <th>Categoria</th>
+            {hasMexico ? <th>Huerto</th> : null}
             <th>Pulpa</th>
             <th>Fecha Recepción</th>
             <th>% Exportación</th>
@@ -127,8 +129,8 @@ function LotsTable({ lots, editable = false, onUpdateLot, processTypeOptions = [
                 {editable ? (
                   <select
                     className="w-full rounded border px-2 py-1 text-xs"
-                    value={String(r?.categoria_origen || 'CAT 1')}
-                    onChange={(e) => onUpdateLot?.(r?.id, { categoria_origen: String(e.target.value || 'CAT 1') })}
+                    value={String(r?.categoria_origen || 'Cat 1')}
+                    onChange={(e) => onUpdateLot?.(r?.id, { categoria_origen: String(e.target.value || 'Cat 1') })}
                   >
                     {(categoryOptions || []).map((opt) => (
                       <option key={String(opt?.value || '')} value={String(opt?.value || '')}>
@@ -136,8 +138,25 @@ function LotsTable({ lots, editable = false, onUpdateLot, processTypeOptions = [
                       </option>
                     ))}
                   </select>
-                ) : (r?.categoria_origen || 'CAT 1')}
+                ) : (r?.categoria_origen || 'Cat 1')}
               </td>
+              {hasMexico ? (
+                <td>
+                  {String(r?.destino || '').trim().toUpperCase() === 'MEXICO' && editable ? (
+                    <select
+                      className="w-full rounded border px-2 py-1 text-xs"
+                      value={String(r?.huerto || '')}
+                      onChange={(e) => onUpdateLot?.(r?.id, { huerto: String(e.target.value || '') })}
+                    >
+                      <option value="">Seleccionar...</option>
+                      <option value="Tipo A">Tipo A</option>
+                      <option value="Tipo B">Tipo B</option>
+                      <option value="Tipo C">Tipo C</option>
+                      <option value="Tipo C*">Tipo C*</option>
+                    </select>
+                  ) : (String(r?.destino || '').trim().toUpperCase() === 'MEXICO' ? (r?.huerto || '') : '')}
+                </td>
+              ) : null}
               <td>{r?.pulpa || ''}</td>
               <td>{r?.fecha_recepcion ? fmtDate(String(r.fecha_recepcion).slice(0, 10)) : ''}</td>
               <td>
@@ -155,7 +174,7 @@ function LotsTable({ lots, editable = false, onUpdateLot, processTypeOptions = [
             </tr>
           ))}
           <tr>
-            <td colSpan={12} className="font-bold">TOTAL</td>
+            <td colSpan={hasMexico ? 13 : 12} className="font-bold">TOTAL</td>
             <td className="font-bold">{sumBins ? sumBins.toLocaleString('es-CL') : ''}</td>
             <td className="font-bold">{sumKgs ? Math.round(sumKgs).toLocaleString('es-CL') : ''}</td>
             <td colSpan={5} />
@@ -238,6 +257,7 @@ function PackagingPicker({ value, disabled, onPick }) {
 }
 
 export default function Edit({ process, shift, lineId, latestVersion, sheet, downloadUrl, processTypeOptions = [], categoryOptions = [] }) {
+  const { props } = usePage()
   const lots = sheet?.lots || []
   const packaging = Array.isArray(sheet?.packagingSummary) ? sheet.packagingSummary : []
 
@@ -263,8 +283,9 @@ export default function Edit({ process, shift, lineId, latestVersion, sheet, dow
     return (Array.isArray(lots) ? lots : []).map((l) => ({
       ...l,
       tipo_proceso: String(l?.tipo_proceso || 'Normal'),
-      categoria_origen: String(l?.categoria_origen || 'CAT 1'),
+      categoria_origen: String(l?.categoria_origen || 'Cat 1'),
       pulpa: String(l?.pulpa || ''),
+      huerto: String(l?.huerto || ''),
     }))
   }, [lots])
 
@@ -285,7 +306,7 @@ export default function Edit({ process, shift, lineId, latestVersion, sheet, dow
 
     const hasCat1 = mapped.some((o) => o.value.toUpperCase() === 'CAT 1')
     if (!hasCat1) {
-      mapped.unshift({ value: 'CAT 1', label: 'CAT 1' })
+      mapped.unshift({ value: 'Cat 1', label: 'Cat 1' })
     }
     return mapped
   }, [categoryOptions])
@@ -358,6 +379,17 @@ export default function Edit({ process, shift, lineId, latestVersion, sheet, dow
           <CardTitle>Guardar cambios (crea nueva versión)</CardTitle>
         </CardHeader>
         <CardContent>
+          {props?.flash?.success ? (
+            <div className="mb-3 rounded border border-green-200 bg-green-50 text-green-800 px-3 py-2 text-sm">
+              {props.flash.success}
+            </div>
+          ) : null}
+          {props?.flash?.error ? (
+            <div className="mb-3 rounded border border-red-200 bg-red-50 text-red-800 px-3 py-2 text-sm">
+              {props.flash.error}
+            </div>
+          ) : null}
+
           <form onSubmit={onSubmit} className="space-y-4">
             <div>
               <Label>Motivo del cambio (obligatorio)</Label>

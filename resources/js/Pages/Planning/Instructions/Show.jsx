@@ -80,6 +80,7 @@ function commentsByLots(lots) {
 
 function LotsTable({ lots }) {
   const rows = Array.isArray(lots) ? lots : []
+  const hasMexico = rows.some((r) => String(r?.destino || '').trim().toUpperCase() === 'MEXICO')
   const sumBins = rows.reduce((acc, r) => acc + Number(r?.cantidad_bins || 0), 0)
   const sumKgs = rows.reduce((acc, r) => acc + Number(r?.peso_neto || 0), 0)
 
@@ -97,6 +98,7 @@ function LotsTable({ lots }) {
             <th>Productor Real</th>
             <th>CSG</th>
             <th>Categoria</th>
+            {hasMexico ? <th>Huerto</th> : null}
             <th>Pulpa</th>
             <th>Fecha Recepción</th>
             <th>% Exportación</th>
@@ -120,7 +122,8 @@ function LotsTable({ lots }) {
               <td>{r?.variedad_original || ''}</td>
               <td>{r?.productor_real || ''}</td>
               <td>{r?.csg_productor || ''}</td>
-              <td>{r?.categoria_origen || 'CAT 1'}</td>
+              <td>{r?.categoria_origen || 'Cat 1'}</td>
+              {hasMexico ? <td>{String(r?.destino || '').trim().toUpperCase() === 'MEXICO' ? (r?.huerto || '') : ''}</td> : null}
               <td>{r?.pulpa || ''}</td>
               <td>{r?.fecha_recepcion ? fmtDate(String(r.fecha_recepcion).slice(0, 10)) : ''}</td>
               <td>
@@ -138,7 +141,7 @@ function LotsTable({ lots }) {
             </tr>
           ))}
           <tr>
-            <td colSpan={12} className="font-bold">TOTAL</td>
+            <td colSpan={hasMexico ? 13 : 12} className="font-bold">TOTAL</td>
             <td className="font-bold">{sumBins ? sumBins.toLocaleString('es-CL') : ''}</td>
             <td className="font-bold">{sumKgs ? Math.round(sumKgs).toLocaleString('es-CL') : ''}</td>
             <td colSpan={5} />

@@ -1698,6 +1698,7 @@ class PackingProcessController extends Controller
             'lots.*.tipo_proceso' => ['nullable', 'string', 'in:Normal,Reembalaje'],
             'lots.*.categoria_origen' => ['nullable', 'string', 'max:120'],
             'lots.*.pulpa' => ['nullable', 'string', 'max:120'],
+            'lots.*.huerto' => ['nullable', 'string', 'in:Tipo A,Tipo B,Tipo C,Tipo C*'],
             'rows' => ['nullable', 'array'],
             'rows.*.key' => ['required_with:rows', 'string'],
             // Campos editables del bloque "Destino + Embalajes"
@@ -1774,38 +1775,12 @@ class PackingProcessController extends Controller
             ->filter(fn ($row) => is_array($row) && (int) ($row['id'] ?? 0) > 0)
             ->keyBy(fn ($row) => (int) ($row['id'] ?? 0));
 
+        $updatedLotsCount = 0;
         if ($incomingLots->isNotEmpty()) {
-            $lotsQuery = PackingProcessLot::query()
-                ->where('packing_line_id', $lineId)
-                ->whereIn('id', $incomingLots->keys()->all());
-
-            $lotsQuery->whereHas('process', function ($q) use ($date, $shiftId) {
-                $q->whereDate('fecha', $date);
-                if ($shiftId > 0) {
-                    $q->where('shift_id', $shiftId);
-                }
-            });
-
-            $lotsToUpdate = $lotsQuery->get();
-
-            // Fallback defensivo: si no encontró por fecha/turno, intenta por proceso actual.
-            if ($lotsToUpdate->isEmpty()) {
-                $lotsToUpdate = PackingProcessLot::query()
-                    ->where('process_id', $process->id)
-                    ->where('packing_line_id', $lineId)
-                    ->whereIn('id', $incomingLots->keys()->all())
-                    ->get();
-            }
-
-            if ($lotsToUpdate->isEmpty()) {
-                Log::warning('instructionUpdate: no se encontraron lotes para actualizar', [
-                    'process_id' => (int) $process->id,
-                    'line_id' => $lineId,
-                    'incoming_ids' => $incomingLots->keys()->values()->all(),
-                    'date' => $date,
-                    'shift_id' => $shiftId,
-                ]);
-            }
+            // Guardar por ID de lote (clave real), evitando filtros adicionales que puedan bloquear.
+            $lotsToUpdate = PackingProcessLot::query()
+                ->whereIn('id', $incomingLots->keys()->all())
+                ->get();
 
             $variedadNames = $lotsToUpdate
                 ->map(fn ($lot) => trim((string) ($lot->n_variedad ?: $lot->variedad_original)))
@@ -1820,12 +1795,14 @@ class PackingProcessController extends Controller
                 $tipo = trim((string) ($row['tipo_proceso'] ?? ''));
                 $categoria = trim((string) ($row['categoria_origen'] ?? ''));
                 $pulpa = trim((string) ($row['pulpa'] ?? ''));
+                $huerto = trim((string) ($row['huerto'] ?? ''));
+                $destino = trim((string) ($lot->destino ?? ''));
 
                 if ($tipo === '') {
                     $tipo = 'Normal';
                 }
                 if ($categoria === '') {
-                    $categoria = 'CAT 1';
+                    $categoria = 'Cat 1';
                 }
                 if ($pulpa === '') {
                     $varKey = trim((string) ($lot->n_variedad ?: $lot->variedad_original));
@@ -1839,8 +1816,15 @@ class PackingProcessController extends Controller
                 if (Schema::hasColumn('process_lots', 'pulpa')) {
                     $payload['pulpa'] = $pulpa !== '' ? $pulpa : null;
                 }
+                if (Schema::hasColumn('process_lots', 'huerto')) {
+                    $isMexico = Str::upper(Str::ascii($destino)) === 'MEXICO';
+                    $payload['huerto'] = $isMexico && in_array($huerto, ['Tipo A', 'Tipo B', 'Tipo C', 'Tipo C*'], true)
+                        ? $huerto
+                        : null;
+                }
 
                 $lot->forceFill($payload)->save();
+                $updatedLotsCount++;
             }
         }
 
@@ -1878,7 +1862,7 @@ class PackingProcessController extends Controller
 
         return redirect()
             ->route('planning.processes.instruction.edit', ['process' => $process->id, 'line_id' => $lineId])
-            ->with('success', 'Instructivo guardado. Versión '.$nextVersion.'.');
+            ->with('success', 'Instructivo guardado correctamente. Versión '.$nextVersion.'. Lotes actualizados: '.$updatedLotsCount.'.');
     }
 
     private function addInventoryLotToProcess(PackingProcess $process, string $n, int $lineId): void
@@ -1932,7 +1916,7 @@ class PackingProcessController extends Controller
             'tipo_proceso' => $row['descripcion_tipo'] ?? 'Normal',
             'variedad_original' => $row['n_variedad_original'] ?? null,
             'productor_real' => $row['n_productor_original'] ?? ($row['n_productor'] ?? ($row['productor'] ?? null)),
-            'categoria_origen' => $row['categoria'] ?? ($row['n_categoria'] ?? 'CAT 1'),
+            'categoria_origen' => $row['categoria'] ?? ($row['n_categoria'] ?? 'Cat 1'),
             'sdp_centrocosto' => $row['sdp_centrocosto'] ?? null,
             'envase_origen' => $row['n_embalaje'] ?? null,
             'altura_origen' => $row['n_altura'] ?? null,
@@ -1950,6 +1934,9 @@ class PackingProcessController extends Controller
 
         if (Schema::hasColumn('process_lots', 'pulpa')) {
             $newLotData['pulpa'] = $pulpa;
+        }
+        if (Schema::hasColumn('process_lots', 'huerto')) {
+            $newLotData['huerto'] = null;
         }
 
         PackingProcessLot::create($newLotData);
@@ -2819,6 +2806,7 @@ class PackingProcessController extends Controller
                     'id' => (int) ($lot?->id ?? 0),
                     'process_id' => (int) ($lot?->process_id ?? 0),
                     'n_g_recepcion' => (string) ($lot?->n_g_recepcion ?? ''),
+                    'destino' => (string) ($lot?->destino ?? ''),
                     'porcentaje_exportacion' => (function () use ($lot, $exportableByNg) {
                         $ng = trim((string) ($lot?->n_g_recepcion ?? ''));
                         return $ng !== '' && array_key_exists($ng, $exportableByNg)
@@ -2829,7 +2817,7 @@ class PackingProcessController extends Controller
                     'variedad_original' => (string) ($lot?->variedad_original ?? ''),
                     'productor_real' => (string) (($lot?->productor_real ?? '') !== '' ? $lot->productor_real : ($lot?->n_productor ?? '')),
                     'csg_productor' => (string) ($lot?->csg_productor ?? ''),
-                    'categoria_origen' => (string) (($lot?->categoria_origen ?? '') !== '' ? $lot->categoria_origen : 'CAT 1'),
+                    'categoria_origen' => (string) (($lot?->categoria_origen ?? '') !== '' ? $lot->categoria_origen : 'Cat 1'),
                     'pulpa' => (function () use ($lot, $pulpaByVariedad) {
                         $current = trim((string) ($lot?->pulpa ?? ''));
                         if ($current !== '') {
@@ -2840,6 +2828,7 @@ class PackingProcessController extends Controller
                         $key = $nVar !== '' ? $nVar : $vOrig;
                         return $key !== '' ? (string) ($pulpaByVariedad[$key] ?? '') : '';
                     })(),
+                    'huerto' => (string) ($lot?->huerto ?? ''),
                     'fecha_recepcion' => $lot?->fecha_recepcion ? (string) $lot->fecha_recepcion : null,
                     'cantidad_bins' => (int) ($lot?->cantidad_bins ?? 0),
                     'peso_neto' => $lot?->peso_neto !== null ? (float) $lot->peso_neto : null,
@@ -2998,6 +2987,9 @@ class PackingProcessController extends Controller
                     if ($name === '') {
                         return null;
                     }
+                    if (Str::upper($name) === 'CAT 1') {
+                        $name = 'Cat 1';
+                    }
                     return [
                         'value' => $name,
                         'label' => $code !== '' ? ($code.' - '.$name) : $name,
@@ -3009,7 +3001,7 @@ class PackingProcessController extends Controller
 
             $hasCat1 = collect($options)->contains(fn ($o) => Str::upper(trim((string) ($o['value'] ?? ''))) === 'CAT 1');
             if (! $hasCat1) {
-                array_unshift($options, ['value' => 'CAT 1', 'label' => 'CAT 1']);
+                array_unshift($options, ['value' => 'Cat 1', 'label' => 'Cat 1']);
             }
 
             return $options;
@@ -3017,7 +3009,7 @@ class PackingProcessController extends Controller
             Log::warning('No se pudieron cargar categorías de instructivo desde SQLSRV', [
                 'error' => $e->getMessage(),
             ]);
-            return [['value' => 'CAT 1', 'label' => 'CAT 1']];
+            return [['value' => 'Cat 1', 'label' => 'Cat 1']];
         }
     }
 
