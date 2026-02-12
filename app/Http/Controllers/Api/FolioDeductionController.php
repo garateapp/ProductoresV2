@@ -48,7 +48,7 @@ class FolioDeductionController extends Controller
         ->where('destruccion_id',0)
         ->get();
 
-        if(! $foliosLote->contains('folio', $folio)){
+        if($lote_recepcion!= substr($folio, 0, 4)){
             return response()->json([
                 'success' => false,
                 'message' => 'Folio no válido para este proceso',
