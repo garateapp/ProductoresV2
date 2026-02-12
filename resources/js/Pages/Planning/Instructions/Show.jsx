@@ -54,6 +54,30 @@ function InstructionCss() {
   )
 }
 
+function defectSummaryText(rows) {
+  const data = Array.isArray(rows) ? rows : []
+  if (data.length === 0) return ''
+  return data
+    .map((d) => `${String(d?.detalle_item || '-')}: ${Number(d?.porcentaje_muestra || 0).toLocaleString('es-CL', { minimumFractionDigits: 0, maximumFractionDigits: 2 })}%`)
+    .join(', ')
+}
+
+function commentsByLots(lots) {
+  const rows = Array.isArray(lots) ? lots : []
+  const lines = rows
+    .map((lot) => {
+      const lote = String(lot?.n_g_recepcion || '').trim()
+      if (!lote) return null
+      const cal = defectSummaryText(lot?.defectos_calidad)
+      const con = defectSummaryText(lot?.defectos_condicion)
+      if (!cal && !con) return null
+      return `${lote}: ${cal ? `Calidad [${cal}]` : ''}${cal && con ? ' · ' : ''}${con ? `Condición [${con}]` : ''}`
+    })
+    .filter(Boolean)
+
+  return lines
+}
+
 function LotsTable({ lots }) {
   const rows = Array.isArray(lots) ? lots : []
   const sumBins = rows.reduce((acc, r) => acc + Number(r?.cantidad_bins || 0), 0)
@@ -65,6 +89,7 @@ function LotsTable({ lots }) {
         <thead>
           <tr>
             <th>Hr Inicio Proceso</th>
+            <th>Hr Término Proceso</th>
             <th>N° Proceso</th>
             <th>Lote</th>
             <th>Tipo Proceso</th>
@@ -88,6 +113,7 @@ function LotsTable({ lots }) {
           {rows.map((r) => (
             <tr key={String(r?.id || `${r?.process_id}-${r?.n_g_recepcion}`)}>
               <td>{fmtTime(r?.inicio) || ''}</td>
+              <td>{fmtTime(r?.fin) || ''}</td>
               <td>{r?.process_id || ''}</td>
               <td>{r?.n_g_recepcion || ''}</td>
               <td>{r?.tipo_proceso || 'Normal'}</td>
@@ -112,7 +138,7 @@ function LotsTable({ lots }) {
             </tr>
           ))}
           <tr>
-            <td colSpan={11} className="font-bold">TOTAL</td>
+            <td colSpan={12} className="font-bold">TOTAL</td>
             <td className="font-bold">{sumBins ? sumBins.toLocaleString('es-CL') : ''}</td>
             <td className="font-bold">{sumKgs ? Math.round(sumKgs).toLocaleString('es-CL') : ''}</td>
             <td colSpan={5} />
@@ -201,6 +227,7 @@ export default function Show({ process, shift, lineSheets, metaByLineId }) {
       </div>
 
       {sheets.map((s) => {
+        const comments = commentsByLots(s?.lots)
         const lineId = Number(s?.lineId || 0)
         const meta = metaByLineId?.[lineId] || null
         const version = meta?.version ? Number(meta.version) : null
@@ -282,7 +309,16 @@ export default function Show({ process, shift, lineSheets, metaByLineId }) {
                 <PackagingTable rows={s?.packagingSummary} />
 
                 <div className="mt-3 text-sm">
-                  <span className="font-bold">Comentarios:</span> Camara {s?.lineName || ''}/
+                  <span className="font-bold">Comentarios:</span>
+                  {comments.length > 0 ? (
+                    <div className="mt-1 space-y-1">
+                      {comments.map((line, idx) => (
+                        <div key={`cmt-${lineId}-${idx}`} className="text-xs text-gray-700">{line}</div>
+                      ))}
+                    </div>
+                  ) : (
+                    <span> Camara {s?.lineName || ''}/</span>
+                  )}
                 </div>
               </div>
             </CardContent>

@@ -2736,6 +2736,7 @@ class PackingProcessController extends Controller
             ->all();
 
         $exportableByNg = [];
+        $defectsByNg = [];
         if (! empty($ngs)) {
             $recepciones = Recepcion::query()
                 ->select(['id', 'numero_g_recepcion'])
@@ -2753,6 +2754,10 @@ class PackingProcessController extends Controller
                 }
                 $detalles = $recepcion->calidad?->detalles ?? collect();
                 $exportableByNg[$ng] = $this->calculateExportablePercentageFromDetalles($detalles);
+                $defectsByNg[$ng] = [
+                    'defectos_calidad' => $this->extractDefectRowsByTipo($detalles, 'DEFECTOS DE CALIDAD'),
+                    'defectos_condicion' => $this->extractDefectRowsByTipo($detalles, 'DEFECTOS DE CONDICION'),
+                ];
             }
         }
 
@@ -2819,6 +2824,14 @@ class PackingProcessController extends Controller
                     'n_variedad' => (string) ($lot?->n_variedad ?? ''),
                     'inicio' => $start ? Carbon::parse($start)->tz('America/Santiago')->toDateTimeString() : null,
                     'fin' => $end ? Carbon::parse($end)->tz('America/Santiago')->toDateTimeString() : null,
+                    'defectos_calidad' => (function () use ($lot, $defectsByNg) {
+                        $ng = trim((string) ($lot?->n_g_recepcion ?? ''));
+                        return $ng !== '' ? (($defectsByNg[$ng]['defectos_calidad'] ?? [])) : [];
+                    })(),
+                    'defectos_condicion' => (function () use ($lot, $defectsByNg) {
+                        $ng = trim((string) ($lot?->n_g_recepcion ?? ''));
+                        return $ng !== '' ? (($defectsByNg[$ng]['defectos_condicion'] ?? [])) : [];
+                    })(),
                 ];
             }
 
