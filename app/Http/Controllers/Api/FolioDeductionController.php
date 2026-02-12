@@ -136,18 +136,27 @@ class FolioDeductionController extends Controller
           });
     })
     ->first();
-    $turno_id=$turno->id;
-    Log::debug("Updating stock det with id {$stockDet->id} to set destruccion_tipo=PRN and destruccion_id={$produccion->id}");
-         DB::connection('sqlsrv')
-         ->table('PKG_Stock_Det')
-         ->where('id', $stockDet->id)
-         ->update(['destruccion_tipo' => 'PRN', 'destruccion_id' => $produccion->id,'turno_id'=>$turno_id]);
+    $turnoId = $turno?->id;
         $totalDeductions = FolioDeduction::where('process_id', $produccion->id)->count();
-        Log::debug("Updating stock det with id {$stockDet->id} to set destruccion_tipo=PRN and destruccion_id={$produccion->id} and turno_id={$turno_id}");
+
+        if ($turnoId === null) {
+            Log::warning("No se encontró turno activo para folio {$folio} (hora {$now}). Se actualiza PKG_Stock_Det sin id_pro_p_turno_destruccion.");
+        }
+
+        $stockUpdateData = [
+            'destruccion_tipo' => 'PRN',
+            'destruccion_id' => $produccion->id,
+        ];
+
+        if ($turnoId !== null) {
+            $stockUpdateData['id_pro_p_turno_destruccion'] = $turnoId;
+        }
+
+        Log::debug("Updating stock det with id {$stockDet->id} to set destruccion_tipo=PRN, destruccion_id={$produccion->id}" . ($turnoId !== null ? " and id_pro_p_turno_destruccion={$turnoId}" : ''));
              DB::connection('sqlsrv')
              ->table('PKG_Stock_Det')
              ->where('id', $stockDet->id)
-             ->update(['destruccion_tipo' => 'PRN', 'destruccion_id' => $produccion->id,'id_pro_p_turno_destruccion'=>$turno_id]);
+             ->update($stockUpdateData);
 
         return response()->json([
             'success' => true,
