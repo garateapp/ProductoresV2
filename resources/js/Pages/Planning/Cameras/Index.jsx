@@ -45,6 +45,18 @@ function ProcessMini({ title, block, highlight }) {
             {block.especie || '-'}
             {block.exportadora ? <span className="text-slate-500 font-normal"> · {block.exportadora}</span> : null}
           </div>
+          <div className="text-xs text-slate-700">
+            <span className="font-semibold">Variedad:</span> {block.variedad || '-'}
+          </div>
+          <div className="text-xs text-slate-700">
+            <span className="font-semibold">Destino:</span> {block.destino || '-'}
+          </div>
+          <div className="text-xs text-slate-700">
+            <span className="font-semibold">N° Proceso:</span> {block.process_number || block.process_id || '-'}
+          </div>
+          <div className="text-xs text-slate-700">
+            <span className="font-semibold">N° Lote:</span> {block.lote || '-'}
+          </div>
           <div className="text-xs text-slate-600">
             {fmtTime(block.inicio)} – {fmtTime(block.fin)}
             <span className="text-slate-400"> ({fmtDate(block.inicio)})</span>

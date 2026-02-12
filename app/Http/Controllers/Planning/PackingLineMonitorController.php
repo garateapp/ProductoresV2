@@ -123,11 +123,36 @@ class PackingLineMonitorController extends Controller
                     $start = $lots->pluck('inicio_estimado')->filter()->min();
                     $end = $lots->pluck('fin_estimado')->filter()->max();
 
+                    $variedades = $lots
+                        ->pluck('n_variedad')
+                        ->filter(fn ($v) => is_string($v) && trim($v) !== '')
+                        ->map(fn ($v) => trim((string) $v))
+                        ->unique()
+                        ->values();
+
+                    $destinos = $lots
+                        ->pluck('destino')
+                        ->filter(fn ($v) => is_string($v) && trim($v) !== '')
+                        ->map(fn ($v) => trim((string) $v))
+                        ->unique()
+                        ->values();
+
+                    $lotes = $lots
+                        ->pluck('n_g_recepcion')
+                        ->filter(fn ($v) => is_string($v) && trim($v) !== '')
+                        ->map(fn ($v) => trim((string) $v))
+                        ->unique()
+                        ->values();
+
                     return [
                         'process_id' => (int) ($p?->id ?? 0),
+                        'process_number' => (string) ((int) ($p?->id ?? 0)),
                         'estado' => $p?->estado?->value ?? (string) ($p?->estado ?? ''),
                         'especie' => (string) ($p?->especie ?? ''),
                         'exportadora' => is_string($p?->exportadora) ? (string) $p->exportadora : null,
+                        'variedad' => $variedades->count() === 1 ? (string) $variedades->first() : ($variedades->count() > 1 ? 'VARIAS' : null),
+                        'destino' => $destinos->count() === 1 ? (string) $destinos->first() : ($destinos->count() > 1 ? 'MÚLTIPLE' : null),
+                        'lote' => $lotes->count() === 1 ? (string) $lotes->first() : ($lotes->count() > 1 ? implode(', ', $lotes->take(2)->all()).'... ('.$lotes->count().')' : null),
                         'pedidos' => is_string($p?->pedidos) ? (string) $p->pedidos : null,
                         'bins' => (int) round((float) $lots->sum(fn ($l) => (float) ($l->cantidad_bins ?? 0))),
                         'kilos' => (float) $lots->sum(fn ($l) => (float) ($l->peso_neto ?? 0)),
@@ -334,4 +359,3 @@ class PackingLineMonitorController extends Controller
         ]);
     }
 }
-
