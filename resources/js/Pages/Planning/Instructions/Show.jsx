@@ -251,7 +251,7 @@ export default function Show({ process, shift, lineSheets, metaByLineId }) {
                   </div>
                   <div className="meta-box">
                     <div className="meta-label">Turno</div>
-                    <div className="meta-value">{shift ? `${shift.codigo || ''}${shift.nombre ? ` · ${shift.nombre}` : ''}` : '-'}</div>
+                    <div className="meta-value">{shift ? `${shift.nombre ? ` · ${shift.nombre}` : ''}` : '-'}</div>
                   </div>
                   <div className="meta-box">
                     <div className="meta-label">Línea Proceso</div>

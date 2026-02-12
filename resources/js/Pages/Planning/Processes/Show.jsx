@@ -1399,6 +1399,25 @@ export default function Show({ process, lines = [], allLines = [], inventory = [
                                 <div className="text-xs text-gray-600">
                                   {item.variedad || '-'} · NC {item.setup_nota_calidad ?? '-'} · Cal {item.setup_calibre ?? '-'} · Color {item.setup_color ?? '-'} · Brix {item.brix ?? '-'}
                                 </div>
+                                {item.exportable_percentage !== null && item.exportable_percentage !== undefined ? (
+                                  <div className="mt-1 text-xs">
+                                    <span className="inline-flex items-center rounded-full border border-emerald-200 bg-emerald-50 px-2 py-0.5 font-semibold text-emerald-800">
+                                      % Exportación: {Number(item.exportable_percentage).toLocaleString('es-CL', { minimumFractionDigits: 0, maximumFractionDigits: 2 })}%
+                                    </span>
+                                  </div>
+                                ) : null}
+                                {(Array.isArray(item.defectos_calidad) && item.defectos_calidad.length > 0) ? (
+                                  <div className="mt-1 text-xs text-gray-700">
+                                    <span className="font-semibold">Defectos de calidad:</span>{' '}
+                                    {item.defectos_calidad.map((d) => `${String(d.detalle_item || '-')}: ${Number(d.porcentaje_muestra || 0).toLocaleString('es-CL', { minimumFractionDigits: 0, maximumFractionDigits: 2 })}%`).join(' · ')}
+                                  </div>
+                                ) : null}
+                                {(Array.isArray(item.defectos_condicion) && item.defectos_condicion.length > 0) ? (
+                                  <div className="mt-1 text-xs text-gray-700">
+                                    <span className="font-semibold">Defectos de condición:</span>{' '}
+                                    {item.defectos_condicion.map((d) => `${String(d.detalle_item || '-')}: ${Number(d.porcentaje_muestra || 0).toLocaleString('es-CL', { minimumFractionDigits: 0, maximumFractionDigits: 2 })}%`).join(' · ')}
+                                  </div>
+                                ) : null}
                                 <div className="text-xs text-gray-500 mt-1">
                                   {item.antiguedad !== null ? `Antigüedad: ${item.antiguedad}` : ''} {item.fecha_recepcion ? `· Recepción: ${item.fecha_recepcion}` : ''}
                                 </div>

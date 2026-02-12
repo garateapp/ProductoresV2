@@ -365,10 +365,46 @@ class PackingProcessController extends Controller
             'limit' => 200,
         ])->values();
 
+        $inventoryNg = $inventory
+            ->pluck('n_g_recepcion')
+            ->map(fn ($v) => trim((string) $v))
+            ->filter(fn ($v) => $v !== '')
+            ->unique()
+            ->values()
+            ->all();
+
+        $qualityDetailsByNg = [];
+        if (! empty($inventoryNg)) {
+            $recepciones = Recepcion::query()
+                ->select(['id', 'numero_g_recepcion'])
+                ->whereIn('numero_g_recepcion', $inventoryNg)
+                ->with([
+                    'calidad:id,recepcion_id',
+                    'calidad.detalles:id,calidad_id,tipo_item,detalle_item,porcentaje_muestra',
+                ])
+                ->get();
+
+            foreach ($recepciones as $recepcion) {
+                $ng = trim((string) ($recepcion->numero_g_recepcion ?? ''));
+                if ($ng === '') {
+                    continue;
+                }
+
+                $detalles = $recepcion->calidad?->detalles ?? collect();
+
+                $qualityDetailsByNg[$ng] = [
+                    'exportable_percentage' => $this->calculateExportablePercentageFromDetalles($detalles),
+                    'defectos_calidad' => $this->extractDefectRowsByTipo($detalles, 'DEFECTOS DE CALIDAD'),
+                    'defectos_condicion' => $this->extractDefectRowsByTipo($detalles, 'DEFECTOS DE CONDICION'),
+                ];
+            }
+        }
+
         $qualityMap = $this->qualityRepository->getQualityByNGRecepcion($inventory->pluck('n_g_recepcion')->all());
-        $inventory = $inventory->map(function (array $row) use ($qualityMap) {
-            $n = (string) $row['n_g_recepcion'];
+        $inventory = $inventory->map(function (array $row) use ($qualityMap, $qualityDetailsByNg) {
+            $n = trim((string) ($row['n_g_recepcion'] ?? ''));
             $q = $qualityMap[$n] ?? null;
+            $qualityExtra = $qualityDetailsByNg[$n] ?? null;
             return [
                 ...$row,
                 'setup_nota_calidad' => $q['setup_nota_calidad'] ?? null,
@@ -376,6 +412,9 @@ class PackingProcessController extends Controller
                 'setup_color' => $q['setup_color'] ?? null,
                 'brix' => $q['brix'] ?? null,
                 'quality_warning' => (bool) ($q['warning'] ?? false),
+                'exportable_percentage' => $qualityExtra['exportable_percentage'] ?? null,
+                'defectos_calidad' => $qualityExtra['defectos_calidad'] ?? [],
+                'defectos_condicion' => $qualityExtra['defectos_condicion'] ?? [],
             ];
         });
 
@@ -523,6 +562,72 @@ class PackingProcessController extends Controller
             'allowSplit' => (bool) config('planning.allow_split', false),
             'badges' => $badges,
         ]);
+    }
+
+    private function normalizeDetailType(?string $value): string
+    {
+        return Str::upper(Str::ascii(trim((string) $value)));
+    }
+
+    private function calculateExportablePercentageFromDetalles($detalles): float
+    {
+        $rows = collect($detalles);
+
+        $sumByType = function (callable $predicate) use ($rows): float {
+            return (float) $rows
+                ->filter(function ($d) use ($predicate) {
+                    $tipo = $this->normalizeDetailType((string) ($d->tipo_item ?? ''));
+                    return $predicate($tipo);
+                })
+                ->sum(fn ($d) => (float) ($d->porcentaje_muestra ?? 0));
+        };
+
+        $defectosCalidad = $sumByType(fn (string $t) => $t === 'DEFECTOS DE CALIDAD');
+        $defectosCondicion = $sumByType(fn (string $t) => $t === 'DEFECTOS DE CONDICION');
+        $danosPlaga = $sumByType(fn (string $t) => str_contains($t, 'PLAGA'));
+
+        $defectosCalidadPrecalibre = (float) $rows
+            ->filter(fn ($d) => $this->normalizeDetailType((string) ($d->tipo_item ?? '')) === 'DEFECTOS DE CALIDAD')
+            ->filter(fn ($d) => $this->normalizeDetailType((string) ($d->detalle_item ?? '')) === 'PRECALIBRE')
+            ->sum(fn ($d) => (float) ($d->porcentaje_muestra ?? 0));
+
+        $defectosCalidadAjustado = $defectosCalidad - $defectosCalidadPrecalibre;
+        $totalDefectos = $defectosCalidadAjustado + $defectosCondicion + $danosPlaga + $defectosCalidadPrecalibre;
+
+        return max(0, round(100 - $totalDefectos, 2));
+    }
+
+    private function extractDefectRowsByTipo($detalles, string $tipoObjetivo): array
+    {
+        $target = $this->normalizeDetailType($tipoObjetivo);
+        $acc = [];
+
+        foreach (collect($detalles) as $d) {
+            $tipo = $this->normalizeDetailType((string) ($d->tipo_item ?? ''));
+            if ($tipo !== $target) {
+                continue;
+            }
+
+            $detalleItem = trim((string) ($d->detalle_item ?? ''));
+            if ($detalleItem === '') {
+                $detalleItem = 'SIN DETALLE';
+            }
+
+            $value = (float) ($d->porcentaje_muestra ?? 0);
+            if (! isset($acc[$detalleItem])) {
+                $acc[$detalleItem] = 0.0;
+            }
+            $acc[$detalleItem] += $value;
+        }
+
+        return collect($acc)
+            ->map(fn ($value, $name) => [
+                'detalle_item' => (string) $name,
+                'porcentaje_muestra' => round((float) $value, 2),
+            ])
+            ->sortByDesc('porcentaje_muestra')
+            ->values()
+            ->all();
     }
 
     public function generate(Request $request, PackingProcess $process)
