@@ -1376,8 +1376,13 @@ class PackingProcessController extends Controller
         // Overrides guardados por versión (Observaciones/Calibres/Pedido) para el instructivo.
         $instructionOverridesByLineId = [];
         try {
-            $linesForOverrides = $lineIds->isNotEmpty()
-                ? $lineIds->all()
+            $lineIdsCollection = collect($lineIds ?: [])
+                ->map(fn ($v) => (int) $v)
+                ->filter(fn ($v) => $v > 0)
+                ->values();
+
+            $linesForOverrides = $lineIdsCollection->isNotEmpty()
+                ? $lineIdsCollection->all()
                 : $lots->pluck('packing_line_id')->filter()->map(fn ($v) => (int) $v)->unique()->values()->all();
 
             foreach ($linesForOverrides as $lid) {
@@ -1388,14 +1393,8 @@ class PackingProcessController extends Controller
                 $q = PlanningInstructionVersion::query()
                     ->where('fecha', $date)
                     ->where('shift_id', $shiftId)
-                    ->where('packing_line_id', $lid);
-
-                // Si se solicita explícitamente una versión para la línea, la usamos.
-                if ($lineIdParam && (int) $lineIdParam === $lid && $versionParam && (int) $versionParam > 0) {
-                    $q->where('version', (int) $versionParam);
-                } else {
-                    $q->orderByDesc('version');
-                }
+                    ->where('packing_line_id', $lid)
+                    ->orderByDesc('version');
 
                 $rec = $q->first();
                 if ($rec && is_array($rec->overrides)) {
