@@ -290,14 +290,14 @@ export default function Edit({ process, shift, lineId, latestVersion, sheet, dow
     return mapped
   }, [categoryOptions])
 
-  const lotComments = useMemo(() => commentsByLots(data.lots), [data.lots])
-
   const { data, setData, post, processing, errors } = useForm({
     line_id: Number(lineId || 0),
     change_reason: '',
     lots: initialLots,
     rows: initialRows,
   })
+
+  const lotComments = useMemo(() => commentsByLots(data.lots), [data.lots])
 
   const updateRow = (idx, key, patch) => {
     const current = Array.isArray(data.rows) ? data.rows : []
