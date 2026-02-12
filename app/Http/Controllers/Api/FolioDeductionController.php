@@ -43,6 +43,8 @@ class FolioDeductionController extends Controller
         ->select('folio')
         ->where('numero_g_Recepcion',$lote_recepcion)
         ->where('id_empresa','1')
+        ->where('destruccion_tipo','')
+        ->where('destruccion_id',0)
         ->get();
 
         if(! $foliosLote->contains('folio', $folio)){
@@ -115,13 +117,36 @@ class FolioDeductionController extends Controller
             'quantity' => 1,
             'scanned_at' => now(),
         ]);
-
+        $now = Carbon::now()->format('H:i:s'); // hora actual
+        $turno=DB::connection('sqlsrv')
+        ->table('PRO_P_Turnos')
+         ->where(function ($q) use ($now) {
+        // NO cruza medianoche: inicio < termino  AND now in [inicio, termino)
+        $q->whereRaw('TIME(hora_inicio) < TIME(hora_termino)')
+          ->whereRaw('TIME(?) >= TIME(hora_inicio)', [$now])
+          ->whereRaw('TIME(?) <  TIME(hora_termino)', [$now]);
+    })
+    ->orWhere(function ($q) use ($now) {
+        // SÍ cruza medianoche: inicio > termino AND (now >= inicio OR now < termino)
+        $q->whereRaw('TIME(hora_inicio) > TIME(hora_termino)')
+          ->where(function ($q2) use ($now) {
+              $q2->whereRaw('TIME(?) >= TIME(hora_inicio)', [$now])
+                 ->orWhereRaw('TIME(?) <  TIME(hora_termino)', [$now]);
+          });
+    })
+    ->first();
+    $turno_id=$turno->id;
+    Log::debug("Updating stock det with id {$stockDet->id} to set destruccion_tipo=PRN and destruccion_id={$produccion->id}");
+         DB::connection('sqlsrv')
+         ->table('PKG_Stock_Det')
+         ->where('id', $stockDet->id)
+         ->update(['destruccion_tipo' => 'PRN', 'destruccion_id' => $produccion->id,'turno_id'=>$turno_id]);
         $totalDeductions = FolioDeduction::where('process_id', $produccion->id)->count();
         Log::debug("Updating stock det with id {$stockDet->id} to set destruccion_tipo=PRN and destruccion_id={$produccion->id}");
              DB::connection('sqlsrv')
              ->table('PKG_Stock_Det')
              ->where('id', $stockDet->id)
-             ->update(['destruccion_tipo' => 'PRN', 'destruccion_id' => $produccion->id]);
+             ->update(['destruccion_tipo' => 'PRN', 'destruccion_id' => $produccion->id,'id_pro_p_turno_destruccion'=>$turno_id]);
 
         return response()->json([
             'success' => true,
