@@ -63,7 +63,7 @@
             }
             .process-lots-table th,
             .process-lots-table td {
-                font-size:9px;
+                font-size:12px;
                 line-height:1.15;
                 padding:2px 3px;
                 white-space:normal;
@@ -71,7 +71,7 @@
                 overflow-wrap:anywhere;
             }
             .process-lots-table th { position:static; }
-            .process-lots-table .small { font-size:7px; }
+            .process-lots-table .small { font-size:10px; }
             .process-lots-table th:nth-child(1), .process-lots-table td:nth-child(1) { width: 6%; }
             .process-lots-table th:nth-child(2), .process-lots-table td:nth-child(2) { width: 12%; }
             .process-lots-table th:nth-child(3), .process-lots-table td:nth-child(3) { width: 7%; }
