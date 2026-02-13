@@ -79,7 +79,7 @@
             }
             .process-lots-table th,
             .process-lots-table td {
-                font-size:12px;
+                font-size:10px;
                 line-height:1.15;
                 padding:2px 3px;
                 white-space:normal;
@@ -112,7 +112,7 @@
             }
             .packaging-table th,
             .packaging-table td {
-                font-size:12px;
+                font-size:10px;
                 line-height:1.05;
                 padding:1px 2px;
                 white-space:normal;
