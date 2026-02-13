@@ -20,8 +20,8 @@
         .card-sub { margin-top:6px; font-size:10px; color: var(--muted); }
         .card-body { padding:12px 14px 16px 14px; }
 
-        .instructionDoc h1 { font-size:20px; margin:0 0 8px 0; font-weight:900; }
-        .instructionDoc h2 { font-size:16px; margin:18px 0 8px 0; font-weight:900; }
+        .instructionDoc h1 { font-size:14px; margin:0 0 8px 0; font-weight:900; }
+        .instructionDoc h2 { font-size:14px; margin:18px 0 8px 0; font-weight:900; }
         .table-wrap {
             overflow:auto;
             border:1px solid #ddd;
