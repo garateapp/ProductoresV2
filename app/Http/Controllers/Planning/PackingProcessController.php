@@ -1325,17 +1325,24 @@ class PackingProcessController extends Controller
                 ],
             ];
 
-            $templatePathHtml = base_path('instructivo-proceso.html');
-            $templatePathXlsx = base_path('instructivo-proceso.xlsx');
-            $html = null;
-            if (is_file($templatePathHtml)) {
-                $html = $this->renderInstructionFromHtmlTemplate($templatePathHtml, $lineSheets, $date, $shift, $meta);
-            } elseif (is_file($templatePathXlsx)) {
-                $html = $this->renderInstructionFromXlsxTemplate($templatePathXlsx, $lineSheets, $date, $shift);
-            }
-            if (! is_string($html) || trim($html) === '') {
-                continue;
-            }
+            $serializedLineSheets = $this->serializeInstructionLineSheets($lineSheets);
+            $html = view('planning.instruction_show_like', [
+                'process' => [
+                    'id' => (int) $process->id,
+                    'fecha' => $date,
+                    'especie' => (string) ($process->especie ?? ''),
+                    'estado' => $process->estado?->value ?? $process->estado,
+                ],
+                'shift' => $shift ? [
+                    'id' => (int) $shift->id,
+                    'codigo' => $shift->codigo,
+                    'nombre' => $shift->nombre,
+                    'horas' => $shift->horas,
+                    'hora_inicio' => $shift->hora_inicio,
+                ] : null,
+                'lineSheets' => $serializedLineSheets,
+                'metaByLineId' => $meta,
+            ])->render();
 
             PlanningInstructionVersion::create([
                 'fecha' => $date,
@@ -1403,17 +1410,24 @@ class PackingProcessController extends Controller
                 ],
             ];
 
-            $templatePathHtml = base_path('instructivo-proceso.html');
-            $templatePathXlsx = base_path('instructivo-proceso.xlsx');
-            $html = null;
-            if (is_file($templatePathHtml)) {
-                $html = $this->renderInstructionFromHtmlTemplate($templatePathHtml, $lineSheets, $date, $process->shift, $meta);
-            } elseif (is_file($templatePathXlsx)) {
-                $html = $this->renderInstructionFromXlsxTemplate($templatePathXlsx, $lineSheets, $date, $process->shift);
-            }
-            if (! is_string($html) || trim($html) === '') {
-                continue;
-            }
+            $serializedLineSheets = $this->serializeInstructionLineSheets($lineSheets);
+            $html = view('planning.instruction_show_like', [
+                'process' => [
+                    'id' => (int) $process->id,
+                    'fecha' => $date,
+                    'especie' => (string) ($process->especie ?? ''),
+                    'estado' => $process->estado?->value ?? $process->estado,
+                ],
+                'shift' => $process->shift ? [
+                    'id' => (int) $process->shift->id,
+                    'codigo' => $process->shift->codigo,
+                    'nombre' => $process->shift->nombre,
+                    'horas' => $process->shift->horas,
+                    'hora_inicio' => $process->shift->hora_inicio,
+                ] : null,
+                'lineSheets' => $serializedLineSheets,
+                'metaByLineId' => $meta,
+            ])->render();
 
             PlanningInstructionVersion::create([
                 'fecha' => $date,
@@ -2069,13 +2083,23 @@ class PackingProcessController extends Controller
             ],
         ];
 
-        $html = view('planning.instruction', [
-            'process' => $process,
-            'date' => $date,
-            'shift' => $process->shift,
-            'lineSheets' => $lineSheets,
+        $serializedLineSheets = $this->serializeInstructionLineSheets($lineSheets);
+        $html = view('planning.instruction_show_like', [
+            'process' => [
+                'id' => (int) $process->id,
+                'fecha' => $date,
+                'especie' => (string) ($process->especie ?? ''),
+                'estado' => $process->estado?->value ?? $process->estado,
+            ],
+            'shift' => $process->shift ? [
+                'id' => (int) $process->shift->id,
+                'codigo' => $process->shift->codigo,
+                'nombre' => $process->shift->nombre,
+                'horas' => $process->shift->horas,
+                'hora_inicio' => $process->shift->hora_inicio,
+            ] : null,
+            'lineSheets' => $serializedLineSheets,
             'metaByLineId' => $metaByLineId,
-            'logoDataUri' => $this->getPlanningLogoDataUri(),
         ])->render();
 
         PlanningInstructionVersion::create([
