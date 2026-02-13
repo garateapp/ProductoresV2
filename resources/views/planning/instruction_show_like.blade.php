@@ -44,7 +44,55 @@
         .status-default { background:#f8fafc; color:#334155; border-color:#e2e8f0; }
 
         @media (max-width: 900px) { .meta-grid { grid-template-columns:repeat(2,minmax(0,1fr)); } }
-        @page { margin: 10mm; size: A4 landscape; }
+        @page { margin: 6mm; size: A4 landscape; }
+        @media print {
+            html, body { background:#fff; }
+            .page { padding:0; }
+            .head { margin-bottom: 6px; }
+            .head-title { font-size: 15px; }
+            .head-sub { font-size: 10px; }
+            .status { margin-top: 4px; padding: 2px 8px; font-size: 9px; }
+            .card { overflow:visible; margin-top:8px; }
+            .card-head { padding:8px 10px; }
+            .card-body { padding:8px 10px 10px 10px; }
+            .table-wrap { overflow:visible !important; padding:2px; border:none; }
+            .process-lots-table {
+                width:100% !important;
+                min-width:0 !important;
+                table-layout:fixed;
+            }
+            .process-lots-table th,
+            .process-lots-table td {
+                font-size:7px;
+                line-height:1.05;
+                padding:2px 2px;
+                white-space:normal;
+                word-break:break-word;
+                overflow-wrap:anywhere;
+            }
+            .process-lots-table th { position:static; }
+            .process-lots-table .small { font-size:6px; }
+            .process-lots-table th:nth-child(1), .process-lots-table td:nth-child(1) { width: 4%; }
+            .process-lots-table th:nth-child(2), .process-lots-table td:nth-child(2) { width: 4%; }
+            .process-lots-table th:nth-child(3), .process-lots-table td:nth-child(3) { width: 3%; }
+            .process-lots-table th:nth-child(4), .process-lots-table td:nth-child(4) { width: 7%; }
+            .process-lots-table th:nth-child(5), .process-lots-table td:nth-child(5) { width: 5%; }
+            .process-lots-table th:nth-child(6), .process-lots-table td:nth-child(6) { width: 7%; }
+            .process-lots-table th:nth-child(7), .process-lots-table td:nth-child(7) { width: 7%; }
+            .process-lots-table th:nth-child(8), .process-lots-table td:nth-child(8) { width: 4%; }
+            .process-lots-table th:nth-child(9), .process-lots-table td:nth-child(9) { width: 4%; }
+            .process-lots-table th:nth-child(10), .process-lots-table td:nth-child(10) { width: 4%; }
+            .process-lots-table th:nth-child(11), .process-lots-table td:nth-child(11) { width: 4%; }
+            .process-lots-table th:nth-child(12), .process-lots-table td:nth-child(12) { width: 6%; }
+            .process-lots-table th:nth-child(13), .process-lots-table td:nth-child(13) { width: 3%; }
+            .process-lots-table th:nth-child(14), .process-lots-table td:nth-child(14) { width: 4%; }
+            .process-lots-table th:nth-child(15), .process-lots-table td:nth-child(15) { width: 4%; }
+            .process-lots-table th:nth-child(16), .process-lots-table td:nth-child(16) { width: 4%; }
+            .process-lots-table th:nth-child(17), .process-lots-table td:nth-child(17) { width: 4%; }
+            .process-lots-table th:nth-child(18), .process-lots-table td:nth-child(18) { width: 10%; }
+            .process-lots-table th:nth-child(19), .process-lots-table td:nth-child(19) { width: 8%; }
+            .process-lots-table th:nth-child(20), .process-lots-table td:nth-child(20) { width: 4%; }
+        }
     </style>
 </head>
 <body>
@@ -215,7 +263,29 @@
 
                     <h2>Procesos / lotes</h2>
                     <div class="table-wrap">
-                        <table>
+                        <table class="process-lots-table">
+                            <colgroup>
+                                <col style="width:4%">
+                                <col style="width:4%">
+                                <col style="width:3%">
+                                <col style="width:7%">
+                                <col style="width:5%">
+                                <col style="width:7%">
+                                <col style="width:7%">
+                                <col style="width:4%">
+                                <col style="width:4%">
+                                <col style="width:4%">
+                                <col style="width:4%">
+                                <col style="width:6%">
+                                <col style="width:3%">
+                                <col style="width:4%">
+                                <col style="width:4%">
+                                <col style="width:4%">
+                                <col style="width:4%">
+                                <col style="width:10%">
+                                <col style="width:8%">
+                                <col style="width:4%">
+                            </colgroup>
                             <thead>
                             <tr>
                                 <th>Hr Inicio Proceso</th>
