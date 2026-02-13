@@ -50,20 +50,17 @@ class PackingLineMonitorController extends Controller
             $shiftId = (int) ($shifts->first()['id'] ?? 0);
         }
 
-        // Cámaras/Líneas activas: por defecto mostramos HAND_PACK (cámaras).
-        $type = (string) $request->query('type', 'HAND_PACK');
-        $linesQuery = PackingLine::query()->where('activo', true);
-        if ($type !== 'ALL') {
-            $linesQuery->where('tipo', $type);
-        }
-        $lines = $linesQuery->orderBy('nombre')->get(['id', 'nombre', 'tipo']);
+        // Cámaras/Líneas: por defecto mostramos TODAS (ALL).
+        // Además, la vista debe contener solo líneas/cámaras con proceso activo o programado.
+        $type = (string) $request->query('type', 'ALL');
 
         // Procesos del día/turno (para armar anterior/actual/siguiente por cámara).
+        // "Activos o programados": en proceso, confirmados, borrador y conflicto.
         $statuses = [
-            PlanningProcessStatus::CONFIRMADO->value,
             PlanningProcessStatus::EN_PROCESO->value,
-            PlanningProcessStatus::CERRADO->value,
+            PlanningProcessStatus::CONFIRMADO->value,
             PlanningProcessStatus::BORRADOR->value,
+            PlanningProcessStatus::CONFLICTO->value,
         ];
 
         $processIds = PackingProcess::query()
@@ -74,6 +71,32 @@ class PackingLineMonitorController extends Controller
             ->map(fn ($id) => (int) $id)
             ->values()
             ->all();
+
+        $lineIdsWithProcesses = [];
+        if (! empty($processIds)) {
+            $lineIdsWithProcesses = PackingProcessLot::query()
+                ->whereIn('process_id', $processIds)
+                ->distinct()
+                ->pluck('packing_line_id')
+                ->map(fn ($id) => (int) $id)
+                ->filter(fn ($id) => $id > 0)
+                ->unique()
+                ->values()
+                ->all();
+        }
+
+        $linesQuery = PackingLine::query()
+            ->where('activo', true);
+        if ($type !== 'ALL') {
+            $linesQuery->where('tipo', $type);
+        }
+        if (! empty($lineIdsWithProcesses)) {
+            $linesQuery->whereIn('id', $lineIdsWithProcesses);
+        } else {
+            // Sin procesos activos/programados para fecha+turno: no devolvemos tarjetas vacías.
+            $linesQuery->whereRaw('1 = 0');
+        }
+        $lines = $linesQuery->orderBy('nombre')->get(['id', 'nombre', 'tipo']);
 
         $lotsByLine = collect();
         if (! empty($processIds)) {
