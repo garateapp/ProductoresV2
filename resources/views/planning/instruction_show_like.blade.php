@@ -104,6 +104,26 @@
             .process-lots-table th:nth-child(14), .process-lots-table td:nth-child(14) { width: 4%; }
             .process-lots-table th:nth-child(15), .process-lots-table td:nth-child(15) { width: 4%; }
             .process-lots-table th:nth-child(16), .process-lots-table td:nth-child(16) { width: 11%; }
+            .packaging-table {
+                width:100% !important;
+                min-width:0 !important;
+                max-width:100% !important;
+                table-layout:fixed;
+            }
+            .packaging-table th,
+            .packaging-table td {
+                font-size:8px;
+                line-height:1.05;
+                padding:1px 2px;
+                white-space:normal;
+                word-break:break-word;
+                overflow-wrap:anywhere;
+                max-width:0;
+                hyphens:auto;
+            }
+            .packaging-table th {
+                position:static;
+            }
 
         }
     </style>
@@ -293,7 +313,7 @@
                                 <col style="width:7%">
                                 <col style="width:4%">
                                 <col style="width:4%">
-                                <col style="width:11%">
+                                <col style="width:8%">
 
                             </colgroup>
                             <thead>
@@ -375,7 +395,21 @@
 
                     <h2>Destino + Embalajes</h2>
                     <div class="table-wrap">
-                        <table>
+                        <table class="packaging-table">
+                            <colgroup>
+                                <col style="width:7%">
+                                <col style="width:9%">
+                                <col style="width:16%">
+                                <col style="width:9%">
+                                <col style="width:6%">
+                                <col style="width:7%">
+                                <col style="width:6%">
+                                <col style="width:10%">
+                                <col style="width:12%">
+                                <col style="width:10%">
+                                <col style="width:4%">
+                                <col style="width:4%">
+                            </colgroup>
 
                             <thead>
                             <tr style="position:static; top:0; background:#2f631e; font-weight:600;color:#fff;">
