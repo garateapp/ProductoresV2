@@ -157,9 +157,6 @@
             $packRows = is_array($s['packagingSummary'] ?? null) ? $s['packagingSummary'] : [];
             $meta = (is_array($metaByLineId ?? null) && $lineId > 0 && isset($metaByLineId[$lineId]) && is_array($metaByLineId[$lineId])) ? $metaByLineId[$lineId] : null;
             $version = $meta && isset($meta['version']) ? (int) $meta['version'] : null;
-            $hasMexico = collect($lots)->contains(function ($r) {
-                return strtoupper(trim((string) ($r['destino'] ?? ''))) === 'MEXICO';
-            });
             $sumBins = collect($lots)->sum(fn ($r) => (int) ($r['cantidad_bins'] ?? 0));
             $sumKgs = collect($lots)->sum(fn ($r) => (float) ($r['peso_neto'] ?? 0));
             $comments = $commentsByLots($lots);
@@ -230,7 +227,7 @@
                                 <th>Productor Real</th>
                                 <th>CSG</th>
                                 <th>Categoria</th>
-                                @if($hasMexico)<th>Huerto</th>@endif
+                                <th>Huerto</th>
                                 <th>Pulpa</th>
                                 <th>Fecha Recepción</th>
                                 <th>% Exportación</th>
@@ -266,9 +263,7 @@
                                     <td>{{ (string) ($r['productor_real'] ?? '') }}</td>
                                     <td>{{ (string) ($r['csg_productor'] ?? '') }}</td>
                                     <td>{{ (string) (($r['categoria_origen'] ?? '') !== '' ? $r['categoria_origen'] : 'Cat 1') }}</td>
-                                    @if($hasMexico)
-                                        <td>{{ strtoupper(trim((string) ($r['destino'] ?? ''))) === 'MEXICO' ? (string) ($r['huerto'] ?? '') : '' }}</td>
-                                    @endif
+                                    <td>{{ strtoupper(trim((string) ($r['destino'] ?? ''))) === 'MEXICO' ? (string) ($r['huerto'] ?? '') : '' }}</td>
                                     <td>{{ (string) ($r['pulpa'] ?? '') }}</td>
                                     <td>
                                         @php
@@ -288,7 +283,7 @@
                                 </tr>
                             @endforeach
                             <tr>
-                                <td colspan="{{ $hasMexico ? 13 : 12 }}"><strong>TOTAL</strong></td>
+                                <td colspan="13"><strong>TOTAL</strong></td>
                                 <td><strong>{{ $sumBins ? number_format((float) $sumBins, 0, ',', '.') : '' }}</strong></td>
                                 <td><strong>{{ $sumKgs ? number_format(round((float) $sumKgs), 0, ',', '.') : '' }}</strong></td>
                                 <td colspan="5"></td>
