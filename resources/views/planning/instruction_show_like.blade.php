@@ -29,8 +29,8 @@
         tr:nth-child(even) td { background:#fcfcfc; }
         .meta-grid { display:grid; grid-template-columns:repeat(6,minmax(0,1fr)); gap:8px; margin:10px 0; }
         .meta-box { border:1px solid var(--border); border-radius:10px; padding:8px 10px; background:#fff; }
-        .meta-label { font-size:11px; color:var(--muted); margin-bottom:2px; }
-        .meta-value { font-weight:900; color:var(--ink); font-size:12px; }
+        .meta-label { font-size:14px; color:var(--muted); margin-bottom:2px; }
+        .meta-value { font-weight:900; color:var(--ink); font-size:16px; }
         .small { font-size:14px; color:#4b5563; margin-top:2px; }
         .comments-title { font-weight:700; }
         .comments-line { margin-top:4px; font-size:11px; color:#374151; }
