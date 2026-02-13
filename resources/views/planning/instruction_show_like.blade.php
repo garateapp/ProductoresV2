@@ -64,31 +64,30 @@
             .process-lots-table th,
             .process-lots-table td {
                 font-size:9px;
-                line-height:1.05;
-                padding:2px 2px;
+                line-height:1.15;
+                padding:2px 3px;
                 white-space:normal;
                 word-break:break-word;
                 overflow-wrap:anywhere;
             }
             .process-lots-table th { position:static; }
-            .process-lots-table .small { font-size:6px; }
-            .process-lots-table th:nth-child(1), .process-lots-table td:nth-child(1) { width: 4%; }
-            .process-lots-table th:nth-child(2), .process-lots-table td:nth-child(2) { width: 6%; }
-            .process-lots-table th:nth-child(3), .process-lots-table td:nth-child(3) { width: 3%; }
-            .process-lots-table th:nth-child(4), .process-lots-table td:nth-child(4) { width: 6%; }
-            .process-lots-table th:nth-child(5), .process-lots-table td:nth-child(5) { width: 2%; }
-            .process-lots-table th:nth-child(6), .process-lots-table td:nth-child(6) { width: 2%; }
-            .process-lots-table th:nth-child(7), .process-lots-table td:nth-child(7) { width: 3%; }
-            .process-lots-table th:nth-child(8), .process-lots-table td:nth-child(8) { width: 2%; }
-            .process-lots-table th:nth-child(9), .process-lots-table td:nth-child(9) { width: 2%; }
-            .process-lots-table th:nth-child(10), .process-lots-table td:nth-child(10) { width: 3%; }
-            .process-lots-table th:nth-child(11), .process-lots-table td:nth-child(11) { width: 6%; }
-            .process-lots-table th:nth-child(12), .process-lots-table td:nth-child(12) { width: 3%; }
-            .process-lots-table th:nth-child(13), .process-lots-table td:nth-child(13) { width: 3%; }
-            .process-lots-table th:nth-child(14), .process-lots-table td:nth-child(14) { width: 2%; }
-            .process-lots-table th:nth-child(15), .process-lots-table td:nth-child(15) { width: 3%; }
-            .process-lots-table th:nth-child(16), .process-lots-table td:nth-child(16) { width: 2%; }
-            .process-lots-table th:nth-child(17), .process-lots-table td:nth-child(17) { width: 8%; }
+            .process-lots-table .small { font-size:7px; }
+            .process-lots-table th:nth-child(1), .process-lots-table td:nth-child(1) { width: 6%; }
+            .process-lots-table th:nth-child(2), .process-lots-table td:nth-child(2) { width: 12%; }
+            .process-lots-table th:nth-child(3), .process-lots-table td:nth-child(3) { width: 7%; }
+            .process-lots-table th:nth-child(4), .process-lots-table td:nth-child(4) { width: 11%; }
+            .process-lots-table th:nth-child(5), .process-lots-table td:nth-child(5) { width: 4%; }
+            .process-lots-table th:nth-child(6), .process-lots-table td:nth-child(6) { width: 4%; }
+            .process-lots-table th:nth-child(7), .process-lots-table td:nth-child(7) { width: 4%; }
+            .process-lots-table th:nth-child(8), .process-lots-table td:nth-child(8) { width: 4%; }
+            .process-lots-table th:nth-child(9), .process-lots-table td:nth-child(9) { width: 4%; }
+            .process-lots-table th:nth-child(10), .process-lots-table td:nth-child(10) { width: 4%; }
+            .process-lots-table th:nth-child(11), .process-lots-table td:nth-child(11) { width: 8%; }
+            .process-lots-table th:nth-child(12), .process-lots-table td:nth-child(12) { width: 6%; }
+            .process-lots-table th:nth-child(13), .process-lots-table td:nth-child(13) { width: 7%; }
+            .process-lots-table th:nth-child(14), .process-lots-table td:nth-child(14) { width: 4%; }
+            .process-lots-table th:nth-child(15), .process-lots-table td:nth-child(15) { width: 4%; }
+            .process-lots-table th:nth-child(16), .process-lots-table td:nth-child(16) { width: 11%; }
 
         }
     </style>
@@ -263,23 +262,22 @@
                     <div class="table-wrap">
                         <table class="process-lots-table">
                             <colgroup>
+                                <col style="width:6%">
+                                <col style="width:12%">
+                                <col style="width:7%">
+                                <col style="width:11%">
                                 <col style="width:4%">
-                                <col style="width:6%">
-                                <col style="width:3%">
-                                <col style="width:6%">
-                                <col style="width:2%">
-                                <col style="width:2%">
-                                <col style="width:3%">
-                                <col style="width:2%">
-                                <col style="width:2%">
-                                <col style="width:3%">
-                                <col style="width:6%">
-                                <col style="width:3%">
-                                <col style="width:3%">
-                                <col style="width:2%">
-                                <col style="width:3%">
-                                <col style="width:2%">
+                                <col style="width:4%">
+                                <col style="width:4%">
+                                <col style="width:4%">
+                                <col style="width:4%">
+                                <col style="width:4%">
                                 <col style="width:8%">
+                                <col style="width:6%">
+                                <col style="width:7%">
+                                <col style="width:4%">
+                                <col style="width:4%">
+                                <col style="width:11%">
 
                             </colgroup>
                             <thead>
