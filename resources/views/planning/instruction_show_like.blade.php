@@ -266,48 +266,47 @@
                         <table class="process-lots-table">
                             <colgroup>
                                 <col style="width:4%">
-                                <col style="width:4%">
-                                <col style="width:3%">
-                                <col style="width:7%">
-                                <col style="width:5%">
-                                <col style="width:7%">
-                                <col style="width:7%">
-                                <col style="width:4%">
-                                <col style="width:4%">
-                                <col style="width:4%">
-                                <col style="width:4%">
                                 <col style="width:6%">
                                 <col style="width:3%">
-                                <col style="width:4%">
-                                <col style="width:4%">
-                                <col style="width:4%">
-                                <col style="width:4%">
-                                <col style="width:10%">
+                                <col style="width:6%">
+                                <col style="width:2%">
+                                <col style="width:2%">
+                                <col style="width:3%">
+                                <col style="width:2%">
+                                <col style="width:2%">
+                                <col style="width:3%">
+                                <col style="width:6%">
+                                <col style="width:3%">
+                                <col style="width:3%">
+                                <col style="width:2%">
+                                <col style="width:3%">
+                                <col style="width:2%">
                                 <col style="width:8%">
-                                <col style="width:4%">
+
                             </colgroup>
                             <thead>
                             <tr>
-                                <th>Hr Inicio Proceso</th>
-                                <th>Hr Término Proceso</th>
-                                <th>N° Proceso</th>
-                                <th>Lote</th>
+                                <th>Horario Proceso</th>
+                                <th>N° Proceso/ Lote</th>
+                                {{-- <th>Lote</th> --}}
                                 <th>Tipo Proceso</th>
-                                <th>Variedad Original</th>
-                                <th>Productor Real</th>
+                                {{-- <th>Variedad Original</th> --}}
+                                <th>Productor</th>
                                 <th>CSG</th>
-                                <th>Categoria</th>
+                                <th>SDP</th>
                                 <th>Huerto</th>
+                                <th>Categoria</th>
+                                <th>% Exportación</th>
+                                <th>Nota</th>
+                                <th>Variedad</th>
                                 <th>Pulpa</th>
                                 <th>Fecha Recepción</th>
-                                <th>% Exportación</th>
-                                <th>Cantidad (bins)</th>
+                                <th>Bins</th>
                                 <th>Kilos</th>
-                                <th>SDP</th>
-                                <th>Nota Calidad</th>
-                                <th>Exportadora/Cliente</th>
-                                <th>Variedad Rotulada</th>
-                                <th>Hrs Estimadas</th>
+
+                                <th>Exportadora</th>
+
+
                             </tr>
                             </thead>
                             <tbody>
@@ -317,9 +316,9 @@
                                     $isRepack = $sourceType === 'reembalaje';
                                 @endphp
                                 <tr>
-                                    <td>{{ $fmtTime((string) ($r['inicio'] ?? '')) }}</td>
-                                    <td>{{ $fmtTime((string) ($r['fin'] ?? '')) }}</td>
-                                    <td>{{ (string) ($r['process_id'] ?? '') }}</td>
+                                    <td>{{ $fmtTime((string) ($r['inicio'] ?? '')) }} - {{ $fmtTime((string) ($r['fin'] ?? '')) }}
+                                    </td>
+                                    {{-- <td>{{ (string) ($r['process_id'] ?? '') }}</td> --}}
                                     <td>
                                         @if($isRepack)
                                             Folio {{ (string) (($r['source_key'] ?? '') !== '' ? $r['source_key'] : ($r['n_g_recepcion'] ?? '')) }}
@@ -329,11 +328,15 @@
                                         @endif
                                     </td>
                                     <td>{{ (string) (($r['tipo_proceso'] ?? '') !== '' ? $r['tipo_proceso'] : 'Normal') }}</td>
-                                    <td>{{ (string) ($r['variedad_original'] ?? '') }}</td>
+                                    {{-- <td>{{ (string) ($r['variedad_original'] ?? '') }}</td> --}}
                                     <td>{{ (string) ($r['productor_real'] ?? '') }}</td>
                                     <td>{{ (string) ($r['csg_productor'] ?? '') }}</td>
-                                    <td>{{ (string) (($r['categoria_origen'] ?? '') !== '' ? $r['categoria_origen'] : 'Cat 1') }}</td>
+                                    <td>{{ (string) ($r['sdp_centrocosto'] ?? '') }}</td>
                                     <td>{{ strtoupper(trim((string) ($r['destino'] ?? ''))) === 'MEXICO' ? (string) ($r['huerto'] ?? '') : '' }}</td>
+                                    <td>{{ (string) (($r['categoria_origen'] ?? '') !== '' ? $r['categoria_origen'] : 'Cat 1') }}</td>
+                                    <td>{{ $fmtPercent($r['porcentaje_exportacion'] ?? null) }}</td>
+                                    <td>{{ (string) ($r['nota_calidad'] ?? '') }}</td>
+                                    <td>{{ (string) ($r['n_variedad'] ?? '') }}</td>
                                     <td>{{ (string) ($r['pulpa'] ?? '') }}</td>
                                     <td>
                                         @php
@@ -342,14 +345,11 @@
                                         @endphp
                                         {{ $fmtDate($fechaRec10) !== '-' ? $fmtDate($fechaRec10) : '' }}
                                     </td>
-                                    <td>{{ $fmtPercent($r['porcentaje_exportacion'] ?? null) }}</td>
                                     <td>{{ !empty($r['cantidad_bins']) ? number_format((float) ($r['cantidad_bins'] ?? 0), 0, ',', '.') : '' }}</td>
                                     <td>{{ !empty($r['peso_neto']) ? number_format(round((float) ($r['peso_neto'] ?? 0)), 0, ',', '.') : '' }}</td>
-                                    <td>{{ (string) ($r['sdp_centrocosto'] ?? '') }}</td>
-                                    <td>{{ (string) ($r['nota_calidad'] ?? '') }}</td>
                                     <td>{{ (string) ($r['exportadora'] ?? '') }}</td>
-                                    <td>{{ (string) ($r['n_variedad'] ?? '') }}</td>
-                                    <td></td>
+
+
                                 </tr>
                             @endforeach
                             <tr>
