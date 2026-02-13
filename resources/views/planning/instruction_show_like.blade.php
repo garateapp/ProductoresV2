@@ -22,16 +22,32 @@
 
         .instructionDoc h1 { font-size:24px; margin:0 0 8px 0; font-weight:900; }
         .instructionDoc h2 { font-size:20px; margin:18px 0 8px 0; font-weight:900; }
-        .table-wrap { overflow:auto; border:1px solid #ddd; border-radius:10px; padding:10px; background:#fff; }
+        .table-wrap {
+            overflow:auto;
+            border:1px solid #ddd;
+            border-radius:10px;
+            padding:10px;
+            background:#fff;
+            word-wrap:break-word;
+            overflow-wrap:anywhere;
+        }
         table { border-collapse:collapse; width:max-content; min-width:100%; }
-        th, td { border:1px solid var(--border); padding:6px 10px; vertical-align:top; white-space:pre-wrap; font-size:14px; }
+        th, td {
+            border:1px solid var(--border);
+            padding:6px 10px;
+            vertical-align:top;
+            white-space:pre-wrap;
+            word-break:break-word;
+            overflow-wrap:anywhere;
+            font-size:15px;
+        }
         th { position:sticky; top:0; background:#f7f7f7; font-weight:800; }
         tr:nth-child(even) td { background:#fcfcfc; }
         .meta-grid { display:grid; grid-template-columns:repeat(6,minmax(0,1fr)); gap:8px; margin:10px 0; }
         .meta-box { border:1px solid var(--border); border-radius:10px; padding:8px 10px; background:#fff; }
         .meta-label { font-size:14px; color:var(--muted); margin-bottom:2px; }
         .meta-value { font-weight:900; color:var(--ink); font-size:16px; }
-        .small { font-size:14px; color:#4b5563; margin-top:2px; }
+        .small { font-size:15px; color:#4b5563; margin-top:2px; }
         .comments-title { font-weight:700; }
         .comments-line { margin-top:4px; font-size:11px; color:#374151; }
         .font-bold { font-weight:700; }
@@ -63,7 +79,7 @@
             }
             .process-lots-table th,
             .process-lots-table td {
-                font-size:14px;
+                font-size:15px;
                 line-height:1.15;
                 padding:2px 3px;
                 white-space:normal;
@@ -71,7 +87,7 @@
                 overflow-wrap:anywhere;
             }
             .process-lots-table th { position:static; top:0; background:#2f631e; font-weight:600;color:#fff; }
-            .process-lots-table .small { font-size:14px; }
+            .process-lots-table .small { font-size:15px; }
             .process-lots-table th:nth-child(1), .process-lots-table td:nth-child(1) { width: 6%; }
             .process-lots-table th:nth-child(2), .process-lots-table td:nth-child(2) { width: 4%; }
             .process-lots-table th:nth-child(3), .process-lots-table td:nth-child(3) { width: 7%; }
@@ -360,6 +376,7 @@
                     <h2>Destino + Embalajes</h2>
                     <div class="table-wrap">
                         <table>
+
                             <thead>
                             <tr style="position:static; top:0; background:#2f631e; font-weight:600;color:#fff;">
                                 <th style="position:static; top:0; background:#2f631e; font-weight:600;color:#fff;">Destino</th>
