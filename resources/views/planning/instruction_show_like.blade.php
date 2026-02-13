@@ -63,17 +63,17 @@
             }
             .process-lots-table th,
             .process-lots-table td {
-                font-size:12px;
+                font-size:14px;
                 line-height:1.15;
                 padding:2px 3px;
                 white-space:normal;
                 word-break:break-word;
                 overflow-wrap:anywhere;
             }
-            .process-lots-table th { position:static; top:0; background:#2f6f1a; font-weight:600; }
-            .process-lots-table .small { font-size:10px; }
+            .process-lots-table th { position:static; top:0; background:#2f631e; font-weight:600;color:#fff; }
+            .process-lots-table .small { font-size:14px; }
             .process-lots-table th:nth-child(1), .process-lots-table td:nth-child(1) { width: 6%; }
-            .process-lots-table th:nth-child(2), .process-lots-table td:nth-child(2) { width: 12%; }
+            .process-lots-table th:nth-child(2), .process-lots-table td:nth-child(2) { width: 4%; }
             .process-lots-table th:nth-child(3), .process-lots-table td:nth-child(3) { width: 7%; }
             .process-lots-table th:nth-child(4), .process-lots-table td:nth-child(4) { width: 11%; }
             .process-lots-table th:nth-child(5), .process-lots-table td:nth-child(5) { width: 4%; }
@@ -263,7 +263,7 @@
                         <table class="process-lots-table">
                             <colgroup>
                                 <col style="width:6%">
-                                <col style="width:12%">
+                                <col style="width:4%">
                                 <col style="width:7%">
                                 <col style="width:11%">
                                 <col style="width:4%">
@@ -292,14 +292,13 @@
                                 <th>SDP</th>
                                 <th>Huerto</th>
                                 <th>Categoria</th>
-                                <th>% Exportación</th>
+                                <th>% Exp</th>
                                 <th>Nota</th>
                                 <th>Variedad</th>
                                 <th>Pulpa</th>
                                 <th>Fecha Recepción</th>
                                 <th>Bins</th>
                                 <th>Kilos</th>
-
                                 <th>Exportadora</th>
 
 
@@ -362,7 +361,7 @@
                     <div class="table-wrap">
                         <table>
                             <thead>
-                            <tr>
+                            <tr style="position:static; top:0; background:#2f631e; font-weight:600;color:#fff;">
                                 <th>Destino</th>
                                 <th>Código Embalaje</th>
                                 <th>Descripcion de Embalaje</th>
