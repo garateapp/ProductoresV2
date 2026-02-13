@@ -10,13 +10,13 @@
         html, body { margin:0; padding:0; background: var(--bg); color: var(--ink); font-family: Arial, Helvetica, sans-serif; }
         .page { padding: 14px; }
         .head { display:flex; align-items:flex-start; justify-content:space-between; gap:12px; margin-bottom:12px; }
-        .head-title { font-size:20px; font-weight: 900; margin:0; }
-        .head-sub { margin-top:4px; font-size: 18px; color: var(--muted); }
+        .head-title { font-size:16px; font-weight: 900; margin:0; }
+        .head-sub { margin-top:4px; font-size: 14px; color: var(--muted); }
         .status { margin-top:8px; display:inline-flex; border:1px solid var(--border); border-radius:999px; padding:4px 10px; font-size:11px; font-weight:700; background:#f8fafc; color:#334155; }
 
         .card { border:1px solid var(--border); border-radius:12px; background: var(--white); margin-top:12px; overflow:hidden; }
         .card-head { padding:12px 14px; border-bottom:1px solid var(--border); background: linear-gradient(90deg,#fff,#f8fafc); }
-        .card-title { font-size:14px; font-weight:800; margin:0; }
+        .card-title { font-size:12px; font-weight:800; margin:0; }
         .card-sub { margin-top:6px; font-size:10px; color: var(--muted); }
         .card-body { padding:12px 14px 16px 14px; }
 
