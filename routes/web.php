@@ -318,6 +318,7 @@ Route::post('producers/{producer}/welcome-email', [App\Http\Controllers\Producer
 
         Route::post('processes/{process}/generate', [App\Http\Controllers\Planning\PackingProcessController::class, 'generate'])->name('processes.generate');
         Route::patch('processes/{process}/lots', [App\Http\Controllers\Planning\PackingProcessController::class, 'updateLots'])->name('processes.lots.update');
+        Route::delete('processes/{process}', [App\Http\Controllers\Planning\PackingProcessController::class, 'destroy'])->name('processes.destroy');
         Route::post('processes/{process}/confirm', [App\Http\Controllers\Planning\PackingProcessController::class, 'confirm'])->name('processes.confirm');
         Route::get('processes/{process}/instruction', [App\Http\Controllers\Planning\PackingProcessController::class, 'instruction'])->name('processes.instruction');
         Route::get('processes/{process}/instruction/edit', [App\Http\Controllers\Planning\PackingProcessController::class, 'instructionEdit'])->name('processes.instruction.edit');
