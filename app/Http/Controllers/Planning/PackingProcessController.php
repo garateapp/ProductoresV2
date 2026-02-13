@@ -3077,7 +3077,7 @@ class PackingProcessController extends Controller
                     ->waitUntilNetworkIdle()
                     ->wait(2)
                     ->showBackground()
-                    ->format('A4')
+                    ->format('Letter')
                     ->landscape()
                     ->margins(5, 5, 5, 5)
                     ->setOption('scale', $pdfScale)
