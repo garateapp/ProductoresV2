@@ -362,18 +362,18 @@
                         <table>
                             <thead>
                             <tr style="position:static; top:0; background:#2f631e; font-weight:600;color:#fff;">
-                                <th>Destino</th>
-                                <th>Código Embalaje</th>
-                                <th>Descripcion de Embalaje</th>
-                                <th>Etiqueta</th>
-                                <th>Peso Estandar</th>
-                                <th>Envases/Pallet</th>
-                                <th>Altura</th>
-                                <th>Calibres</th>
-                                <th>Indicaciones</th>
-                                <th>Observaciones</th>
-                                <th>count</th>
-                                <th>Pedido</th>
+                                <th style="position:static; top:0; background:#2f631e; font-weight:600;color:#fff;">Destino</th>
+                                <th style="position:static; top:0; background:#2f631e; font-weight:600;color:#fff;">Código Embalaje</th>
+                                <th style="position:static; top:0; background:#2f631e; font-weight:600;color:#fff;">Descripcion de Embalaje</th>
+                                <th style="position:static; top:0; background:#2f631e; font-weight:600;color:#fff;">Etiqueta</th>
+                                <th style="position:static; top:0; background:#2f631e; font-weight:600;color:#fff;">Peso Estandar</th>
+                                <th style="position:static; top:0; background:#2f631e; font-weight:600;color:#fff;">Envases/Pallet</th>
+                                <th style="position:static; top:0; background:#2f631e; font-weight:600;color:#fff;">Altura</th>
+                                <th style="position:static; top:0; background:#2f631e; font-weight:600;color:#fff;">Calibres</th>
+                                <th style="position:static; top:0; background:#2f631e; font-weight:600;color:#fff;">Indicaciones</th>
+                                <th style="position:static; top:0; background:#2f631e; font-weight:600;color:#fff;">Observaciones</th>
+                                <th style="position:static; top:0; background:#2f631e; font-weight:600;color:#fff;">count</th>
+                                <th style="position:static; top:0; background:#2f631e; font-weight:600;color:#fff;">Pedido</th>
                             </tr>
                             </thead>
                             <tbody>
