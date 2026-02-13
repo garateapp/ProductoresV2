@@ -35,6 +35,16 @@ import {
 } from 'recharts'
 
 const numberFmt = new Intl.NumberFormat('es-CL')
+const BRAND = {
+  darkGreen: '#3f8b42',
+  vibrantGreen: '#80b61f',
+  corpGreen: '#038c34',
+  orange: '#f78e2c',
+  corpOrange: '#fe790f',
+  grid: '#cbd5e1',
+  axis: '#475569',
+  radialBg: '#e2e8f0',
+}
 
 function parseDateSafe(value) {
   if (!value) return null
@@ -60,24 +70,24 @@ function fmtDate(dtStr) {
 function statusBadgeClass(status) {
   const value = String(status || '').toUpperCase()
   const map = {
-    BORRADOR: 'bg-slate-700 text-slate-100 border-slate-600',
-    CONFLICTO: 'bg-red-500/20 text-red-200 border-red-400/60',
-    CONFIRMADO: 'bg-emerald-500/20 text-emerald-200 border-emerald-400/60',
-    EN_PROCESO: 'bg-cyan-500/20 text-cyan-200 border-cyan-400/60',
-    CERRADO: 'bg-slate-500/30 text-slate-100 border-slate-400/60',
+    BORRADOR: 'bg-slate-100 text-slate-700 border-slate-300',
+    CONFLICTO: 'bg-red-50 text-red-700 border-red-300',
+    CONFIRMADO: 'bg-greenex-vibrant-green/15 text-greenex-dark-green border-greenex-vibrant-green/50',
+    EN_PROCESO: 'bg-greenex-orange/15 text-greenex-orange border-greenex-orange/50',
+    CERRADO: 'bg-slate-200 text-slate-700 border-slate-300',
   }
-  return map[value] || 'bg-slate-700 text-slate-100 border-slate-600'
+  return map[value] || 'bg-slate-100 text-slate-700 border-slate-300'
 }
 
 function TelemetryTooltip({ active, payload, label }) {
   if (!active || !payload || payload.length === 0) return null
   return (
-    <div className="rounded-lg border border-cyan-400/40 bg-slate-900/95 px-3 py-2 text-xs text-slate-100 shadow-xl">
-      <div className="font-semibold text-cyan-200">{label}</div>
+    <div className="rounded-lg border border-greenex-vibrant-green/35 bg-white/95 px-3 py-2 text-xs text-slate-700 shadow-xl">
+      <div className="font-semibold text-greenex-orange">{label}</div>
       {payload.map((p) => (
         <div key={`${p.name}-${p.dataKey}`} className="mt-0.5 flex items-center justify-between gap-3">
-          <span className="text-slate-300">{p.name}:</span>
-          <span className="font-semibold">{numberFmt.format(Number(p.value || 0))}</span>
+          <span className="text-slate-500">{p.name}:</span>
+          <span className="font-semibold text-slate-800">{numberFmt.format(Number(p.value || 0))}</span>
         </div>
       ))}
     </div>
@@ -91,14 +101,14 @@ function ProcessNode({ title, block, highlight }) {
     <div
       className={`relative overflow-hidden rounded-xl border p-3 ${
         highlight
-          ? 'border-emerald-400/40 bg-emerald-400/10 shadow-[0_0_24px_rgba(16,185,129,0.22)]'
-          : 'border-slate-700 bg-slate-900/70'
+          ? 'border-greenex-vibrant-green/50 bg-gradient-to-br from-greenex-vibrant-green/12 via-white to-greenex-orange/10 shadow-[0_0_18px_rgba(128,182,31,0.18)]'
+          : 'border-slate-200 bg-white'
       }`}
     >
-      <div className="absolute -right-8 -top-8 h-24 w-24 rounded-full bg-cyan-400/10 blur-2xl" />
+      <div className="absolute -right-8 -top-8 h-24 w-24 rounded-full bg-greenex-orange/15 blur-2xl" />
       <div className="relative z-10">
         <div className="flex items-center justify-between gap-2">
-          <div className="text-xs font-semibold uppercase tracking-wide text-slate-300">{title}</div>
+          <div className="text-xs font-semibold uppercase tracking-wide text-slate-500">{title}</div>
           {block?.estado ? (
             <Badge variant="outline" className={statusClass}>
               {String(block.estado)}
@@ -108,40 +118,40 @@ function ProcessNode({ title, block, highlight }) {
 
         {block ? (
           <div className="mt-2 space-y-1.5">
-            <div className="text-sm font-semibold text-slate-100">
+            <div className="text-sm font-semibold text-slate-900">
               {block.especie || '-'}
-              {block.exportadora ? <span className="font-normal text-slate-400"> · {block.exportadora}</span> : null}
+              {block.exportadora ? <span className="font-normal text-slate-500"> · {block.exportadora}</span> : null}
             </div>
-            <div className="text-xs text-slate-300">
-              <span className="font-semibold text-slate-100">Variedad:</span> {block.variedad || '-'}
+            <div className="text-xs text-slate-600">
+              <span className="font-semibold text-slate-800">Variedad:</span> {block.variedad || '-'}
             </div>
-            <div className="text-xs text-slate-300">
-              <span className="font-semibold text-slate-100">Destino:</span> {block.destino || '-'}
+            <div className="text-xs text-slate-600">
+              <span className="font-semibold text-slate-800">Destino:</span> {block.destino || '-'}
             </div>
-            <div className="text-xs text-slate-300">
-              <span className="font-semibold text-slate-100">N° Proceso:</span> {block.process_number || block.process_id || '-'}
+            <div className="text-xs text-slate-600">
+              <span className="font-semibold text-slate-800">N° Proceso:</span> {block.process_number || block.process_id || '-'}
             </div>
-            <div className="text-xs text-slate-300">
-              <span className="font-semibold text-slate-100">N° Lote:</span> {block.lote || '-'}
+            <div className="text-xs text-slate-600">
+              <span className="font-semibold text-slate-800">N° Lote:</span> {block.lote || '-'}
             </div>
-            <div className="text-xs text-slate-400">
+            <div className="text-xs text-slate-500">
               {fmtTime(block.inicio)} - {fmtTime(block.fin)}
-              <span className="text-slate-500"> ({fmtDate(block.inicio)})</span>
+              <span className="text-slate-400"> ({fmtDate(block.inicio)})</span>
             </div>
-            <div className="text-xs text-slate-300">
-              <span className="font-semibold text-cyan-200">{numberFmt.format(Number(block.bins || 0))}</span> bins ·{' '}
-              <span className="font-semibold text-emerald-200">{numberFmt.format(Math.round(Number(block.kilos || 0)))}</span> kg
+            <div className="text-xs text-slate-600">
+              <span className="font-semibold text-greenex-vibrant-green">{numberFmt.format(Number(block.bins || 0))}</span> bins ·{' '}
+              <span className="font-semibold text-greenex-orange">{numberFmt.format(Math.round(Number(block.kilos || 0)))}</span> kg
             </div>
             {block.pedidos ? (
-              <div className="text-xs text-slate-300">
-                <span className="font-semibold text-slate-100">Pedidos:</span> {String(block.pedidos)}
+              <div className="text-xs text-slate-600">
+                <span className="font-semibold text-slate-800">Pedidos:</span> {String(block.pedidos)}
               </div>
             ) : null}
             <div className="pt-1">
               <Button
                 size="sm"
                 variant="outline"
-                className="border-cyan-400/40 bg-slate-900 text-cyan-100 hover:bg-cyan-500/10"
+                className="border-greenex-vibrant-green/50 bg-white text-greenex-dark-green hover:bg-greenex-vibrant-green/10"
                 onClick={() => router.visit(route('planning.processes.show', block.process_id))}
               >
                 Abrir proceso
@@ -158,21 +168,21 @@ function ProcessNode({ title, block, highlight }) {
 
 function HeroMetric({ icon: Icon, label, value, hint, tone = 'cyan' }) {
   const toneMap = {
-    cyan: 'from-cyan-400/30 to-cyan-600/10 border-cyan-400/40 text-cyan-100',
-    emerald: 'from-emerald-400/30 to-emerald-600/10 border-emerald-400/40 text-emerald-100',
-    amber: 'from-amber-400/30 to-amber-600/10 border-amber-400/40 text-amber-100',
-    sky: 'from-sky-400/30 to-sky-600/10 border-sky-400/40 text-sky-100',
-    slate: 'from-slate-300/20 to-slate-600/10 border-slate-400/30 text-slate-100',
+    cyan: 'from-greenex-vibrant-green/18 via-white to-greenex-dark-green/8 border-greenex-vibrant-green/35 text-slate-800',
+    emerald: 'from-greenex-dark-green/14 via-white to-greenex-vibrant-green/10 border-greenex-dark-green/35 text-slate-800',
+    amber: 'from-greenex-orange/20 via-white to-greenex-orange/8 border-greenex-orange/35 text-slate-800',
+    sky: 'from-greenex-vibrant-green/12 via-white to-greenex-orange/10 border-greenex-vibrant-green/30 text-slate-800',
+    slate: 'from-slate-100 to-white border-slate-200 text-slate-800',
   }
 
   return (
     <div className={`rounded-xl border bg-gradient-to-br p-3 ${toneMap[tone] || toneMap.slate}`}>
       <div className="flex items-center justify-between gap-2">
-        <div className="text-xs font-semibold uppercase tracking-wide text-slate-200">{label}</div>
+        <div className="text-xs font-semibold uppercase tracking-wide text-slate-600">{label}</div>
         <Icon className="h-4 w-4 opacity-90" />
       </div>
       <div className="mt-1 text-2xl font-black leading-tight">{value}</div>
-      <div className="mt-1 text-xs text-slate-300">{hint}</div>
+      <div className="mt-1 text-xs text-slate-600">{hint}</div>
     </div>
   )
 }
@@ -326,37 +336,37 @@ export default function Index(props) {
     <AuthenticatedLayout>
       <Head title="Camaras" />
 
-      <div className="mx-auto w-full max-w-none space-y-5 px-4 py-6">
-        <div className="relative overflow-hidden rounded-2xl border border-cyan-400/30 bg-slate-950 p-5 text-slate-100 shadow-[0_0_45px_rgba(34,211,238,0.18)]">
-          <div className="pointer-events-none absolute -left-20 top-0 h-56 w-56 rounded-full bg-cyan-500/20 blur-3xl" />
-          <div className="pointer-events-none absolute right-0 top-0 h-44 w-44 rounded-full bg-emerald-500/15 blur-3xl" />
+      <div className="mx-auto w-full max-w-none space-y-5 bg-gradient-to-b from-greenex-light-green/20 via-white to-white px-4 py-6">
+        <div className="relative overflow-hidden rounded-2xl border border-greenex-vibrant-green/30 bg-gradient-to-br from-white via-greenex-light-green/25 to-white p-5 text-slate-800 shadow-[0_10px_30px_rgba(63,139,66,0.12)]">
+          <div className="pointer-events-none absolute -left-20 top-0 h-56 w-56 rounded-full bg-greenex-vibrant-green/18 blur-3xl" />
+          <div className="pointer-events-none absolute right-0 top-0 h-44 w-44 rounded-full bg-greenex-orange/18 blur-3xl" />
           <div className="relative z-10 flex flex-col gap-4">
             <div className="flex flex-col gap-3 lg:flex-row lg:items-end lg:justify-between">
               <div>
-                <div className="inline-flex items-center gap-2 rounded-full border border-cyan-400/40 bg-cyan-400/10 px-3 py-1 text-xs font-semibold uppercase tracking-wider text-cyan-100">
+                <div className="inline-flex items-center gap-2 rounded-full border border-greenex-vibrant-green/45 bg-white/70 px-3 py-1 text-xs font-semibold uppercase tracking-wider text-greenex-dark-green">
                   <Radar className="h-3.5 w-3.5" />
                   Vision de linea en tiempo real
                 </div>
                 <h1 className="mt-3 text-2xl font-black tracking-tight md:text-3xl">Camaras Command Center</h1>
-                <p className="mt-1 text-sm text-slate-300">
+                <p className="mt-1 text-sm text-slate-600">
                   Monitorea proceso anterior, actual y siguiente con telemetria de descuentos en vivo.
                 </p>
               </div>
 
               <div className="grid w-full grid-cols-1 gap-3 sm:grid-cols-3 lg:w-auto">
                 <div className="sm:w-[170px]">
-                  <Label className="text-xs font-semibold uppercase tracking-wider text-slate-300">Fecha</Label>
+                  <Label className="text-xs font-semibold uppercase tracking-wider text-slate-600">Fecha</Label>
                   <Input
                     type="date"
-                    className="mt-1 border-cyan-500/40 bg-slate-900 text-slate-100"
+                    className="mt-1 border-greenex-vibrant-green/35 bg-white text-slate-800"
                     value={filters.date}
                     onChange={(e) => onFilterChange({ ...filters, date: e.target.value })}
                   />
                 </div>
                 <div className="sm:w-[240px]">
-                  <Label className="text-xs font-semibold uppercase tracking-wider text-slate-300">Turno</Label>
+                  <Label className="text-xs font-semibold uppercase tracking-wider text-slate-600">Turno</Label>
                   <Select value={String(filters.shift_id || '')} onValueChange={(v) => onFilterChange({ ...filters, shift_id: Number(v) })}>
-                    <SelectTrigger className="mt-1 border-cyan-500/40 bg-slate-900 text-slate-100">
+                    <SelectTrigger className="mt-1 border-greenex-vibrant-green/35 bg-white text-slate-800">
                       <SelectValue placeholder="Selecciona turno" />
                     </SelectTrigger>
                     <SelectContent>
@@ -371,7 +381,7 @@ export default function Index(props) {
                 <div className="flex items-end">
                   <Button
                     type="button"
-                    className="w-full border border-cyan-400/50 bg-cyan-500/20 text-cyan-100 hover:bg-cyan-500/30"
+                    className="w-full border border-greenex-orange/55 bg-gradient-to-r from-greenex-dark-green/85 via-greenex-vibrant-green/70 to-greenex-orange/65 text-white hover:from-greenex-dark-green hover:to-greenex-orange/80"
                     onClick={liveFetch}
                   >
                     <RefreshCw className="mr-2 h-4 w-4" />
@@ -421,10 +431,10 @@ export default function Index(props) {
           </div>
         </div>
 
-        <Card className="border-slate-800 bg-slate-950 text-slate-100 shadow-[0_0_35px_rgba(56,189,248,0.14)]">
+        <Card className="border-greenex-vibrant-green/30 bg-white text-slate-800 shadow-[0_8px_24px_rgba(63,139,66,0.1)]">
           <CardHeader className="pb-2">
             <CardTitle className="flex items-center gap-2 text-base font-bold">
-              <Sparkles className="h-4 w-4 text-cyan-300" />
+              <Sparkles className="h-4 w-4 text-greenex-orange" />
               Telemetria comparativa por linea
             </CardTitle>
           </CardHeader>
@@ -432,12 +442,12 @@ export default function Index(props) {
             <div className="h-56 w-full">
               <ResponsiveContainer width="100%" height="100%">
                 <BarChart data={telemetryBars} margin={{ top: 8, right: 12, bottom: 0, left: 0 }}>
-                  <CartesianGrid stroke="#334155" strokeDasharray="4 4" vertical={false} />
-                  <XAxis dataKey="line" stroke="#94a3b8" fontSize={11} tickMargin={8} />
-                  <YAxis stroke="#94a3b8" fontSize={11} allowDecimals={false} width={36} />
+                  <CartesianGrid stroke={BRAND.grid} strokeDasharray="4 4" vertical={false} />
+                  <XAxis dataKey="line" stroke={BRAND.axis} fontSize={11} tickMargin={8} />
+                  <YAxis stroke={BRAND.axis} fontSize={11} allowDecimals={false} width={36} />
                   <Tooltip content={<TelemetryTooltip />} />
-                  <Bar dataKey="plan" name="Plan bins" fill="#0ea5e9" radius={[6, 6, 0, 0]} />
-                  <Bar dataKey="descontado" name="Bins descontados" fill="#10b981" radius={[6, 6, 0, 0]} />
+                  <Bar dataKey="plan" name="Plan bins" fill={BRAND.vibrantGreen} radius={[6, 6, 0, 0]} />
+                  <Bar dataKey="descontado" name="Bins descontados" fill={BRAND.orange} radius={[6, 6, 0, 0]} />
                 </BarChart>
               </ResponsiveContainer>
             </div>
@@ -450,33 +460,33 @@ export default function Index(props) {
             const blocks = c.blocks || {}
             const monitor = c.monitor || {}
             const liveRow = c.liveRow
-            const radialData = [{ name: 'avance', value: Math.max(0, Math.min(100, Number(c.pct || 0))), fill: '#22d3ee' }]
+            const radialData = [{ name: 'avance', value: Math.max(0, Math.min(100, Number(c.pct || 0))), fill: BRAND.vibrantGreen }]
             const gradientId = `scan-gradient-${line.id || Math.random().toString(36).slice(2)}`
 
             return (
               <Card
                 key={line.id}
-                className="relative overflow-hidden border-slate-800 bg-slate-950 text-slate-100 shadow-[0_0_28px_rgba(34,211,238,0.13)]"
+                className="relative overflow-hidden border-greenex-vibrant-green/25 bg-white text-slate-800 shadow-[0_8px_20px_rgba(63,139,66,0.08)]"
               >
-                <div className="pointer-events-none absolute -right-10 top-1 h-24 w-24 rounded-full bg-cyan-500/15 blur-2xl" />
-                <div className="pointer-events-none absolute -left-10 bottom-1 h-24 w-24 rounded-full bg-emerald-500/10 blur-2xl" />
+                <div className="pointer-events-none absolute -right-10 top-1 h-24 w-24 rounded-full bg-greenex-vibrant-green/20 blur-2xl" />
+                <div className="pointer-events-none absolute -left-10 bottom-1 h-24 w-24 rounded-full bg-greenex-orange/15 blur-2xl" />
 
                 <CardHeader className="relative z-10 pb-2">
                   <div className="flex items-start justify-between gap-3">
                     <div>
                       <CardTitle className="text-lg font-black tracking-tight">{line.nombre}</CardTitle>
                       <div className="mt-2 flex items-center gap-2">
-                        <Badge variant="outline" className="border-cyan-400/40 bg-cyan-500/10 text-cyan-200">
+                        <Badge variant="outline" className="border-greenex-vibrant-green/50 bg-greenex-vibrant-green/10 text-greenex-dark-green">
                           {String(line.tipo || '').toUpperCase()}
                         </Badge>
-                        <Badge variant="outline" className="border-slate-600 bg-slate-800 text-slate-200">
+                        <Badge variant="outline" className="border-greenex-orange/40 bg-greenex-orange/10 text-greenex-orange">
                           ID {line.id}
                         </Badge>
                       </div>
                     </div>
                     <div className="text-right">
-                      <div className="text-[11px] uppercase tracking-wider text-slate-400">Ultimo scan</div>
-                      <div className="text-sm font-semibold text-cyan-100">{c.lastScan ? fmtTime(c.lastScan) : '-'}</div>
+                      <div className="text-[11px] uppercase tracking-wider text-slate-500">Ultimo scan</div>
+                      <div className="text-sm font-semibold text-greenex-orange">{c.lastScan ? fmtTime(c.lastScan) : '-'}</div>
                     </div>
                   </div>
                 </CardHeader>
@@ -489,10 +499,10 @@ export default function Index(props) {
                   </div>
 
                   <div className="grid grid-cols-1 gap-3 lg:grid-cols-2">
-                    <div className="rounded-xl border border-cyan-400/30 bg-slate-900/80 p-3">
+                    <div className="rounded-xl border border-greenex-vibrant-green/35 bg-gradient-to-br from-white to-greenex-light-green/20 p-3">
                       <div className="flex items-center justify-between gap-2">
-                        <div className="text-xs font-semibold uppercase tracking-wide text-cyan-200">Avance de descuento</div>
-                        <Timer className="h-4 w-4 text-cyan-200" />
+                        <div className="text-xs font-semibold uppercase tracking-wide text-greenex-vibrant-green">Avance de descuento</div>
+                        <Timer className="h-4 w-4 text-greenex-vibrant-green" />
                       </div>
                       <div className="relative mt-2 h-40">
                         <ResponsiveContainer width="100%" height="100%">
@@ -505,49 +515,49 @@ export default function Index(props) {
                             endAngle={-270}
                           >
                             <PolarAngleAxis type="number" domain={[0, 100]} tick={false} />
-                            <RadialBar cornerRadius={12} dataKey="value" background={{ fill: '#1f2937' }} />
+                            <RadialBar cornerRadius={12} dataKey="value" background={{ fill: BRAND.radialBg }} />
                           </RadialBarChart>
                         </ResponsiveContainer>
                         <div className="pointer-events-none absolute inset-0 flex flex-col items-center justify-center">
-                          <div className="text-3xl font-black text-cyan-100">{c.pct}%</div>
-                          <div className="text-[11px] uppercase tracking-wider text-slate-400">progreso</div>
+                          <div className="text-3xl font-black text-greenex-vibrant-green">{c.pct}%</div>
+                          <div className="text-[11px] uppercase tracking-wider text-slate-500">progreso</div>
                         </div>
                       </div>
                       <div className="mt-2 grid grid-cols-2 gap-2 text-xs">
-                        <div className="rounded-lg border border-slate-700 bg-slate-900 p-2">
-                          <div className="text-slate-400">Plan</div>
-                          <div className="mt-0.5 font-semibold text-slate-100">{numberFmt.format(c.currentBins || 0)} bins</div>
+                        <div className="rounded-lg border border-greenex-vibrant-green/25 bg-white p-2">
+                          <div className="text-slate-500">Plan</div>
+                          <div className="mt-0.5 font-semibold text-slate-800">{numberFmt.format(c.currentBins || 0)} bins</div>
                         </div>
-                        <div className="rounded-lg border border-slate-700 bg-slate-900 p-2">
-                          <div className="text-slate-400">Descontado</div>
-                          <div className="mt-0.5 font-semibold text-emerald-200">{numberFmt.format(c.deducted || 0)} bins</div>
+                        <div className="rounded-lg border border-greenex-orange/25 bg-white p-2">
+                          <div className="text-slate-500">Descontado</div>
+                          <div className="mt-0.5 font-semibold text-greenex-orange">{numberFmt.format(c.deducted || 0)} bins</div>
                         </div>
                       </div>
                     </div>
 
-                    <div className="rounded-xl border border-emerald-400/30 bg-slate-900/80 p-3">
+                    <div className="rounded-xl border border-greenex-orange/40 bg-gradient-to-br from-white to-orange-50 p-3">
                       <div className="flex items-center justify-between gap-2">
-                        <div className="text-xs font-semibold uppercase tracking-wide text-emerald-200">Cadencia de scans</div>
-                        <Radar className="h-4 w-4 text-emerald-200" />
+                        <div className="text-xs font-semibold uppercase tracking-wide text-greenex-orange">Cadencia de scans</div>
+                        <Radar className="h-4 w-4 text-greenex-orange" />
                       </div>
                       <div className="mt-2 h-40">
                         <ResponsiveContainer width="100%" height="100%">
                           <AreaChart data={c.trendData} margin={{ top: 8, right: 8, bottom: 0, left: 0 }}>
                             <defs>
                               <linearGradient id={gradientId} x1="0" y1="0" x2="0" y2="1">
-                                <stop offset="5%" stopColor="#22d3ee" stopOpacity={0.55} />
-                                <stop offset="95%" stopColor="#22d3ee" stopOpacity={0.02} />
+                                <stop offset="5%" stopColor={BRAND.orange} stopOpacity={0.55} />
+                                <stop offset="95%" stopColor={BRAND.orange} stopOpacity={0.02} />
                               </linearGradient>
                             </defs>
-                            <CartesianGrid stroke="#334155" strokeDasharray="4 4" vertical={false} />
-                            <XAxis dataKey="label" stroke="#94a3b8" fontSize={10} tickLine={false} axisLine={false} />
-                            <YAxis stroke="#94a3b8" fontSize={10} allowDecimals={false} width={28} tickLine={false} axisLine={false} />
+                            <CartesianGrid stroke={BRAND.grid} strokeDasharray="4 4" vertical={false} />
+                            <XAxis dataKey="label" stroke={BRAND.axis} fontSize={10} tickLine={false} axisLine={false} />
+                            <YAxis stroke={BRAND.axis} fontSize={10} allowDecimals={false} width={28} tickLine={false} axisLine={false} />
                             <Tooltip content={<TelemetryTooltip />} />
                             <Area
                               type="monotone"
                               dataKey="scans"
                               name="Scans"
-                              stroke="#22d3ee"
+                              stroke={BRAND.orange}
                               strokeWidth={2}
                               fill={`url(#${gradientId})`}
                               isAnimationActive={false}
@@ -555,20 +565,20 @@ export default function Index(props) {
                           </AreaChart>
                         </ResponsiveContainer>
                       </div>
-                      <div className="mt-2 text-xs text-slate-400">
+                      <div className="mt-2 text-xs text-slate-500">
                         Señal en vivo cada 5s · histórico corto de lecturas recientes.
                       </div>
                     </div>
                   </div>
 
-                  <div className="rounded-xl border border-slate-700 bg-slate-900/80 p-3">
+                  <div className="rounded-xl border border-greenex-vibrant-green/25 bg-white p-3">
                     <div className="flex items-end justify-between gap-3">
                       <div className="flex-1">
-                        <Label className="text-xs font-semibold uppercase tracking-wide text-slate-300">
+                        <Label className="text-xs font-semibold uppercase tracking-wide text-slate-600">
                           Vincular N° Proceso SQL
                         </Label>
                         <Input
-                          className="mt-1 border-cyan-400/30 bg-slate-950 text-slate-100"
+                          className="mt-1 border-greenex-vibrant-green/35 bg-white text-slate-800"
                           placeholder="Ej: 12345"
                           value={bindNumbers?.[line.id] ?? ''}
                           onChange={(e) => setBindNumbers((prev) => ({ ...prev, [line.id]: e.target.value }))}
@@ -581,18 +591,18 @@ export default function Index(props) {
                       </div>
                       <Button
                         disabled={processing}
-                        className="border border-emerald-400/50 bg-emerald-500/20 text-emerald-100 hover:bg-emerald-500/30"
+                        className="border border-greenex-orange/55 bg-greenex-orange/10 text-greenex-orange hover:bg-greenex-orange/20"
                         onClick={() => bind(line.id, bindNumbers?.[line.id] ?? '')}
                       >
                         <Link2 className="mr-2 h-4 w-4" />
                         Vincular
                       </Button>
                     </div>
-                    <div className="mt-2 text-xs text-slate-300">
+                    <div className="mt-2 text-xs text-slate-600">
                       {liveRow?.sqlsrv_production_number || monitor.sqlsrv_production_number ? (
-                        <span className="font-semibold text-emerald-200">Vinculado:</span>
+                        <span className="font-semibold text-greenex-vibrant-green">Vinculado:</span>
                       ) : (
-                        <span className="font-semibold text-cyan-200">Tip:</span>
+                        <span className="font-semibold text-greenex-orange">Tip:</span>
                       )}{' '}
                       {liveRow?.sqlsrv_production_number || monitor.sqlsrv_production_number
                         ? `Proceso ${liveRow?.sqlsrv_production_number || monitor.sqlsrv_production_number}`
@@ -601,17 +611,17 @@ export default function Index(props) {
                   </div>
 
                   {Array.isArray(liveRow?.recent) && liveRow.recent.length > 0 ? (
-                    <div className="rounded-xl border border-slate-700 bg-slate-900/80 p-3">
-                      <div className="flex items-center gap-2 text-xs font-semibold uppercase tracking-wide text-slate-300">
-                        <ScanLine className="h-3.5 w-3.5 text-cyan-300" />
+                    <div className="rounded-xl border border-greenex-vibrant-green/20 bg-white p-3">
+                      <div className="flex items-center gap-2 text-xs font-semibold uppercase tracking-wide text-slate-600">
+                        <ScanLine className="h-3.5 w-3.5 text-greenex-vibrant-green" />
                         Ultimos scans
                       </div>
                       <div className="mt-2 space-y-1.5">
                         {liveRow.recent.slice(0, 6).map((r, idx) => (
                           <div key={`${line.id}-recent-${idx}`} className="flex items-center justify-between gap-2 text-xs">
-                            <div className="font-mono text-cyan-100">{r.folio}</div>
-                            <div className="text-slate-300">
-                              {r.scanned_at ? fmtTime(r.scanned_at) : '-'} {r.user ? <span className="text-slate-500">·</span> : null}{' '}
+                            <div className="font-mono text-greenex-vibrant-green">{r.folio}</div>
+                            <div className="text-slate-600">
+                              {r.scanned_at ? fmtTime(r.scanned_at) : '-'} {r.user ? <span className="text-slate-400">·</span> : null}{' '}
                               {r.user || ''}
                             </div>
                           </div>

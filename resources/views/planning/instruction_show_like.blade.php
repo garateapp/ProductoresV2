@@ -70,7 +70,7 @@
                 word-break:break-word;
                 overflow-wrap:anywhere;
             }
-            .process-lots-table th { position:static; }
+            .process-lots-table th { position:static; top:0; background:#2f6f1a; font-weight:600; }
             .process-lots-table .small { font-size:10px; }
             .process-lots-table th:nth-child(1), .process-lots-table td:nth-child(1) { width: 6%; }
             .process-lots-table th:nth-child(2), .process-lots-table td:nth-child(2) { width: 12%; }
