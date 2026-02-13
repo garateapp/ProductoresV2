@@ -782,6 +782,20 @@ class PackingProcessController extends Controller
         return back()->with('success', 'Propuesta generada. Ajusta el orden y confirma.');
     }
 
+    public function destroy(Request $request, PackingProcess $process)
+    {
+        $this->authorizePlanning($request);
+
+        $processId = (int) $process->id;
+        $process->delete();
+
+        return redirect()
+            ->route('planning.processes.index', [
+                'especie' => trim((string) $request->input('especie', '')) ?: null,
+            ])
+            ->with('success', "Proceso #{$processId} eliminado correctamente.");
+    }
+
     public function updateLots(UpdatePackingProcessLotsRequest $request, PackingProcess $process)
     {
         $this->authorizePlanning($request);
@@ -793,9 +807,8 @@ class PackingProcessController extends Controller
 
         $process->loadMissing('lots');
 
-        // En CONFIRMADO permitimos edición, pero:
+        // En CONFIRMADO permitimos edición completa:
         // - Exigimos motivo (para versionar instructivo).
-        // - Bloqueamos agregar/quitar lotes (impacta reservas).
         $isConfirmed = $status === PlanningProcessStatus::CONFIRMADO->value;
         $changeReason = trim((string) $request->input('change_reason', ''));
 
@@ -809,16 +822,8 @@ class PackingProcessController extends Controller
             || (! empty($request->input('remove_ids')))
             || (! empty($request->input('lots')));
 
-        if ($isConfirmed) {
-            if ($request->filled('add_n_g_recepcion') || $request->filled('add_source_key')) {
-                return back()->with('error', 'El proceso está confirmado: no se pueden agregar lotes. Crea un nuevo proceso o trabaja en un borrador.');
-            }
-            if (! empty($request->input('remove_ids'))) {
-                return back()->with('error', 'El proceso está confirmado: no se pueden quitar lotes. (Esto afectaría las reservas).');
-            }
-            if ($hasIntent && $changeReason === '') {
-                return back()->with('error', 'Debes indicar el motivo del cambio para editar un proceso confirmado.');
-            }
+        if ($isConfirmed && $hasIntent && $changeReason === '') {
+            return back()->with('error', 'Debes indicar el motivo del cambio para editar un proceso confirmado.');
         }
 
         $changed = false;
@@ -3048,7 +3053,7 @@ class PackingProcessController extends Controller
 
                 // Forzar instructivo en una sola hoja (A4 horizontal) usando escala de impresión.
                 // Ajustable por entorno: PLANNING_INSTRUCTION_PDF_SCALE (0.1 - 2.0)
-                $pdfScale = (float) env('PLANNING_INSTRUCTION_PDF_SCALE', 0.90);
+                $pdfScale = (float) env('PLANNING_INSTRUCTION_PDF_SCALE', 0.85);
                 if ($pdfScale < 0.1 || $pdfScale > 2.0) {
                     $pdfScale = 1;
                 }
