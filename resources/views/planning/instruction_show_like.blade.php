@@ -10,28 +10,28 @@
         html, body { margin:0; padding:0; background: var(--bg); color: var(--ink); font-family: Arial, Helvetica, sans-serif; }
         .page { padding: 18px; }
         .head { display:flex; align-items:flex-start; justify-content:space-between; gap:12px; margin-bottom:12px; }
-        .head-title { font-size: 18px; font-weight: 900; margin:0; }
-        .head-sub { margin-top:4px; font-size: 12px; color: var(--muted); }
+        .head-title { font-size:24px; font-weight: 900; margin:0; }
+        .head-sub { margin-top:4px; font-size: 18px; color: var(--muted); }
         .status { margin-top:8px; display:inline-flex; border:1px solid var(--border); border-radius:999px; padding:4px 10px; font-size:11px; font-weight:700; background:#f8fafc; color:#334155; }
 
         .card { border:1px solid var(--border); border-radius:12px; background: var(--white); margin-top:12px; overflow:hidden; }
         .card-head { padding:12px 14px; border-bottom:1px solid var(--border); background: linear-gradient(90deg,#fff,#f8fafc); }
-        .card-title { font-size:16px; font-weight:800; margin:0; }
-        .card-sub { margin-top:6px; font-size:11px; color: var(--muted); }
+        .card-title { font-size:20px; font-weight:800; margin:0; }
+        .card-sub { margin-top:6px; font-size:14px; color: var(--muted); }
         .card-body { padding:12px 14px 16px 14px; }
 
-        .instructionDoc h1 { font-size:20px; margin:0 0 8px 0; font-weight:900; }
-        .instructionDoc h2 { font-size:16px; margin:18px 0 8px 0; font-weight:900; }
+        .instructionDoc h1 { font-size:24px; margin:0 0 8px 0; font-weight:900; }
+        .instructionDoc h2 { font-size:20px; margin:18px 0 8px 0; font-weight:900; }
         .table-wrap { overflow:auto; border:1px solid #ddd; border-radius:10px; padding:10px; background:#fff; }
         table { border-collapse:collapse; width:max-content; min-width:100%; }
-        th, td { border:1px solid var(--border); padding:6px 10px; vertical-align:top; white-space:pre-wrap; font-size:11px; }
+        th, td { border:1px solid var(--border); padding:6px 10px; vertical-align:top; white-space:pre-wrap; font-size:14px; }
         th { position:sticky; top:0; background:#f7f7f7; font-weight:800; }
         tr:nth-child(even) td { background:#fcfcfc; }
         .meta-grid { display:grid; grid-template-columns:repeat(6,minmax(0,1fr)); gap:8px; margin:10px 0; }
         .meta-box { border:1px solid var(--border); border-radius:10px; padding:8px 10px; background:#fff; }
         .meta-label { font-size:11px; color:var(--muted); margin-bottom:2px; }
         .meta-value { font-weight:900; color:var(--ink); font-size:12px; }
-        .small { font-size:10px; color:#4b5563; margin-top:2px; }
+        .small { font-size:14px; color:#4b5563; margin-top:2px; }
         .comments-title { font-weight:700; }
         .comments-line { margin-top:4px; font-size:11px; color:#374151; }
         .font-bold { font-weight:700; }
