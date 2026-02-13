@@ -3050,7 +3050,7 @@ class PackingProcessController extends Controller
                 // Ajustable por entorno: PLANNING_INSTRUCTION_PDF_SCALE (0.1 - 2.0)
                 $pdfScale = (float) env('PLANNING_INSTRUCTION_PDF_SCALE', 0.70);
                 if ($pdfScale < 0.1 || $pdfScale > 2.0) {
-                    $pdfScale = 0.70;
+                    $pdfScale = 0.90;
                 }
 
                 $chrome = env(
