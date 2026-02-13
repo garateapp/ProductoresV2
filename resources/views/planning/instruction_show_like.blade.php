@@ -50,7 +50,7 @@
             .page { padding:0; }
             .head { margin-bottom: 6px; }
             .head-title { font-size: 15px; }
-            .head-sub { font-size: 10px; }
+            .head-sub { font-size: 14px; }
             .status { margin-top: 4px; padding: 2px 8px; font-size: 9px; }
             .card { overflow:visible; margin-top:8px; }
             .card-head { padding:8px 10px; }
