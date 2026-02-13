@@ -8,9 +8,9 @@
         :root { --ink:#111827; --muted:#6b7280; --border:#e5e7eb; --bg:#f8fafc; --white:#ffffff; }
         * { box-sizing: border-box; }
         html, body { margin:0; padding:0; background: var(--bg); color: var(--ink); font-family: Arial, Helvetica, sans-serif; }
-        .page { padding: 18px; }
+        .page { padding: 14px; }
         .head { display:flex; align-items:flex-start; justify-content:space-between; gap:12px; margin-bottom:12px; }
-        .head-title { font-size:24px; font-weight: 900; margin:0; }
+        .head-title { font-size:20px; font-weight: 900; margin:0; }
         .head-sub { margin-top:4px; font-size: 18px; color: var(--muted); }
         .status { margin-top:8px; display:inline-flex; border:1px solid var(--border); border-radius:999px; padding:4px 10px; font-size:11px; font-weight:700; background:#f8fafc; color:#334155; }
 
@@ -20,8 +20,8 @@
         .card-sub { margin-top:6px; font-size:14px; color: var(--muted); }
         .card-body { padding:12px 14px 16px 14px; }
 
-        .instructionDoc h1 { font-size:24px; margin:0 0 8px 0; font-weight:900; }
-        .instructionDoc h2 { font-size:20px; margin:18px 0 8px 0; font-weight:900; }
+        .instructionDoc h1 { font-size:20px; margin:0 0 8px 0; font-weight:900; }
+        .instructionDoc h2 { font-size:16px; margin:18px 0 8px 0; font-weight:900; }
         .table-wrap {
             overflow:auto;
             border:1px solid #ddd;
@@ -39,7 +39,7 @@
             white-space:pre-wrap;
             word-break:break-word;
             overflow-wrap:anywhere;
-            font-size:15px;
+            font-size:12px;
         }
         th { position:sticky; top:0; background:#f7f7f7; font-weight:800; }
         tr:nth-child(even) td { background:#fcfcfc; }
@@ -47,7 +47,7 @@
         .meta-box { border:1px solid var(--border); border-radius:10px; padding:8px 10px; background:#fff; }
         .meta-label { font-size:14px; color:var(--muted); margin-bottom:2px; }
         .meta-value { font-weight:900; color:var(--ink); font-size:16px; }
-        .small { font-size:15px; color:#4b5563; margin-top:2px; }
+        .small { font-size:12px; color:#4b5563; margin-top:2px; }
         .comments-title { font-weight:700; }
         .comments-line { margin-top:4px; font-size:11px; color:#374151; }
         .font-bold { font-weight:700; }
@@ -79,7 +79,7 @@
             }
             .process-lots-table th,
             .process-lots-table td {
-                font-size:15px;
+                font-size:12px;
                 line-height:1.15;
                 padding:2px 3px;
                 white-space:normal;
@@ -112,7 +112,7 @@
             }
             .packaging-table th,
             .packaging-table td {
-                font-size:8px;
+                font-size:12px;
                 line-height:1.05;
                 padding:1px 2px;
                 white-space:normal;
