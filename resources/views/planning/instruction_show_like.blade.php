@@ -45,8 +45,8 @@
         tr:nth-child(even) td { background:#fcfcfc; }
         .meta-grid { display:grid; grid-template-columns:repeat(6,minmax(0,1fr)); gap:8px; margin:10px 0; }
         .meta-box { border:1px solid var(--border); border-radius:10px; padding:8px 10px; background:#fff; }
-        .meta-label { font-size:14px; color:var(--muted); margin-bottom:2px; }
-        .meta-value { font-weight:900; color:var(--ink); font-size:16px; }
+        .meta-label { font-size:12px; color:var(--muted); margin-bottom:2px; }
+        .meta-value { font-weight:900; color:var(--ink); font-size:11px; }
         .small { font-size:12px; color:#4b5563; margin-top:2px; }
         .comments-title { font-weight:700; }
         .comments-line { margin-top:4px; font-size:11px; color:#374151; }
@@ -87,7 +87,7 @@
                 overflow-wrap:anywhere;
             }
             .process-lots-table th { position:static; top:0; background:#2f631e; font-weight:600;color:#fff; }
-            .process-lots-table .small { font-size:15px; }
+            .process-lots-table .small { font-size:10px; }
             .process-lots-table th:nth-child(1), .process-lots-table td:nth-child(1) { width: 6%; }
             .process-lots-table th:nth-child(2), .process-lots-table td:nth-child(2) { width: 4%; }
             .process-lots-table th:nth-child(3), .process-lots-table td:nth-child(3) { width: 7%; }
