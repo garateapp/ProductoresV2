@@ -768,7 +768,7 @@ export default function Show({ process, planningMode = null, lines = [], allLine
   }
 
   const removeLot = (lotId) => {
-    if (isLocked || isConfirmed) return
+    if (isLocked) return
     setLots((prev) => {
       const lot = prev.find((l) => l.id === lotId)
       const next = prev.filter((l) => l.id !== lotId)
@@ -882,6 +882,15 @@ export default function Show({ process, planningMode = null, lines = [], allLine
     router.post(route('planning.processes.confirm', process.id), {}, { preserveScroll: true })
   }
 
+  const deleteProcess = () => {
+    if (isLocked) return
+    if (!confirm(`¿Eliminar el proceso #${process?.id || ''}? Esta acción no se puede deshacer.`)) return
+    router.delete(route('planning.processes.destroy', process.id), {
+      data: { especie: String(process?.especie || '').trim() || null },
+      preserveScroll: true,
+    })
+  }
+
   const [editingExtraHours, setEditingExtraHours] = useState(null) // { lineId, value }
   const openExtraHoursForLine = (lineId) => {
     if (isLocked) return
@@ -969,8 +978,9 @@ export default function Show({ process, planningMode = null, lines = [], allLine
     if (!lineId) return
     const key = String(inventoryKey || '').trim()
     if (!key) return
-    if (isConfirmed) {
-      alert('El proceso está confirmado: no se pueden agregar lotes. Crea un nuevo proceso o trabaja en un borrador.')
+    const confirmedReason = isConfirmed ? String(changeReason || '').trim() : null
+    if (isConfirmed && !confirmedReason) {
+      alert('Debes indicar el motivo del cambio para editar un proceso confirmado.')
       return
     }
     const payload = isRepack
@@ -978,10 +988,12 @@ export default function Show({ process, planningMode = null, lines = [], allLine
         add_source_type: 'reembalaje',
         add_source_key: key,
         add_packing_line_id: lineId,
+        ...(isConfirmed ? { change_reason: confirmedReason } : {}),
       }
       : {
         add_n_g_recepcion: key,
         add_packing_line_id: lineId,
+        ...(isConfirmed ? { change_reason: confirmedReason } : {}),
       }
 
     router.patch(route('planning.processes.lots.update', process.id), payload, {
@@ -1105,6 +1117,11 @@ export default function Show({ process, planningMode = null, lines = [], allLine
           <Link href={route('planning.processes.index')}>
             <Button variant="outline">Volver</Button>
           </Link>
+          {!isLineDay ? (
+            <Button variant="destructive" onClick={deleteProcess} disabled={isLocked || saving}>
+              Eliminar proceso
+            </Button>
+          ) : null}
             </div>
 
             <div className="flex flex-wrap items-center gap-2">
@@ -1596,7 +1613,7 @@ export default function Show({ process, planningMode = null, lines = [], allLine
                             <Button
                               size="sm"
                               onClick={() => addFromInventory(inventoryKey)}
-                              disabled={isLocked || isConfirmed}
+                              disabled={isLocked}
                               title="Agregar al programa"
                             >
                               Agregar
@@ -1845,9 +1862,9 @@ export default function Show({ process, planningMode = null, lines = [], allLine
                                           variant="outline"
                                           size="icon"
                                           onClick={() => removeLot(lot.id)}
-                                          disabled={isLocked || isConfirmed}
+                                          disabled={isLocked}
                                           aria-label="Quitar"
-                                          title={isConfirmed ? 'Proceso confirmado: no se pueden quitar lotes' : 'Quitar'}
+                                          title="Quitar"
                                         >
                                           <Trash2 className="h-4 w-4" />
                                         </Button>

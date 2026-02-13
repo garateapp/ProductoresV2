@@ -1,5 +1,5 @@
 import React, { useEffect, useMemo, useState } from 'react'
-import { Link, useForm, usePage } from '@inertiajs/react'
+import { Link, router, useForm, usePage } from '@inertiajs/react'
 import AuthenticatedLayout from '@/Layouts/AuthenticatedLayout'
 import { Card, CardContent, CardHeader, CardTitle } from '@/Components/ui/card'
 import { Button } from '@/Components/ui/button'
@@ -68,7 +68,7 @@ function minutesToHM(totalMinutes) {
   return `${String(hh).padStart(2, '0')}:${String(mm).padStart(2, '0')}`
 }
 
-function LineGroupGantt({ group }) {
+function LineGroupGantt({ group, onDelete }) {
   const { dateKey, shiftLabel, shiftId, lineId, lineName, processes: list, printableProcessId } = group
   const shift = list?.[0]?.shift || null
   const shiftStartStr = shift?.hora_inicio ? String(shift.hora_inicio) : '08:00:00'
@@ -217,6 +217,14 @@ function LineGroupGantt({ group }) {
                         <Link href={route('planning.processes.show', p.id)}>
                           <Button variant="outline" size="sm">Editar</Button>
                         </Link>
+                        <Button
+                          variant="destructive"
+                          size="sm"
+                          onClick={() => onDelete?.(p?.id)}
+                          disabled={!p?.id}
+                        >
+                          Eliminar
+                        </Button>
                         {status === 'CONFIRMADO' ? (
                           <a
                             href={`${route('planning.processes.instruction', p.id)}${Number(lineId) > 0 ? `?line_id=${Number(lineId)}` : ''}`}
@@ -245,6 +253,16 @@ export default function Index({ processes, filters }) {
   const { data, setData, get } = useForm({
     especie: filters?.especie ?? '',
   })
+  const handleDeleteProcess = (processId) => {
+    const id = Number(processId)
+    if (!Number.isFinite(id) || id <= 0) return
+    if (!confirm(`¿Eliminar el proceso #${id}? Esta acción no se puede deshacer.`)) return
+    router.delete(route('planning.processes.destroy', id), {
+      data: { especie: String(data.especie || '').trim() || null },
+      preserveScroll: true,
+      preserveState: true,
+    })
+  }
   const viewKey = useMemo(() => 'planning.processes.index.view', [])
   const [view, setView] = useState(() => {
     try {
@@ -446,7 +464,7 @@ export default function Index({ processes, filters }) {
                   <div className="p-4 space-y-4">
                     {section.groups.map((g) => (
                       view === 'gantt' ? (
-                        <LineGroupGantt key={g.key} group={g} />
+                        <LineGroupGantt key={g.key} group={g} onDelete={handleDeleteProcess} />
                       ) : (
                       <div key={g.key} className="rounded border overflow-hidden bg-white">
                         <div className="flex items-center justify-between gap-3 border-b bg-gray-50 px-3 py-2">
@@ -545,6 +563,9 @@ export default function Index({ processes, filters }) {
                                     <Link href={route('planning.processes.show', p.id)}>
                                       <Button variant="outline" size="sm">Editar</Button>
                                     </Link>
+                                    <Button variant="destructive" size="sm" onClick={() => handleDeleteProcess(p.id)}>
+                                      Eliminar
+                                    </Button>
                                     {(p.estado?.value ?? p.estado) === 'CONFIRMADO' ? (
                                       <a
                                         href={`${route('planning.processes.instruction', p.id)}${g.lineId > 0 ? `?line_id=${g.lineId}` : ''}`}
