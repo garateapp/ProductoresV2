@@ -239,6 +239,7 @@ class PackingProcessController extends Controller
             'lines' => $lines,
             'defaults' => [
                 'especie' => $request->query('especie'),
+                'planning_mode' => $request->query('planning_mode', 'normal'),
                 'fecha' => $request->query('fecha'),
                 'shift_id' => $request->query('shift_id'),
             ],
@@ -249,7 +250,7 @@ class PackingProcessController extends Controller
     {
         $this->authorizePlanning($request);
 
-        $process = PackingProcess::create([
+        $payload = [
             'especie' => (string) $request->input('especie'),
             'exportadora' => null, // se completa desde Recepción al confirmar (1 lote = 1 proceso)
             'fecha' => $request->date('fecha'),
@@ -259,7 +260,15 @@ class PackingProcessController extends Controller
             'creado_por' => $request->user()?->id,
             'included_packing_line_ids' => $request->input('included_packing_line_ids') ?: null,
             'pedidos' => $request->filled('pedidos') ? (string) $request->input('pedidos') : null,
-        ]);
+        ];
+
+        if (Schema::hasColumn('processes', 'planning_mode')) {
+            $payload['planning_mode'] = in_array((string) $request->input('planning_mode', 'normal'), ['normal', 'reembalaje'], true)
+                ? (string) $request->input('planning_mode', 'normal')
+                : 'normal';
+        }
+
+        $process = PackingProcess::create($payload);
 
         return redirect()->route('planning.processes.show', $process)->with('success', 'Proceso creado. Ahora puedes generar la propuesta.');
     }
@@ -348,86 +357,127 @@ class PackingProcessController extends Controller
 
         $lineMeta = $lines->map($toLineMeta)->values();
         $allLineMeta = $allLines->map($toLineMeta)->values();
+        $isRepackMode = Str::lower(trim((string) ($process->planning_mode ?? 'normal'))) === 'reembalaje';
 
-        // Inventario (panel izquierdo) con filtros mínimos.
+        $defaultRepackEspecie = trim((string) ($process->especie ?? ''));
+        $repackEspecieFilter = $request->has('especie')
+            ? trim((string) $request->query('especie', ''))
+            : $defaultRepackEspecie;
+
+        // Inventario (panel izquierdo) con filtros.
         $invFilters = [
             'q' => (string) $request->query('q', ''),
+            'especie' => $repackEspecieFilter,
             'variedad' => (string) $request->query('variedad', ''),
+            'productor' => (string) $request->query('productor', ''),
+            'embalaje' => (string) $request->query('embalaje', ''),
             'nota_calidad' => (string) $request->query('nota_calidad', ''),
             'brix_min' => $request->query('brix_min'),
             'brix_max' => $request->query('brix_max'),
         ];
 
-        $inventory = $this->inventoryRepository->getAvailableLots([
-            'especie' => $process->especie,
-            'q' => $invFilters['q'] ?: null,
-            'variedad' => $invFilters['variedad'] ?: null,
-            'limit' => 200,
-        ])->values();
+        $inventoryFilterOptions = [
+            'especies' => [],
+            'variedades' => [],
+            'variedadesByEspecie' => [],
+            'productores' => [],
+            'embalajes' => [],
+        ];
 
-        $inventoryNg = $inventory
-            ->pluck('n_g_recepcion')
-            ->map(fn ($v) => trim((string) $v))
-            ->filter(fn ($v) => $v !== '')
-            ->unique()
-            ->values()
-            ->all();
-
-        $qualityDetailsByNg = [];
-        if (! empty($inventoryNg)) {
-            $recepciones = Recepcion::query()
-                ->select(['id', 'numero_g_recepcion'])
-                ->whereIn('numero_g_recepcion', $inventoryNg)
-                ->with([
-                    'calidad:id,recepcion_id',
-                    'calidad.detalles:id,calidad_id,tipo_item,detalle_item,porcentaje_muestra',
-                ])
-                ->get();
-
-            foreach ($recepciones as $recepcion) {
-                $ng = trim((string) ($recepcion->numero_g_recepcion ?? ''));
-                if ($ng === '') {
-                    continue;
-                }
-
-                $detalles = $recepcion->calidad?->detalles ?? collect();
-
-                $qualityDetailsByNg[$ng] = [
-                    'exportable_percentage' => $this->calculateExportablePercentageFromDetalles($detalles),
-                    'defectos_calidad' => $this->extractDefectRowsByTipo($detalles, 'DEFECTOS DE CALIDAD'),
-                    'defectos_condicion' => $this->extractDefectRowsByTipo($detalles, 'DEFECTOS DE CONDICION'),
+        if ($isRepackMode) {
+            $inventoryFilterOptions = $this->buildRepackInventoryFilterOptions($invFilters);
+            $inventory = $this->inventoryRepository->getRepackAvailableLots([
+                'especie' => $invFilters['especie'] ?: null,
+                'q' => $invFilters['q'] ?: null,
+                'variedad' => $invFilters['variedad'] ?: null,
+                'productor' => $invFilters['productor'] ?: null,
+                'embalaje' => $invFilters['embalaje'] ?: null,
+                'limit' => 300,
+            ])->map(function (array $row) {
+                return [
+                    ...$row,
+                    'setup_nota_calidad' => $row['nota_calidad_sqlsrv'] ?? null,
+                    'setup_calibre' => null,
+                    'setup_color' => null,
+                    'brix' => null,
+                    'quality_warning' => false,
+                    'exportable_percentage' => null,
+                    'defectos_calidad' => [],
+                    'defectos_condicion' => [],
                 ];
+            })->values();
+        } else {
+            $inventory = $this->inventoryRepository->getAvailableLots([
+                'especie' => $process->especie,
+                'q' => $invFilters['q'] ?: null,
+                'variedad' => $invFilters['variedad'] ?: null,
+                'limit' => 200,
+            ])->values();
+
+            $inventoryNg = $inventory
+                ->pluck('n_g_recepcion')
+                ->map(fn ($v) => trim((string) $v))
+                ->filter(fn ($v) => $v !== '')
+                ->unique()
+                ->values()
+                ->all();
+
+            $qualityDetailsByNg = [];
+            if (! empty($inventoryNg)) {
+                $recepciones = Recepcion::query()
+                    ->select(['id', 'numero_g_recepcion'])
+                    ->whereIn('numero_g_recepcion', $inventoryNg)
+                    ->with([
+                        'calidad:id,recepcion_id',
+                        'calidad.detalles:id,calidad_id,tipo_item,detalle_item,porcentaje_muestra',
+                    ])
+                    ->get();
+
+                foreach ($recepciones as $recepcion) {
+                    $ng = trim((string) ($recepcion->numero_g_recepcion ?? ''));
+                    if ($ng === '') {
+                        continue;
+                    }
+
+                    $detalles = $recepcion->calidad?->detalles ?? collect();
+
+                    $qualityDetailsByNg[$ng] = [
+                        'exportable_percentage' => $this->calculateExportablePercentageFromDetalles($detalles),
+                        'defectos_calidad' => $this->extractDefectRowsByTipo($detalles, 'DEFECTOS DE CALIDAD'),
+                        'defectos_condicion' => $this->extractDefectRowsByTipo($detalles, 'DEFECTOS DE CONDICION'),
+                    ];
+                }
             }
-        }
 
-        $qualityMap = $this->qualityRepository->getQualityByNGRecepcion($inventory->pluck('n_g_recepcion')->all());
-        $inventory = $inventory->map(function (array $row) use ($qualityMap, $qualityDetailsByNg) {
-            $n = trim((string) ($row['n_g_recepcion'] ?? ''));
-            $q = $qualityMap[$n] ?? null;
-            $qualityExtra = $qualityDetailsByNg[$n] ?? null;
-            return [
-                ...$row,
-                'setup_nota_calidad' => $q['setup_nota_calidad'] ?? null,
-                'setup_calibre' => $q['setup_calibre'] ?? ($row['calibre'] ?? null),
-                'setup_color' => $q['setup_color'] ?? null,
-                'brix' => $q['brix'] ?? null,
-                'quality_warning' => (bool) ($q['warning'] ?? false),
-                'exportable_percentage' => $qualityExtra['exportable_percentage'] ?? null,
-                'defectos_calidad' => $qualityExtra['defectos_calidad'] ?? [],
-                'defectos_condicion' => $qualityExtra['defectos_condicion'] ?? [],
-            ];
-        });
+            $qualityMap = $this->qualityRepository->getQualityByNGRecepcion($inventory->pluck('n_g_recepcion')->all());
+            $inventory = $inventory->map(function (array $row) use ($qualityMap, $qualityDetailsByNg) {
+                $n = trim((string) ($row['n_g_recepcion'] ?? ''));
+                $q = $qualityMap[$n] ?? null;
+                $qualityExtra = $qualityDetailsByNg[$n] ?? null;
+                return [
+                    ...$row,
+                    'setup_nota_calidad' => $q['setup_nota_calidad'] ?? null,
+                    'setup_calibre' => $q['setup_calibre'] ?? ($row['calibre'] ?? null),
+                    'setup_color' => $q['setup_color'] ?? null,
+                    'brix' => $q['brix'] ?? null,
+                    'quality_warning' => (bool) ($q['warning'] ?? false),
+                    'exportable_percentage' => $qualityExtra['exportable_percentage'] ?? null,
+                    'defectos_calidad' => $qualityExtra['defectos_calidad'] ?? [],
+                    'defectos_condicion' => $qualityExtra['defectos_condicion'] ?? [],
+                ];
+            });
 
-        if ($invFilters['nota_calidad'] !== '') {
-            $inventory = $inventory->filter(fn ($row) => (string) ($row['setup_nota_calidad'] ?? '') === $invFilters['nota_calidad'])->values();
-        }
-        if ($invFilters['brix_min'] !== null && $invFilters['brix_min'] !== '') {
-            $min = (float) $invFilters['brix_min'];
-            $inventory = $inventory->filter(fn ($row) => ($row['brix'] ?? null) !== null && (float) $row['brix'] >= $min)->values();
-        }
-        if ($invFilters['brix_max'] !== null && $invFilters['brix_max'] !== '') {
-            $max = (float) $invFilters['brix_max'];
-            $inventory = $inventory->filter(fn ($row) => ($row['brix'] ?? null) !== null && (float) $row['brix'] <= $max)->values();
+            if ($invFilters['nota_calidad'] !== '') {
+                $inventory = $inventory->filter(fn ($row) => (string) ($row['setup_nota_calidad'] ?? '') === $invFilters['nota_calidad'])->values();
+            }
+            if ($invFilters['brix_min'] !== null && $invFilters['brix_min'] !== '') {
+                $min = (float) $invFilters['brix_min'];
+                $inventory = $inventory->filter(fn ($row) => ($row['brix'] ?? null) !== null && (float) $row['brix'] >= $min)->values();
+            }
+            if ($invFilters['brix_max'] !== null && $invFilters['brix_max'] !== '') {
+                $max = (float) $invFilters['brix_max'];
+                $inventory = $inventory->filter(fn ($row) => ($row['brix'] ?? null) !== null && (float) $row['brix'] <= $max)->values();
+            }
         }
 
         // Badges (México / Mosca) por productor+variedad para esta fecha.
@@ -554,14 +604,103 @@ class PackingProcessController extends Controller
 
         return Inertia::render('Planning/Processes/Show', [
             'process' => $process,
+            'planningMode' => $isRepackMode ? 'reembalaje' : 'normal',
             'lines' => $lineMeta,
             'allLines' => $allLineMeta,
             'inventory' => $inventory->values(),
             'inventoryFilters' => $invFilters,
+            'inventoryFilterOptions' => $inventoryFilterOptions,
             'packagingDestinosAvailable' => $packagingDestinosAvailable,
             'allowSplit' => (bool) config('planning.allow_split', false),
             'badges' => $badges,
         ]);
+    }
+
+    private function buildRepackInventoryFilterOptions(array $invFilters): array
+    {
+        $fromSqlsrv = $this->inventoryRepository->getRepackFilterOptions([
+            'especie' => trim((string) ($invFilters['especie'] ?? '')) ?: null,
+            'variedad' => trim((string) ($invFilters['variedad'] ?? '')) ?: null,
+            'q' => trim((string) ($invFilters['q'] ?? '')) ?: null,
+        ]);
+
+        $especies = Especie::query()
+            ->with(['variedads' => fn ($q) => $q->select(['id', 'name', 'especie_id'])->orderBy('name')])
+            ->orderBy('name')
+            ->get(['id', 'name']);
+
+        $especieOptions = [];
+        $variedadesByEspecie = [];
+        $allVariedades = [];
+
+        foreach ($especies as $especie) {
+            $name = trim((string) ($especie->name ?? ''));
+            if ($name === '') {
+                continue;
+            }
+
+            $especieOptions[] = [
+                'value' => $name,
+                'label' => $name,
+                'searchValue' => $name,
+            ];
+
+            $key = Str::lower($name);
+            $varOptions = collect($especie->variedads ?? [])
+                ->map(function ($variedad) {
+                    $varName = trim((string) ($variedad->name ?? ''));
+                    if ($varName === '') {
+                        return null;
+                    }
+
+                    return [
+                        'value' => $varName,
+                        'label' => $varName,
+                        'searchValue' => $varName,
+                    ];
+                })
+                ->filter()
+                ->unique(fn ($o) => Str::lower((string) ($o['value'] ?? '')))
+                ->sortBy(fn ($o) => Str::lower((string) ($o['label'] ?? '')))
+                ->values()
+                ->all();
+
+            $variedadesByEspecie[$key] = $varOptions;
+            foreach ($varOptions as $opt) {
+                $allVariedades[] = $opt;
+            }
+        }
+
+        $variedades = collect($allVariedades)
+            ->unique(fn ($o) => Str::lower((string) ($o['value'] ?? '')))
+            ->sortBy(fn ($o) => Str::lower((string) ($o['label'] ?? '')))
+            ->values()
+            ->all();
+
+        $productores = collect($fromSqlsrv['productores'] ?? [])
+            ->map(function ($p) {
+                $value = trim((string) $p);
+                if ($value === '') {
+                    return null;
+                }
+
+                return [
+                    'value' => $value,
+                    'label' => $value,
+                    'searchValue' => $value,
+                ];
+            })
+            ->filter()
+            ->values()
+            ->all();
+
+        return [
+            'especies' => $especieOptions,
+            'variedades' => $variedades,
+            'variedadesByEspecie' => $variedadesByEspecie,
+            'productores' => $productores,
+            'embalajes' => array_values($fromSqlsrv['embalajes'] ?? []),
+        ];
     }
 
     private function normalizeDetailType(?string $value): string
@@ -665,12 +804,13 @@ class PackingProcessController extends Controller
             || $request->has('line_extra_hours')
             || $request->has('pedidos')
             || $request->filled('add_n_g_recepcion')
+            || $request->filled('add_source_key')
             || $request->filled('split_id')
             || (! empty($request->input('remove_ids')))
             || (! empty($request->input('lots')));
 
         if ($isConfirmed) {
-            if ($request->filled('add_n_g_recepcion')) {
+            if ($request->filled('add_n_g_recepcion') || $request->filled('add_source_key')) {
                 return back()->with('error', 'El proceso está confirmado: no se pueden agregar lotes. Crea un nuevo proceso o trabaja en un borrador.');
             }
             if (! empty($request->input('remove_ids'))) {
@@ -906,28 +1046,70 @@ class PackingProcessController extends Controller
                 }
             }
 
-            if ($request->filled('add_n_g_recepcion')) {
-                $n = (string) $request->input('add_n_g_recepcion');
+            if ($request->filled('add_source_key') || $request->filled('add_n_g_recepcion')) {
                 $lineId = (int) $request->input('add_packing_line_id');
+                $sourceTypeInput = Str::lower(trim((string) $request->input('add_source_type', '')));
+                $sourceType = in_array($sourceTypeInput, ['recepcion', 'reembalaje'], true)
+                    ? $sourceTypeInput
+                    : (Str::lower(trim((string) ($process->planning_mode ?? 'normal'))) === 'reembalaje' ? 'reembalaje' : 'recepcion');
 
-                $already = PackingProcessLot::query()
-                    ->where('process_id', $process->id)
-                    ->where('n_g_recepcion', $n)
-                    ->exists();
-                if ($already) {
-                    return;
+                if ($sourceType === 'reembalaje') {
+                    $sourceKey = trim((string) $request->input('add_source_key', ''));
+                    if ($sourceKey === '') {
+                        return;
+                    }
+
+                    $hasSourceType = Schema::hasColumn('process_lots', 'source_type');
+                    $hasSourceKey = Schema::hasColumn('process_lots', 'source_key');
+                    $alreadyQuery = PackingProcessLot::query()
+                        ->where('process_id', $process->id);
+                    if ($hasSourceType && $hasSourceKey) {
+                        $alreadyQuery
+                            ->where('source_type', 'reembalaje')
+                            ->where('source_key', $sourceKey);
+                    } else {
+                        $alreadyQuery->where('n_g_recepcion', $sourceKey);
+                    }
+                    $already = $alreadyQuery->exists();
+                    if ($already) {
+                        return;
+                    }
+
+                    // Si el proceso está limitado a ciertas líneas, al agregar a una nueva la incluimos automáticamente.
+                    $included = collect($process->included_packing_line_ids ?: [])->map(fn ($id) => (int) $id)->values();
+                    if ($included->isNotEmpty() && ! $included->contains($lineId)) {
+                        $process->forceFill([
+                            'included_packing_line_ids' => $included->push($lineId)->unique()->values()->all(),
+                        ])->save();
+                    }
+
+                    $this->addRepackLotToProcess($process, $sourceKey, $lineId);
+                    $changed = true;
+                } else {
+                    $n = trim((string) $request->input('add_n_g_recepcion', ''));
+                    if ($n === '') {
+                        return;
+                    }
+
+                    $already = PackingProcessLot::query()
+                        ->where('process_id', $process->id)
+                        ->where('n_g_recepcion', $n)
+                        ->exists();
+                    if ($already) {
+                        return;
+                    }
+
+                    // Si el proceso está limitado a ciertas líneas, al agregar a una nueva la incluimos automáticamente.
+                    $included = collect($process->included_packing_line_ids ?: [])->map(fn ($id) => (int) $id)->values();
+                    if ($included->isNotEmpty() && ! $included->contains($lineId)) {
+                        $process->forceFill([
+                            'included_packing_line_ids' => $included->push($lineId)->unique()->values()->all(),
+                        ])->save();
+                    }
+
+                    $this->addInventoryLotToProcess($process, $n, $lineId);
+                    $changed = true;
                 }
-
-                // Si el proceso está limitado a ciertas líneas, al agregar a una nueva la incluimos automáticamente.
-                $included = collect($process->included_packing_line_ids ?: [])->map(fn ($id) => (int) $id)->values();
-                if ($included->isNotEmpty() && ! $included->contains($lineId)) {
-                    $process->forceFill([
-                        'included_packing_line_ids' => $included->push($lineId)->unique()->values()->all(),
-                    ])->save();
-                }
-
-                $this->addInventoryLotToProcess($process, $n, $lineId);
-                $changed = true;
             }
 
             if ($request->filled('split_id')) {
@@ -977,7 +1159,7 @@ class PackingProcessController extends Controller
                     ])->save();
 
                     // Create new part (mismo proceso, otra línea/cámara).
-                    PackingProcessLot::create([
+                    $newLotPayload = [
                         'process_id' => $process->id,
                         'packing_line_id' => $toLineId,
                         'n_g_recepcion' => $lot->n_g_recepcion,
@@ -989,10 +1171,21 @@ class PackingProcessController extends Controller
                         'brix' => $lot->brix,
                         'variedad_id' => $lot->variedad_id,
                         'n_variedad' => $lot->n_variedad,
+                        'destino' => $lot->destino,
                         'id_productor' => $lot->id_productor,
                         'c_productor' => $lot->c_productor,
                         'csg_productor' => $lot->csg_productor,
                         'n_productor' => $lot->n_productor,
+                        'fecha_recepcion' => $lot->fecha_recepcion,
+                        'tipo_proceso' => $lot->tipo_proceso,
+                        'variedad_original' => $lot->variedad_original,
+                        'productor_real' => $lot->productor_real,
+                        'categoria_origen' => $lot->categoria_origen,
+                        'pulpa' => $lot->pulpa,
+                        'huerto' => $lot->huerto,
+                        'sdp_centrocosto' => $lot->sdp_centrocosto,
+                        'envase_origen' => $lot->envase_origen,
+                        'altura_origen' => $lot->altura_origen,
                         'c_embalaje' => $lot->c_embalaje,
                         'n_embalaje' => $lot->n_embalaje,
                         'cp2_cajas_por_pallet' => $lot->cp2_cajas_por_pallet,
@@ -1002,7 +1195,43 @@ class PackingProcessController extends Controller
                         'inicio_estimado' => null,
                         'fin_estimado' => null,
                         'estado' => 'PROPUESTO',
-                    ]);
+                    ];
+
+                    if (Schema::hasColumn('process_lots', 'source_type')) {
+                        $newLotPayload['source_type'] = $lot->source_type;
+                    }
+                    if (Schema::hasColumn('process_lots', 'source_key')) {
+                        $newLotPayload['source_key'] = $lot->source_key;
+                    }
+                    if (Schema::hasColumn('process_lots', 'source_folio')) {
+                        $newLotPayload['source_folio'] = $lot->source_folio;
+                    }
+                    if (Schema::hasColumn('process_lots', 'source_n_g_proceso')) {
+                        $newLotPayload['source_n_g_proceso'] = $lot->source_n_g_proceso;
+                    }
+                    if (Schema::hasColumn('process_lots', 'source_lote')) {
+                        $newLotPayload['source_lote'] = $lot->source_lote;
+                    }
+                    if (Schema::hasColumn('process_lots', 'source_c_embalaje')) {
+                        $newLotPayload['source_c_embalaje'] = $lot->source_c_embalaje;
+                    }
+                    if (Schema::hasColumn('process_lots', 'source_n_embalaje')) {
+                        $newLotPayload['source_n_embalaje'] = $lot->source_n_embalaje;
+                    }
+                    if (Schema::hasColumn('process_lots', 'source_categoria')) {
+                        $newLotPayload['source_categoria'] = $lot->source_categoria;
+                    }
+                    if (Schema::hasColumn('process_lots', 'source_snapshot')) {
+                        $newLotPayload['source_snapshot'] = $lot->source_snapshot;
+                    }
+                    if (Schema::hasColumn('process_lots', 'packaging_indications')) {
+                        $newLotPayload['packaging_indications'] = $lot->packaging_indications;
+                    }
+                    if (Schema::hasColumn('process_lots', 'extra_packagings')) {
+                        $newLotPayload['extra_packagings'] = $lot->extra_packagings;
+                    }
+
+                    PackingProcessLot::create($newLotPayload);
                     $changed = true;
                 }
             }
@@ -1933,6 +2162,155 @@ class PackingProcessController extends Controller
             'estado' => 'PROPUESTO',
         ];
 
+        if (Schema::hasColumn('process_lots', 'source_type')) {
+            $newLotData['source_type'] = 'recepcion';
+        }
+        if (Schema::hasColumn('process_lots', 'source_key')) {
+            $newLotData['source_key'] = $n;
+        }
+        if (Schema::hasColumn('process_lots', 'source_lote')) {
+            $newLotData['source_lote'] = $n;
+        }
+
+        if (Schema::hasColumn('process_lots', 'pulpa')) {
+            $newLotData['pulpa'] = $pulpa;
+        }
+        if (Schema::hasColumn('process_lots', 'huerto')) {
+            $newLotData['huerto'] = null;
+        }
+        if (Schema::hasColumn('process_lots', 'source_snapshot')) {
+            $newLotData['source_snapshot'] = [
+                'n_g_recepcion' => $n,
+                'n_variedad' => $row['variedad'] ?? null,
+                'n_productor' => $row['n_productor'] ?? ($row['productor'] ?? null),
+                'c_embalaje' => $row['c_embalaje'] ?? null,
+                'n_embalaje' => $row['n_embalaje'] ?? null,
+            ];
+        }
+
+        PackingProcessLot::create($newLotData);
+    }
+
+    private function addRepackLotToProcess(PackingProcess $process, string $sourceKey, int $lineId): void
+    {
+        $key = trim($sourceKey);
+        $row = $this->inventoryRepository
+            ->getRepackAvailableLots([
+                'especie' => $process->especie,
+                'source_keys' => [$key],
+                'limit' => 20,
+            ])
+            ->first(fn ($r) => trim((string) ($r['source_key'] ?? '')) === $key);
+
+        if (! $row) {
+            throw ValidationException::withMessages([
+                'add_source_key' => 'El folio/lote de reembalaje no está disponible en inventario. Refresca y vuelve a intentar.',
+            ]);
+        }
+
+        $nRecepcion = trim((string) ($row['n_g_recepcion'] ?? ''));
+        if ($nRecepcion === '') {
+            $nRecepcion = trim((string) ($row['loter_unitec'] ?? ''));
+        }
+        if ($nRecepcion === '') {
+            $nRecepcion = $key;
+        }
+
+        $q = $this->qualityRepository->getQualityByNGRecepcion([$nRecepcion]);
+        $snap = $q[$nRecepcion] ?? ['setup_nota_calidad' => null, 'setup_calibre' => null, 'setup_color' => null, 'brix' => null];
+
+        $maxOrden = (int) PackingProcessLot::query()
+            ->where('process_id', $process->id)
+            ->where('packing_line_id', $lineId)
+            ->max('orden');
+
+        $maxSplitIndex = (int) PackingProcessLot::query()
+            ->where('process_id', $process->id)
+            ->where('n_g_recepcion', $nRecepcion)
+            ->max('split_index');
+
+        $pack = $this->carozosPackagingMatrix->suggest($row, $snap);
+        $variedadName = trim((string) ($row['variedad'] ?? ''));
+        $pulpaByVariedad = $this->getPulpaByVariedadNames($variedadName !== '' ? [$variedadName] : []);
+        $pulpa = $variedadName !== '' ? ($pulpaByVariedad[$variedadName] ?? null) : null;
+
+        $newLotData = [
+            'process_id' => $process->id,
+            'packing_line_id' => $lineId,
+            'n_g_recepcion' => $nRecepcion,
+            'split_index' => max(1, $maxSplitIndex + 1),
+            'setup_nota_calidad' => $snap['setup_nota_calidad'] ?? ($row['nota_calidad_sqlsrv'] ?? null),
+            'setup_calibre' => $snap['setup_calibre'] ?? null,
+            'setup_color' => $snap['setup_color'] ?? null,
+            'setup_hash' => sha1(implode('|', [
+                $key,
+                (string) ($variedadName ?? ''),
+                (string) ($row['c_embalaje'] ?? ''),
+                (string) ($row['n_embalaje'] ?? ''),
+            ])),
+            'brix' => $snap['brix'] ?? null,
+            'variedad_id' => null,
+            'n_variedad' => $row['variedad'] ?? null,
+            'id_productor' => null,
+            'c_productor' => null,
+            'csg_productor' => $row['csg_productor'] ?? null,
+            'n_productor' => $row['n_productor'] ?? null,
+            'fecha_recepcion' => $row['fecha_recepcion'] ?? null,
+            'tipo_proceso' => 'Reembalaje',
+            'variedad_original' => $row['variedad'] ?? null,
+            'productor_real' => $row['n_productor_original'] ?? ($row['n_productor'] ?? null),
+            'categoria_origen' => $row['categoria'] ?? 'Cat 1',
+            'sdp_centrocosto' => $row['sdp_centrocosto'] ?? null,
+            'envase_origen' => $row['n_embalaje'] ?? null,
+            'altura_origen' => $row['n_altura'] ?? null,
+            'destino' => isset($row['destino']) && trim((string) $row['destino']) !== '' ? trim((string) $row['destino']) : null,
+            'c_embalaje' => $pack['c_item'] ?? ($row['c_embalaje'] ?? null),
+            'n_embalaje' => $pack['n_item'] ?? ($row['n_embalaje'] ?? null),
+            'cp2_cajas_por_pallet' => $pack['cp2_cajas_por_pallet'] ?? null,
+            'cantidad_bins' => max(1, (int) ($row['cantidad_bins'] ?? 1)),
+            'peso_neto' => $row['peso_neto'] ?? null,
+            'orden' => $maxOrden + 1,
+            'inicio_estimado' => null,
+            'fin_estimado' => null,
+            'estado' => 'PROPUESTO',
+        ];
+
+        if (Schema::hasColumn('process_lots', 'source_type')) {
+            $newLotData['source_type'] = 'reembalaje';
+        }
+        if (Schema::hasColumn('process_lots', 'source_key')) {
+            $newLotData['source_key'] = $key;
+        }
+        if (Schema::hasColumn('process_lots', 'source_folio')) {
+            $newLotData['source_folio'] = $row['folio'] ?? $key;
+        }
+        if (Schema::hasColumn('process_lots', 'source_n_g_proceso')) {
+            $newLotData['source_n_g_proceso'] = $row['n_g_proceso'] ?? null;
+        }
+        if (Schema::hasColumn('process_lots', 'source_lote')) {
+            $newLotData['source_lote'] = ($row['loter_unitec'] ?? null) ?: $nRecepcion;
+        }
+        if (Schema::hasColumn('process_lots', 'source_c_embalaje')) {
+            $newLotData['source_c_embalaje'] = $row['c_embalaje'] ?? null;
+        }
+        if (Schema::hasColumn('process_lots', 'source_n_embalaje')) {
+            $newLotData['source_n_embalaje'] = $row['n_embalaje'] ?? null;
+        }
+        if (Schema::hasColumn('process_lots', 'source_categoria')) {
+            $newLotData['source_categoria'] = $row['categoria'] ?? null;
+        }
+        if (Schema::hasColumn('process_lots', 'source_snapshot')) {
+            $newLotData['source_snapshot'] = [
+                'folio' => $row['folio'] ?? $key,
+                'n_g_proceso' => $row['n_g_proceso'] ?? null,
+                'n_g_recepcion' => $nRecepcion,
+                'loter_unitec' => $row['loter_unitec'] ?? null,
+                'destino' => $row['destino'] ?? null,
+                'c_embalaje' => $row['c_embalaje'] ?? null,
+                'n_embalaje' => $row['n_embalaje'] ?? null,
+                'categoria' => $row['categoria'] ?? null,
+            ];
+        }
         if (Schema::hasColumn('process_lots', 'pulpa')) {
             $newLotData['pulpa'] = $pulpa;
         }
@@ -1951,10 +2329,16 @@ class PackingProcessController extends Controller
             return back()->with('success', 'Este proceso ya está confirmado.');
         }
 
-        $process->loadMissing(['lots:id,process_id,n_g_recepcion,destino']);
+        $process->loadMissing(['lots:id,process_id,n_g_recepcion,source_type,source_key,destino']);
         $missingDestino = $process->lots
             ->filter(fn ($l) => trim((string) ($l->destino ?? '')) === '')
-            ->pluck('n_g_recepcion')
+            ->map(function ($l) {
+                $sourceType = Str::lower(trim((string) ($l->source_type ?? '')));
+                if ($sourceType === 'reembalaje') {
+                    return trim((string) ($l->source_key ?? $l->n_g_recepcion));
+                }
+                return trim((string) ($l->n_g_recepcion ?? ''));
+            })
             ->filter()
             ->values()
             ->all();
@@ -2495,8 +2879,10 @@ class PackingProcessController extends Controller
             }
         }
 
+        $serializedLineSheets = $this->serializeInstructionLineSheets($lineSheets);
+
         // Vista en el sistema (dentro de AuthenticatedLayout): devolvemos Inertia con data estructurada.
-        // El PDF sigue saliendo por `format=pdf`.
+        // El PDF/HTML descargable usa el mismo esquema de datos para mantener consistencia visual.
         if (mb_strtolower(trim($format)) === 'html' && ! $download) {
             return Inertia::render('Planning/Instructions/Show', [
                 'process' => [
@@ -2514,44 +2900,29 @@ class PackingProcessController extends Controller
                 ] : null,
                 'line_id' => $lineIdParam,
                 'version' => $versionParam,
-                'lineSheets' => $this->serializeInstructionLineSheets($lineSheets),
+                'lineSheets' => $serializedLineSheets,
                 'metaByLineId' => $metaByLineId,
             ]);
         }
 
-        $templatePathHtml = base_path('instructivo-proceso.html');
-        $templatePathXlsx = base_path('instructivo-proceso.xlsx');
-
-        $html = null;
-        // PRIORIDAD: si existe instructivo-proceso.html, mantenemos ese formato exacto.
-        if (is_file($templatePathHtml)) {
-            try {
-                $html = $this->renderInstructionFromHtmlTemplate($templatePathHtml, $lineSheets, $date, $process->shift, $metaByLineId);
-            } catch (\Throwable $e) {
-                Log::warning('Planning instruction HTML template render failed: '.$e->getMessage());
-                $html = null;
-            }
-        } elseif (is_file($templatePathXlsx)) {
-            try {
-                $html = $this->renderInstructionFromXlsxTemplate($templatePathXlsx, $lineSheets, $date, $process->shift);
-            } catch (\Throwable $e) {
-                Log::warning('Planning instruction template render failed: '.$e->getMessage());
-                $html = null;
-            }
-        }
-
-        // Fallback (si falla template): Blade.
-        if ($html === null) {
-            $html = view('planning.instruction_turno_linea', [
-                'process' => $process,
-                'date' => $date,
-                'shift' => $process->shift,
-                'lineSheets' => $lineSheets,
-            ])->render();
-        }
-
-        // PDF: mantener el formato del instructivo histórico (template instructivo-proceso.html / xlsx).
-        // OJO: el PDF igual aplica overrides porque se inyectan en $lineSheets (packagingSummary.override).
+        // HTML/PDF del instructivo: mismo contenido y columnas que Instructions/Show.jsx.
+        $html = view('planning.instruction_show_like', [
+            'process' => [
+                'id' => (int) $process->id,
+                'fecha' => $date,
+                'especie' => (string) ($process->especie ?? ''),
+                'estado' => $process->estado?->value ?? $process->estado,
+            ],
+            'shift' => $process->shift ? [
+                'id' => (int) $process->shift->id,
+                'codigo' => $process->shift->codigo,
+                'nombre' => $process->shift->nombre,
+                'horas' => $process->shift->horas,
+                'hora_inicio' => $process->shift->hora_inicio,
+            ] : null,
+            'lineSheets' => $serializedLineSheets,
+            'metaByLineId' => $metaByLineId,
+        ])->render();
 
         $lineNameForDownload = null;
         if ($lineIdParam && $lineIdParam > 0) {
@@ -2807,6 +3178,14 @@ class PackingProcessController extends Controller
                     'id' => (int) ($lot?->id ?? 0),
                     'process_id' => (int) ($lot?->process_id ?? 0),
                     'n_g_recepcion' => (string) ($lot?->n_g_recepcion ?? ''),
+                    'source_type' => (string) ($lot?->source_type ?? 'recepcion'),
+                    'source_key' => (string) ($lot?->source_key ?? ''),
+                    'source_folio' => (string) ($lot?->source_folio ?? ''),
+                    'source_n_g_proceso' => (string) ($lot?->source_n_g_proceso ?? ''),
+                    'source_lote' => (string) ($lot?->source_lote ?? ''),
+                    'source_c_embalaje' => (string) ($lot?->source_c_embalaje ?? ''),
+                    'source_n_embalaje' => (string) ($lot?->source_n_embalaje ?? ''),
+                    'source_categoria' => (string) ($lot?->source_categoria ?? ''),
                     'destino' => (string) ($lot?->destino ?? ''),
                     'porcentaje_exportacion' => (function () use ($lot, $exportableByNg) {
                         $ng = trim((string) ($lot?->n_g_recepcion ?? ''));

@@ -15,6 +15,7 @@ class StorePackingProcessRequest extends FormRequest
     {
         return [
             'especie' => ['required', 'string', 'max:80'],
+            'planning_mode' => ['nullable', 'string', 'in:normal,reembalaje'],
             'fecha' => ['required', 'date'],
             'shift_id' => ['required', 'integer', 'exists:shifts,id'],
             'included_packing_line_ids' => ['nullable', 'array'],

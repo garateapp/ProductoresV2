@@ -16,6 +16,15 @@ class PackingProcessLot extends Model
         'process_id',
         'packing_line_id',
         'n_g_recepcion',
+        'source_type',
+        'source_key',
+        'source_folio',
+        'source_n_g_proceso',
+        'source_lote',
+        'source_c_embalaje',
+        'source_n_embalaje',
+        'source_categoria',
+        'source_snapshot',
         'split_index',
         'setup_nota_calidad',
         'setup_calibre',
@@ -65,6 +74,7 @@ class PackingProcessLot extends Model
         'cp2_cajas_por_pallet' => 'integer',
         'id_productor' => 'integer',
         'extra_packagings' => 'array',
+        'source_snapshot' => 'array',
     ];
 
     public function process(): BelongsTo

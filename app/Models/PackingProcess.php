@@ -14,6 +14,7 @@ class PackingProcess extends Model
     protected $fillable = [
         'process_batch_id',
         'especie',
+        'planning_mode',
         'exportadora',
         'fecha',
         'shift_id',

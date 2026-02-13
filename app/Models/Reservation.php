@@ -9,6 +9,8 @@ class Reservation extends Model
 {
     protected $fillable = [
         'n_g_recepcion',
+        'source_type',
+        'source_key',
         'process_id',
         'estado',
         'reserved_bins',

@@ -4,7 +4,7 @@ namespace App\Http\Controllers\Api;
 
 use App\Http\Controllers\Controller;
 use App\Models\FolioDeduction;
-use App\Models\PackingProcessLot;
+use App\Models\PackingProcess;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
@@ -23,6 +23,37 @@ class FolioDeductionController extends Controller
         $processId = $validated['processNumber'];
         $folio = $validated['barcode'];
 
+        // Validación local opcional para reembalaje:
+        // si el número coincide con un proceso de planificación local y este contiene lotes
+        // de reembalaje, exigimos que el folio esté planificado en source_key.
+        $localProcess = null;
+        if (is_numeric($processId)) {
+            $localProcess = PackingProcess::query()
+                ->with(['lots:id,process_id,source_type,source_key'])
+                ->find((int) $processId);
+        }
+
+        if ($localProcess) {
+            $plannedFolios = $localProcess->lots
+                ->filter(fn ($l) => strtolower(trim((string) ($l->source_type ?? ''))) === 'reembalaje')
+                ->pluck('source_key')
+                ->map(fn ($v) => trim((string) $v))
+                ->filter(fn ($v) => $v !== '')
+                ->unique()
+                ->values();
+
+            if ($plannedFolios->isNotEmpty() && ! $plannedFolios->contains($folio)) {
+                return response()->json([
+                    'success' => false,
+                    'message' => 'Folio no planificado para este reembalaje',
+                    'error' => [
+                        'code' => 'FOLIO_NOT_PLANNED',
+                        'details' => "El folio {$folio} no está planificado en el proceso {$processId}",
+                    ],
+                ], 400);
+            }
+        }
+
 
         //$packingProcessLot = PackingProcessLot::where('process_id', $processId)->first();
 
@@ -38,7 +69,7 @@ class FolioDeductionController extends Controller
         //         ],
         //     ], 404);
         // }
-        Log::info("lote_recepcion: ".$lote_recepcion);
+
         $foliosLote=DB::connection('sqlsrv')
         ->table('V_PKG_Recepcion_FG')
         ->select('folio')
@@ -47,8 +78,13 @@ class FolioDeductionController extends Controller
         ->where('destruccion_tipo','')
         ->where('destruccion_id',0)
         ->get();
+         $produccion = DB::connection('sqlsrv')
+            ->table('PKG_G_Produccion')
+            ->where('numero_i', $processId)
+            ->select('id', 'numero_i')
+            ->first();
 
-        if($lote_recepcion!= substr($folio, 0, 4)){
+        if( !$foliosLote->contains('folio', $folio)){
             return response()->json([
                 'success' => false,
                 'message' => 'Folio no válido para este proceso',
@@ -59,11 +95,7 @@ class FolioDeductionController extends Controller
             ], 400);
         }
         // Validar que el proceso exista en SQL Server
-        $produccion = DB::connection('sqlsrv')
-            ->table('PKG_G_Produccion')
-            ->where('numero_i', $processId)
-            ->select('id', 'numero_i')
-            ->first();
+
 
         if (! $produccion) {
             return response()->json([

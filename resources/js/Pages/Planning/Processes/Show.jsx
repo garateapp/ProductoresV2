@@ -10,6 +10,7 @@ import { Textarea } from '@/Components/ui/textarea'
 import { Alert, AlertDescription, AlertTitle } from '@/Components/ui/alert'
 import { Popover, PopoverContent, PopoverTrigger } from '@/Components/ui/popover'
 import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem } from '@/Components/ui/command'
+import Combobox from '@/Components/ui/combobox'
 import axios from 'axios'
 import { ArrowDown, ArrowUp, Bug, Check, GripVertical, Plus, Printer, RefreshCw, Trash2, Wand2 } from 'lucide-react'
 import { DragDropContext, Draggable, Droppable } from '@hello-pangea/dnd'
@@ -336,12 +337,16 @@ function PackagingPicker({ lot, onPick, disabled, destinos = [] }) {
   )
 }
 
-export default function Show({ process, lines = [], allLines = [], inventory = [], inventoryFilters = {}, allowSplit, badges = {}, lineDay = null }) {
+export default function Show({ process, planningMode = null, lines = [], allLines = [], inventory = [], inventoryFilters = {}, inventoryFilterOptions = {}, allowSplit, badges = {}, lineDay = null }) {
   const { props } = usePage()
   const isLineDay = Boolean(lineDay)
   const status = statusLabel(process?.estado)
   const isConfirmed = status === 'CONFIRMADO'
   const isLocked = isLineDay || ['CERRADO'].includes(status)
+  const isRepack = useMemo(() => {
+    const raw = String(planningMode || process?.planning_mode || 'normal').trim().toLowerCase()
+    return raw === 'reembalaje'
+  }, [planningMode, process?.planning_mode])
 
   const [lots, setLots] = useState(process?.lots || [])
   const [removedIds, setRemovedIds] = useState([])
@@ -357,6 +362,7 @@ export default function Show({ process, lines = [], allLines = [], inventory = [
   const confirmedReasonStorageKey = useMemo(() => `planning.process.confirmed_change_reason.${process?.id}`, [process?.id])
   const [changeReason, setChangeReason] = useState('')
   const [inventoryDraftFilters, setInventoryDraftFilters] = useState(() => ({ ...(inventoryFilters || {}) }))
+  const repackDefaultEspecie = String(process?.especie || '').trim()
 
   useEffect(() => {
     setLots(process?.lots || [])
@@ -371,7 +377,10 @@ export default function Show({ process, lines = [], allLines = [], inventory = [
     setInventoryDraftFilters({ ...(inventoryFilters || {}) })
   }, [
     inventoryFilters?.q,
+    inventoryFilters?.especie,
     inventoryFilters?.variedad,
+    inventoryFilters?.productor,
+    inventoryFilters?.embalaje,
     inventoryFilters?.nota_calidad,
     inventoryFilters?.brix_min,
     inventoryFilters?.brix_max,
@@ -472,22 +481,24 @@ export default function Show({ process, lines = [], allLines = [], inventory = [
     return grouped
   }, [lots, lines])
 
-  const assignedRecepcions = useMemo(() => {
+  const assignedInventoryKeys = useMemo(() => {
     const set = new Set()
     ;(lots || []).forEach((l) => {
-      const n = String(l?.n_g_recepcion || '').trim()
-      if (n) set.add(n)
+      const key = isRepack
+        ? String(l?.source_key || '').trim()
+        : String(l?.n_g_recepcion || '').trim()
+      if (key) set.add(key)
     })
     return set
-  }, [lots])
+  }, [lots, isRepack])
 
   const visibleInventory = useMemo(() => {
     return (inventory || []).filter((item) => {
-      const n = String(item?.n_g_recepcion || '').trim()
-      if (!n) return false
-      return !assignedRecepcions.has(n)
+      const key = String(item?.inventory_key || item?.source_key || item?.n_g_recepcion || '').trim()
+      if (!key) return false
+      return !assignedInventoryKeys.has(key)
     })
-  }, [inventory, assignedRecepcions])
+  }, [inventory, assignedInventoryKeys])
 
   const [sizeCurves, setSizeCurves] = useState({})
   const [sizeCurvesLoading, setSizeCurvesLoading] = useState({})
@@ -520,11 +531,12 @@ export default function Show({ process, lines = [], allLines = [], inventory = [
 
   // Precarga (pocos) para que en planta se vea rápido sin muchos clics.
   useEffect(() => {
+    if (isRepack) return
     const first = (visibleInventory || []).slice(0, 12).map((i) => String(i?.n_g_recepcion || '').trim()).filter(Boolean)
     const missing = first.filter((n) => !sizeCurves?.[n] && !sizeCurvesLoading?.[n])
     if (missing.length > 0) fetchSizeCurves(missing)
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [visibleInventory])
+  }, [visibleInventory, isRepack])
 
   const eligibleLinesForSplit = useMemo(() => {
     // Mostrar todas las líneas/cámaras de la especie (no solo las incluidas),
@@ -537,6 +549,49 @@ export default function Show({ process, lines = [], allLines = [], inventory = [
   useEffect(() => {
     if (!targetLineId && lines?.[0]?.id) setTargetLineId(lines[0].id)
   }, [lines])
+
+  const selectedRepackEspecie = String(inventoryDraftFilters?.especie || '').trim()
+  const selectedRepackEspecieKey = selectedRepackEspecie.toLowerCase()
+
+  const toOptionsWithAll = (items, allLabel = 'Todos') => {
+    const base = Array.isArray(items) ? items : []
+    return [{ value: '', label: allLabel, searchValue: allLabel }, ...base]
+  }
+
+  const ensureSelectedOption = (options, selectedValue) => {
+    const selected = String(selectedValue || '').trim()
+    if (!selected) return options
+    if ((options || []).some((o) => String(o?.value) === selected)) return options
+    return [...(options || []), { value: selected, label: selected, searchValue: selected }]
+  }
+
+  const repackProductorOptions = ensureSelectedOption(
+    toOptionsWithAll(inventoryFilterOptions?.productores, 'Todos'),
+    inventoryDraftFilters?.productor,
+  )
+
+  const repackEmbalajeOptions = ensureSelectedOption(
+    toOptionsWithAll(inventoryFilterOptions?.embalajes, 'Todos'),
+    inventoryDraftFilters?.embalaje,
+  )
+
+  const repackEspecieOptions = ensureSelectedOption(
+    toOptionsWithAll(inventoryFilterOptions?.especies, 'Todas'),
+    selectedRepackEspecie,
+  )
+
+  const variedadesByEspecie = (inventoryFilterOptions?.variedadesByEspecie && typeof inventoryFilterOptions.variedadesByEspecie === 'object')
+    ? inventoryFilterOptions.variedadesByEspecie
+    : {}
+
+  const variedadesBySelectedEspecie = selectedRepackEspecieKey && Array.isArray(variedadesByEspecie[selectedRepackEspecieKey])
+    ? variedadesByEspecie[selectedRepackEspecieKey]
+    : (Array.isArray(inventoryFilterOptions?.variedades) ? inventoryFilterOptions.variedades : [])
+
+  const repackVariedadOptions = ensureSelectedOption(
+    toOptionsWithAll(variedadesBySelectedEspecie, 'Todas'),
+    inventoryDraftFilters?.variedad,
+  )
 
   const setLot = (lotId, patch) => {
     setLots((prev) => prev.map((l) => (l.id === lotId ? { ...l, ...patch } : l)))
@@ -691,10 +746,16 @@ export default function Show({ process, lines = [], allLines = [], inventory = [
 
     // Drag desde inventario hacia una línea/cámara → crea el lote en backend
     if (source.droppableId === 'inv' && dragId.startsWith('inv:')) {
-      const n = dragId.replace('inv:', '')
+      const encoded = dragId.replace('inv:', '')
+      let inventoryKey = encoded
+      try {
+        inventoryKey = decodeURIComponent(encoded)
+      } catch (e) {
+        inventoryKey = encoded
+      }
       const toLineId = Number(destination.droppableId)
-      if (!Number.isFinite(toLineId) || !n) return
-      addFromInventory(n, toLineId)
+      if (!Number.isFinite(toLineId) || !inventoryKey) return
+      addFromInventory(inventoryKey, toLineId)
       return
     }
 
@@ -887,31 +948,43 @@ export default function Show({ process, lines = [], allLines = [], inventory = [
     router.get(route('planning.processes.show', process.id), next, {
       preserveState: true,
       replace: true,
-      only: ['inventory', 'inventoryFilters'],
+      only: ['inventory', 'inventoryFilters', 'inventoryFilterOptions'],
     })
   }
 
   const clearInventorySearch = () => {
-    const cleared = { q: '', variedad: '', nota_calidad: '', brix_min: '', brix_max: '' }
+    const cleared = isRepack
+      ? { q: '', especie: repackDefaultEspecie, variedad: '', productor: '', embalaje: '' }
+      : { q: '', variedad: '', nota_calidad: '', brix_min: '', brix_max: '' }
     setInventoryDraftFilters(cleared)
     router.get(route('planning.processes.show', process.id), cleared, {
       preserveState: true,
       replace: true,
-      only: ['inventory', 'inventoryFilters'],
+      only: ['inventory', 'inventoryFilters', 'inventoryFilterOptions'],
     })
   }
 
-  const addFromInventory = (n, lineIdOverride = null) => {
+  const addFromInventory = (inventoryKey, lineIdOverride = null) => {
     const lineId = lineIdOverride ?? targetLineId
     if (!lineId) return
+    const key = String(inventoryKey || '').trim()
+    if (!key) return
     if (isConfirmed) {
       alert('El proceso está confirmado: no se pueden agregar lotes. Crea un nuevo proceso o trabaja en un borrador.')
       return
     }
-    router.patch(route('planning.processes.lots.update', process.id), {
-      add_n_g_recepcion: String(n),
-      add_packing_line_id: lineId,
-    }, {
+    const payload = isRepack
+      ? {
+        add_source_type: 'reembalaje',
+        add_source_key: key,
+        add_packing_line_id: lineId,
+      }
+      : {
+        add_n_g_recepcion: key,
+        add_packing_line_id: lineId,
+      }
+
+    router.patch(route('planning.processes.lots.update', process.id), payload, {
       preserveScroll: true,
       onSuccess: (page) => {
         // Si el backend redirige a un proceso nuevo (1 lote = 1 proceso), no hacemos sync local.
@@ -1000,6 +1073,9 @@ export default function Show({ process, lines = [], allLines = [], inventory = [
                   <>
                     <Badge variant="secondary" className="bg-white/70 text-slate-800 border border-slate-200">
                       {process.especie}
+                    </Badge>
+                    <Badge variant="outline" className={isRepack ? 'bg-orange-50 text-orange-800 border-orange-200' : 'bg-white text-gray-700'}>
+                      {isRepack ? 'Reembalaje' : 'Normal'}
                     </Badge>
                     <span>·</span>
                     <span>{formatDate(process.fecha)}</span>
@@ -1236,12 +1312,14 @@ export default function Show({ process, lines = [], allLines = [], inventory = [
           <Card className="lg:col-span-4 border-slate-200/70 shadow-sm">
           <CardHeader className="pb-2 bg-gradient-to-r from-white via-slate-50 to-white border-b">
             <CardTitle className="text-lg font-bold">Inventario disponible</CardTitle>
-            <div className="text-sm text-gray-600">Busca y agrega manualmente si lo necesitas.</div>
+            <div className="text-sm text-gray-600">
+              {isRepack ? 'Stock para reembalaje por folio (especie/variedad).' : 'Busca y agrega manualmente si lo necesitas.'}
+            </div>
           </CardHeader>
           <CardContent>
             <div className="grid grid-cols-1 gap-3 mb-3">
               <div>
-                <Label>Buscar (n° recepción)</Label>
+                <Label>{isRepack ? 'Buscar (folio / n° proceso / lote)' : 'Buscar (n° recepción)'}</Label>
                 <Input
                   value={inventoryDraftFilters.q || ''}
                   onChange={(e) => applyInventoryFilters({ q: e.target.value })}
@@ -1255,36 +1333,91 @@ export default function Show({ process, lines = [], allLines = [], inventory = [
                 />
               </div>
 
-              <div>
-                <Label>Variedad</Label>
-                <Input
-                  value={inventoryDraftFilters.variedad || ''}
-                  onChange={(e) => applyInventoryFilters({ variedad: e.target.value })}
-                  onKeyDown={(e) => {
-                    if (e.key === 'Enter') {
-                      e.preventDefault()
-                      runInventorySearch()
-                    }
-                  }}
-                  placeholder="Ej: SANTINA"
-                />
-              </div>
-
-              <div className="grid grid-cols-2 gap-2">
+              {isRepack ? (
+                <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
+                  <div>
+                    <Label>Productor</Label>
+                    <Combobox
+                      value={inventoryDraftFilters.productor || ''}
+                      onChange={(value) => applyInventoryFilters({ productor: value })}
+                      options={repackProductorOptions}
+                      placeholder="Todos"
+                      searchPlaceholder="Buscar productor..."
+                      emptyMessage="Sin productores"
+                      className="w-full"
+                    />
+                  </div>
+                  <div>
+                    <Label>Embalaje</Label>
+                    <Combobox
+                      value={inventoryDraftFilters.embalaje || ''}
+                      onChange={(value) => applyInventoryFilters({ embalaje: value })}
+                      options={repackEmbalajeOptions}
+                      placeholder="Todos"
+                      searchPlaceholder="Buscar embalaje..."
+                      emptyMessage="Sin embalajes"
+                      className="w-full"
+                    />
+                  </div>
+                  <div>
+                    <Label>Especie</Label>
+                    <Combobox
+                      value={inventoryDraftFilters.especie || ''}
+                      onChange={(value) => applyInventoryFilters({ especie: value, variedad: '' })}
+                      options={repackEspecieOptions}
+                      placeholder="Todas"
+                      searchPlaceholder="Buscar especie..."
+                      emptyMessage="Sin especies"
+                      className="w-full"
+                    />
+                  </div>
+                  <div>
+                    <Label>Variedad</Label>
+                    <Combobox
+                      value={inventoryDraftFilters.variedad || ''}
+                      onChange={(value) => applyInventoryFilters({ variedad: value })}
+                      options={repackVariedadOptions}
+                      placeholder="Todas"
+                      searchPlaceholder="Buscar variedad..."
+                      emptyMessage="Sin variedades"
+                      className="w-full"
+                    />
+                  </div>
+                </div>
+              ) : (
                 <div>
-                  <Label>Nota Calidad</Label>
+                  <Label>Variedad</Label>
                   <Input
-                    value={inventoryDraftFilters.nota_calidad || ''}
-                    onChange={(e) => applyInventoryFilters({ nota_calidad: e.target.value })}
+                    value={inventoryDraftFilters.variedad || ''}
+                    onChange={(e) => applyInventoryFilters({ variedad: e.target.value })}
                     onKeyDown={(e) => {
                       if (e.key === 'Enter') {
                         e.preventDefault()
                         runInventorySearch()
                       }
                     }}
-                    placeholder="Ej: 2 o S/N"
+                    placeholder="Ej: SANTINA"
                   />
                 </div>
+              )}
+
+              <div className="grid grid-cols-2 gap-2">
+                {!isRepack ? (
+                  <div>
+                    <Label>Nota Calidad</Label>
+                    <Input
+                      value={inventoryDraftFilters.nota_calidad || ''}
+                      onChange={(e) => applyInventoryFilters({ nota_calidad: e.target.value })}
+                      onKeyDown={(e) => {
+                        if (e.key === 'Enter') {
+                          e.preventDefault()
+                          runInventorySearch()
+                        }
+                      }}
+                      placeholder="Ej: 2 o S/N"
+                    />
+                  </div>
+                ) : <div />}
                 <div className="text-sm">
                   <Label>Agregar a</Label>
                   <select
@@ -1299,41 +1432,43 @@ export default function Show({ process, lines = [], allLines = [], inventory = [
                 </div>
               </div>
 
-              <details className="rounded border bg-gray-50 px-3 py-2">
-                <summary className="cursor-pointer select-none text-sm font-medium text-gray-800">
-                  Filtro opcional: Brix
-                </summary>
-                <div className="grid grid-cols-2 gap-2 mt-2">
-                  <div>
-                    <Label>Brix min</Label>
-                    <Input
-                      value={inventoryDraftFilters.brix_min || ''}
-                      onChange={(e) => applyInventoryFilters({ brix_min: e.target.value })}
-                      onKeyDown={(e) => {
-                        if (e.key === 'Enter') {
-                          e.preventDefault()
-                          runInventorySearch()
-                        }
-                      }}
-                      placeholder="Ej: 16"
-                    />
+              {!isRepack ? (
+                <details className="rounded border bg-gray-50 px-3 py-2">
+                  <summary className="cursor-pointer select-none text-sm font-medium text-gray-800">
+                    Filtro opcional: Brix
+                  </summary>
+                  <div className="grid grid-cols-2 gap-2 mt-2">
+                    <div>
+                      <Label>Brix min</Label>
+                      <Input
+                        value={inventoryDraftFilters.brix_min || ''}
+                        onChange={(e) => applyInventoryFilters({ brix_min: e.target.value })}
+                        onKeyDown={(e) => {
+                          if (e.key === 'Enter') {
+                            e.preventDefault()
+                            runInventorySearch()
+                          }
+                        }}
+                        placeholder="Ej: 16"
+                      />
+                    </div>
+                    <div>
+                      <Label>Brix max</Label>
+                      <Input
+                        value={inventoryDraftFilters.brix_max || ''}
+                        onChange={(e) => applyInventoryFilters({ brix_max: e.target.value })}
+                        onKeyDown={(e) => {
+                          if (e.key === 'Enter') {
+                            e.preventDefault()
+                            runInventorySearch()
+                          }
+                        }}
+                        placeholder="Ej: 22"
+                      />
+                    </div>
                   </div>
-                  <div>
-                    <Label>Brix max</Label>
-                    <Input
-                      value={inventoryDraftFilters.brix_max || ''}
-                      onChange={(e) => applyInventoryFilters({ brix_max: e.target.value })}
-                      onKeyDown={(e) => {
-                        if (e.key === 'Enter') {
-                          e.preventDefault()
-                          runInventorySearch()
-                        }
-                      }}
-                      placeholder="Ej: 22"
-                    />
-                  </div>
-                </div>
-              </details>
+                </details>
+              ) : null}
 
               <div className="flex items-center justify-end gap-2">
                 <Button type="button" variant="outline" onClick={clearInventorySearch}>
@@ -1352,10 +1487,13 @@ export default function Show({ process, lines = [], allLines = [], inventory = [
                   {...invProvided.droppableProps}
                   className="space-y-2 max-h-[65vh] overflow-y-auto pr-1"
                 >
-                  {visibleInventory.map((item, index) => (
+                  {visibleInventory.map((item, index) => {
+                    const inventoryKey = String(item?.inventory_key || item?.source_key || item?.n_g_recepcion || '')
+                    const draggableInvId = `inv:${encodeURIComponent(inventoryKey)}`
+                    return (
                     <Draggable
-                      key={`inv:${item.n_g_recepcion}`}
-                      draggableId={`inv:${item.n_g_recepcion}`}
+                      key={draggableInvId}
+                      draggableId={draggableInvId}
                       index={index}
                       isDragDisabled={isLocked}
                     >
@@ -1395,37 +1533,47 @@ export default function Show({ process, lines = [], allLines = [], inventory = [
                               </div>
 
                               <div className="min-w-0">
-                                <div className="font-semibold">{item.n_g_recepcion}</div>
+                                <div className="font-semibold">{isRepack ? (item.folio || inventoryKey) : item.n_g_recepcion}</div>
                                 <div className="text-xs text-gray-600">
-                                  {item.variedad || '-'} · NC {item.setup_nota_calidad ?? '-'} · Cal {item.setup_calibre ?? '-'} · Color {item.setup_color ?? '-'} · Brix {item.brix ?? '-'}
+                                  {isRepack ? (
+                                    <>
+                                      {item.variedad || '-'} · Destino {item.destino || '-'} · N° Proceso {item.n_g_proceso || '-'} · N° Lote {item.n_g_recepcion || item.loter_unitec || '-'}
+                                    </>
+                                  ) : (
+                                    <>
+                                      {item.variedad || '-'} · NC {item.setup_nota_calidad ?? '-'} · Cal {item.setup_calibre ?? '-'} · Color {item.setup_color ?? '-'} · Brix {item.brix ?? '-'}
+                                    </>
+                                  )}
                                 </div>
-                                {item.exportable_percentage !== null && item.exportable_percentage !== undefined ? (
+                                {!isRepack && item.exportable_percentage !== null && item.exportable_percentage !== undefined ? (
                                   <div className="mt-1 text-xs">
                                     <span className="inline-flex items-center rounded-full border border-emerald-200 bg-emerald-50 px-2 py-0.5 font-semibold text-emerald-800">
                                       % Exportación: {Number(item.exportable_percentage).toLocaleString('es-CL', { minimumFractionDigits: 0, maximumFractionDigits: 2 })}%
                                     </span>
                                   </div>
                                 ) : null}
-                                {(Array.isArray(item.defectos_calidad) && item.defectos_calidad.length > 0) ? (
+                                {!isRepack && (Array.isArray(item.defectos_calidad) && item.defectos_calidad.length > 0) ? (
                                   <div className="mt-1 text-xs text-gray-700">
                                     <span className="font-semibold">Defectos de calidad:</span>{' '}
                                     {item.defectos_calidad.map((d) => `${String(d.detalle_item || '-')}: ${Number(d.porcentaje_muestra || 0).toLocaleString('es-CL', { minimumFractionDigits: 0, maximumFractionDigits: 2 })}%`).join(' · ')}
                                   </div>
                                 ) : null}
-                                {(Array.isArray(item.defectos_condicion) && item.defectos_condicion.length > 0) ? (
+                                {!isRepack && (Array.isArray(item.defectos_condicion) && item.defectos_condicion.length > 0) ? (
                                   <div className="mt-1 text-xs text-gray-700">
                                     <span className="font-semibold">Defectos de condición:</span>{' '}
                                     {item.defectos_condicion.map((d) => `${String(d.detalle_item || '-')}: ${Number(d.porcentaje_muestra || 0).toLocaleString('es-CL', { minimumFractionDigits: 0, maximumFractionDigits: 2 })}%`).join(' · ')}
                                   </div>
                                 ) : null}
                                 <div className="text-xs text-gray-500 mt-1">
-                                  {item.antiguedad !== null ? `Antigüedad: ${item.antiguedad}` : ''} {item.fecha_recepcion ? `· Recepción: ${item.fecha_recepcion}` : ''}
+                                  {item.antiguedad !== null ? `Antigüedad: ${item.antiguedad}` : ''} {item.fecha_recepcion ? `· Recepción: ${item.fecha_recepcion}` : ''} {isRepack && item.n_embalaje ? `· Embalaje: ${item.n_embalaje}` : ''}
                                 </div>
-                                <SizeCurveValues
-                                  payload={sizeCurves?.[String(item.n_g_recepcion || '').trim()]}
-                                  loading={Boolean(sizeCurvesLoading?.[String(item.n_g_recepcion || '').trim()])}
-                                  onLoad={() => fetchSizeCurves([item.n_g_recepcion], { refresh: true })}
-                                />
+                                {!isRepack ? (
+                                  <SizeCurveValues
+                                    payload={sizeCurves?.[String(item.n_g_recepcion || '').trim()]}
+                                    loading={Boolean(sizeCurvesLoading?.[String(item.n_g_recepcion || '').trim()])}
+                                    onLoad={() => fetchSizeCurves([item.n_g_recepcion], { refresh: true })}
+                                  />
+                                ) : null}
                               </div>
                             </div>
 
@@ -1447,7 +1595,7 @@ export default function Show({ process, lines = [], allLines = [], inventory = [
                             </div>
                             <Button
                               size="sm"
-                              onClick={() => addFromInventory(item.n_g_recepcion)}
+                              onClick={() => addFromInventory(inventoryKey)}
                               disabled={isLocked || isConfirmed}
                               title="Agregar al programa"
                             >
@@ -1457,7 +1605,8 @@ export default function Show({ process, lines = [], allLines = [], inventory = [
                         </div>
                       )}
                     </Draggable>
-                  ))}
+                    )
+                  })}
                   {invProvided.placeholder}
 
                   {(visibleInventory || []).length === 0 ? (
@@ -1608,7 +1757,11 @@ export default function Show({ process, lines = [], allLines = [], inventory = [
 
                                       <div className="min-w-0">
                                         <div className="flex items-center gap-2">
-                                          <div className="font-semibold">{lot.n_g_recepcion}</div>
+                                          <div className="font-semibold">
+                                            {String(lot?.source_type || '').toLowerCase() === 'reembalaje'
+                                              ? `Folio ${String(lot?.source_key || lot?.n_g_recepcion || '-')}`
+                                              : lot.n_g_recepcion}
+                                          </div>
                                           {(lot.split_index ?? 1) > 1 ? (
                                             <Badge variant="outline">Parte {lot.split_index}</Badge>
                                           ) : null}
@@ -1650,6 +1803,11 @@ export default function Show({ process, lines = [], allLines = [], inventory = [
                                         <div className="text-xs text-gray-600 mt-1">
                                           {lot.n_variedad || '-'} · NC {lot.setup_nota_calidad ?? '-'} · Cal {lot.setup_calibre ?? '-'} · Color {lot.setup_color ?? '-'} · Brix {lot.brix ?? '-'}
                                         </div>
+                                        {String(lot?.source_type || '').toLowerCase() === 'reembalaje' ? (
+                                          <div className="text-xs text-gray-600 mt-1">
+                                            Origen · N° Proceso {lot.source_n_g_proceso || '-'} · N° Lote {lot.source_lote || lot.n_g_recepcion || '-'} · Embalaje {lot.source_n_embalaje || lot.n_embalaje || '-'}
+                                          </div>
+                                        ) : null}
                                         <div className="text-xs text-gray-500 mt-1">
                                           {Number(lot.cantidad_bins || 0).toLocaleString('es-CL')} bins
                                           {lot.peso_neto ? ` · ${Number(lot.peso_neto).toLocaleString('es-CL')} kg` : ''}

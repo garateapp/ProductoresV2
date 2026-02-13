@@ -10,6 +10,8 @@ use App\Models\Variedad;
 use Carbon\Carbon;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Schema;
+use Illuminate\Support\Str;
 
 class ProcessGeneratorService
 {
@@ -33,6 +35,16 @@ class ProcessGeneratorService
     {
         DB::transaction(function () use ($process, $options) {
             $process->loadMissing(['shift', 'lineOverrides']);
+            $isRepack = Str::lower(trim((string) ($process->planning_mode ?? 'normal'))) === 'reembalaje';
+            $hasSourceType = Schema::hasColumn('process_lots', 'source_type');
+            $hasSourceKey = Schema::hasColumn('process_lots', 'source_key');
+            $hasSourceFolio = Schema::hasColumn('process_lots', 'source_folio');
+            $hasSourceNgProceso = Schema::hasColumn('process_lots', 'source_n_g_proceso');
+            $hasSourceLote = Schema::hasColumn('process_lots', 'source_lote');
+            $hasSourceCEmb = Schema::hasColumn('process_lots', 'source_c_embalaje');
+            $hasSourceNEmb = Schema::hasColumn('process_lots', 'source_n_embalaje');
+            $hasSourceCategoria = Schema::hasColumn('process_lots', 'source_categoria');
+            $hasSourceSnapshot = Schema::hasColumn('process_lots', 'source_snapshot');
 
             $extraByLine = $process->lineOverrides
                 ->mapWithKeys(fn ($r) => [(int) $r->packing_line_id => (float) $r->extra_horas])
@@ -62,15 +74,46 @@ class ProcessGeneratorService
                 return;
             }
 
-            $inventory = $this->inventoryRepository->getAvailableLots([
-                'especie' => $process->especie,
-                'limit' => 500,
-                'exclude_n_g_recepcion' => $options['exclude_n_g_recepcion'] ?? [],
-            ])->values();
+            if ($isRepack) {
+                $inventory = $this->inventoryRepository->getRepackAvailableLots([
+                    'especie' => $process->especie,
+                    'variedad' => $options['variedad'] ?? null,
+                    'limit' => 500,
+                ])->values();
+            } else {
+                $inventory = $this->inventoryRepository->getAvailableLots([
+                    'especie' => $process->especie,
+                    'limit' => 500,
+                    'exclude_n_g_recepcion' => $options['exclude_n_g_recepcion'] ?? [],
+                ])->values();
+            }
 
-            $qualityMap = $this->qualityRepository->getQualityByNGRecepcion($inventory->pluck('n_g_recepcion')->all());
+            $qualityMap = $isRepack
+                ? []
+                : $this->qualityRepository->getQualityByNGRecepcion($inventory->pluck('n_g_recepcion')->all());
 
-            $candidates = $inventory->map(function (array $row) use ($qualityMap) {
+            $candidates = $inventory->map(function (array $row) use ($qualityMap, $isRepack) {
+                if ($isRepack) {
+                    $setupHash = sha1(implode('|', [
+                        (string) ($row['source_key'] ?? ''),
+                        (string) ($row['variedad'] ?? ''),
+                        (string) ($row['c_embalaje'] ?? ''),
+                        (string) ($row['n_embalaje'] ?? ''),
+                    ]));
+
+                    return [
+                        ...$row,
+                        'calibre' => null,
+                        'setup_nota_calidad' => $row['nota_calidad_sqlsrv'] ?? null,
+                        'setup_calibre' => null,
+                        'setup_color' => null,
+                        'brix' => null,
+                        'quality_warning' => false,
+                        'setup_hash' => $setupHash,
+                        'antiguedad' => null,
+                    ];
+                }
+
                 $n = (string) $row['n_g_recepcion'];
                 $q = $qualityMap[$n] ?? [
                     'setup_nota_calidad' => null,
@@ -118,6 +161,8 @@ class ProcessGeneratorService
             $candidates = $candidates->sortBy([
                 ['antiguedad', 'desc'],
                 ['fecha_recepcion', 'asc'],
+                ['fecha_produccion', 'asc'],
+                ['source_key', 'asc'],
             ])->values();
 
             $variedadMap = Variedad::query()
@@ -179,10 +224,20 @@ class ProcessGeneratorService
                         $didSplit = true;
                     }
 
+                    $lotRecepcion = trim((string) ($candidate['n_g_recepcion'] ?? ''));
+                    if ($lotRecepcion === '') {
+                        $lotRecepcion = trim((string) ($candidate['loter_unitec'] ?? ''));
+                    }
+                    if ($lotRecepcion === '') {
+                        $lotRecepcion = trim((string) ($candidate['source_key'] ?? ''));
+                    }
                     $splitIndex = 1;
-                    if ($didSplit) {
-                        $splitCounters[$candidate['n_g_recepcion']] = ($splitCounters[$candidate['n_g_recepcion']] ?? 0) + 1;
-                        $splitIndex = $splitCounters[$candidate['n_g_recepcion']];
+                    if ($isRepack) {
+                        $splitCounters[$lotRecepcion] = ($splitCounters[$lotRecepcion] ?? 0) + 1;
+                        $splitIndex = $splitCounters[$lotRecepcion];
+                    } elseif ($didSplit) {
+                        $splitCounters[$lotRecepcion] = ($splitCounters[$lotRecepcion] ?? 0) + 1;
+                        $splitIndex = $splitCounters[$lotRecepcion];
                     }
 
                     $variedadId = null;
@@ -196,10 +251,20 @@ class ProcessGeneratorService
                         'setup_color' => $candidate['setup_color'] ?? null,
                     ]);
 
-                    $lotsToInsert[] = [
+                    $sourceType = trim((string) ($candidate['source_type'] ?? '')) ?: ($isRepack ? 'reembalaje' : 'recepcion');
+                    $sourceKey = trim((string) ($candidate['source_key'] ?? '')) ?: trim((string) ($candidate['n_g_recepcion'] ?? ''));
+
+                    $cEmbalaje = $pack['c_item'] ?? null;
+                    $nEmbalaje = $pack['n_item'] ?? null;
+                    if ($isRepack) {
+                        $cEmbalaje = $cEmbalaje ?: ($candidate['c_embalaje'] ?? null);
+                        $nEmbalaje = $nEmbalaje ?: ($candidate['n_embalaje'] ?? null);
+                    }
+
+                    $lotInsert = [
                         'process_id' => $process->id,
                         'packing_line_id' => $line->id,
-                        'n_g_recepcion' => (string) $candidate['n_g_recepcion'],
+                        'n_g_recepcion' => $lotRecepcion,
                         'split_index' => $splitIndex,
                         'setup_nota_calidad' => $candidate['setup_nota_calidad'],
                         'setup_calibre' => $candidate['setup_calibre'],
@@ -214,16 +279,19 @@ class ProcessGeneratorService
                         'n_productor' => $candidate['n_productor'] ?? ($candidate['productor'] ?? null),
                         // Snapshots para instructivo (formato xlsx)
                         'fecha_recepcion' => $candidate['fecha_recepcion'] ?? null,
-                        'tipo_proceso' => $candidate['descripcion_tipo'] ?? null,
+                        'tipo_proceso' => $isRepack ? 'Reembalaje' : ($candidate['descripcion_tipo'] ?? null),
                         'variedad_original' => $candidate['n_variedad_original'] ?? null,
                         'productor_real' => $candidate['n_productor_original'] ?? ($candidate['n_productor'] ?? ($candidate['productor'] ?? null)),
                         'categoria_origen' => $candidate['categoria'] ?? ($candidate['n_categoria'] ?? null),
                         'sdp_centrocosto' => $candidate['sdp_centrocosto'] ?? null,
                         'envase_origen' => $candidate['n_embalaje'] ?? null,
                         'altura_origen' => $candidate['n_altura'] ?? null,
+                        'destino' => isset($candidate['destino']) && trim((string) $candidate['destino']) !== ''
+                            ? trim((string) $candidate['destino'])
+                            : null,
                         // Embalaje sugerido por matriz (si hay match); siempre editable en UI.
-                        'c_embalaje' => $pack['c_item'] ?? null,
-                        'n_embalaje' => $pack['n_item'] ?? null,
+                        'c_embalaje' => $cEmbalaje,
+                        'n_embalaje' => $nEmbalaje,
                         'cp2_cajas_por_pallet' => $pack['cp2_cajas_por_pallet'] ?? null,
                         'cantidad_bins' => $takeBins,
                         // si se parte, prorrateamos peso proporcional
@@ -235,6 +303,45 @@ class ProcessGeneratorService
                         'created_at' => now(),
                         'updated_at' => now(),
                     ];
+
+                    if ($hasSourceType) {
+                        $lotInsert['source_type'] = $sourceType;
+                    }
+                    if ($hasSourceKey) {
+                        $lotInsert['source_key'] = $sourceKey !== '' ? $sourceKey : null;
+                    }
+                    if ($hasSourceFolio) {
+                        $lotInsert['source_folio'] = isset($candidate['folio']) ? (string) $candidate['folio'] : null;
+                    }
+                    if ($hasSourceNgProceso) {
+                        $lotInsert['source_n_g_proceso'] = isset($candidate['n_g_proceso']) ? (string) $candidate['n_g_proceso'] : null;
+                    }
+                    if ($hasSourceLote) {
+                        $lotInsert['source_lote'] = isset($candidate['loter_unitec']) ? (string) $candidate['loter_unitec'] : null;
+                    }
+                    if ($hasSourceCEmb) {
+                        $lotInsert['source_c_embalaje'] = isset($candidate['c_embalaje']) ? (string) $candidate['c_embalaje'] : null;
+                    }
+                    if ($hasSourceNEmb) {
+                        $lotInsert['source_n_embalaje'] = isset($candidate['n_embalaje']) ? (string) $candidate['n_embalaje'] : null;
+                    }
+                    if ($hasSourceCategoria) {
+                        $lotInsert['source_categoria'] = isset($candidate['categoria']) ? (string) $candidate['categoria'] : null;
+                    }
+                    if ($hasSourceSnapshot) {
+                        $lotInsert['source_snapshot'] = $isRepack ? json_encode([
+                            'folio' => $candidate['folio'] ?? null,
+                            'n_g_proceso' => $candidate['n_g_proceso'] ?? null,
+                            'n_g_recepcion' => $candidate['n_g_recepcion'] ?? null,
+                            'loter_unitec' => $candidate['loter_unitec'] ?? null,
+                            'destino' => $candidate['destino'] ?? null,
+                            'c_embalaje' => $candidate['c_embalaje'] ?? null,
+                            'n_embalaje' => $candidate['n_embalaje'] ?? null,
+                            't_categoria' => $candidate['t_categoria'] ?? null,
+                        ], JSON_UNESCAPED_UNICODE) : null;
+                    }
+
+                    $lotsToInsert[] = $lotInsert;
 
                     $remainingBins -= $takeBins;
                     if ($remainingKilos !== null) {
@@ -388,6 +495,16 @@ class ProcessGeneratorService
         }
 
         return $cost;
+    }
+
+    private function normalizeKeyPart(string $value, bool $upper = true): string
+    {
+        $normalized = trim(Str::ascii($value));
+        if ($normalized === '') {
+            return '';
+        }
+
+        return $upper ? mb_strtoupper($normalized) : mb_strtolower($normalized);
     }
 
     private function proratePeso(?float $peso, int $takeBins, int $totalBins): ?float

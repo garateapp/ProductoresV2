@@ -11,6 +11,7 @@ use App\Models\Recepcion;
 use App\Models\Reservation;
 use Illuminate\Support\Facades\Schema;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Str;
 
 class ProcessConfirmationService
 {
@@ -30,10 +31,15 @@ class ProcessConfirmationService
     {
         $process->loadMissing(['lots']);
 
+        $lotGroups = $process->lots
+            ->filter(fn ($l) => $this->lotHasPlanningKey($l))
+            ->groupBy(fn ($l) => $this->lotPlanKey($l));
+
         $numbers = $process->lots
             ->pluck('n_g_recepcion')
             ->filter()
-            ->map(fn ($n) => (string) $n)
+            ->map(fn ($n) => trim((string) $n))
+            ->filter(fn ($n) => $n !== '')
             ->unique()
             ->values();
 
@@ -61,66 +67,157 @@ class ProcessConfirmationService
             }
         }
 
-        $inventory = $this->inventoryRepository->getAvailableLots([
-            'especie' => $process->especie,
-            'limit' => 1000,
-        ])->keyBy('n_g_recepcion');
+        $normalKeys = $lotGroups->keys()
+            ->filter(fn ($k) => str_starts_with((string) $k, 'recepcion|'))
+            ->map(fn ($k) => Str::after((string) $k, 'recepcion|'))
+            ->filter(fn ($k) => $k !== '')
+            ->values()
+            ->all();
+
+        $repackKeys = $lotGroups->keys()
+            ->filter(fn ($k) => str_starts_with((string) $k, 'reembalaje|'))
+            ->map(fn ($k) => Str::after((string) $k, 'reembalaje|'))
+            ->filter(fn ($k) => $k !== '')
+            ->values()
+            ->all();
+
+        $inventoryNormal = empty($normalKeys)
+            ? collect()
+            : $this->inventoryRepository->getAvailableLots([
+                'especie' => $process->especie,
+                'limit' => 1500,
+            ])->keyBy('n_g_recepcion');
+
+        $inventoryRepack = empty($repackKeys)
+            ? collect()
+            : $this->inventoryRepository->getRepackAvailableLots([
+                'especie' => $process->especie,
+                'source_keys' => $repackKeys,
+                'limit' => max(300, count($repackKeys) * 2),
+            ])->keyBy('source_key');
 
         $conflicts = [];
 
-        DB::transaction(function () use ($process, $numbers, $inventory, $exportadora, &$conflicts) {
-            foreach ($numbers as $n) {
-                $plannedBins = (int) $process->lots->where('n_g_recepcion', $n)->sum('cantidad_bins');
-                $invRow = $inventory->get($n);
-                $availableBins = $invRow ? (int) ($invRow['cantidad_bins'] ?? 0) : 0;
+        $hasReservationBins = Schema::hasTable('reservations') && Schema::hasColumn('reservations', 'reserved_bins');
+        $hasReservationSourceType = Schema::hasTable('reservations') && Schema::hasColumn('reservations', 'source_type');
+        $hasReservationSourceKey = Schema::hasTable('reservations') && Schema::hasColumn('reservations', 'source_key');
+
+        DB::transaction(function () use (
+            $process,
+            $inventoryNormal,
+            $inventoryRepack,
+            $lotGroups,
+            $exportadora,
+            $hasReservationBins,
+            $hasReservationSourceType,
+            $hasReservationSourceKey,
+            &$conflicts
+        ) {
+            foreach ($lotGroups as $groupKey => $groupLots) {
+                $first = $groupLots->first();
+                if (! $first) {
+                    continue;
+                }
+
+                $sourceType = $this->lotSourceType($first);
+                $sourceKey = $this->lotSourceKey($first);
+                $referenceNg = trim((string) ($first->n_g_recepcion ?? ''));
+
+                $plannedBins = (int) $groupLots->sum(fn ($lot) => (int) ($lot->cantidad_bins ?? 0));
+                if ($plannedBins <= 0) {
+                    $plannedBins = max(1, (int) $groupLots->count());
+                }
+
+                if ($sourceType === 'reembalaje') {
+                    $invRow = $inventoryRepack->get($sourceKey);
+                    $availableBins = $invRow ? (int) ($invRow['cantidad_bins'] ?? 0) : 0;
+                } else {
+                    $invRow = $inventoryNormal->get($sourceKey);
+                    $availableBins = $invRow ? (int) ($invRow['cantidad_bins'] ?? 0) : 0;
+                }
 
                 // Regla nueva: si el lote tiene saldo, puede planificarse en otro turno/día.
                 // Conflicto SOLO si la planificación sobrepasa las existencias disponibles.
                 $reservedOtherBins = 0;
-                if (Schema::hasTable('reservations') && Schema::hasColumn('reservations', 'reserved_bins')) {
-                    $reservedOtherBins = (int) Reservation::query()
-                        ->where('n_g_recepcion', $n)
+                if ($hasReservationBins) {
+                    $reservedQuery = Reservation::query()
                         ->where('process_id', '!=', $process->id)
-                        ->where('estado', 'ACTIVA')
-                        ->sum('reserved_bins');
+                        ->where('estado', 'ACTIVA');
+
+                    if ($hasReservationSourceType && $hasReservationSourceKey) {
+                        $reservedQuery
+                            ->where('source_type', $sourceType)
+                            ->where('source_key', $sourceKey);
+                    } else {
+                        $reservedQuery->where('n_g_recepcion', $sourceKey);
+                    }
+
+                    $reservedOtherBins = (int) $reservedQuery->sum('reserved_bins');
                 }
 
                 $remainingBins = max(0, $availableBins - $reservedOtherBins);
 
                 if ($remainingBins < $plannedBins) {
                     $conflicts[] = [
-                        'n_g_recepcion' => $n,
+                        'source_type' => $sourceType,
+                        'source_key' => $sourceKey,
+                        'n_g_recepcion' => $referenceNg !== '' ? $referenceNg : $sourceKey,
                         'planned_bins' => $plannedBins,
                         'available_bins' => $availableBins,
                         'reserved_bins_other_processes' => $reservedOtherBins,
                         'remaining_bins' => $remainingBins,
                     ];
 
-                    $process->lots
-                        ->where('n_g_recepcion', $n)
-                        ->each(fn ($lot) => $lot->forceFill(['estado' => PlanningLotStatus::CONFLICTO])->save());
+                    $groupLots->each(fn ($lot) => $lot->forceFill(['estado' => PlanningLotStatus::CONFLICTO])->save());
 
                     continue;
                 }
 
-                // Reserva por proceso (1 por n_g_recepcion, aunque esté dividido en varios tramos).
+                // Reserva por proceso/origen (recepción o folio reembalaje).
                 // Nota: si aún no existe la columna reserved_bins (migración pendiente),
                 // hacemos un "best effort" y no marcamos conflicto por reservas previas.
-                if (Schema::hasTable('reservations') && Schema::hasColumn('reservations', 'reserved_bins')) {
-                    Reservation::query()->updateOrCreate(
-                        ['n_g_recepcion' => $n, 'process_id' => $process->id],
-                        ['estado' => 'ACTIVA', 'reserved_bins' => $plannedBins]
-                    );
+                if ($hasReservationBins) {
+                    if ($hasReservationSourceType && $hasReservationSourceKey) {
+                        Reservation::query()->updateOrCreate(
+                            [
+                                'source_type' => $sourceType,
+                                'source_key' => $sourceKey,
+                                'process_id' => $process->id,
+                            ],
+                            [
+                                'n_g_recepcion' => $referenceNg !== '' ? $referenceNg : $sourceKey,
+                                'estado' => 'ACTIVA',
+                                'reserved_bins' => $plannedBins,
+                            ]
+                        );
+                    } else {
+                        Reservation::query()->updateOrCreate(
+                            ['n_g_recepcion' => $sourceKey, 'process_id' => $process->id],
+                            ['estado' => 'ACTIVA', 'reserved_bins' => $plannedBins]
+                        );
+                    }
                 } else {
-                    Reservation::query()->firstOrCreate(
-                        ['n_g_recepcion' => $n],
-                        ['process_id' => $process->id, 'estado' => 'ACTIVA']
-                    );
+                    if ($hasReservationSourceType && $hasReservationSourceKey) {
+                        Reservation::query()->firstOrCreate(
+                            [
+                                'source_type' => $sourceType,
+                                'source_key' => $sourceKey,
+                                'process_id' => $process->id,
+                            ],
+                            [
+                                'n_g_recepcion' => $referenceNg !== '' ? $referenceNg : $sourceKey,
+                                'estado' => 'ACTIVA',
+                            ]
+                        );
+                    } else {
+                        Reservation::query()->firstOrCreate(
+                            ['n_g_recepcion' => $sourceKey],
+                            ['process_id' => $process->id, 'estado' => 'ACTIVA']
+                        );
+                    }
                 }
 
-                $process->lots
-                    ->where('n_g_recepcion', $n)
-                    ->each(fn ($lot) => $lot->forceFill(['estado' => PlanningLotStatus::CONFIRMADO])->save());
+                $groupLots->each(fn ($lot) => $lot->forceFill(['estado' => PlanningLotStatus::CONFIRMADO])->save());
             }
 
             $nextStatus = empty($conflicts)
@@ -152,8 +249,8 @@ class ProcessConfirmationService
         $process->loadMissing(['shift', 'lots', 'lineOverrides']);
 
         $groups = $process->lots
-            ->filter(fn ($l) => (string) ($l->n_g_recepcion ?? '') !== '')
-            ->groupBy('n_g_recepcion');
+            ->filter(fn ($l) => $this->lotHasPlanningKey($l))
+            ->groupBy(fn ($l) => $this->lotPlanKey($l));
 
         // Caso simple: ya es 1 lote.
         if ($groups->count() <= 1) {
@@ -168,7 +265,13 @@ class ProcessConfirmationService
 
         // Exportadoras por lote (prefetch) para setear el campo a nivel proceso.
         $exportadorasByLot = Recepcion::query()
-            ->whereIn('numero_g_recepcion', $groups->keys()->map(fn ($n) => (string) $n)->values()->all())
+            ->whereIn('numero_g_recepcion', $process->lots
+                ->pluck('n_g_recepcion')
+                ->map(fn ($n) => trim((string) $n))
+                ->filter(fn ($n) => $n !== '')
+                ->unique()
+                ->values()
+                ->all())
             ->pluck('exportadora', 'numero_g_recepcion')
             ->map(fn ($v) => is_string($v) && trim($v) !== '' ? trim((string) $v) : null)
             ->all();
@@ -176,11 +279,14 @@ class ProcessConfirmationService
         $extraByLine = $process->lineOverrides
             ->mapWithKeys(fn ($r) => [(int) $r->packing_line_id => (float) $r->extra_horas])
             ->all();
+        $hasPlanningModeColumn = Schema::hasColumn('processes', 'planning_mode');
 
-        $createdIds = DB::transaction(function () use ($process, $groups, $extraByLine, $exportadorasByLot) {
+        $createdIds = DB::transaction(function () use ($process, $groups, $extraByLine, $exportadorasByLot, $hasPlanningModeColumn) {
             $created = [];
 
-            foreach ($groups as $n => $lots) {
+            foreach ($groups as $groupKey => $lots) {
+                $first = $lots->first();
+                $n = trim((string) ($first?->n_g_recepcion ?? ''));
                 $lineIds = $lots->pluck('packing_line_id')
                     ->map(fn ($id) => (int) $id)
                     ->filter(fn ($id) => $id > 0)
@@ -189,7 +295,7 @@ class ProcessConfirmationService
                     ->all();
 
                 $exportadora = $exportadorasByLot[(string) $n] ?? null;
-                $newProcess = PackingProcess::create([
+                $newProcessPayload = [
                     'process_batch_id' => $process->process_batch_id,
                     'especie' => (string) $process->especie,
                     'exportadora' => $exportadora,
@@ -200,7 +306,11 @@ class ProcessConfirmationService
                     'creado_por' => $process->creado_por,
                     'included_packing_line_ids' => $lineIds ?: null,
                     'pedidos' => $process->pedidos,
-                ]);
+                ];
+                if ($hasPlanningModeColumn) {
+                    $newProcessPayload['planning_mode'] = (string) ($process->planning_mode ?? 'normal');
+                }
+                $newProcess = PackingProcess::create($newProcessPayload);
 
                 // Copiar horas extra por línea (solo las líneas efectivamente usadas por este lote).
                 foreach ($lineIds as $lineId) {
@@ -216,9 +326,14 @@ class ProcessConfirmationService
                 }
 
                 // Mover partes del lote (incluye divisiones entre líneas).
+                $lotIds = $lots->pluck('id')
+                    ->map(fn ($id) => (int) $id)
+                    ->filter(fn ($id) => $id > 0)
+                    ->values()
+                    ->all();
                 PackingProcessLot::query()
                     ->where('process_id', $process->id)
-                    ->where('n_g_recepcion', (string) $n)
+                    ->whereIn('id', $lotIds)
                     ->update(['process_id' => $newProcess->id]);
 
                 // Renumerar orden por línea dentro del proceso nuevo (para que sea prolijo).
@@ -271,5 +386,39 @@ class ProcessConfirmationService
             'created_process_ids' => $createdIds,
             'conflicts' => $conflictsAll,
         ];
+    }
+
+    private function lotSourceType($lot): string
+    {
+        $raw = Str::lower(trim((string) ($lot->source_type ?? '')));
+        return in_array($raw, ['recepcion', 'reembalaje'], true) ? $raw : 'recepcion';
+    }
+
+    private function lotSourceKey($lot): string
+    {
+        $type = $this->lotSourceType($lot);
+        if ($type === 'reembalaje') {
+            $source = trim((string) ($lot->source_key ?? ''));
+            if ($source !== '') {
+                return $source;
+            }
+        }
+
+        $n = trim((string) ($lot->n_g_recepcion ?? ''));
+        if ($n !== '') {
+            return $n;
+        }
+
+        return trim((string) ($lot->source_key ?? ''));
+    }
+
+    private function lotPlanKey($lot): string
+    {
+        return $this->lotSourceType($lot).'|'.$this->lotSourceKey($lot);
+    }
+
+    private function lotHasPlanningKey($lot): bool
+    {
+        return $this->lotSourceKey($lot) !== '';
     }
 }

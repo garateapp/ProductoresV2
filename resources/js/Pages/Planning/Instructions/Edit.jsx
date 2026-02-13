@@ -57,7 +57,10 @@ function commentsByLots(lots) {
   const rows = Array.isArray(lots) ? lots : []
   const lines = rows
     .map((lot) => {
-      const lote = String(lot?.n_g_recepcion || '').trim()
+      const sourceType = String(lot?.source_type || '').trim().toLowerCase()
+      const lote = sourceType === 'reembalaje'
+        ? String(lot?.source_key || lot?.n_g_recepcion || '').trim()
+        : String(lot?.n_g_recepcion || '').trim()
       if (!lote) return null
       const cal = defectSummaryText(lot?.defectos_calidad)
       const con = defectSummaryText(lot?.defectos_condicion)
@@ -104,11 +107,20 @@ function LotsTable({ lots, editable = false, onUpdateLot, processTypeOptions = [
         </thead>
         <tbody>
           {rows.map((r) => (
-            <tr key={String(r?.id || `${r?.process_id}-${r?.n_g_recepcion}`)}>
+            <tr key={String(r?.id || `${r?.process_id}-${r?.n_g_recepcion}-${r?.source_key || ''}`)}>
               <td>{fmtTime(r?.inicio) || ''}</td>
               <td>{fmtTime(r?.fin) || ''}</td>
               <td>{r?.process_id || ''}</td>
-              <td>{r?.n_g_recepcion || ''}</td>
+              <td>
+                {String(r?.source_type || '').trim().toLowerCase() === 'reembalaje'
+                  ? `Folio ${String(r?.source_key || r?.n_g_recepcion || '')}`
+                  : (r?.n_g_recepcion || '')}
+                {String(r?.source_type || '').trim().toLowerCase() === 'reembalaje' ? (
+                  <div className="text-[10px] text-gray-600">
+                    N° Proceso {r?.source_n_g_proceso || '-'} · Lote {r?.source_lote || r?.n_g_recepcion || '-'}
+                  </div>
+                ) : null}
+              </td>
               <td>
                 {editable ? (
                   <select

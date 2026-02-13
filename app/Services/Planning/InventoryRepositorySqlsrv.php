@@ -189,6 +189,9 @@ class InventoryRepositorySqlsrv
 
             return [
                 'n_g_recepcion' => (string) ($row->n_g_recepcion ?? ''),
+                'inventory_key' => (string) ($row->n_g_recepcion ?? ''),
+                'source_type' => 'recepcion',
+                'source_key' => (string) ($row->n_g_recepcion ?? ''),
                 'fecha_recepcion' => $row->fecha_recepcion,
 
                 // Compatibilidad con claves ya usadas en UI/motor
@@ -271,6 +274,219 @@ class InventoryRepositorySqlsrv
     }
 
     /**
+     * Inventario elegible para reembalaje, identificado por folio.
+     *
+     * Reglas base:
+     * - Solo exportación.
+     * - Excluye categorías MUE/CDRT/CDRF.
+     * - Filtrable por especie/variedad.
+     *
+     * Retorna una fila por folio para planificar y reservar por clave de origen.
+     */
+    public function getRepackAvailableLots(array $filters = []): Collection
+    {
+        $limit = (int) ($filters['limit'] ?? 300);
+        $query = $this->buildRepackBaseQuery($filters);
+
+        if (! empty($filters['source_keys']) && is_array($filters['source_keys'])) {
+            $keys = collect($filters['source_keys'])
+                ->map(fn ($v) => trim((string) $v))
+                ->filter(fn ($v) => $v !== '')
+                ->unique()
+                ->values()
+                ->all();
+            if (! empty($keys)) {
+                $query->whereIn('folio', $keys);
+            }
+        }
+
+        if (! empty($filters['exclude_source_keys']) && is_array($filters['exclude_source_keys'])) {
+            $exclude = collect($filters['exclude_source_keys'])
+                ->map(fn ($v) => trim((string) $v))
+                ->filter(fn ($v) => $v !== '')
+                ->unique()
+                ->values()
+                ->all();
+            if (! empty($exclude)) {
+                $query->whereNotIn('folio', $exclude);
+            }
+        }
+
+        if (! empty($filters['q'])) {
+            $q = trim((string) $filters['q']);
+            if ($q !== '') {
+                $query->where(function ($w) use ($q) {
+                    $like = '%'.$q.'%';
+                    $w->where('folio', 'like', $like)
+                        ->orWhere('n_g_recepcion', 'like', $like)
+                        ->orWhere('n_g_proceso', 'like', $like)
+                        ->orWhere('loter_unitec', 'like', $like)
+                        ->orWhere('n_variedad', 'like', $like)
+                        ->orWhere('n_productor', 'like', $like);
+                });
+            }
+        }
+
+        $rows = $query
+            ->select([
+                'folio',
+                'n_g_recepcion',
+                'n_g_proceso',
+                'loter_unitec',
+                'n_especie',
+                'n_variedad',
+                'n_productor',
+                'CSG_Productor as csg_productor',
+                'n_productor_original',
+                'n_centrocosto',
+                'sdp_centrocosto',
+                'c_embalaje',
+                'n_embalaje',
+                't_categoria',
+                'n_categoria',
+                'descripcion_tipo',
+                'creacion_id',
+                'creacion_numero',
+                'n_altura',
+                'fecha_produccion',
+                'fecha_recepcion',
+                'Nota_Calidad as nota_calidad_sqlsrv',
+                'cantidad',
+                'peso_neto',
+                'Cant_Contenedor',
+                'n_cliente_packing',
+                'ns_cliente_packing',
+                'antiguedad'
+            ])
+            ->whereNotNull('folio')
+            ->orderBy('fecha_produccion')
+            ->orderBy('folio')
+            ->limit($limit)
+            ->get();
+
+        return collect($rows)->map(function ($row) {
+            $folio = trim((string) ($row->folio ?? ''));
+            $cantidadRaw = is_numeric($row->cantidad ?? null) ? (float) $row->cantidad : 0.0;
+            $contRaw = is_numeric($row->Cant_Contenedor ?? null) ? (float) $row->Cant_Contenedor : 0.0;
+            $cantidadBinsRaw = $contRaw > 0 ? $contRaw : ($cantidadRaw > 0 ? $cantidadRaw : 1.0);
+            $cantidadBins = max(1, (int) ceil($cantidadBinsRaw));
+            $destino = trim((string) ($row->ns_cliente_packing ?? '')) ?: trim((string) ($row->n_cliente_packing ?? ''));
+
+            return [
+                'inventory_key' => $folio,
+                'source_type' => 'reembalaje',
+                'source_key' => $folio,
+                'folio' => $folio,
+                'n_g_recepcion' => (string) ($row->n_g_recepcion ?? ''),
+                'n_g_proceso' => (string) ($row->n_g_proceso ?? ''),
+                'loter_unitec' => (string) ($row->loter_unitec ?? ''),
+                'especie' => $row->n_especie ?? null,
+                'variedad' => $row->n_variedad ?? null,
+                'productor' => $row->n_productor ?? null,
+                'n_productor' => $row->n_productor ?? null,
+                'n_productor_original' => $row->n_productor_original ?? null,
+                'csg_productor' => $row->csg_productor ?? null,
+                'destino' => $destino !== '' ? $destino : null,
+                'fecha_recepcion' => $row->fecha_recepcion ?? null,
+                'fecha_produccion' => $row->fecha_produccion ?? null,
+                'antiguedad' => is_numeric($row->antiguedad ?? null) ? (int) $row->antiguedad : null,
+                'tipo_proceso_origen' => $row->descripcion_tipo ?? null,
+                'creacion_id' => $row->creacion_id ?? null,
+                'creacion_numero' => $row->creacion_numero ?? null,
+                'n_altura' => $row->n_altura ?? null,
+                'nota_calidad_sqlsrv' => $row->nota_calidad_sqlsrv ?? null,
+                'sdp_centrocosto' => $row->sdp_centrocosto ?? null,
+                'n_centrocosto' => $row->n_centrocosto ?? null,
+                'c_embalaje' => $row->c_embalaje ?? null,
+                'n_embalaje' => $row->n_embalaje ?? null,
+                'categoria' => $row->n_categoria ?? null,
+                't_categoria' => $row->t_categoria ?? null,
+                'cantidad' => $cantidadRaw,
+                'cantidad_bins' => $cantidadBins,
+                'cantidad_bins_raw' => $cantidadBinsRaw,
+                'peso_neto' => is_numeric($row->peso_neto ?? null) ? (float) $row->peso_neto : null,
+            ];
+        })->filter(fn ($row) => $row['source_key'] !== '');
+    }
+
+    /**
+     * Opciones para filtros del panel de inventario reembalaje.
+     *
+     * - productores: lista de `n_productor`.
+     * - embalajes: lista por `c_embalaje` con etiqueta enriquecida (`c_embalaje · n_embalaje`).
+     */
+    public function getRepackFilterOptions(array $filters = []): array
+    {
+        $query = $this->buildRepackBaseQuery([
+            'id_empresa' => $filters['id_empresa'] ?? 1,
+            'especie' => $filters['especie'] ?? null,
+            'variedad' => $filters['variedad'] ?? null,
+        ]);
+
+        if (! empty($filters['q'])) {
+            $q = trim((string) $filters['q']);
+            if ($q !== '') {
+                $query->where(function ($w) use ($q) {
+                    $like = '%'.$q.'%';
+                    $w->where('folio', 'like', $like)
+                        ->orWhere('n_g_recepcion', 'like', $like)
+                        ->orWhere('n_g_proceso', 'like', $like)
+                        ->orWhere('loter_unitec', 'like', $like)
+                        ->orWhere('n_variedad', 'like', $like)
+                        ->orWhere('n_productor', 'like', $like);
+                });
+            }
+        }
+
+        $productores = (clone $query)
+            ->whereNotNull('n_productor')
+            ->where('n_productor', '!=', '')
+            ->distinct()
+            ->orderBy('n_productor')
+            ->limit(600)
+            ->pluck('n_productor')
+            ->map(fn ($v) => trim((string) $v))
+            ->filter(fn ($v) => $v !== '')
+            ->unique()
+            ->values()
+            ->all();
+
+        $embalajesRows = (clone $query)
+            ->whereNotNull('c_embalaje')
+            ->where('c_embalaje', '!=', '')
+            ->selectRaw('c_embalaje, max(n_embalaje) as n_embalaje')
+            ->groupBy('c_embalaje')
+            ->orderBy('c_embalaje')
+            ->limit(600)
+            ->get();
+
+        $embalajes = collect($embalajesRows)
+            ->map(function ($row) {
+                $codigo = trim((string) ($row->c_embalaje ?? ''));
+                if ($codigo === '') {
+                    return null;
+                }
+
+                $nombre = trim((string) ($row->n_embalaje ?? ''));
+                $label = $nombre !== '' ? ($codigo.' · '.$nombre) : $codigo;
+
+                return [
+                    'value' => $codigo,
+                    'label' => $label,
+                    'searchValue' => trim($codigo.' '.$nombre),
+                ];
+            })
+            ->filter()
+            ->values()
+            ->all();
+
+        return [
+            'productores' => $productores,
+            'embalajes' => $embalajes,
+        ];
+    }
+
+    /**
      * Resumen de stock (existencias) por especie/variedad.
      *
      * A diferencia de `getAvailableLots()`, este método NO limita resultados y está pensado para
@@ -339,5 +555,35 @@ class InventoryRepositorySqlsrv
 
         $caseSql = 'case '.implode(' ', $cases).' else cast(cantidad as float) end';
         return 'sum('.$caseSql.')';
+    }
+
+    private function buildRepackBaseQuery(array $filters = [])
+    {
+        $query = DB::connection('sqlsrv')
+            ->table('V_PKG_Stock_Inventario')
+            ->where('id_empresa', (int) ($filters['id_empresa'] ?? 1))
+            ->where('t_categoria', 'Exportacion')
+            ->whereNotIn('c_categoria', ['MUE', 'CDRT', 'CDRF']);
+
+        if (! empty($filters['especie'])) {
+            $query->where('n_especie', (string) $filters['especie']);
+        }
+        if (! empty($filters['variedad'])) {
+            $query->where('n_variedad', (string) $filters['variedad']);
+        }
+        if (! empty($filters['productor'])) {
+            $query->where('n_productor', (string) $filters['productor']);
+        }
+        if (! empty($filters['embalaje'])) {
+            $embalaje = trim((string) $filters['embalaje']);
+            if ($embalaje !== '') {
+                $query->where(function ($w) use ($embalaje) {
+                    $w->where('c_embalaje', $embalaje)
+                        ->orWhere('n_embalaje', $embalaje);
+                });
+            }
+        }
+
+        return $query;
     }
 }

@@ -13,11 +13,13 @@ export default function Create({ especies = [], shifts = [], lines = [], default
   const today = useMemo(() => new Date().toISOString().slice(0, 10), [])
 
   const initialEspecie = String(defaults?.especie || especies?.[0] || '')
+  const initialPlanningMode = String(defaults?.planning_mode || 'normal')
   const initialFecha = String(defaults?.fecha || today)
   const initialShiftId = defaults?.shift_id ? String(defaults.shift_id) : (shifts?.[0]?.id ? String(shifts[0].id) : '')
 
   const { data, setData, post, processing, errors } = useForm({
     especie: initialEspecie,
+    planning_mode: initialPlanningMode,
     fecha: initialFecha,
     shift_id: initialShiftId,
     included_packing_line_ids: [],
@@ -68,7 +70,7 @@ export default function Create({ especies = [], shifts = [], lines = [], default
           )}
 
           <form onSubmit={submit} className="space-y-6">
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+            <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
               <div>
                 <Label>Especie</Label>
                 <Select value={String(data.especie || '')} onValueChange={(v) => setData('especie', v)}>
@@ -82,6 +84,20 @@ export default function Create({ especies = [], shifts = [], lines = [], default
                   </SelectContent>
                 </Select>
                 {errors.especie && <div className="text-sm text-red-600 mt-1">{errors.especie}</div>}
+              </div>
+
+              <div>
+                <Label>Tipo</Label>
+                <Select value={String(data.planning_mode || 'normal')} onValueChange={(v) => setData('planning_mode', String(v || 'normal'))}>
+                  <SelectTrigger>
+                    <SelectValue placeholder="Tipo de planificación" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="normal">Normal</SelectItem>
+                    <SelectItem value="reembalaje">Reembalaje</SelectItem>
+                  </SelectContent>
+                </Select>
+                {errors.planning_mode && <div className="text-sm text-red-600 mt-1">{errors.planning_mode}</div>}
               </div>
 
               <div>

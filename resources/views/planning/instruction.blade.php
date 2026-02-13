@@ -104,7 +104,18 @@
                 @foreach($lots as $lot)
                     <tr>
                         <td>
-                            <div><strong>{{ $lot->n_g_recepcion }}</strong></div>
+                            @php
+                                $isRepackLot = strtolower(trim((string) ($lot->source_type ?? ''))) === 'reembalaje';
+                            @endphp
+                            @if($isRepackLot)
+                                <div><strong>Folio {{ $lot->source_key ?? $lot->n_g_recepcion }}</strong></div>
+                                <div class="muted">
+                                    Proc: {{ $lot->source_n_g_proceso ?? '-' }} ·
+                                    Lote: {{ $lot->source_lote ?? $lot->n_g_recepcion ?? '-' }}
+                                </div>
+                            @else
+                                <div><strong>{{ $lot->n_g_recepcion }}</strong></div>
+                            @endif
                             @if(($lot->split_index ?? 1) > 1)
                                 <div class="muted">Parte {{ $lot->split_index }}</div>
                             @endif

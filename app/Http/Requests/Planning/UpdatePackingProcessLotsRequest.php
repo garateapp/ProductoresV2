@@ -52,7 +52,10 @@ class UpdatePackingProcessLotsRequest extends FormRequest
 
             // Agregar lote desde inventario (por n_g_recepcion) a una línea
             'add_n_g_recepcion' => ['nullable', 'string', 'max:64'],
-            'add_packing_line_id' => ['required_with:add_n_g_recepcion', 'integer', 'exists:packing_lines,id'],
+            // Reembalaje: agregar desde inventario por clave de origen (folio).
+            'add_source_type' => ['nullable', 'string', 'in:recepcion,reembalaje'],
+            'add_source_key' => ['nullable', 'string', 'max:120'],
+            'add_packing_line_id' => ['required_with:add_n_g_recepcion,add_source_key', 'integer', 'exists:packing_lines,id'],
 
             // Split: partir un lote y asignarlo a otra línea/cámara
             'split_id' => ['nullable', 'integer', 'exists:process_lots,id'],
