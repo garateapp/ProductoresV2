@@ -233,12 +233,25 @@ class PackingProcessController extends Controller
         $shifts = Shift::query()->where('activo', true)->orderBy('codigo')->get(['id', 'codigo', 'nombre', 'horas', 'hora_inicio']);
         $lines = PackingLine::query()->where('activo', true)->orderBy('especie')->orderBy('nombre')->get(['id', 'nombre', 'tipo', 'especie', 'especies']);
 
+        $defaultEspecies = $request->query('especies');
+        if (! is_array($defaultEspecies)) {
+            $defaultEspecies = $request->filled('especie') ? [(string) $request->query('especie')] : [];
+        }
+
+        $defaultEspecies = collect($defaultEspecies)
+            ->map(fn ($value) => trim((string) $value))
+            ->filter(fn ($value) => $value !== '')
+            ->unique()
+            ->values()
+            ->all();
+
         return Inertia::render('Planning/Processes/Create', [
             'especies' => $especies,
             'shifts' => $shifts,
             'lines' => $lines,
             'defaults' => [
-                'especie' => $request->query('especie'),
+                'especie' => $defaultEspecies[0] ?? $request->query('especie'),
+                'especies' => $defaultEspecies,
                 'planning_mode' => $request->query('planning_mode', 'normal'),
                 'fecha' => $request->query('fecha'),
                 'shift_id' => $request->query('shift_id'),
@@ -250,27 +263,83 @@ class PackingProcessController extends Controller
     {
         $this->authorizePlanning($request);
 
-        $payload = [
-            'especie' => (string) $request->input('especie'),
-            'exportadora' => null, // se completa desde Recepción al confirmar (1 lote = 1 proceso)
-            'fecha' => $request->date('fecha'),
-            'shift_id' => $request->integer('shift_id'),
-            'extra_horas' => 0,
-            'estado' => PlanningProcessStatus::BORRADOR,
-            'creado_por' => $request->user()?->id,
-            'included_packing_line_ids' => $request->input('included_packing_line_ids') ?: null,
-            'pedidos' => $request->filled('pedidos') ? (string) $request->input('pedidos') : null,
-        ];
+        $speciesList = collect($request->input('especies', []))
+            ->map(fn ($value) => trim((string) $value))
+            ->filter(fn ($value) => $value !== '')
+            ->unique()
+            ->values();
 
-        if (Schema::hasColumn('processes', 'planning_mode')) {
-            $payload['planning_mode'] = in_array((string) $request->input('planning_mode', 'normal'), ['normal', 'reembalaje'], true)
-                ? (string) $request->input('planning_mode', 'normal')
-                : 'normal';
+        if ($speciesList->isEmpty()) {
+            throw ValidationException::withMessages([
+                'especies' => 'Debes seleccionar al menos una especie.',
+            ]);
         }
 
-        $process = PackingProcess::create($payload);
+        $requestedLineIds = collect($request->input('included_packing_line_ids') ?: [])
+            ->map(fn ($id) => (int) $id)
+            ->filter(fn ($id) => $id > 0)
+            ->unique()
+            ->values();
 
-        return redirect()->route('planning.processes.show', $process)->with('success', 'Proceso creado. Ahora puedes generar la propuesta.');
+        $planningMode = in_array((string) $request->input('planning_mode', 'normal'), ['normal', 'reembalaje'], true)
+            ? (string) $request->input('planning_mode', 'normal')
+            : 'normal';
+
+        $created = DB::transaction(function () use ($request, $speciesList, $requestedLineIds, $planningMode) {
+            return $speciesList->map(function (string $especie) use ($request, $requestedLineIds, $planningMode) {
+                $speciesLineIds = PackingLine::query()
+                    ->where('activo', true)
+                    ->forEspecie($especie)
+                    ->pluck('id')
+                    ->map(fn ($id) => (int) $id)
+                    ->filter(fn ($id) => $id > 0)
+                    ->values();
+
+                if ($speciesLineIds->isEmpty()) {
+                    throw ValidationException::withMessages([
+                        'especies' => "La especie {$especie} no tiene líneas/cámaras activas configuradas.",
+                    ]);
+                }
+
+                $includedForSpecies = $requestedLineIds->isNotEmpty()
+                    ? $requestedLineIds->intersect($speciesLineIds)->values()
+                    : $speciesLineIds;
+
+                if ($includedForSpecies->isEmpty()) {
+                    throw ValidationException::withMessages([
+                        'included_packing_line_ids' => "No hay líneas/cámaras seleccionadas para la especie {$especie}.",
+                    ]);
+                }
+
+                $payload = [
+                    'especie' => $especie,
+                    'exportadora' => null, // se completa desde Recepción al confirmar (1 lote = 1 proceso)
+                    'fecha' => $request->date('fecha'),
+                    'shift_id' => $request->integer('shift_id'),
+                    'extra_horas' => 0,
+                    'estado' => PlanningProcessStatus::BORRADOR,
+                    'creado_por' => $request->user()?->id,
+                    'included_packing_line_ids' => $includedForSpecies->all(),
+                    'pedidos' => $request->filled('pedidos') ? (string) $request->input('pedidos') : null,
+                ];
+
+                if (Schema::hasColumn('processes', 'planning_mode')) {
+                    $payload['planning_mode'] = $planningMode;
+                }
+
+                return PackingProcess::create($payload);
+            })->values();
+        });
+
+        if ($created->count() === 1) {
+            return redirect()
+                ->route('planning.processes.show', $created->first())
+                ->with('success', 'Proceso creado. Ahora puedes generar la propuesta.');
+        }
+
+        return redirect()
+            ->route('planning.processes.index')
+            ->with('success', 'Se crearon '.$created->count().' procesos (uno por especie seleccionada).');
     }
 
     public function show(Request $request, PackingProcess $process)
@@ -1831,52 +1900,99 @@ class PackingProcessController extends Controller
                 }
             }
 
-            $species = $lineLots
-                ->map(fn ($l) => $l->process?->especie)
-                ->filter(fn ($v) => is_string($v) && trim($v) !== '')
-                ->map(fn ($v) => trim($v))
-                ->unique()
-                ->values();
+            $resolveSpecies = static function ($lot) use ($process): array {
+                $label = trim((string) ($lot->process?->especie ?? $process->especie ?? ''));
+                if ($label === '') {
+                    $label = 'VARIAS';
+                }
+
+                $key = Str::upper(Str::ascii($label));
+                if ($key === '') {
+                    $key = 'VARIAS';
+                }
+
+                return [$key, $label];
+            };
+
+            $speciesByKey = [];
+            foreach ($lineLots as $lot) {
+                [$speciesKey, $speciesLabel] = $resolveSpecies($lot);
+                if (! isset($speciesByKey[$speciesKey])) {
+                    $speciesByKey[$speciesKey] = $speciesLabel;
+                }
+            }
+            if (empty($speciesByKey)) {
+                $speciesByKey['VARIAS'] = 'VARIAS';
+            }
 
             $lineId = (int) ($lineLots->first()?->packing_line_id ?? 0);
 
-            $lineSheets[] = [
-                'lineId' => $lineId,
-                'lineName' => $lineName,
-                'speciesLabel' => $species->count() === 1 ? $species->first() : 'VARIAS',
-                'kilos' => (float) $lineLots->sum(fn ($l) => (float) ($l->peso_neto ?? 0)),
-                'exportadoraLabel' => (function () use ($lineLots) {
-                    $vals = $lineLots
-                        ->map(fn ($l) => $l->exportadora ?? ($l->process?->exportadora ?? null))
-                        ->filter(fn ($v) => is_string($v) && trim($v) !== '')
-                        ->map(fn ($v) => trim((string) $v))
-                        ->unique()
-                        ->values();
-                    if ($vals->isEmpty()) {
-                        return null;
+            foreach ($speciesByKey as $speciesKey => $speciesLabel) {
+                $speciesLots = $lineLots
+                    ->filter(function ($lot) use ($resolveSpecies, $speciesKey) {
+                        [$key] = $resolveSpecies($lot);
+                        return $key === $speciesKey;
+                    })
+                    ->values();
+
+                if ($speciesLots->isEmpty()) {
+                    continue;
+                }
+
+                $speciesPackSummary = array_values(array_filter($packSummary, function ($row) use ($speciesKey) {
+                    if (! is_array($row)) {
+                        return false;
                     }
-                    return $vals->count() === 1 ? $vals->first() : 'VARIAS';
-                })(),
-                'pedidosLabel' => (function () use ($lineLots) {
-                    $vals = $lineLots
-                        ->map(fn ($l) => $l->process?->pedidos)
-                        ->filter(fn ($v) => is_string($v) && trim($v) !== '')
-                        ->map(fn ($v) => trim((string) $v))
-                        ->unique()
-                        ->values()
-                        ->all();
-                    if (empty($vals)) {
-                        return null;
+                    $rowSpecies = trim((string) ($row['especie'] ?? ''));
+                    $rowSpeciesKey = Str::upper(Str::ascii($rowSpecies));
+                    if ($rowSpeciesKey === '') {
+                        $rowSpeciesKey = 'VARIAS';
                     }
-                    // No saturar el instructivo: 1 línea (resumen) y limpio.
-                    $text = implode(' | ', $vals);
-                    return mb_strlen($text) > 180 ? (mb_substr($text, 0, 177).'...') : $text;
-                })(),
-                'lots' => $lineLots->values(),
-                // Respetar el orden operativo definido en Planning/Processes/Show:
-                // primer uso por secuencia de lotes (orden) + embalajes extra en el orden configurado.
-                'packagingSummary' => array_values($packSummary),
-            ];
+                    return $rowSpeciesKey === $speciesKey;
+                }));
+
+                $sheetKey = $lineId.'|'.Str::lower($speciesKey);
+
+                $lineSheets[] = [
+                    'lineId' => $lineId,
+                    'lineName' => $lineName,
+                    'sheetKey' => $sheetKey,
+                    'speciesKey' => Str::lower($speciesKey),
+                    'speciesLabel' => $speciesLabel,
+                    'kilos' => (float) $speciesLots->sum(fn ($l) => (float) ($l->peso_neto ?? 0)),
+                    'exportadoraLabel' => (function () use ($speciesLots) {
+                        $vals = $speciesLots
+                            ->map(fn ($l) => $l->exportadora ?? ($l->process?->exportadora ?? null))
+                            ->filter(fn ($v) => is_string($v) && trim($v) !== '')
+                            ->map(fn ($v) => trim((string) $v))
+                            ->unique()
+                            ->values();
+                        if ($vals->isEmpty()) {
+                            return null;
+                        }
+                        return $vals->count() === 1 ? $vals->first() : 'VARIAS';
+                    })(),
+                    'pedidosLabel' => (function () use ($speciesLots) {
+                        $vals = $speciesLots
+                            ->map(fn ($l) => $l->process?->pedidos)
+                            ->filter(fn ($v) => is_string($v) && trim($v) !== '')
+                            ->map(fn ($v) => trim((string) $v))
+                            ->unique()
+                            ->values()
+                            ->all();
+                        if (empty($vals)) {
+                            return null;
+                        }
+                        // No saturar el instructivo: 1 línea (resumen) y limpio.
+                        $text = implode(' | ', $vals);
+                        return mb_strlen($text) > 180 ? (mb_substr($text, 0, 177).'...') : $text;
+                    })(),
+                    'lots' => $speciesLots,
+                    // Respetar el orden operativo definido en Planning/Processes/Show:
+                    // primer uso por secuencia de lotes (orden) + embalajes extra en el orden configurado.
+                    'packagingSummary' => $speciesPackSummary,
+                ];
+            }
         }
 
         return $lineSheets;
@@ -1910,7 +2026,24 @@ class PackingProcessController extends Controller
         }
 
         $lineSheets = $this->buildInstructionLineSheets($process, $date, $shiftId, [$lineId], $overridesByLineId);
-        $sheet = $lineSheets[0] ?? null;
+        $speciesParam = trim((string) $request->query('species', ''));
+
+        $sheet = null;
+        if ($speciesParam !== '') {
+            $speciesTarget = Str::upper(Str::ascii($speciesParam));
+            $sheet = collect($lineSheets)->first(function ($s) use ($speciesTarget) {
+                if (! is_array($s)) {
+                    return false;
+                }
+                $label = trim((string) ($s['speciesLabel'] ?? ''));
+                $key = Str::upper(Str::ascii($label));
+                return $key !== '' && $key === $speciesTarget;
+            });
+        }
+
+        if (! is_array($sheet)) {
+            $sheet = $lineSheets[0] ?? null;
+        }
         if (! is_array($sheet)) {
             abort(404);
         }
@@ -1921,13 +2054,18 @@ class PackingProcessController extends Controller
             (string) ($process->especie ?? '')
         );
 
-        $downloadUrl = route('planning.processes.instruction', [
+        $downloadParams = [
             'process' => $process->id,
             'format' => 'pdf',
             'download' => 1,
             'line_id' => $lineId,
             'version' => $latest?->version,
-        ]);
+        ];
+        $sheetSpeciesLabel = trim((string) ($sheet['speciesLabel'] ?? ''));
+        if ($sheetSpeciesLabel !== '' && Str::upper(Str::ascii($sheetSpeciesLabel)) !== 'VARIAS') {
+            $downloadParams['species'] = $sheetSpeciesLabel;
+        }
+        $downloadUrl = route('planning.processes.instruction', $downloadParams);
 
         return Inertia::render('Planning/Instructions/Edit', [
             'process' => [
@@ -1967,6 +2105,7 @@ class PackingProcessController extends Controller
         $data = $request->validate([
             'line_id' => ['required', 'integer', 'min:1'],
             'change_reason' => ['required', 'string', 'min:3', 'max:500'],
+            'species' => ['nullable', 'string', 'max:80'],
             'lots' => ['nullable', 'array'],
             'lots.*.id' => ['required_with:lots', 'integer', 'min:1'],
             // Puede venir snapshot histórico (ej: "Recepcion Fruta Gran"), luego lo normalizamos.
@@ -1994,6 +2133,7 @@ class PackingProcessController extends Controller
 
         $lineId = (int) $data['line_id'];
         $reason = trim((string) $data['change_reason']);
+        $speciesFilter = trim((string) ($data['species'] ?? ''));
 
         $date = $process->fecha ? Carbon::parse($process->fecha)->toDateString() : now()->toDateString();
         $shiftId = (int) ($process->shift_id ?? 0);
@@ -2174,8 +2314,13 @@ class PackingProcessController extends Controller
             'changed_at' => $changedAt,
         ]);
 
+        $redirectParams = ['process' => $process->id, 'line_id' => $lineId];
+        if ($speciesFilter !== '' && Str::upper(Str::ascii($speciesFilter)) !== 'VARIAS') {
+            $redirectParams['species'] = $speciesFilter;
+        }
+
         return redirect()
-            ->route('planning.processes.instruction.edit', ['process' => $process->id, 'line_id' => $lineId])
+            ->route('planning.processes.instruction.edit', $redirectParams)
             ->with('success', 'Instructivo guardado correctamente. Versión '.$nextVersion.'. Lotes actualizados: '.$updatedLotsCount.'.');
     }
 
@@ -2522,402 +2667,48 @@ class PackingProcessController extends Controller
                 ->values();
         }
 
-        // Instructivo operativo: por defecto imprimimos lo “vigente” (confirmado/en_proceso/cerrado).
-        // Aun así, el proceso actual siempre se incluye (aunque esté en borrador) para permitir vista previa.
-        $statuses = [
-            PlanningProcessStatus::CONFIRMADO->value,
-            PlanningProcessStatus::EN_PROCESO->value,
-            PlanningProcessStatus::CERRADO->value,
-        ];
-
-        $processIds = PackingProcess::query()
-            ->whereDate('fecha', $date)
-            ->where('shift_id', $shiftId)
-            ->whereIn('estado', $statuses)
-            ->pluck('id')
-            ->map(fn ($id) => (int) $id)
-            ->values();
-
-        // Siempre incluir el proceso actual (aunque sea BORRADOR).
-        if (! $processIds->contains((int) $process->id)) {
-            $processIds->push((int) $process->id);
-        }
-
-        $lotsQuery = PackingProcessLot::query()
-            ->whereIn('process_id', $processIds->all())
-            ->with(['packingLine', 'lastPackagingChange.user', 'process'])
-        ;
-
-        // Por defecto, limita a las líneas del proceso (para que el instructivo sea “lo que me toca hoy”).
-        // Si el proceso aún no tiene lotes, imprimimos todas las líneas del turno.
-        if ($lineIds->isNotEmpty()) {
-            $lotsQuery->whereIn('packing_line_id', $lineIds->all());
-        }
-
-        $lots = $lotsQuery
-            ->get()
-            ->sortBy([
-                ['packing_line_id', 'asc'],
-                // si hay inicio, ordenamos por inicio; si no, al final
-                [fn ($l) => $l->inicio_estimado ? 0 : 1, 'asc'],
-                ['inicio_estimado', 'asc'],
-                ['process_id', 'asc'],
-                ['orden', 'asc'],
-                ['id', 'asc'],
-            ])
-            ->values();
-
-        // Exportadora por lote (desde MySQL recepcions): se usa en instructivo (fallback Blade + HTML template).
-        $exportadoraByNg = [];
-        try {
-            $ngs = $lots
-                ->pluck('n_g_recepcion')
-                ->filter()
-                ->map(fn ($n) => trim((string) $n))
-                ->filter(fn ($n) => $n !== '')
-                ->unique()
-                ->values()
-                ->all();
-            if (! empty($ngs)) {
-                $exportadoraByNg = Recepcion::query()
-                    ->whereIn('numero_g_recepcion', $ngs)
-                    ->pluck('exportadora', 'numero_g_recepcion')
-                    ->map(fn ($v) => is_string($v) && trim($v) !== '' ? trim((string) $v) : null)
-                    ->all();
-            }
-        } catch (\Throwable $e) {
-            $exportadoraByNg = [];
-            Log::debug('No se pudo obtener exportadora desde recepcions: '.$e->getMessage());
-        }
-
-        foreach ($lots as $lot) {
-            $n = trim((string) ($lot?->n_g_recepcion ?? ''));
-            if ($n === '') {
-                continue;
-            }
-            $exp = $exportadoraByNg[$n] ?? null;
-            if (! $exp) {
-                $exp = $lot?->process?->exportadora ?? null;
-            }
-            if (is_string($exp) && trim($exp) !== '') {
-                $lot->setAttribute('exportadora', trim($exp));
-            }
-        }
-
-        $grouped = $lots->groupBy(fn ($lot) => $lot->packingLine?->nombre ?? ('Línea '.$lot->packing_line_id));
-
-        // Reglas de matriz por embalaje (para sección Destino+Embalajes del instructivo).
-        $codes = (function () use ($lots): array {
-            $base = $lots
-                ->pluck('c_embalaje')
-                ->filter(fn ($v) => is_string($v) && trim($v) !== '')
-                ->map(fn ($v) => trim((string) $v))
-                ->values()
-                ->all();
-
-            $extra = [];
-            foreach ($lots as $lot) {
-                $rows = $lot?->extra_packagings;
-                if (! is_array($rows)) {
-                    continue;
-                }
-                foreach ($rows as $r) {
-                    if (! is_array($r)) {
-                        continue;
-                    }
-                    $c = isset($r['c_embalaje']) ? trim((string) $r['c_embalaje']) : '';
-                    if ($c !== '') {
-                        $extra[] = $c;
-                    }
-                }
-            }
-
-            return collect(array_merge($base, $extra))
-                ->filter(fn ($v) => is_string($v) && trim($v) !== '')
-                ->map(fn ($v) => trim((string) $v))
-                ->unique()
-                ->values()
-                ->all();
-        })();
-
-        $matrixRules = [];
-        $matrixRulesByDestCode = [];
-        $matrixRulesByCode = [];
-        $packCatalogByCode = [];
-        if (! empty($codes)) {
-            // Catálogo SQLSRV: para completar Etiqueta/Envases por pallet.
-            $packCatalogByCode = $this->packagingRepository->getPackagingsByCodes($codes);
-
-            $rows = PackagingMatrixRule::query()
-                ->where('activo', true)
-                ->whereIn('c_item', $codes)
-                ->orderBy('priority')
-                ->orderBy('id')
-                ->get([
-                    'id',
-                    'matrix',
-                    'especie',
-                    'destino',
-                    'nota',
-                    'c_item',
-                    'desc_embalaje',
-                    'peso_caja',
-                    'allowed_calibres',
-                    'calibres_note',
-                    'sobre_calibre_note',
-                    'priority',
-                    'require_sdp',
-                ]);
-
-            foreach ($rows as $r) {
-                $k = mb_strtolower(trim((string) $r->especie)).'|'.mb_strtoupper(trim((string) $r->destino)).'|'.trim((string) $r->c_item);
-                if (! isset($matrixRules[$k])) {
-                    $matrixRules[$k] = $r;
-                }
-                $k2 = mb_strtoupper(trim((string) $r->destino)).'|'.trim((string) $r->c_item);
-                if (! isset($matrixRulesByDestCode[$k2])) {
-                    $matrixRulesByDestCode[$k2] = $r;
-                }
-                $k3 = trim((string) $r->c_item);
-                if ($k3 !== '' && ! isset($matrixRulesByCode[$k3])) {
-                    $matrixRulesByCode[$k3] = $r;
-                }
-            }
-        }
-
-        // Cálculo de horas continuo por línea: evita saltos entre procesos.
-        $tz = 'America/Santiago';
-        $startTime = $process->shift?->hora_inicio ? (string) $process->shift->hora_inicio : '08:00:00';
-        $shiftStart = Carbon::parse($date.' '.$startTime, $tz);
-
-        // Overrides guardados por versión (Observaciones/Calibres/Pedido) para el instructivo.
-        // Nota: este método (instruction) construye el instructivo "operativo" (por línea/turno/día),
-        // por lo que los overrides deben aplicarse aquí también (PDF/HTML/edición previa).
-        $instructionOverridesByLineId = [];
-        try {
-            $linesForOverrides = $lineIds->isNotEmpty()
-                ? $lineIds->all()
-                : $lots->pluck('packing_line_id')->filter()->map(fn ($v) => (int) $v)->unique()->values()->all();
-
-            foreach ($linesForOverrides as $lid) {
-                $lid = (int) $lid;
-                if ($lid <= 0) {
-                    continue;
-                }
-                $q = PlanningInstructionVersion::query()
+        // Overrides opcionales por versión explícita solicitada en la URL.
+        $overridesByLineId = [];
+        if ($lineIdParam && $lineIdParam > 0 && $versionParam && $versionParam > 0) {
+            try {
+                $rec = PlanningInstructionVersion::query()
                     ->where('fecha', $date)
                     ->where('shift_id', $shiftId)
-                    ->where('packing_line_id', $lid);
+                    ->where('packing_line_id', (int) $lineIdParam)
+                    ->where('version', (int) $versionParam)
+                    ->first();
 
-                // Si se solicita explícitamente una versión para la línea, la usamos.
-                if ($lineIdParam && (int) $lineIdParam === $lid && $versionParam && (int) $versionParam > 0) {
-                    $q->where('version', (int) $versionParam);
-                } else {
-                    $q->orderByDesc('version');
-                }
-
-                $rec = $q->first();
                 if ($rec && is_array($rec->overrides)) {
-                    $instructionOverridesByLineId[$lid] = $rec->overrides;
+                    $overridesByLineId[(int) $lineIdParam] = $rec->overrides;
                 }
+            } catch (\Throwable $e) {
+                Log::debug('No se pudieron cargar overrides por versión explícita (instruction): '.$e->getMessage());
             }
-        } catch (\Throwable $e) {
-            $instructionOverridesByLineId = [];
-            Log::debug('No se pudieron cargar overrides del instructivo (instruction): '.$e->getMessage());
         }
 
-        $lineSheets = [];
-        foreach ($grouped as $lineName => $lineLots) {
-            $cursor = $shiftStart->copy();
-            $packSummary = [];
+        $lineIdsForBuild = $lineIds->isNotEmpty()
+            ? $lineIds->all()
+            : null;
 
-            foreach ($lineLots as $lot) {
-                $especieLot = (string) ($lot->process?->especie ?? $process->especie ?? '');
-                $binsPorHora = $this->capacityResolver->resolveBinsPorHora(
-                    (int) $lot->packing_line_id,
-                    $especieLot,
-                    $shiftId > 0 ? $shiftId : null,
-                    Carbon::parse($date)
-                );
+        $lineSheets = $this->buildInstructionLineSheets(
+            $process,
+            $date,
+            $shiftId,
+            $lineIdsForBuild,
+            $overridesByLineId
+        );
 
-                $binsPorHora = $binsPorHora ? (float) $binsPorHora : null;
-                $minutes = null;
-                if ($binsPorHora && $binsPorHora > 0) {
-                    $qty = (float) ($lot->cantidad_bins ?? 0);
-                    $minutes = (int) max(0, (int) ceil(($qty / $binsPorHora) * 60));
+        $speciesParam = trim((string) $request->query('species', ''));
+        if ($speciesParam !== '') {
+            $speciesTarget = Str::upper(Str::ascii($speciesParam));
+            $lineSheets = array_values(array_filter($lineSheets, function ($sheet) use ($speciesTarget) {
+                if (! is_array($sheet)) {
+                    return false;
                 }
-
-                $start = null;
-                $end = null;
-                if ($minutes !== null) {
-                    $start = $cursor->copy();
-                    $end = $cursor->copy()->addMinutes($minutes);
-                    $cursor = $end->copy();
-                }
-
-                $lot->setAttribute('instruction_inicio', $start);
-                $lot->setAttribute('instruction_fin', $end);
-                $lot->setAttribute('instruction_bins_por_hora', $binsPorHora);
-
-                $destino = trim((string) ($lot->destino ?? ''));
-                $destKey = $destino !== '' ? mb_strtoupper($destino) : '-';
-
-                $appendPackaging = function (?string $code, ?string $name, ?int $cp2, ?string $indications, bool $count) use (
-                    &$packSummary,
-                    $destKey,
-                    $especieLot,
-                    $lot,
-                    $packCatalogByCode,
-                    $matrixRules,
-                    $matrixRulesByDestCode,
-                    $matrixRulesByCode,
-                    $destino,
-                    $instructionOverridesByLineId,
-                ): void {
-                    $code = trim((string) ($code ?? ''));
-                    if ($code === '') {
-                        return;
-                    }
-
-                    $k = $destKey.'|'.$code.'|'.mb_strtolower(trim($especieLot));
-                    $catalog = $packCatalogByCode[$code] ?? null;
-
-                    if (! isset($packSummary[$k])) {
-                        $override = $instructionOverridesByLineId[(int) $lot->packing_line_id][$k] ?? null;
-                        $packSummary[$k] = [
-                            'key' => $k,
-                            'destino' => $destKey,
-                            'especie' => $especieLot,
-                            'c_item' => $code,
-                            'n_item' => is_array($catalog) ? ($catalog['n_item'] ?? null) : null,
-                            'etiqueta' => is_array($catalog) ? ($catalog['etiqueta'] ?? null) : null,
-                            'cp2' => is_array($catalog) ? ($catalog['cp2_cajas_por_pallet'] ?? null) : null,
-                            'altura' => is_array($catalog) ? ($catalog['altura'] ?? null) : null,
-                            'cantidad_bins' => 0,
-                            'kilos' => 0,
-                            'rule' => null,
-                            'override' => is_array($override) ? $override : null,
-                            'indications' => null,
-                        ];
-
-                        if (empty($packSummary[$k]['n_item']) && is_string($name) && trim($name) !== '') {
-                            $packSummary[$k]['n_item'] = trim($name);
-                        } elseif (empty($packSummary[$k]['n_item']) && ! empty($lot->n_embalaje)) {
-                            $packSummary[$k]['n_item'] = (string) $lot->n_embalaje;
-                        }
-                        if (empty($packSummary[$k]['cp2']) && $cp2) {
-                            $packSummary[$k]['cp2'] = (int) $cp2;
-                        } elseif (empty($packSummary[$k]['cp2']) && $lot->cp2_cajas_por_pallet) {
-                            $packSummary[$k]['cp2'] = (int) $lot->cp2_cajas_por_pallet;
-                        }
-                        if (empty($packSummary[$k]['altura']) && ! empty($lot->altura_origen)) {
-                            $packSummary[$k]['altura'] = (string) $lot->altura_origen;
-                        }
-                    }
-
-                    if ($count) {
-                        $packSummary[$k]['cantidad_bins'] += (int) ($lot->cantidad_bins ?? 0);
-                        $packSummary[$k]['kilos'] += (float) ($lot->peso_neto ?? 0);
-                    }
-
-                    if (is_string($indications) && trim($indications) !== '') {
-                        $txt = trim($indications);
-                        if (! empty($packSummary[$k]['indications'])) {
-                            $packSummary[$k]['indications'] = trim((string) $packSummary[$k]['indications']).' | '.$txt;
-                        } else {
-                            $packSummary[$k]['indications'] = $txt;
-                        }
-                    }
-
-                    $rule = null;
-                    if ($destino !== '') {
-                        $rk = mb_strtolower(trim($especieLot)).'|'.mb_strtoupper($destino).'|'.$code;
-                        if (isset($matrixRules[$rk])) {
-                            $rule = $matrixRules[$rk];
-                        } else {
-                            $rk2 = mb_strtoupper($destino).'|'.$code;
-                            if (isset($matrixRulesByDestCode[$rk2])) {
-                                $rule = $matrixRulesByDestCode[$rk2];
-                            }
-                        }
-                    }
-                    if (! $rule && isset($matrixRulesByCode[$code])) {
-                        $rule = $matrixRulesByCode[$code];
-                    }
-                    if ($rule) {
-                        $packSummary[$k]['rule'] = $rule;
-                    }
-                };
-
-                $appendPackaging(
-                    $lot->c_embalaje ? (string) $lot->c_embalaje : null,
-                    $lot->n_embalaje ? (string) $lot->n_embalaje : null,
-                    $lot->cp2_cajas_por_pallet ? (int) $lot->cp2_cajas_por_pallet : null,
-                    $lot->packaging_indications ? (string) $lot->packaging_indications : null,
-                    true,
-                );
-
-                $extras = $lot->extra_packagings;
-                if (is_array($extras)) {
-                    foreach ($extras as $ex) {
-                        if (! is_array($ex)) {
-                            continue;
-                        }
-                        $appendPackaging(
-                            isset($ex['c_embalaje']) ? (string) $ex['c_embalaje'] : null,
-                            isset($ex['n_embalaje']) ? (string) $ex['n_embalaje'] : null,
-                            isset($ex['cp2_cajas_por_pallet']) && is_numeric($ex['cp2_cajas_por_pallet']) ? (int) $ex['cp2_cajas_por_pallet'] : null,
-                            isset($ex['indications']) ? (string) $ex['indications'] : null,
-                            false,
-                        );
-                    }
-                }
-            }
-
-            $species = $lineLots
-                ->map(fn ($l) => $l->process?->especie)
-                ->filter(fn ($v) => is_string($v) && trim($v) !== '')
-                ->map(fn ($v) => trim($v))
-                ->unique()
-                ->values();
-
-            $lineId = (int) ($lineLots->first()?->packing_line_id ?? 0);
-            $lineSheets[] = [
-                'lineId' => $lineId,
-                'lineName' => $lineName,
-                'speciesLabel' => $species->count() === 1 ? $species->first() : 'VARIAS',
-                'kilos' => (float) $lineLots->sum(fn ($l) => (float) ($l->peso_neto ?? 0)),
-                'exportadoraLabel' => (function () use ($lineLots) {
-                    $vals = $lineLots
-                        ->map(fn ($l) => $l->exportadora ?? ($l->process?->exportadora ?? null))
-                        ->filter(fn ($v) => is_string($v) && trim($v) !== '')
-                        ->map(fn ($v) => trim((string) $v))
-                        ->unique()
-                        ->values();
-                    if ($vals->isEmpty()) {
-                        return null;
-                    }
-                    return $vals->count() === 1 ? $vals->first() : 'VARIAS';
-                })(),
-                'pedidosLabel' => (function () use ($lineLots) {
-                    $vals = $lineLots
-                        ->map(fn ($l) => $l->process?->pedidos)
-                        ->filter(fn ($v) => is_string($v) && trim($v) !== '')
-                        ->map(fn ($v) => trim((string) $v))
-                        ->unique()
-                        ->values()
-                        ->all();
-                    if (empty($vals)) {
-                        return null;
-                    }
-                    $text = implode(' | ', $vals);
-                    return mb_strlen($text) > 180 ? (mb_substr($text, 0, 177).'...') : $text;
-                })(),
-                'lots' => $lineLots->values(),
-                // Respetar el orden operativo definido en Planning/Processes/Show:
-                // primer uso por secuencia de lotes (orden) + embalajes extra en el orden configurado.
-                'packagingSummary' => array_values($packSummary),
-            ];
+                $label = trim((string) ($sheet['speciesLabel'] ?? ''));
+                $key = Str::upper(Str::ascii($label));
+                return $key !== '' && $key === $speciesTarget;
+            }));
         }
 
         // Meta por línea (para mostrar versión/motivo en el instructivo).
@@ -3014,18 +2805,24 @@ class PackingProcessController extends Controller
         }
 
         $speciesLabelForFilename = (string) ($process->especie ?? 'VARIAS');
-        if ($lineIdParam && $lineIdParam > 0) {
-            foreach ($lineSheets as $s) {
-                if (! is_array($s)) {
-                    continue;
-                }
-                if ((int) ($s['lineId'] ?? 0) === (int) $lineIdParam) {
-                    $speciesLabelForFilename = (string) ($s['speciesLabel'] ?? $speciesLabelForFilename);
-                    break;
-                }
+        $speciesParam = trim((string) $request->query('species', ''));
+        if ($speciesParam !== '') {
+            $speciesLabelForFilename = $speciesParam;
+        } elseif ($lineIdParam && $lineIdParam > 0) {
+            $lineSpecies = collect($lineSheets)
+                ->filter(fn ($s) => is_array($s) && (int) ($s['lineId'] ?? 0) === (int) $lineIdParam)
+                ->map(fn ($s) => trim((string) ($s['speciesLabel'] ?? '')))
+                ->filter(fn ($v) => $v !== '')
+                ->unique()
+                ->values();
+
+            if ($lineSpecies->count() === 1) {
+                $speciesLabelForFilename = (string) $lineSpecies->first();
+            } elseif ($lineSpecies->count() > 1) {
+                $speciesLabelForFilename = 'VARIAS';
             }
-            $speciesLabelForFilename = trim($speciesLabelForFilename) !== '' ? trim($speciesLabelForFilename) : 'VARIAS';
         }
+        $speciesLabelForFilename = trim($speciesLabelForFilename) !== '' ? trim($speciesLabelForFilename) : 'VARIAS';
 
         $versionForFilename = null;
         if ($lineIdParam && $lineIdParam > 0) {
@@ -3419,6 +3216,8 @@ class PackingProcessController extends Controller
             $out[] = [
                 'lineId' => (int) ($sheet['lineId'] ?? 0),
                 'lineName' => (string) ($sheet['lineName'] ?? ''),
+                'sheetKey' => (string) ($sheet['sheetKey'] ?? ''),
+                'speciesKey' => (string) ($sheet['speciesKey'] ?? ''),
                 'speciesLabel' => (string) ($sheet['speciesLabel'] ?? ''),
                 'kilos' => (float) ($sheet['kilos'] ?? 0),
                 'exportadoraLabel' => $sheet['exportadoraLabel'] ?? null,

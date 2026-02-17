@@ -244,13 +244,18 @@ export default function Show({ process, shift, lineSheets, metaByLineId }) {
       {sheets.map((s) => {
         const comments = commentsByLots(s?.lots)
         const lineId = Number(s?.lineId || 0)
+        const speciesLabel = String(s?.speciesLabel || '').trim()
+        const speciesQuery = speciesLabel && speciesLabel.toUpperCase() !== 'VARIAS'
+          ? `&species=${encodeURIComponent(speciesLabel)}`
+          : ''
         const meta = metaByLineId?.[lineId] || null
         const version = meta?.version ? Number(meta.version) : null
-        const pdfUrl = `${route('planning.processes.instruction', process.id)}?format=pdf&download=1&line_id=${lineId}${version ? `&version=${version}` : ''}`
-        const editUrl = `${route('planning.processes.instruction.edit', process.id)}?line_id=${lineId}`
+        const pdfUrl = `${route('planning.processes.instruction', process.id)}?format=pdf&download=1&line_id=${lineId}${version ? `&version=${version}` : ''}${speciesQuery}`
+        const editUrl = `${route('planning.processes.instruction.edit', process.id)}?line_id=${lineId}${speciesQuery}`
+        const cardKey = String(s?.sheetKey || `${lineId}-${speciesLabel || 'VARIAS'}`)
 
         return (
-          <Card key={String(lineId || s?.lineName)}>
+          <Card key={cardKey}>
             <CardHeader className="flex flex-row items-start justify-between gap-3">
               <div className="min-w-0">
                 <CardTitle className="truncate">{s?.lineName || 'Línea'}</CardTitle>

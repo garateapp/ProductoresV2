@@ -484,6 +484,7 @@ export default function Edit({
   const { data, setData, post, processing, errors } = useForm({
     line_id: Number(lineId || 0),
     change_reason: '',
+    species: String(sheet?.speciesLabel || '').toUpperCase() === 'VARIAS' ? '' : String(sheet?.speciesLabel || ''),
     lots: initialLots,
     rows: initialRows,
   })
@@ -565,6 +566,9 @@ export default function Edit({
     })
   }
 
+  const speciesQuery = String(data.species || '').trim()
+  const backHref = `${route('planning.processes.instruction', process.id)}?line_id=${lineId}${speciesQuery ? `&species=${encodeURIComponent(speciesQuery)}` : ''}`
+
   return (
     <div className="space-y-4 px-8">
       <InstructionCss />
@@ -579,7 +583,7 @@ export default function Edit({
           </div>
         </div>
         <div className="flex items-center gap-2">
-          <Link href={`${route('planning.processes.instruction', process.id)}?line_id=${lineId}`}>
+          <Link href={backHref}>
             <Button variant="outline">
               <ArrowLeft className="h-4 w-4 mr-2" />
               Volver

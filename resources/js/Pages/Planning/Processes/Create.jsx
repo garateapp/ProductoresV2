@@ -1,4 +1,4 @@
-import React, { useEffect, useMemo } from 'react'
+import React, { useEffect, useMemo, useRef } from 'react'
 import { Link, useForm, usePage } from '@inertiajs/react'
 import AuthenticatedLayout from '@/Layouts/AuthenticatedLayout'
 import { Card, CardContent, CardHeader, CardTitle } from '@/Components/ui/card'
@@ -12,12 +12,29 @@ export default function Create({ especies = [], shifts = [], lines = [], default
   const { props } = usePage()
   const today = useMemo(() => new Date().toISOString().slice(0, 10), [])
 
-  const initialEspecie = String(defaults?.especie || especies?.[0] || '')
+  const initialEspecies = useMemo(() => {
+    const fromDefaults = Array.isArray(defaults?.especies)
+      ? defaults.especies.map(String).filter(Boolean)
+      : []
+
+    if (fromDefaults.length > 0) {
+      return Array.from(new Set(fromDefaults))
+    }
+
+    if (defaults?.especie) {
+      return [String(defaults.especie)]
+    }
+
+    return especies?.[0] ? [String(especies[0])] : []
+  }, [defaults, especies])
+
+  const initialEspecie = String(initialEspecies?.[0] || defaults?.especie || especies?.[0] || '')
   const initialPlanningMode = String(defaults?.planning_mode || 'normal')
   const initialFecha = String(defaults?.fecha || today)
   const initialShiftId = defaults?.shift_id ? String(defaults.shift_id) : (shifts?.[0]?.id ? String(shifts[0].id) : '')
 
   const { data, setData, post, processing, errors } = useForm({
+    especies: initialEspecies,
     especie: initialEspecie,
     planning_mode: initialPlanningMode,
     fecha: initialFecha,
@@ -26,24 +43,55 @@ export default function Create({ especies = [], shifts = [], lines = [], default
     pedidos: '',
   })
 
+  const lastAutoSpeciesKeyRef = useRef(null)
+
+  const speciesItemError = useMemo(() => {
+    const entries = Object.entries(errors || {})
+    const row = entries.find(([key]) => key.startsWith('especies.'))
+    return row ? row[1] : null
+  }, [errors])
+
   const linesForSpecies = useMemo(() => {
-    const especie = String(data.especie || '')
+    const selected = Array.isArray(data.especies) ? data.especies.map(String).filter(Boolean) : []
+    if (selected.length === 0) return []
+
     return (lines || []).filter((l) => {
       const legacy = String(l.especie || '')
       const list = Array.isArray(l.especies) ? l.especies.map(String) : []
-      return legacy === especie || list.includes(especie)
+      const allSpecies = [legacy, ...list].filter(Boolean)
+      return selected.some((especie) => allSpecies.includes(especie))
     })
-  }, [lines, data.especie])
+  }, [lines, data.especies])
+
+  const selectedSpeciesKey = useMemo(() => {
+    return (Array.isArray(data.especies) ? data.especies : [])
+      .map(String)
+      .filter(Boolean)
+      .sort()
+      .join('|')
+  }, [data.especies])
 
   useEffect(() => {
-    // Default: incluir todas las líneas de la especie
+    // Solo auto-selecciona líneas cuando cambia la selección de especies.
+    if (lastAutoSpeciesKeyRef.current === selectedSpeciesKey) return
     const all = linesForSpecies.map((l) => l.id)
     setData('included_packing_line_ids', all)
-  }, [data.especie])
+    lastAutoSpeciesKeyRef.current = selectedSpeciesKey
+  }, [selectedSpeciesKey, linesForSpecies, setData])
 
   const submit = (e) => {
     e.preventDefault()
     post(route('planning.processes.store'))
+  }
+
+  const toggleSpecies = (especie) => {
+    const current = new Set((data.especies || []).map(String))
+    if (current.has(especie)) current.delete(especie)
+    else current.add(especie)
+
+    const next = Array.from(current)
+    setData('especies', next)
+    setData('especie', next[0] || '')
   }
 
   const toggleLine = (lineId) => {
@@ -70,22 +118,31 @@ export default function Create({ especies = [], shifts = [], lines = [], default
           )}
 
           <form onSubmit={submit} className="space-y-6">
-            <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
-              <div>
-                <Label>Especie</Label>
-                <Select value={String(data.especie || '')} onValueChange={(v) => setData('especie', v)}>
-                  <SelectTrigger>
-                    <SelectValue placeholder="Selecciona especie" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {(especies || []).map((e) => (
-                      <SelectItem key={e} value={String(e)}>{String(e)}</SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-                {errors.especie && <div className="text-sm text-red-600 mt-1">{errors.especie}</div>}
+            <div className="rounded border bg-white">
+              <div className="px-4 py-3 border-b bg-gray-50">
+                <div className="font-semibold">Especies</div>
+                <div className="text-sm text-gray-600">Selecciona una o más especies para crear procesos separados.</div>
               </div>
+              <div className="p-4 grid grid-cols-1 md:grid-cols-3 gap-3">
+                {(especies || []).map((especie) => {
+                  const checked = (data.especies || []).includes(especie)
+                  return (
+                    <label key={especie} className="flex items-center gap-3 rounded border px-3 py-2 cursor-pointer hover:bg-gray-50">
+                      <input
+                        type="checkbox"
+                        checked={checked}
+                        onChange={() => toggleSpecies(especie)}
+                      />
+                      <span className="font-medium">{especie}</span>
+                    </label>
+                  )
+                })}
+              </div>
+              {errors.especies && <div className="px-4 pb-3 text-sm text-red-600">{errors.especies}</div>}
+              {!errors.especies && speciesItemError && <div className="px-4 pb-3 text-sm text-red-600">{speciesItemError}</div>}
+            </div>
 
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
               <div>
                 <Label>Tipo</Label>
                 <Select value={String(data.planning_mode || 'normal')} onValueChange={(v) => setData('planning_mode', String(v || 'normal'))}>
@@ -140,9 +197,13 @@ export default function Create({ especies = [], shifts = [], lines = [], default
                 <div className="text-sm text-gray-600">Por defecto se incluyen todas. Desmarca si no aplica.</div>
               </div>
               <div className="p-4 grid grid-cols-1 md:grid-cols-2 gap-3">
-                {linesForSpecies.length === 0 ? (
+                {(data.especies || []).length === 0 ? (
                   <div className="text-sm text-gray-600">
-                    No hay líneas configuradas para esta especie. Ve a Configuración → Líneas/Cámaras.
+                    Selecciona al menos una especie para habilitar líneas/cámaras.
+                  </div>
+                ) : linesForSpecies.length === 0 ? (
+                  <div className="text-sm text-gray-600">
+                    No hay líneas configuradas para las especies seleccionadas. Ve a Configuración → Líneas/Cámaras.
                   </div>
                 ) : (
                   linesForSpecies.map((l) => {
@@ -163,11 +224,12 @@ export default function Create({ especies = [], shifts = [], lines = [], default
                   })
                 )}
               </div>
+              {errors.included_packing_line_ids && <div className="px-4 pb-3 text-sm text-red-600">{errors.included_packing_line_ids}</div>}
             </div>
 
             <div className="flex items-center justify-end gap-2">
               <Button type="submit" disabled={processing}>
-                {processing ? 'Creando...' : 'Crear'}
+                {processing ? 'Creando...' : ((data.especies || []).length > 1 ? 'Crear procesos' : 'Crear')}
               </Button>
             </div>
           </form>
