@@ -342,18 +342,18 @@ export default function PackagingMatrix({ rules = [], especies = [], destinos = 
             <div className="grid grid-cols-1 lg:grid-cols-12 gap-3">
               <div className="lg:col-span-2">
                 <Label>Especie</Label>
-                <input
-                  list="especies"
+                <select
                   className="mt-1 w-full rounded border px-2 py-2 text-sm"
                   value={String(data.especie || '')}
                   onChange={(e) => setData('especie', e.target.value)}
-                  placeholder="Ej: Ciruelas / Cherries"
-                />
-                <datalist id="especies">
+                >
+                  <option value="">Seleccionar especie</option>
                   {(especies || []).map((e) => (
-                    <option key={e} value={String(e)} />
+                    <option key={String(e)} value={String(e)}>
+                      {String(e)}
+                    </option>
                   ))}
-                </datalist>
+                </select>
                 {errors.especie && <div className="text-sm text-red-600 mt-1">{errors.especie}</div>}
               </div>
 

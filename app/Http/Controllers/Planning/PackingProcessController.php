@@ -1654,6 +1654,25 @@ class PackingProcessController extends Controller
             Log::debug('No se pudieron cargar overrides del instructivo: '.$e->getMessage());
         }
 
+        // Prioridad de overrides:
+        // 1) overrides explícitos recibidos por parámetro (p.ej. al guardar edición actual)
+        // 2) fallback a overrides persistidos de la última versión por línea.
+        $effectiveOverridesByLineId = [];
+        foreach ($instructionOverridesByLineId as $lid => $rows) {
+            if (! is_array($rows)) {
+                continue;
+            }
+            $effectiveOverridesByLineId[(int) $lid] = $rows;
+        }
+        foreach ($overridesByLineId as $lid => $rows) {
+            if (! is_array($rows)) {
+                continue;
+            }
+            $lineIdKey = (int) $lid;
+            $base = $effectiveOverridesByLineId[$lineIdKey] ?? [];
+            $effectiveOverridesByLineId[$lineIdKey] = array_merge($base, $rows);
+        }
+
         $lineSheets = [];
         foreach ($grouped as $lineName => $lineLots) {
             $cursor = $shiftStart->copy();
@@ -1700,7 +1719,7 @@ class PackingProcessController extends Controller
                     $matrixRulesByDestCode,
                     $matrixRulesByCode,
                     $destino,
-                    $overridesByLineId,
+                    $effectiveOverridesByLineId,
                 ): void {
                     $code = trim((string) ($code ?? ''));
                     if ($code === '') {
@@ -1713,7 +1732,7 @@ class PackingProcessController extends Controller
                     if (! isset($packSummary[$k])) {
                         $override = null;
                         try {
-                            $override = $overridesByLineId[(int) $lot->packing_line_id][$k] ?? null;
+                            $override = $effectiveOverridesByLineId[(int) $lot->packing_line_id][$k] ?? null;
                         } catch (\Throwable) {
                             $override = null;
                         }
@@ -1896,6 +1915,12 @@ class PackingProcessController extends Controller
             abort(404);
         }
 
+        $serializedSheet = $this->serializeInstructionLineSheets([$sheet])[0] ?? null;
+        $varietiesBySpecies = $this->getInstructionVarietiesBySpeciesFromSheet(
+            is_array($serializedSheet) ? $serializedSheet : null,
+            (string) ($process->especie ?? '')
+        );
+
         $downloadUrl = route('planning.processes.instruction', [
             'process' => $process->id,
             'format' => 'pdf',
@@ -1927,7 +1952,8 @@ class PackingProcessController extends Controller
                 'changed_by_name' => $latest->changer?->name,
                 'reason' => $latest->reason,
             ] : null,
-            'sheet' => $this->serializeInstructionLineSheets([$sheet])[0] ?? null,
+            'sheet' => $serializedSheet,
+            'varietiesBySpecies' => $varietiesBySpecies,
             'downloadUrl' => $downloadUrl,
         ]);
     }
@@ -1946,6 +1972,7 @@ class PackingProcessController extends Controller
             // Puede venir snapshot histórico (ej: "Recepcion Fruta Gran"), luego lo normalizamos.
             'lots.*.tipo_proceso' => ['nullable', 'string', 'max:120'],
             'lots.*.categoria_origen' => ['nullable', 'string', 'max:120'],
+            'lots.*.n_variedad' => ['nullable', 'string', 'max:120'],
             'lots.*.pulpa' => ['nullable', 'string', 'max:120'],
             'lots.*.huerto' => ['nullable', 'string', 'in:Tipo A,Tipo B,Tipo C,Tipo C*'],
             'rows' => ['nullable', 'array'],
@@ -2016,6 +2043,23 @@ class PackingProcessController extends Controller
             $overrides[$key] = $ov;
         }
 
+        // Si la UI no envía todas las filas por algún motivo, conservamos overrides previos
+        // y sobreescribimos solo las claves que llegan en este guardado.
+        try {
+            $latestOverrides = PlanningInstructionVersion::query()
+                ->where('fecha', $date)
+                ->where('shift_id', $shiftId)
+                ->where('packing_line_id', $lineId)
+                ->orderByDesc('version')
+                ->value('overrides');
+
+            if (is_array($latestOverrides)) {
+                $overrides = array_merge($latestOverrides, $overrides);
+            }
+        } catch (\Throwable $e) {
+            Log::debug('No se pudieron combinar overrides previos del instructivo: '.$e->getMessage());
+        }
+
         $user = $request->user();
         $changedAt = now('America/Santiago');
 
@@ -2032,7 +2076,14 @@ class PackingProcessController extends Controller
                 ->get();
 
             $variedadNames = $lotsToUpdate
-                ->map(fn ($lot) => trim((string) ($lot->n_variedad ?: $lot->variedad_original)))
+                ->map(function ($lot) use ($incomingLots) {
+                    $row = (array) ($incomingLots->get((int) $lot->id) ?? []);
+                    $incoming = trim((string) ($row['n_variedad'] ?? ''));
+                    if ($incoming !== '') {
+                        return $incoming;
+                    }
+                    return trim((string) ($lot->n_variedad ?: $lot->variedad_original));
+                })
                 ->filter(fn ($v) => $v !== '')
                 ->unique()
                 ->values()
@@ -2043,6 +2094,7 @@ class PackingProcessController extends Controller
                 $row = (array) ($incomingLots->get((int) $lot->id) ?? []);
                 $tipoRaw = trim((string) ($row['tipo_proceso'] ?? ''));
                 $categoria = trim((string) ($row['categoria_origen'] ?? ''));
+                $nVariedad = trim((string) ($row['n_variedad'] ?? ''));
                 $pulpa = trim((string) ($row['pulpa'] ?? ''));
                 $huerto = trim((string) ($row['huerto'] ?? ''));
                 $destino = trim((string) ($lot->destino ?? ''));
@@ -2054,13 +2106,16 @@ class PackingProcessController extends Controller
                     $categoria = 'Cat 1';
                 }
                 if ($pulpa === '') {
-                    $varKey = trim((string) ($lot->n_variedad ?: $lot->variedad_original));
+                    $varKey = $nVariedad !== ''
+                        ? $nVariedad
+                        : trim((string) ($lot->n_variedad ?: $lot->variedad_original));
                     $pulpa = $varKey !== '' ? (string) ($pulpaByVariedad[$varKey] ?? '') : '';
                 }
 
                 $payload = [
                     'tipo_proceso' => $tipo,
                     'categoria_origen' => $categoria,
+                    'n_variedad' => $nVariedad !== '' ? $nVariedad : null,
                 ];
                 if (Schema::hasColumn('process_lots', 'pulpa')) {
                     $payload['pulpa'] = $pulpa !== '' ? $pulpa : null;
@@ -3206,6 +3261,7 @@ class PackingProcessController extends Controller
                 $lots[] = [
                     'id' => (int) ($lot?->id ?? 0),
                     'process_id' => (int) ($lot?->process_id ?? 0),
+                    'especie' => (string) ($lot?->process?->especie ?? ''),
                     'n_g_recepcion' => (string) ($lot?->n_g_recepcion ?? ''),
                     'source_type' => (string) ($lot?->source_type ?? 'recepcion'),
                     'source_key' => (string) ($lot?->source_key ?? ''),
@@ -3420,6 +3476,137 @@ class PackingProcessController extends Controller
             ]);
             return [['value' => 'Cat 1', 'label' => 'Cat 1']];
         }
+    }
+
+    /**
+     * Opciones de variedad para edición de instructivo, agrupadas por especie.
+     *
+     * @param array<string, mixed>|null $sheet
+     * @return array<string, array<int, array<string, string>>>
+     */
+    private function getInstructionVarietiesBySpeciesFromSheet(?array $sheet, string $fallbackSpecies): array
+    {
+        $sheetData = is_array($sheet) ? $sheet : [];
+
+        $normalizeSpecies = static function (?string $value): string {
+            $raw = trim((string) $value);
+            if ($raw === '') {
+                return '';
+            }
+            $norm = Str::upper(Str::ascii($raw));
+            if ($norm === 'VARIAS') {
+                return '';
+            }
+            return Str::lower($raw);
+        };
+
+        $speciesKeys = collect([$fallbackSpecies, (string) ($sheetData['speciesLabel'] ?? '')])
+            ->merge(collect($sheetData['lots'] ?? [])->map(function ($lot) {
+                if (! is_array($lot)) {
+                    return '';
+                }
+                return (string) ($lot['especie'] ?? '');
+            }))
+            ->map(fn ($v) => $normalizeSpecies((string) $v))
+            ->filter(fn ($v) => $v !== '')
+            ->unique()
+            ->values()
+            ->all();
+
+        $addOption = static function (array &$target, string $value): void {
+            $val = trim((string) $value);
+            if ($val === '') {
+                return;
+            }
+            $k = Str::lower($val);
+            if (! isset($target[$k])) {
+                $target[$k] = [
+                    'value' => $val,
+                    'label' => $val,
+                    'searchValue' => $val,
+                ];
+            }
+        };
+
+        $grouped = [];
+        try {
+            $especies = Especie::query()
+                ->with(['variedads' => fn ($q) => $q->select(['id', 'name', 'especie_id'])->orderBy('name')])
+                ->orderBy('name')
+                ->get(['id', 'name']);
+
+            foreach ($especies as $especie) {
+                $name = trim((string) ($especie->name ?? ''));
+                if ($name === '') {
+                    continue;
+                }
+                $speciesKey = $normalizeSpecies($name);
+                if ($speciesKey === '') {
+                    continue;
+                }
+                if (! empty($speciesKeys) && ! in_array($speciesKey, $speciesKeys, true)) {
+                    continue;
+                }
+
+                if (! isset($grouped[$speciesKey])) {
+                    $grouped[$speciesKey] = [];
+                }
+
+                foreach (($especie->variedads ?? []) as $variedad) {
+                    $addOption($grouped[$speciesKey], (string) ($variedad->name ?? ''));
+                }
+            }
+        } catch (\Throwable $e) {
+            Log::warning('No se pudieron cargar variedades por especie para instructivo', [
+                'error' => $e->getMessage(),
+            ]);
+        }
+
+        // Garantizar que se muestren variedades ya presentes en el instructivo
+        // aunque no estén en el catálogo maestro.
+        foreach (($sheetData['lots'] ?? []) as $lot) {
+            if (! is_array($lot)) {
+                continue;
+            }
+
+            $lotSpeciesKey = $normalizeSpecies((string) ($lot['especie'] ?? $fallbackSpecies));
+            if ($lotSpeciesKey === '') {
+                $lotSpeciesKey = $speciesKeys[0] ?? '';
+            }
+            if ($lotSpeciesKey === '') {
+                continue;
+            }
+
+            if (! isset($grouped[$lotSpeciesKey])) {
+                $grouped[$lotSpeciesKey] = [];
+            }
+
+            $addOption($grouped[$lotSpeciesKey], (string) ($lot['n_variedad'] ?? ''));
+            $addOption($grouped[$lotSpeciesKey], (string) ($lot['variedad_original'] ?? ''));
+        }
+
+        $union = [];
+        foreach ($grouped as $speciesKey => $optionsByKey) {
+            $opts = array_values($optionsByKey);
+            usort($opts, fn ($a, $b) => strcasecmp((string) ($a['label'] ?? ''), (string) ($b['label'] ?? '')));
+            $grouped[$speciesKey] = $opts;
+
+            foreach ($opts as $opt) {
+                $k = Str::lower((string) ($opt['value'] ?? ''));
+                if ($k === '') {
+                    continue;
+                }
+                if (! isset($union[$k])) {
+                    $union[$k] = $opt;
+                }
+            }
+        }
+
+        $all = array_values($union);
+        usort($all, fn ($a, $b) => strcasecmp((string) ($a['label'] ?? ''), (string) ($b['label'] ?? '')));
+        $grouped['*'] = $all;
+
+        return $grouped;
     }
 
     /**

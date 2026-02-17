@@ -122,7 +122,7 @@ class PackagingMatrixController extends Controller
         // el catálogo maestro puede estar incompleto/desactualizado.
         $fromSqlsrv = [];
         try {
-            $fromSqlsrv = Cache::remember('planning:packaging-matrix:especies:sqlsrv', now()->addHours(4), function () {
+            $fromSqlsrv = Cache::remember('planning:packaging-matrix:especies:sqlsrv:v2', now()->addHours(4), function () {
                 return DB::connection('sqlsrv')
                     ->table('V_PKG_Stock_Inventario')
                     ->select('n_especie')
@@ -130,7 +130,6 @@ class PackagingMatrixController extends Controller
                     ->where('n_especie', '!=', '')
                     ->distinct()
                     ->orderBy('n_especie')
-                    ->limit(250)
                     ->pluck('n_especie')
                     ->map(fn ($v) => trim((string) $v))
                     ->filter(fn ($v) => $v !== '')
@@ -143,14 +142,13 @@ class PackagingMatrixController extends Controller
 
         $fromEstimations = [];
         try {
-            $fromEstimations = Cache::remember('planning:packaging-matrix:especies:estimations', now()->addHours(4), function () {
+            $fromEstimations = Cache::remember('planning:packaging-matrix:especies:estimations:v2', now()->addHours(4), function () {
                 return DB::table('estimation_biweekly_rows')
                     ->select('especie')
                     ->whereNotNull('especie')
                     ->where('especie', '!=', '')
                     ->distinct()
                     ->orderBy('especie')
-                    ->limit(250)
                     ->pluck('especie')
                     ->map(fn ($v) => trim((string) $v))
                     ->filter(fn ($v) => $v !== '')
@@ -159,6 +157,25 @@ class PackagingMatrixController extends Controller
             });
         } catch (\Throwable $e) {
             $fromEstimations = [];
+        }
+
+        $fromProcesses = [];
+        try {
+            $fromProcesses = Cache::remember('planning:packaging-matrix:especies:processes:v1', now()->addHours(4), function () {
+                return DB::table('packing_processes')
+                    ->select('especie')
+                    ->whereNotNull('especie')
+                    ->where('especie', '!=', '')
+                    ->distinct()
+                    ->orderBy('especie')
+                    ->pluck('especie')
+                    ->map(fn ($v) => trim((string) $v))
+                    ->filter(fn ($v) => $v !== '')
+                    ->values()
+                    ->all();
+            });
+        } catch (\Throwable $e) {
+            $fromProcesses = [];
         }
 
         $map = [];
@@ -181,6 +198,23 @@ class PackagingMatrixController extends Controller
             }
         }
         foreach ($fromEstimations as $name) {
+            $k = mb_strtolower($name);
+            if (! isset($map[$k])) {
+                $map[$k] = $name;
+            }
+        }
+        foreach ($fromProcesses as $name) {
+            $k = mb_strtolower($name);
+            if (! isset($map[$k])) {
+                $map[$k] = $name;
+            }
+        }
+
+        // Base mínima visible por matriz para asegurar opciones operativas.
+        $requiredSpecies = $matrix === 'carozos'
+            ? ['Nectarines', 'Plums', 'Peaches']
+            : ['Cherries'];
+        foreach ($requiredSpecies as $name) {
             $k = mb_strtolower($name);
             if (! isset($map[$k])) {
                 $map[$k] = $name;

@@ -8,6 +8,7 @@ import { Input } from '@/Components/ui/input'
 import { Label } from '@/Components/ui/label'
 import { FileDown, Save, ArrowLeft } from 'lucide-react'
 import Combobox from '@/Components/ui/combobox'
+import { Toaster, toast } from 'sonner'
 
 function fmtDate(dateString) {
   if (!dateString) return '-'
@@ -72,7 +73,106 @@ function commentsByLots(lots) {
   return lines
 }
 
-function LotsTable({ lots, editable = false, onUpdateLot, processTypeOptions = [], categoryOptions = [] }) {
+function normalizeKey(value) {
+  return String(value || '').trim().toLowerCase()
+}
+
+function normalizeComboboxOptions(options) {
+  const source = Array.isArray(options) ? options : []
+  const map = new Map()
+
+  source.forEach((item) => {
+    const value = String(item?.value ?? item?.label ?? item ?? '').trim()
+    if (!value) return
+    const key = normalizeKey(value)
+    if (map.has(key)) return
+    map.set(key, {
+      value,
+      label: String(item?.label ?? value),
+      searchValue: String(item?.searchValue ?? item?.label ?? value),
+    })
+  })
+
+  return Array.from(map.values()).sort((a, b) => a.label.localeCompare(b.label, 'es'))
+}
+
+function toErrorText(value) {
+  if (Array.isArray(value)) return value.map((v) => String(v || '')).filter(Boolean).join(' ')
+  return String(value || '').trim()
+}
+
+function buildRowErrorState(errorBag) {
+  const errors = (errorBag && typeof errorBag === 'object') ? errorBag : {}
+  const lotErrorsByIndex = {}
+  const packagingErrorsByIndex = {}
+  const globalErrors = []
+
+  Object.entries(errors).forEach(([key, raw]) => {
+    const message = toErrorText(raw)
+    if (!message) return
+
+    const match = key.match(/^(lots|rows)\.(\d+)\.([a-zA-Z0-9_]+)$/)
+    if (!match) {
+      if (key !== 'lots' && key !== 'rows') {
+        globalErrors.push(message)
+      }
+      return
+    }
+
+    const scope = String(match[1] || '')
+    const index = Number(match[2] || 0)
+    const field = String(match[3] || '')
+    if (Number.isNaN(index) || field === '') return
+
+    if (scope === 'lots') {
+      lotErrorsByIndex[index] = lotErrorsByIndex[index] || {}
+      lotErrorsByIndex[index][field] = message
+      return
+    }
+
+    packagingErrorsByIndex[index] = packagingErrorsByIndex[index] || {}
+    packagingErrorsByIndex[index][field] = message
+  })
+
+  const lotRows = Object.keys(lotErrorsByIndex).map((idx) => Number(idx) + 1).sort((a, b) => a - b)
+  const packagingRows = Object.keys(packagingErrorsByIndex).map((idx) => Number(idx) + 1).sort((a, b) => a - b)
+
+  return {
+    lotErrorsByIndex,
+    packagingErrorsByIndex,
+    lotRows,
+    packagingRows,
+    globalErrors,
+  }
+}
+
+function getVarietyOptionsForLot(lot, varietiesBySpecies, defaultSpecies) {
+  const map = (varietiesBySpecies && typeof varietiesBySpecies === 'object') ? varietiesBySpecies : {}
+  const speciesKey = normalizeKey(lot?.especie || defaultSpecies)
+  const fallback = Array.isArray(map['*']) ? map['*'] : []
+  const source = Array.isArray(map[speciesKey]) ? map[speciesKey] : fallback
+  const options = normalizeComboboxOptions(source)
+
+  const currentValue = String(lot?.n_variedad || '').trim()
+  if (currentValue && !options.some((o) => normalizeKey(o.value) === normalizeKey(currentValue))) {
+    return [
+      { value: currentValue, label: currentValue, searchValue: currentValue },
+      ...options,
+    ]
+  }
+  return options
+}
+
+function LotsTable({
+  lots,
+  editable = false,
+  onUpdateLot,
+  processTypeOptions = [],
+  categoryOptions = [],
+  lotErrorsByIndex = {},
+  varietiesBySpecies = {},
+  defaultSpecies = '',
+}) {
   const rows = Array.isArray(lots) ? lots : []
   const hasMexico = rows.some((r) => String(r?.destino || '').trim().toUpperCase() === 'MEXICO')
   const sumBins = rows.reduce((acc, r) => acc + Number(r?.cantidad_bins || 0), 0)
@@ -106,7 +206,12 @@ function LotsTable({ lots, editable = false, onUpdateLot, processTypeOptions = [
           </tr>
         </thead>
         <tbody>
-          {rows.map((r) => (
+          {rows.map((r, idx) => {
+            const rowErrors = lotErrorsByIndex?.[idx] || {}
+            const rowHasError = Object.keys(rowErrors).length > 0
+            const varietyOptions = getVarietyOptionsForLot(r, varietiesBySpecies, defaultSpecies)
+            const varietyValue = String(r?.n_variedad || '')
+            return (
             <tr key={String(r?.id || `${r?.process_id}-${r?.n_g_recepcion}-${r?.source_key || ''}`)}>
               <td>{fmtTime(r?.inicio) || ''}</td>
               <td>{fmtTime(r?.fin) || ''}</td>
@@ -120,11 +225,14 @@ function LotsTable({ lots, editable = false, onUpdateLot, processTypeOptions = [
                     N° Proceso {r?.source_n_g_proceso || '-'} · Lote {r?.source_lote || r?.n_g_recepcion || '-'}
                   </div>
                 ) : null}
+                {rowHasError ? (
+                  <div className="mt-1 text-[10px] font-semibold text-red-600">Fila {idx + 1} con errores</div>
+                ) : null}
               </td>
               <td>
                 {editable ? (
                   <select
-                    className="w-full rounded border px-2 py-1 text-xs"
+                    className={`w-full rounded border px-2 py-1 text-xs ${rowErrors?.tipo_proceso ? 'border-red-500 bg-red-50' : ''}`}
                     value={String(r?.tipo_proceso || 'Normal')}
                     onChange={(e) => onUpdateLot?.(r?.id, { tipo_proceso: String(e.target.value || 'Normal') })}
                   >
@@ -133,6 +241,7 @@ function LotsTable({ lots, editable = false, onUpdateLot, processTypeOptions = [
                     ))}
                   </select>
                 ) : (r?.tipo_proceso || 'Normal')}
+                {rowErrors?.tipo_proceso ? <div className="mt-1 text-[10px] text-red-600">{rowErrors.tipo_proceso}</div> : null}
               </td>
               <td>{r?.variedad_original || ''}</td>
               <td>{r?.productor_real || ''}</td>
@@ -140,7 +249,7 @@ function LotsTable({ lots, editable = false, onUpdateLot, processTypeOptions = [
               <td>
                 {editable ? (
                   <select
-                    className="w-full rounded border px-2 py-1 text-xs"
+                    className={`w-full rounded border px-2 py-1 text-xs ${rowErrors?.categoria_origen ? 'border-red-500 bg-red-50' : ''}`}
                     value={String(r?.categoria_origen || 'Cat 1')}
                     onChange={(e) => onUpdateLot?.(r?.id, { categoria_origen: String(e.target.value || 'Cat 1') })}
                   >
@@ -151,12 +260,13 @@ function LotsTable({ lots, editable = false, onUpdateLot, processTypeOptions = [
                     ))}
                   </select>
                 ) : (r?.categoria_origen || 'Cat 1')}
+                {rowErrors?.categoria_origen ? <div className="mt-1 text-[10px] text-red-600">{rowErrors.categoria_origen}</div> : null}
               </td>
               {hasMexico ? (
                 <td>
                   {String(r?.destino || '').trim().toUpperCase() === 'MEXICO' && editable ? (
                     <select
-                      className="w-full rounded border px-2 py-1 text-xs"
+                      className={`w-full rounded border px-2 py-1 text-xs ${rowErrors?.huerto ? 'border-red-500 bg-red-50' : ''}`}
                       value={String(r?.huerto || '')}
                       onChange={(e) => onUpdateLot?.(r?.id, { huerto: String(e.target.value || '') })}
                     >
@@ -167,6 +277,7 @@ function LotsTable({ lots, editable = false, onUpdateLot, processTypeOptions = [
                       <option value="Tipo C*">Tipo C*</option>
                     </select>
                   ) : (String(r?.destino || '').trim().toUpperCase() === 'MEXICO' ? (r?.huerto || '') : '')}
+                  {rowErrors?.huerto ? <div className="mt-1 text-[10px] text-red-600">{rowErrors.huerto}</div> : null}
                 </td>
               ) : null}
               <td>{r?.pulpa || ''}</td>
@@ -181,10 +292,33 @@ function LotsTable({ lots, editable = false, onUpdateLot, processTypeOptions = [
               <td>{r?.sdp_centrocosto || ''}</td>
               <td>{r?.nota_calidad || ''}</td>
               <td>{r?.exportadora || ''}</td>
-              <td>{r?.n_variedad || ''}</td>
+              <td>
+                {editable ? (
+                  varietyOptions.length > 0 ? (
+                    <Combobox
+                      value={varietyValue}
+                      onChange={(val) => onUpdateLot?.(r?.id, { n_variedad: String(val || '') })}
+                      options={varietyOptions}
+                      placeholder="Seleccionar variedad"
+                      searchPlaceholder="Buscar variedad..."
+                      emptyMessage="Sin variedades"
+                      className={`w-full ${rowErrors?.n_variedad ? 'border-red-500 bg-red-50' : ''}`}
+                    />
+                  ) : (
+                    <Input
+                      className={rowErrors?.n_variedad ? 'border-red-500 bg-red-50' : ''}
+                      value={varietyValue}
+                      onChange={(e) => onUpdateLot?.(r?.id, { n_variedad: String(e.target.value || '') })}
+                      placeholder="Variedad rotulada"
+                    />
+                  )
+                ) : (r?.n_variedad || '')}
+                {rowErrors?.n_variedad ? <div className="mt-1 text-[10px] text-red-600">{rowErrors.n_variedad}</div> : null}
+              </td>
               <td />
             </tr>
-          ))}
+            )
+          })}
           <tr>
             <td colSpan={hasMexico ? 13 : 12} className="font-bold">TOTAL</td>
             <td className="font-bold">{sumBins ? sumBins.toLocaleString('es-CL') : ''}</td>
@@ -197,7 +331,7 @@ function LotsTable({ lots, editable = false, onUpdateLot, processTypeOptions = [
   )
 }
 
-function PackagingPicker({ value, disabled, onPick }) {
+function PackagingPicker({ value, disabled, onPick, className = 'w-full' }) {
   const [query, setQuery] = useState('')
   const [loading, setLoading] = useState(false)
   const [options, setOptions] = useState([])
@@ -260,7 +394,7 @@ function PackagingPicker({ value, disabled, onPick }) {
       placeholder={loading ? 'Buscando…' : (String(value || '') ? String(value) : 'Buscar embalaje…')}
       searchPlaceholder="Buscar por código o descripción…"
       emptyMessage={loading ? 'Buscando…' : 'Sin resultados'}
-      className="w-full"
+      className={className}
       disabled={disabled}
       searchValue={query}
       onSearchChange={setQuery}
@@ -268,7 +402,17 @@ function PackagingPicker({ value, disabled, onPick }) {
   )
 }
 
-export default function Edit({ process, shift, lineId, latestVersion, sheet, downloadUrl, processTypeOptions = [], categoryOptions = [] }) {
+export default function Edit({
+  process,
+  shift,
+  lineId,
+  latestVersion,
+  sheet,
+  downloadUrl,
+  processTypeOptions = [],
+  categoryOptions = [],
+  varietiesBySpecies = {},
+}) {
   const { props } = usePage()
   const lots = sheet?.lots || []
   const packaging = Array.isArray(sheet?.packagingSummary) ? sheet.packagingSummary : []
@@ -296,6 +440,7 @@ export default function Edit({ process, shift, lineId, latestVersion, sheet, dow
       ...l,
       tipo_proceso: String(l?.tipo_proceso || 'Normal'),
       categoria_origen: String(l?.categoria_origen || 'Cat 1'),
+      n_variedad: String(l?.n_variedad || ''),
       pulpa: String(l?.pulpa || ''),
       huerto: String(l?.huerto || ''),
     }))
@@ -323,6 +468,19 @@ export default function Edit({ process, shift, lineId, latestVersion, sheet, dow
     return mapped
   }, [categoryOptions])
 
+  const normalizedVarietiesBySpecies = useMemo(() => {
+    const source = (varietiesBySpecies && typeof varietiesBySpecies === 'object') ? varietiesBySpecies : {}
+    const out = {}
+    Object.entries(source).forEach(([speciesKey, values]) => {
+      const key = speciesKey === '*' ? '*' : normalizeKey(speciesKey)
+      out[key] = normalizeComboboxOptions(values)
+    })
+    if (!Array.isArray(out['*'])) {
+      out['*'] = []
+    }
+    return out
+  }, [varietiesBySpecies])
+
   const { data, setData, post, processing, errors } = useForm({
     line_id: Number(lineId || 0),
     change_reason: '',
@@ -331,6 +489,44 @@ export default function Edit({ process, shift, lineId, latestVersion, sheet, dow
   })
 
   const lotComments = useMemo(() => commentsByLots(data.lots), [data.lots])
+  const rowErrorState = useMemo(() => buildRowErrorState(errors), [errors])
+  const rowErrorSummary = useMemo(() => {
+    const parts = []
+    if (rowErrorState.lotRows.length > 0) {
+      parts.push(`Procesos/lotes: filas ${rowErrorState.lotRows.join(', ')}`)
+    }
+    if (rowErrorState.packagingRows.length > 0) {
+      parts.push(`Destino + Embalajes: filas ${rowErrorState.packagingRows.join(', ')}`)
+    }
+    const text = parts.join(' · ')
+    return {
+      text,
+      signature: text || '',
+    }
+  }, [rowErrorState])
+
+  const lastToastSignatureRef = useRef('')
+
+  useEffect(() => {
+    const flashError = toErrorText(props?.flash?.error)
+    if (flashError) {
+      toast.error(flashError)
+    }
+  }, [props?.flash?.error])
+
+  useEffect(() => {
+    if (!rowErrorSummary.signature) {
+      lastToastSignatureRef.current = ''
+      return
+    }
+
+    if (lastToastSignatureRef.current === rowErrorSummary.signature) {
+      return
+    }
+
+    lastToastSignatureRef.current = rowErrorSummary.signature
+    toast.error(`Revisa errores en ${rowErrorSummary.text}`)
+  }, [rowErrorSummary])
 
   const updateRow = (idx, key, patch) => {
     const current = Array.isArray(data.rows) ? data.rows : []
@@ -355,12 +551,24 @@ export default function Edit({ process, shift, lineId, latestVersion, sheet, dow
     e.preventDefault()
     post(route('planning.processes.instruction.update', process.id), {
       preserveScroll: true,
+      onError: (serverErrors) => {
+        const state = buildRowErrorState(serverErrors)
+        const parts = []
+        if (state.lotRows.length > 0) {
+          parts.push(`Procesos/lotes: filas ${state.lotRows.join(', ')}`)
+        }
+        if (state.packagingRows.length > 0) {
+          parts.push(`Destino + Embalajes: filas ${state.packagingRows.join(', ')}`)
+        }
+        toast.error(parts.length > 0 ? `No se pudo guardar. ${parts.join(' · ')}` : 'No se pudo guardar. Revisa los campos editables.')
+      },
     })
   }
 
   return (
     <div className="space-y-4 px-8">
       <InstructionCss />
+      <Toaster richColors position="top-right" />
 
       <div className="flex items-start justify-between gap-3">
         <div className="min-w-0">
@@ -454,7 +662,15 @@ export default function Edit({ process, shift, lineId, latestVersion, sheet, dow
                 onUpdateLot={updateLot}
                 processTypeOptions={normalizedProcessTypeOptions}
                 categoryOptions={normalizedCategoryOptions}
+                lotErrorsByIndex={rowErrorState.lotErrorsByIndex}
+                varietiesBySpecies={normalizedVarietiesBySpecies}
+                defaultSpecies={sheet?.speciesLabel || process?.especie || ''}
               />
+              {rowErrorState.lotRows.length > 0 ? (
+                <div className="mt-2 text-xs font-semibold text-red-600">
+                  Filas con error en Procesos / lotes: {rowErrorState.lotRows.join(', ')}
+                </div>
+              ) : null}
 
               <h2>Destino + Embalajes (editable)</h2>
               <div className="table-wrap">
@@ -476,48 +692,29 @@ export default function Edit({ process, shift, lineId, latestVersion, sheet, dow
                     </tr>
                   </thead>
                   <tbody>
-                    {packaging.length ? packaging.map((r, idx) => (
-                      <tr key={String(r?.key || idx)}>
-                        {(() => {
-                          const rowKey = String(r?.key || '')
-                          return (
-                            <>
-                        <td style={{ minWidth: 120 }}>
-                          <Input
-                            value={data.rows?.[idx]?.destino ?? ''}
-                            onChange={(e) => {
-                              updateRow(idx, rowKey, { destino: e.target.value })
-                            }}
-                            placeholder="Ej: CHINA"
-                          />
-                        </td>
-                        <td style={{ minWidth: 140 }}>
-                          <PackagingPicker
-                            value={data.rows?.[idx]?.c_item ?? ''}
-                            disabled={processing}
-                            onPick={(it) => {
-                              updateRow(idx, rowKey, {
-                                c_item: String(it?.c_item || ''),
-                                desc_embalaje: String(it?.n_item || ''),
-                                etiqueta: String(it?.CP1 || it?.etiqueta || ''),
-                                cp2: it?.cp2_cajas_por_pallet != null ? String(it.cp2_cajas_por_pallet) : String(it?.CP2 || ''),
-                                altura: String(it?.CP3 || it?.altura || ''),
-                              })
-                            }}
-                          />
-                        </td>
-                        <td style={{ minWidth: 320 }}>
-                          <Textarea
-                            value={data.rows?.[idx]?.desc_embalaje ?? ''}
-                            onChange={(e) => {
-                              updateRow(idx, rowKey, { desc_embalaje: e.target.value })
-                            }}
-                            rows={2}
-                            placeholder="Descripción..."
-                          />
-                          <div className="mt-2">
+                    {packaging.length ? packaging.map((r, idx) => {
+                      const rowKey = String(r?.key || '')
+                      const row = data.rows?.[idx] || {}
+                      const rowErrors = rowErrorState.packagingErrorsByIndex?.[idx] || {}
+                      const rowHasError = Object.keys(rowErrors).length > 0
+                      return (
+                        <tr key={String(r?.key || idx)} className={rowHasError ? 'bg-red-50/40' : ''}>
+                          <td style={{ minWidth: 120 }}>
+                            <Input
+                              className={rowErrors?.destino ? 'border-red-500 bg-red-50' : ''}
+                              value={row?.destino ?? ''}
+                              onChange={(e) => {
+                                updateRow(idx, rowKey, { destino: e.target.value })
+                              }}
+                              placeholder="Ej: CHINA"
+                            />
+                            {rowHasError ? <div className="mt-1 text-[10px] font-semibold text-red-600">Fila {idx + 1} con errores</div> : null}
+                            {rowErrors?.destino ? <div className="mt-1 text-[10px] text-red-600">{rowErrors.destino}</div> : null}
+                          </td>
+                          <td style={{ minWidth: 140 }}>
                             <PackagingPicker
-                              value={data.rows?.[idx]?.c_item ?? ''}
+                              className={`w-full ${rowErrors?.c_item ? 'border-red-500 bg-red-50' : ''}`}
+                              value={row?.c_item ?? ''}
                               disabled={processing}
                               onPick={(it) => {
                                 updateRow(idx, rowKey, {
@@ -529,99 +726,143 @@ export default function Edit({ process, shift, lineId, latestVersion, sheet, dow
                                 })
                               }}
                             />
-                          </div>
-                        </td>
-                        <td style={{ minWidth: 160 }}>
-                          <Input
-                            value={data.rows?.[idx]?.etiqueta ?? ''}
-                            onChange={(e) => {
-                              updateRow(idx, rowKey, { etiqueta: e.target.value })
-                            }}
-                            placeholder="Etiqueta"
-                          />
-                        </td>
-                        <td style={{ minWidth: 120 }}>
-                          <Input
-                            type="number"
-                            step="0.1"
-                            value={data.rows?.[idx]?.peso_caja ?? ''}
-                            onChange={(e) => {
-                              updateRow(idx, rowKey, { peso_caja: e.target.value })
-                            }}
-                            placeholder="Kg"
-                          />
-                        </td>
-                        <td style={{ minWidth: 130 }}>
-                          <Input
-                            type="number"
-                            value={data.rows?.[idx]?.cp2 ?? ''}
-                            onChange={(e) => {
-                              updateRow(idx, rowKey, { cp2: e.target.value })
-                            }}
-                            placeholder="Env/Pallet"
-                          />
-                        </td>
-                        <td style={{ minWidth: 120 }}>
-                          <Input
-                            value={data.rows?.[idx]?.altura ?? ''}
-                            onChange={(e) => {
-                              updateRow(idx, rowKey, { altura: e.target.value })
-                            }}
-                            placeholder="Altura"
-                          />
-                        </td>
-                        <td style={{ minWidth: 220 }}>
-                          <Input
-                            value={data.rows?.[idx]?.calibres ?? ''}
-                            onChange={(e) => {
-                              updateRow(idx, rowKey, { calibres: e.target.value })
-                            }}
-                            placeholder="Ej: 36 AL 56 o L, XL, 2J"
-                          />
-                        </td>
-                        <td style={{ minWidth: 220 }}>
-                          <Textarea
-                            value={data.rows?.[idx]?.indications ?? ''}
-                            onChange={(e) => {
-                              updateRow(idx, rowKey, { indications: e.target.value })
-                            }}
-                            rows={2}
-                            placeholder="Indicaciones (pallets, etc)..."
-                          />
-                        </td>
-                        <td style={{ minWidth: 320 }}>
-                          <Textarea
-                            value={data.rows?.[idx]?.observaciones ?? ''}
-                            onChange={(e) => {
-                              updateRow(idx, rowKey, { observaciones: e.target.value })
-                            }}
-                            rows={2}
-                            placeholder="Observaciones..."
-                          />
-                        </td>
-                        <td style={{ minWidth: 140 }}>
-                          <Input
-                            value={data.rows?.[idx]?.count ?? ''}
-                            onChange={(e) => {
-                              updateRow(idx, rowKey, { count: e.target.value })
-                            }}
-                            placeholder="Bins/Kg"
-                          />
-                        </td>
-                        <td style={{ minWidth: 220 }}>
-                          <Input
-                            value={data.rows?.[idx]?.pedido ?? ''}
-                            onChange={(e) => {
-                              updateRow(idx, rowKey, { pedido: e.target.value })
-                            }}
-                            placeholder="Ej: Pedido 123 / Cliente X"
-                          />
-                        </td>
-                            </>
-                          )
-                        })()}
-                      </tr>
-                    )) : (
+                            {rowErrors?.c_item ? <div className="mt-1 text-[10px] text-red-600">{rowErrors.c_item}</div> : null}
+                          </td>
+                          <td style={{ minWidth: 320 }}>
+                            <Textarea
+                              className={rowErrors?.desc_embalaje ? 'border-red-500 bg-red-50' : ''}
+                              value={row?.desc_embalaje ?? ''}
+                              onChange={(e) => {
+                                updateRow(idx, rowKey, { desc_embalaje: e.target.value })
+                              }}
+                              rows={2}
+                              placeholder="Descripción..."
+                            />
+                            <div className="mt-2">
+                              <PackagingPicker
+                                className={`w-full ${rowErrors?.desc_embalaje ? 'border-red-500 bg-red-50' : ''}`}
+                                value={row?.c_item ?? ''}
+                                disabled={processing}
+                                onPick={(it) => {
+                                  updateRow(idx, rowKey, {
+                                    c_item: String(it?.c_item || ''),
+                                    desc_embalaje: String(it?.n_item || ''),
+                                    etiqueta: String(it?.CP1 || it?.etiqueta || ''),
+                                    cp2: it?.cp2_cajas_por_pallet != null ? String(it.cp2_cajas_por_pallet) : String(it?.CP2 || ''),
+                                    altura: String(it?.CP3 || it?.altura || ''),
+                                  })
+                                }}
+                              />
+                            </div>
+                            {rowErrors?.desc_embalaje ? <div className="mt-1 text-[10px] text-red-600">{rowErrors.desc_embalaje}</div> : null}
+                          </td>
+                          <td style={{ minWidth: 160 }}>
+                            <Input
+                              className={rowErrors?.etiqueta ? 'border-red-500 bg-red-50' : ''}
+                              value={row?.etiqueta ?? ''}
+                              onChange={(e) => {
+                                updateRow(idx, rowKey, { etiqueta: e.target.value })
+                              }}
+                              placeholder="Etiqueta"
+                            />
+                            {rowErrors?.etiqueta ? <div className="mt-1 text-[10px] text-red-600">{rowErrors.etiqueta}</div> : null}
+                          </td>
+                          <td style={{ minWidth: 120 }}>
+                            <Input
+                              className={rowErrors?.peso_caja ? 'border-red-500 bg-red-50' : ''}
+                              type="number"
+                              step="0.1"
+                              value={row?.peso_caja ?? ''}
+                              onChange={(e) => {
+                                updateRow(idx, rowKey, { peso_caja: e.target.value })
+                              }}
+                              placeholder="Kg"
+                            />
+                            {rowErrors?.peso_caja ? <div className="mt-1 text-[10px] text-red-600">{rowErrors.peso_caja}</div> : null}
+                          </td>
+                          <td style={{ minWidth: 130 }}>
+                            <Input
+                              className={rowErrors?.cp2 ? 'border-red-500 bg-red-50' : ''}
+                              type="number"
+                              value={row?.cp2 ?? ''}
+                              onChange={(e) => {
+                                updateRow(idx, rowKey, { cp2: e.target.value })
+                              }}
+                              placeholder="Env/Pallet"
+                            />
+                            {rowErrors?.cp2 ? <div className="mt-1 text-[10px] text-red-600">{rowErrors.cp2}</div> : null}
+                          </td>
+                          <td style={{ minWidth: 120 }}>
+                            <Input
+                              className={rowErrors?.altura ? 'border-red-500 bg-red-50' : ''}
+                              value={row?.altura ?? ''}
+                              onChange={(e) => {
+                                updateRow(idx, rowKey, { altura: e.target.value })
+                              }}
+                              placeholder="Altura"
+                            />
+                            {rowErrors?.altura ? <div className="mt-1 text-[10px] text-red-600">{rowErrors.altura}</div> : null}
+                          </td>
+                          <td style={{ minWidth: 220 }}>
+                            <Input
+                              className={rowErrors?.calibres ? 'border-red-500 bg-red-50' : ''}
+                              value={row?.calibres ?? ''}
+                              onChange={(e) => {
+                                updateRow(idx, rowKey, { calibres: e.target.value })
+                              }}
+                              placeholder="Ej: 36 AL 56 o L, XL, 2J"
+                            />
+                            {rowErrors?.calibres ? <div className="mt-1 text-[10px] text-red-600">{rowErrors.calibres}</div> : null}
+                          </td>
+                          <td style={{ minWidth: 220 }}>
+                            <Textarea
+                              className={rowErrors?.indications ? 'border-red-500 bg-red-50' : ''}
+                              value={row?.indications ?? ''}
+                              onChange={(e) => {
+                                updateRow(idx, rowKey, { indications: e.target.value })
+                              }}
+                              rows={2}
+                              placeholder="Indicaciones (pallets, etc)..."
+                            />
+                            {rowErrors?.indications ? <div className="mt-1 text-[10px] text-red-600">{rowErrors.indications}</div> : null}
+                          </td>
+                          <td style={{ minWidth: 320 }}>
+                            <Textarea
+                              className={rowErrors?.observaciones ? 'border-red-500 bg-red-50' : ''}
+                              value={row?.observaciones ?? ''}
+                              onChange={(e) => {
+                                updateRow(idx, rowKey, { observaciones: e.target.value })
+                              }}
+                              rows={2}
+                              placeholder="Observaciones..."
+                            />
+                            {rowErrors?.observaciones ? <div className="mt-1 text-[10px] text-red-600">{rowErrors.observaciones}</div> : null}
+                          </td>
+                          <td style={{ minWidth: 140 }}>
+                            <Input
+                              className={rowErrors?.count ? 'border-red-500 bg-red-50' : ''}
+                              value={row?.count ?? ''}
+                              onChange={(e) => {
+                                updateRow(idx, rowKey, { count: e.target.value })
+                              }}
+                              placeholder="Bins/Kg"
+                            />
+                            {rowErrors?.count ? <div className="mt-1 text-[10px] text-red-600">{rowErrors.count}</div> : null}
+                          </td>
+                          <td style={{ minWidth: 220 }}>
+                            <Input
+                              className={rowErrors?.pedido ? 'border-red-500 bg-red-50' : ''}
+                              value={row?.pedido ?? ''}
+                              onChange={(e) => {
+                                updateRow(idx, rowKey, { pedido: e.target.value })
+                              }}
+                              placeholder="Ej: Pedido 123 / Cliente X"
+                            />
+                            {rowErrors?.pedido ? <div className="mt-1 text-[10px] text-red-600">{rowErrors.pedido}</div> : null}
+                          </td>
+                        </tr>
+                      )
+                    }) : (
                       <tr>
                         <td colSpan={12} className="text-gray-600">Sin embalajes asignados todavía para esta línea.</td>
                       </tr>
@@ -629,6 +870,11 @@ export default function Edit({ process, shift, lineId, latestVersion, sheet, dow
                   </tbody>
                 </table>
               </div>
+              {rowErrorState.packagingRows.length > 0 ? (
+                <div className="mt-2 text-xs font-semibold text-red-600">
+                  Filas con error en Destino + Embalajes: {rowErrorState.packagingRows.join(', ')}
+                </div>
+              ) : null}
 
               <div className="mt-3 text-sm">
                 <span className="font-bold">Comentarios:</span>
@@ -651,7 +897,12 @@ export default function Edit({ process, shift, lineId, latestVersion, sheet, dow
               </Button>
             </div>
 
+            {rowErrorSummary.text ? <div className="text-sm text-red-600">{rowErrorSummary.text}</div> : null}
             {errors?.rows ? <div className="text-sm text-red-600">{String(errors.rows)}</div> : null}
+            {errors?.lots ? <div className="text-sm text-red-600">{String(errors.lots)}</div> : null}
+            {rowErrorState.globalErrors.length > 0 ? (
+              <div className="text-sm text-red-600">{rowErrorState.globalErrors.join(' · ')}</div>
+            ) : null}
           </form>
         </CardContent>
       </Card>
