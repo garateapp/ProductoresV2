@@ -7,6 +7,7 @@ use App\Models\EstimationBiweeklyAudit;
 use App\Models\EstimationBiweeklyRow;
 use App\Models\EstimationBiweeklyVersion;
 use App\Models\EstimationWeek;
+use App\Models\Service;
 use App\Models\User;
 use App\Models\Variedad;
 use Carbon\Carbon;
@@ -52,6 +53,7 @@ class EstimationBiweeklyImportService
             throw ValidationException::withMessages(['file' => ['No se encontraron filas validas para importar.']]);
         }
 
+        $payload['origin'] = 'agronomo';
         $payload['period_start_week'] = $payload['period_start_week'] ?? (empty($weekNumbers) ? null : min($weekNumbers));
         $payload['period_end_week'] = $payload['period_end_week'] ?? (empty($weekNumbers) ? null : max($weekNumbers));
 
@@ -59,6 +61,7 @@ class EstimationBiweeklyImportService
             $filePath = $storedPath ?? $this->storeFileFromPath($absolutePath, $originalName);
 
             EstimationBiweeklyVersion::where('season_id', $payload['season_id'])
+                ->where('origin', $payload['origin'])
                 ->where('period_start_week', $payload['period_start_week'] ?? null)
                 ->where('period_end_week', $payload['period_end_week'] ?? null)
                 ->where('status', EstimationVersionStatus::ACTIVE->value)
@@ -66,6 +69,7 @@ class EstimationBiweeklyImportService
 
             $version = EstimationBiweeklyVersion::create([
                 'season_id' => $payload['season_id'],
+                'origin' => $payload['origin'],
                 'period_start_week' => $payload['period_start_week'] ?? null,
                 'period_end_week' => $payload['period_end_week'] ?? null,
                 'source' => $payload['source'] ?? 'upload',
@@ -102,8 +106,10 @@ class EstimationBiweeklyImportService
     {
         return DB::transaction(function () use ($base, $user, $source): EstimationBiweeklyVersion {
             $base->load('rows');
+            $origin = (string) ($base->origin ?: 'agronomo');
 
             EstimationBiweeklyVersion::where('season_id', $base->season_id)
+                ->where('origin', $origin)
                 ->where('period_start_week', $base->period_start_week)
                 ->where('period_end_week', $base->period_end_week)
                 ->where('status', EstimationVersionStatus::ACTIVE->value)
@@ -111,6 +117,7 @@ class EstimationBiweeklyImportService
 
             $version = EstimationBiweeklyVersion::create([
                 'season_id' => $base->season_id,
+                'origin' => $origin,
                 'period_start_week' => $base->period_start_week,
                 'period_end_week' => $base->period_end_week,
                 'source' => $source,
@@ -150,6 +157,7 @@ class EstimationBiweeklyImportService
         $baseRow = $base->rows()->findOrFail($payload['row_id']);
         $row = $version->rows()
             ->where('producer_id', $baseRow->producer_id)
+            ->where('service_id', $baseRow->service_id)
             ->where('sucursal', $baseRow->sucursal)
             ->where('variedad_id', $baseRow->variedad_id)
             ->whereDate('dia', $baseRow->dia)
@@ -173,6 +181,219 @@ class EstimationBiweeklyImportService
         ]);
 
         return $version;
+    }
+
+    public function createManualServiceVersion(array $payload, User $user): EstimationBiweeklyVersion
+    {
+        $data = validator($payload, [
+            'season_id' => ['required', 'exists:estimation_seasons,id'],
+            'period_start_week' => ['nullable', 'integer', 'min:1', 'max:53'],
+            'period_end_week' => ['nullable', 'integer', 'min:1', 'max:53'],
+            'source' => ['nullable', 'string', 'max:32'],
+            'notes' => ['nullable', 'string'],
+            'rows' => ['required', 'array', 'min:1'],
+            'rows.*.service_id' => ['required', 'exists:services,id'],
+            'rows.*.variedad_id' => ['required', 'exists:variedads,id'],
+            'rows.*.especie' => ['nullable', 'string', 'max:80'],
+            'rows.*.planta' => ['nullable', 'string', 'max:120'],
+            'rows.*.tipo' => ['nullable', 'string', 'max:80'],
+            'rows.*.acopio' => ['nullable', 'boolean'],
+            'rows.*.mexico' => ['nullable', 'boolean'],
+            'rows.*.dia' => ['required', 'date'],
+            'rows.*.total_kilo' => ['required', 'numeric', 'min:0.001'],
+        ])->validate();
+
+        $rows = collect($data['rows'])->values();
+        $excludedServiceIds = [4, 6];
+
+        $serviceIds = $rows
+            ->pluck('service_id')
+            ->map(fn ($id) => (int) $id)
+            ->unique()
+            ->values()
+            ->all();
+
+        $services = Service::query()
+            ->with(['owner:id,name,csg'])
+            ->whereIn('id', $serviceIds)
+            ->whereNotIn('id', $excludedServiceIds)
+            ->get()
+            ->keyBy('id');
+
+        $invalidServices = array_values(array_diff($serviceIds, $services->keys()->map(fn ($id) => (int) $id)->all()));
+        if (! empty($invalidServices)) {
+            throw ValidationException::withMessages([
+                'rows' => ['Servicios no permitidos o no encontrados: '.implode(', ', $invalidServices)],
+            ]);
+        }
+
+        $servicesWithoutOwner = $services
+            ->filter(fn (Service $service) => ! $service->owner_id)
+            ->keys()
+            ->values()
+            ->all();
+        if (! empty($servicesWithoutOwner)) {
+            throw ValidationException::withMessages([
+                'rows' => ['Todos los servicios deben tener dueño asignado. Servicios sin dueño: '.implode(', ', $servicesWithoutOwner)],
+            ]);
+        }
+
+        $variedadIds = $rows
+            ->pluck('variedad_id')
+            ->map(fn ($id) => (int) $id)
+            ->unique()
+            ->values()
+            ->all();
+
+        $variedades = Variedad::query()
+            ->with(['especie:id,name'])
+            ->whereIn('id', $variedadIds)
+            ->get()
+            ->keyBy('id');
+
+        $missingVariedades = array_values(array_diff($variedadIds, $variedades->keys()->map(fn ($id) => (int) $id)->all()));
+        if (! empty($missingVariedades)) {
+            throw ValidationException::withMessages([
+                'rows' => ['Variedades no encontradas: '.implode(', ', $missingVariedades)],
+            ]);
+        }
+
+        $normalizedRows = [];
+        $weekNumbers = [];
+        $seenKeys = [];
+        foreach ($rows as $index => $rowData) {
+            $serviceId = (int) $rowData['service_id'];
+            /** @var Service $service */
+            $service = $services->get($serviceId);
+            /** @var Variedad $variedad */
+            $variedad = $variedades->get((int) $rowData['variedad_id']);
+            $owner = $service?->owner;
+            if (! $service || ! $variedad || ! $owner) {
+                throw ValidationException::withMessages([
+                    'rows' => ['Fila '.($index + 1).': no se pudo resolver servicio, variedad o dueño.'],
+                ]);
+            }
+
+            $day = Carbon::parse((string) $rowData['dia'])->startOfDay();
+            $week = (int) $day->isoWeek();
+            $weekNumbers[] = $week;
+            $totalKilo = (float) $rowData['total_kilo'];
+
+            $duplicateKey = $serviceId
+                .'|'.((int) $owner->id)
+                .'|'.((int) $variedad->id)
+                .'|'.$day->toDateString()
+                .'|'.number_format($totalKilo, 3, '.', '');
+            if (isset($seenKeys[$duplicateKey])) {
+                throw ValidationException::withMessages([
+                    'rows' => ['Fila '.($index + 1).': existe una fila duplicada para servicio + variedad + día + total kilo.'],
+                ]);
+            }
+            $seenKeys[$duplicateKey] = true;
+
+            $species = trim((string) ($variedad->especie?->name ?: ($rowData['especie'] ?? '')));
+            if ($species === '') {
+                throw ValidationException::withMessages([
+                    'rows' => ['Fila '.($index + 1).': no se pudo resolver especie desde la variedad.'],
+                ]);
+            }
+
+            $mexico = array_key_exists('mexico', $rowData)
+                ? ($rowData['mexico'] === null ? null : (bool) $rowData['mexico'])
+                : null;
+
+            $normalizedRows[] = [
+                'service_id' => $serviceId,
+                'producer_id' => (int) $owner->id,
+                'agronomist_id' => null,
+                'variedad_id' => (int) $variedad->id,
+                'planta' => trim((string) ($rowData['planta'] ?? $service->name)),
+                'sucursal' => 'SERV-'.$serviceId,
+                'csg' => trim((string) ($owner->csg ?? '')),
+                'especie' => $species,
+                'tipo' => trim((string) ($rowData['tipo'] ?? 'SERVICIO')),
+                'acopio' => (bool) ($rowData['acopio'] ?? false),
+                'mexico' => $mexico,
+                'dia' => $day->toDateString(),
+                'semana' => $week,
+                'total_kilo' => $totalKilo,
+            ];
+        }
+
+        $weekNumbers = array_values(array_unique($weekNumbers));
+        if (! empty($weekNumbers)) {
+            $seasonWeeks = EstimationWeek::query()
+                ->where('season_id', $data['season_id'])
+                ->pluck('week_number')
+                ->all();
+            $missingWeeks = array_values(array_diff($weekNumbers, $seasonWeeks));
+            if (! empty($missingWeeks)) {
+                throw ValidationException::withMessages([
+                    'rows' => ['Semanas no registradas en la temporada: '.implode(', ', $missingWeeks)],
+                ]);
+            }
+        }
+
+        $periodStartWeek = $data['period_start_week'] ?? (empty($weekNumbers) ? null : min($weekNumbers));
+        $periodEndWeek = $data['period_end_week'] ?? (empty($weekNumbers) ? null : max($weekNumbers));
+        if ($periodStartWeek !== null && $periodEndWeek !== null && $periodStartWeek > $periodEndWeek) {
+            throw ValidationException::withMessages([
+                'period_start_week' => ['La semana de inicio no puede ser mayor a la semana de fin.'],
+            ]);
+        }
+        if ($periodStartWeek !== null && $periodEndWeek !== null) {
+            $outsideWeeks = array_values(array_filter($weekNumbers, fn ($week) => $week < $periodStartWeek || $week > $periodEndWeek));
+            if (! empty($outsideWeeks)) {
+                throw ValidationException::withMessages([
+                    'rows' => ['Hay filas fuera del rango de semanas definido: '.implode(', ', $outsideWeeks)],
+                ]);
+            }
+        }
+
+        $origin = 'servicio_planificador';
+        $source = $data['source'] ?? 'planner_manual';
+
+        return DB::transaction(function () use ($data, $normalizedRows, $periodStartWeek, $periodEndWeek, $origin, $source, $user): EstimationBiweeklyVersion {
+            EstimationBiweeklyVersion::query()
+                ->where('season_id', $data['season_id'])
+                ->where('origin', $origin)
+                ->where('period_start_week', $periodStartWeek)
+                ->where('period_end_week', $periodEndWeek)
+                ->where('status', EstimationVersionStatus::ACTIVE->value)
+                ->update(['status' => EstimationVersionStatus::SUPERSEDED->value]);
+
+            $version = EstimationBiweeklyVersion::query()->create([
+                'season_id' => $data['season_id'],
+                'origin' => $origin,
+                'period_start_week' => $periodStartWeek,
+                'period_end_week' => $periodEndWeek,
+                'source' => $source,
+                'uploaded_by' => $user->id,
+                'status' => EstimationVersionStatus::ACTIVE,
+                'notes' => $data['notes'] ?? null,
+            ]);
+
+            foreach ($normalizedRows as $rowData) {
+                $row = EstimationBiweeklyRow::query()->create([
+                    ...$rowData,
+                    'estimation_biweekly_version_id' => $version->id,
+                ]);
+
+                EstimationBiweeklyAudit::query()->create([
+                    'estimation_biweekly_version_id' => $version->id,
+                    'estimation_biweekly_row_id' => $row->id,
+                    'field_name' => 'row',
+                    'action' => 'insert',
+                    'source' => $source,
+                    'old_value' => null,
+                    'new_value' => json_encode($rowData),
+                    'changed_by' => $user->id,
+                    'changed_at' => now(),
+                ]);
+            }
+
+            return $version;
+        });
     }
 
     private function parseExcel(string $path): array

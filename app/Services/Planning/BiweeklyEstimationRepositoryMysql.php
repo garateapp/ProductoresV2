@@ -10,25 +10,52 @@ use Illuminate\Support\Facades\DB;
 
 class BiweeklyEstimationRepositoryMysql
 {
-    public function getActiveVersionId(int $seasonId): ?int
+    public const ORIGIN_AGRONOMO = 'agronomo';
+
+    public const ORIGIN_SERVICE_PLANNER = 'servicio_planificador';
+
+    /**
+     * @param  string  $origin  agronomo|servicio_planificador
+     */
+    public function getActiveVersionId(int $seasonId, string $origin = self::ORIGIN_AGRONOMO): ?int
     {
         return EstimationBiweeklyVersion::query()
             ->where('season_id', $seasonId)
+            ->where('origin', $origin)
             ->where('status', EstimationVersionStatus::ACTIVE->value)
             ->orderByDesc('created_at')
+            ->orderByDesc('id')
             ->value('id');
     }
 
     /**
-     * Devuelve la última versión ACTIVE aplicable por semana (periodo bisemanal).
+     * Compat: devuelve 1 versión por semana priorizando origen agrónomo.
      *
-     * Importante: en este proyecto puede haber múltiples versiones ACTIVE simultáneas,
-     * una por cada bisemanal (period_start_week/period_end_week).
-     *
-     * @param  array<int>  $weekNumbers  semanas (1..53)
+     * @param  array<int>  $weekNumbers
      * @return array<int,int|null> map semana => version_id
      */
     public function getActiveVersionIdsForWeeks(int $seasonId, array $weekNumbers): array
+    {
+        $byOrigin = $this->getActiveVersionIdsForWeeksByOrigin($seasonId, $weekNumbers, [
+            self::ORIGIN_AGRONOMO,
+        ]);
+
+        $map = [];
+        foreach ($byOrigin as $week => $origins) {
+            $map[(int) $week] = $origins[self::ORIGIN_AGRONOMO] ?? null;
+        }
+
+        return $map;
+    }
+
+    /**
+     * Devuelve versión ACTIVE aplicable por semana y por origen.
+     *
+     * @param  array<int>  $weekNumbers
+     * @param  array<int,string>  $origins
+     * @return array<int,array<string,int|null>> map semana => [origin => version_id|null]
+     */
+    public function getActiveVersionIdsForWeeksByOrigin(int $seasonId, array $weekNumbers, array $origins = [self::ORIGIN_AGRONOMO, self::ORIGIN_SERVICE_PLANNER]): array
     {
         $weeks = collect($weekNumbers)
             ->map(fn ($w) => (int) $w)
@@ -36,36 +63,53 @@ class BiweeklyEstimationRepositoryMysql
             ->unique()
             ->values();
 
-        if ($weeks->isEmpty()) {
+        $originList = collect($origins)
+            ->map(fn ($origin) => trim((string) $origin))
+            ->filter(fn ($origin) => $origin !== '')
+            ->unique()
+            ->values();
+
+        if ($weeks->isEmpty() || $originList->isEmpty()) {
             return [];
         }
 
         $actives = EstimationBiweeklyVersion::query()
             ->where('season_id', $seasonId)
             ->where('status', EstimationVersionStatus::ACTIVE->value)
+            ->whereIn('origin', $originList->all())
             ->orderByDesc('created_at')
             ->orderByDesc('id')
-            ->get(['id', 'period_start_week', 'period_end_week', 'created_at']);
+            ->get(['id', 'origin', 'period_start_week', 'period_end_week', 'created_at']);
 
-        $fallback = $actives->first()
-            ?: EstimationBiweeklyVersion::query()
-                ->where('season_id', $seasonId)
-                ->orderByDesc('created_at')
-                ->orderByDesc('id')
-                ->first(['id']);
+        $fallbackByOrigin = [];
+        foreach ($originList as $origin) {
+            $fallbackByOrigin[$origin] = $actives->firstWhere('origin', $origin);
+        }
 
         $map = [];
         foreach ($weeks as $week) {
-            $picked = null;
-            foreach ($actives as $v) {
-                $start = (int) ($v->period_start_week ?? 1);
-                $end = (int) ($v->period_end_week ?? 53);
-                if ($week >= $start && $week <= $end) {
-                    $picked = (int) $v->id;
-                    break; // ya viene en orderBy desc => el primero es el más reciente
+            $map[$week] = [];
+
+            foreach ($originList as $origin) {
+                $picked = null;
+                foreach ($actives as $version) {
+                    if ((string) $version->origin !== (string) $origin) {
+                        continue;
+                    }
+
+                    $start = (int) ($version->period_start_week ?? 1);
+                    $end = (int) ($version->period_end_week ?? 53);
+                    if ($week >= $start && $week <= $end) {
+                        $picked = (int) $version->id;
+                        break;
+                    }
                 }
+
+                $map[$week][$origin] = $picked
+                    ?? (isset($fallbackByOrigin[$origin]) && $fallbackByOrigin[$origin]
+                        ? (int) $fallbackByOrigin[$origin]->id
+                        : null);
             }
-            $map[$week] = $picked ?? ($fallback ? (int) $fallback->id : null);
         }
 
         return $map;
@@ -73,7 +117,7 @@ class BiweeklyEstimationRepositoryMysql
 
     /**
      * Devuelve kilos estimados por día (y opcionalmente por variedad) usando la versión ACTIVE más reciente
-     * de la temporada indicada.
+     * de agrónomos para la temporada indicada.
      *
      * Retorna: Collection de arrays
      * - dia (Y-m-d)
@@ -84,19 +128,14 @@ class BiweeklyEstimationRepositoryMysql
      */
     public function getDailyTotals(int $seasonId, Carbon $from, Carbon $to, array $filters = []): Collection
     {
-        $version = EstimationBiweeklyVersion::query()
-            ->where('season_id', $seasonId)
-            ->where('status', EstimationVersionStatus::ACTIVE->value)
-            ->orderByDesc('created_at')
-            ->first();
-
-        if (! $version) {
+        $versionId = $this->getActiveVersionId($seasonId, self::ORIGIN_AGRONOMO);
+        if (! $versionId) {
             return collect();
         }
 
         $query = DB::table('estimation_biweekly_rows as r')
             ->leftJoin('variedads as v', 'v.id', '=', 'r.variedad_id')
-            ->where('r.estimation_biweekly_version_id', $version->id)
+            ->where('r.estimation_biweekly_version_id', $versionId)
             ->whereNotNull('r.dia')
             ->whereBetween('r.dia', [$from->toDateString(), $to->toDateString()]);
 
@@ -130,18 +169,19 @@ class BiweeklyEstimationRepositoryMysql
             'especie' => $row->especie !== null ? (string) $row->especie : null,
             'variedad' => $row->variedad !== null ? (string) $row->variedad : null,
             'total_kilo' => (float) $row->total_kilo,
-            'version_id' => (int) $version->id,
+            'version_id' => (int) $versionId,
         ]);
     }
 
     /**
      * Matriz operativa: kilos estimados por día / productor / especie / variedad (nombre).
      *
-     * Retorna Collection<array{dia, producer_id, producer_name, especie, variedad, kilos, version_id, mexico}>
+     * Combina estimaciones de agrónomos + estimaciones manuales de servicios.
+     *
+     * Retorna Collection<array{dia, producer_id, producer_name, especie, variedad, kilos, version_id, mexico, origin}>
      */
     public function getDailyKilos(int $seasonId, Carbon $from, Carbon $to, array $filters = []): Collection
     {
-        // Compat: esta función ahora usa "última versión ACTIVE por bisemanal" dentro del rango.
         $weekNumbers = [];
         $cursor = $from->copy()->startOfDay();
         $end = $to->copy()->endOfDay();
@@ -149,14 +189,25 @@ class BiweeklyEstimationRepositoryMysql
             $weekNumbers[] = (int) $cursor->isoWeek();
             $cursor->addDay();
         }
-        $weekVersionMap = $this->getActiveVersionIdsForWeeks($seasonId, $weekNumbers);
-        $versionIds = collect($weekVersionMap)->values()->filter()->unique()->values()->all();
+
+        $weekVersionMapByOrigin = $this->getActiveVersionIdsForWeeksByOrigin($seasonId, $weekNumbers, [
+            self::ORIGIN_AGRONOMO,
+            self::ORIGIN_SERVICE_PLANNER,
+        ]);
+
+        $versionIds = collect($weekVersionMapByOrigin)
+            ->flatMap(fn ($map) => collect($map)->values())
+            ->filter()
+            ->unique()
+            ->values()
+            ->all();
 
         if (empty($versionIds)) {
             return collect();
         }
 
         $query = DB::table('estimation_biweekly_rows as r')
+            ->join('estimation_biweekly_versions as vb', 'vb.id', '=', 'r.estimation_biweekly_version_id')
             ->join('users as u', 'u.id', '=', 'r.producer_id')
             ->leftJoin('variedads as v', 'v.id', '=', 'r.variedad_id')
             ->whereIn('r.estimation_biweekly_version_id', $versionIds)
@@ -164,7 +215,17 @@ class BiweeklyEstimationRepositoryMysql
             ->whereBetween('r.dia', [$from->toDateString(), $to->toDateString()]);
 
         if (! empty($filters['only_active_producers'])) {
-            $query->where('u.is_active', true);
+            // Para origen "servicio_planificador" no filtramos por is_active del dueño del servicio,
+            // porque son cargas manuales del planificador y deben siempre impactar planificación.
+            $query->where(function ($scoped) {
+                $scoped
+                    ->where('vb.origin', self::ORIGIN_SERVICE_PLANNER)
+                    ->orWhere(function ($nested) {
+                        $nested
+                            ->where('vb.origin', '!=', self::ORIGIN_SERVICE_PLANNER)
+                            ->where('u.is_active', true);
+                    });
+            });
         }
 
         if (! empty($filters['especie'])) {
@@ -193,6 +254,7 @@ class BiweeklyEstimationRepositoryMysql
             ->selectRaw('
                 r.dia as dia,
                 r.estimation_biweekly_version_id as version_id,
+                vb.origin as origin,
                 u.id as producer_id,
                 max(u.name) as producer_name,
                 max(r.especie) as especie,
@@ -200,18 +262,22 @@ class BiweeklyEstimationRepositoryMysql
                 coalesce(r.mexico, 0) as mexico,
                 sum(coalesce(r.total_kilo,0)) as kilos
             ')
-            ->groupBy('r.dia', 'r.estimation_biweekly_version_id', 'u.id')
+            ->groupBy('r.dia', 'r.estimation_biweekly_version_id', 'vb.origin', 'u.id')
             ->groupBy('r.especie', 'v.name')
             ->groupBy(DB::raw('coalesce(r.mexico, 0)'))
             ->orderBy('dia')
             ->orderBy('producer_name')
             ->get();
 
-        // Filtrar por la versión aplicable a la semana (por si hay rangos superpuestos o versiones con data fuera de su bisemanal).
-        return collect($rows)->filter(function ($row) use ($weekVersionMap) {
+        return collect($rows)->filter(function ($row) use ($weekVersionMapByOrigin) {
             $day = Carbon::parse((string) $row->dia);
             $week = (int) $day->isoWeek();
-            $expected = $weekVersionMap[$week] ?? null;
+            $origin = trim((string) ($row->origin ?? ''));
+            if ($origin === '') {
+                return false;
+            }
+
+            $expected = $weekVersionMapByOrigin[$week][$origin] ?? null;
             return $expected !== null && (int) $row->version_id === (int) $expected;
         })->values()->map(fn ($row) => [
             'dia' => (string) $row->dia,
@@ -222,6 +288,7 @@ class BiweeklyEstimationRepositoryMysql
             'kilos' => (float) $row->kilos,
             'version_id' => (int) $row->version_id,
             'mexico' => ((int) ($row->mexico ?? 0)) === 1,
+            'origin' => (string) ($row->origin ?? ''),
         ]);
     }
 }

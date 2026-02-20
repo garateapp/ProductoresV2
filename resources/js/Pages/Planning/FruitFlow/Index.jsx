@@ -518,6 +518,13 @@ export default function FruitFlowIndex({ seasons = [], especies = [], filters = 
   const rows = matrix?.rows || []
   const tabs = matrix?.tabs || {}
   const activeTab = tabs?.[tab] || {}
+  const estimationVersionIdsByOrigin = tabs?.estimation?.version_ids_by_origin || {}
+  const agronomoVersionIds = Array.isArray(estimationVersionIdsByOrigin?.agronomo)
+    ? estimationVersionIdsByOrigin.agronomo
+    : []
+  const plannerVersionIds = Array.isArray(estimationVersionIdsByOrigin?.servicio_planificador)
+    ? estimationVersionIdsByOrigin.servicio_planificador
+    : []
 
   return (
     <div className="w-full px-4 py-8 space-y-4">
@@ -529,6 +536,9 @@ export default function FruitFlowIndex({ seasons = [], especies = [], filters = 
           </div>
         </div>
         <div className="flex items-center gap-2">
+          <Link href={route('planning.service-estimations.index')}>
+            <Button variant="outline">Estimación servicios</Button>
+          </Link>
           <Link href={route('planning.processes.index')}>
             <Button variant="outline">Ir a procesos</Button>
           </Link>
@@ -653,6 +663,16 @@ export default function FruitFlowIndex({ seasons = [], especies = [], filters = 
                 {tabs.estimation.version_ids.map((id) => (
                   <Badge key={String(id)} variant="outline" className="ml-1">#{id}</Badge>
                 ))}
+                {agronomoVersionIds.length > 0 ? (
+                  <span className="ml-2 text-emerald-700">
+                    · Agrónomos: {agronomoVersionIds.map((id) => `#${id}`).join(', ')}
+                  </span>
+                ) : null}
+                {plannerVersionIds.length > 0 ? (
+                  <span className="ml-2 text-indigo-700">
+                    · Servicios(planificador): {plannerVersionIds.map((id) => `#${id}`).join(', ')}
+                  </span>
+                ) : null}
               </span>
             ) : (
               <span className="text-amber-800">
@@ -685,6 +705,11 @@ export default function FruitFlowIndex({ seasons = [], especies = [], filters = 
                   {tab === 'estimation' && Array.isArray(activeTab?.version_ids) && activeTab.version_ids.length > 0 ? (
                     <span className="ml-2">
                       · versiones {activeTab.version_ids.map((id) => `#${id}`).join(', ')}
+                      {plannerVersionIds.length > 0 ? (
+                        <span className="ml-1 text-indigo-700">
+                          (incluye servicios: {plannerVersionIds.map((id) => `#${id}`).join(', ')})
+                        </span>
+                      ) : null}
                     </span>
                   ) : null}
                   {tab === 'reception' ? (

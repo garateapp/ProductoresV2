@@ -14,6 +14,7 @@ class EstimationBiweeklyVersion extends Model
 
     protected $fillable = [
         'season_id',
+        'origin',
         'period_start_week',
         'period_end_week',
         'source',

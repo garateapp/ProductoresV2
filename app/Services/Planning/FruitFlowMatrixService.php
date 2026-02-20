@@ -40,8 +40,28 @@ class FruitFlowMatrixService
         $onlyActive = (bool) ($filters['only_active_producers'] ?? true);
 
         $weekNumbers = collect($days)->map(fn ($d) => (int) $d['week'])->unique()->values()->all();
-        $weekVersionMap = $seasonId > 0 ? $this->estimations->getActiveVersionIdsForWeeks($seasonId, $weekNumbers) : [];
-        $estimationVersionIdsUsed = collect($weekVersionMap)->values()->filter()->unique()->values()->all();
+        $weekVersionMapByOrigin = $seasonId > 0
+            ? $this->estimations->getActiveVersionIdsForWeeksByOrigin($seasonId, $weekNumbers)
+            : [];
+        $weekVersionMap = collect($weekVersionMapByOrigin)
+            ->map(fn ($origins) => collect($origins)->filter()->values()->all())
+            ->all();
+        $estimationVersionIdsUsed = collect($weekVersionMap)->flatten()->filter()->unique()->values()->all();
+        $estimationVersionIdsByOrigin = collect($weekVersionMapByOrigin)
+            ->reduce(function (array $carry, array $origins): array {
+                foreach ($origins as $origin => $versionId) {
+                    if (! $versionId) {
+                        continue;
+                    }
+                    $carry[$origin] = $carry[$origin] ?? [];
+                    $carry[$origin][] = (int) $versionId;
+                }
+
+                return $carry;
+            }, []);
+        foreach ($estimationVersionIdsByOrigin as $origin => $ids) {
+            $estimationVersionIdsByOrigin[$origin] = collect($ids)->unique()->values()->all();
+        }
 
         $estimationRows = $seasonId > 0
             ? $this->estimations->getDailyKilos($seasonId, $start, $end, [
@@ -177,6 +197,7 @@ class FruitFlowMatrixService
                 'estimation' => [
                     'title' => 'Estimación bisemanal',
                     'version_ids' => $estimationVersionIdsUsed,
+                    'version_ids_by_origin' => $estimationVersionIdsByOrigin,
                     'week_version_map' => $weekVersionMap,
                     ...$estimation,
                 ],

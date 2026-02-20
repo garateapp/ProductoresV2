@@ -9,10 +9,14 @@ use App\Models\EstimationBiweeklyVersion;
 use App\Models\EstimationSeason;
 use Illuminate\Contracts\Support\Responsable;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Str;
 use Inertia\Inertia;
+use RuntimeException;
 use Symfony\Component\HttpFoundation\Response;
+use Symfony\Component\HttpFoundation\StreamedResponse;
+use Throwable;
 
 class EstimationBiweeklyVersionController extends Controller
 {
@@ -23,6 +27,7 @@ class EstimationBiweeklyVersionController extends Controller
         $this->ensureEstimationsAccess($request);
 
         $versions = EstimationBiweeklyVersion::query()
+            ->where('origin', 'agronomo')
             ->with(['season', 'uploader'])
             ->withCount('rows')
             ->when($request->filled('season_id'), fn ($q) => $q->where('season_id', $request->season_id))
@@ -42,6 +47,7 @@ class EstimationBiweeklyVersionController extends Controller
     public function show(Request $request, EstimationBiweeklyVersion $estimation_biweekly_version): Responsable
     {
         $this->ensureEstimationsAccess($request);
+        abort_if((string) ($estimation_biweekly_version->origin ?? 'agronomo') !== 'agronomo', 404);
 
         $estimation_biweekly_version->load(['season', 'uploader']);
 
@@ -104,6 +110,7 @@ class EstimationBiweeklyVersionController extends Controller
             'source' => ['nullable', 'string', 'max:32'],
             'notes' => ['nullable', 'string'],
         ]);
+        $data['origin'] = 'agronomo';
         unset($data['file']);
 
         $file = $request->file('file');
@@ -111,22 +118,58 @@ class EstimationBiweeklyVersionController extends Controller
             return response(['message' => 'Archivo invalido'], 422);
         }
 
-        $extension = $file->getClientOriginalExtension() ?: 'xlsx';
-        $storedPath = Storage::putFileAs('estimations/biweekly', $file, (string) Str::uuid().'.'.$extension);
-        $absolutePath = Storage::path($storedPath);
+        try {
+            $extension = $file->getClientOriginalExtension() ?: 'xlsx';
+            $storedPath = Storage::putFileAs('estimations/biweekly', $file, (string) Str::uuid().'.'.$extension);
+            if (! $storedPath) {
+                throw new RuntimeException('No se pudo almacenar el archivo bisemanal.');
+            }
 
-        ImportBiweeklyEstimationsJob::dispatch(
-            $absolutePath,
-            $storedPath,
-            $file->getClientOriginalName(),
-            $data,
-            $request->user()->id
-        );
+            $absolutePath = Storage::path($storedPath);
+
+            ImportBiweeklyEstimationsJob::dispatch(
+                $absolutePath,
+                $storedPath,
+                $file->getClientOriginalName(),
+                $data,
+                $request->user()->id
+            );
+        } catch (Throwable $exception) {
+            Log::error('No se pudo iniciar la importacion bisemanal.', [
+                'user_id' => $request->user()?->id,
+                'season_id' => $data['season_id'] ?? null,
+                'file_name' => $file->getClientOriginalName(),
+                'exception' => $exception->getMessage(),
+            ]);
+
+            if ($request->expectsJson()) {
+                return response()->json([
+                    'message' => 'No se pudo iniciar la importacion bisemanal. Intente nuevamente.',
+                ], 500);
+            }
+
+            return back()->with('error', 'No se pudo iniciar la importacion bisemanal. Intente nuevamente.');
+        }
 
         if ($request->expectsJson()) {
             return response()->json(['status' => 'queued'], 202);
         }
 
         return back()->with('success', 'Importacion bisemanal en cola.');
+    }
+
+    public function downloadVersion(Request $request, EstimationBiweeklyVersion $estimation_biweekly_version): StreamedResponse
+    {
+        $this->ensureEstimationsAccess($request);
+        abort_if((string) ($estimation_biweekly_version->origin ?? 'agronomo') !== 'agronomo', 404);
+
+        $filePath = $estimation_biweekly_version->file_path;
+        if (! $filePath || ! Storage::exists($filePath)) {
+            abort(404, 'Archivo no disponible para esta versión.');
+        }
+
+        $downloadName = $estimation_biweekly_version->file_name ?: basename($filePath);
+
+        return Storage::download($filePath, $downloadName);
     }
 }

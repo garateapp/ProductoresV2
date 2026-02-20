@@ -14,6 +14,7 @@ class EstimationBiweeklyRow extends Model
     protected $fillable = [
         'estimation_biweekly_version_id',
         'producer_id',
+        'service_id',
         'agronomist_id',
         'variedad_id',
         'planta',
@@ -44,6 +45,11 @@ class EstimationBiweeklyRow extends Model
     public function producer()
     {
         return $this->belongsTo(User::class, 'producer_id');
+    }
+
+    public function service()
+    {
+        return $this->belongsTo(Service::class, 'service_id');
     }
 
     public function agronomist()

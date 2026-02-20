@@ -2,7 +2,6 @@
 
 namespace App\Models;
 
-use App\Enums\EstimationType;
 use App\Enums\EstimationVersionStatus;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
@@ -16,6 +15,7 @@ class EstimationVersion extends Model
     protected $fillable = [
         'season_id',
         'type',
+        'species',
         'period_start_week',
         'period_end_week',
         'source',
@@ -27,7 +27,6 @@ class EstimationVersion extends Model
     ];
 
     protected $casts = [
-        'type' => EstimationType::class,
         'status' => EstimationVersionStatus::class,
         'period_start_week' => 'integer',
         'period_end_week' => 'integer',

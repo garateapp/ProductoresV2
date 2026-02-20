@@ -170,9 +170,10 @@ function SeasonWeeks({ season }) {
   );
 }
 
-export default function Maintainers({ auth, seasons, statuses }) {
+export default function Maintainers({ auth, seasons, statuses, types }) {
   const [editingSeasonId, setEditingSeasonId] = useState(null);
   const [editingStatusId, setEditingStatusId] = useState(null);
+  const [editingTypeId, setEditingTypeId] = useState(null);
 
   const seasonForm = useForm({
     code: '',
@@ -202,8 +203,23 @@ export default function Maintainers({ auth, seasons, statuses }) {
     is_active: true,
   });
 
+  const typeForm = useForm({
+    code: '',
+    name: '',
+    sort_order: 0,
+    is_active: true,
+  });
+
+  const typeEditForm = useForm({
+    code: '',
+    name: '',
+    sort_order: 0,
+    is_active: true,
+  });
+
   const seasonRows = useMemo(() => seasons || [], [seasons]);
   const statusRows = useMemo(() => statuses || [], [statuses]);
+  const typeRows = useMemo(() => types || [], [types]);
 
   const startSeasonEdit = (season) => {
     setEditingSeasonId(season.id);
@@ -233,6 +249,21 @@ export default function Maintainers({ auth, seasons, statuses }) {
   const cancelStatusEdit = () => {
     setEditingStatusId(null);
     statusEditForm.reset();
+  };
+
+  const startTypeEdit = (type) => {
+    setEditingTypeId(type.id);
+    typeEditForm.setData({
+      code: type.code,
+      name: type.name,
+      sort_order: type.sort_order || 0,
+      is_active: !!type.is_active,
+    });
+  };
+
+  const cancelTypeEdit = () => {
+    setEditingTypeId(null);
+    typeEditForm.reset();
   };
 
   return (
@@ -487,6 +518,135 @@ export default function Maintainers({ auth, seasons, statuses }) {
                               onSuccess: () => {
                                 toast.success('Status eliminado.');
                                 cancelStatusEdit();
+                              },
+                              onError: (errors) => {
+                                toast.error(firstError(errors));
+                              },
+                            })}
+                          >
+                            Eliminar
+                          </Button>
+                        </TableCell>
+                      </>
+                    )}
+                  </TableRow>
+                ))}
+              </TableBody>
+            </Table>
+          </CardContent>
+        </Card>
+
+        <Card>
+          <CardHeader>
+            <CardTitle>Tipos</CardTitle>
+          </CardHeader>
+          <CardContent>
+            <form
+              onSubmit={(e) => {
+                e.preventDefault();
+                typeForm.post(route('estimations.types.store'), {
+                  preserveScroll: true,
+                  onSuccess: () => {
+                    toast.success('Tipo creado.');
+                    typeForm.reset();
+                  },
+                  onError: (errors) => {
+                    toast.error(firstError(errors));
+                  },
+                });
+              }}
+              className="flex flex-wrap items-end gap-2 mb-4"
+            >
+              <div>
+                <label className="block text-xs">Código</label>
+                <Input value={typeForm.data.code} onChange={(e) => typeForm.setData('code', e.target.value)} placeholder="principal_1" />
+              </div>
+              <div>
+                <label className="block text-xs">Nombre</label>
+                <Input value={typeForm.data.name} onChange={(e) => typeForm.setData('name', e.target.value)} placeholder="Principal 1" />
+              </div>
+              <div>
+                <label className="block text-xs">Orden</label>
+                <Input type="number" min="0" value={typeForm.data.sort_order} onChange={(e) => typeForm.setData('sort_order', e.target.value)} />
+              </div>
+              <label className="flex items-center gap-2 text-xs">
+                <input
+                  type="checkbox"
+                  checked={!!typeForm.data.is_active}
+                  onChange={(e) => typeForm.setData('is_active', e.target.checked)}
+                />
+                Activo
+              </label>
+              <Button type="submit" disabled={typeForm.processing}>Crear</Button>
+            </form>
+
+            <Table>
+              <TableHeader>
+                <TableRow>
+                  <TableHead>Código</TableHead>
+                  <TableHead>Nombre</TableHead>
+                  <TableHead>Orden</TableHead>
+                  <TableHead>Activo</TableHead>
+                  <TableHead></TableHead>
+                </TableRow>
+              </TableHeader>
+              <TableBody>
+                {typeRows.map((type) => (
+                  <TableRow key={type.id}>
+                    {editingTypeId === type.id ? (
+                      <>
+                        <TableCell>
+                          <Input value={typeEditForm.data.code} onChange={(e) => typeEditForm.setData('code', e.target.value)} />
+                        </TableCell>
+                        <TableCell>
+                          <Input value={typeEditForm.data.name} onChange={(e) => typeEditForm.setData('name', e.target.value)} />
+                        </TableCell>
+                        <TableCell>
+                          <Input type="number" min="0" value={typeEditForm.data.sort_order} onChange={(e) => typeEditForm.setData('sort_order', e.target.value)} />
+                        </TableCell>
+                        <TableCell>
+                          <input
+                            type="checkbox"
+                            checked={!!typeEditForm.data.is_active}
+                            onChange={(e) => typeEditForm.setData('is_active', e.target.checked)}
+                          />
+                        </TableCell>
+                        <TableCell className="flex gap-2">
+                          <Button
+                            size="sm"
+                            onClick={() => typeEditForm.patch(route('estimations.types.update', { estimation_type: type.id }), {
+                              preserveScroll: true,
+                              onSuccess: () => {
+                                toast.success('Tipo actualizado.');
+                                cancelTypeEdit();
+                              },
+                              onError: (errors) => {
+                                toast.error(firstError(errors));
+                              },
+                            })}
+                            disabled={typeEditForm.processing}
+                          >
+                            Guardar
+                          </Button>
+                          <Button size="sm" variant="secondary" onClick={cancelTypeEdit}>Cancelar</Button>
+                        </TableCell>
+                      </>
+                    ) : (
+                      <>
+                        <TableCell>{type.code}</TableCell>
+                        <TableCell>{type.name}</TableCell>
+                        <TableCell>{type.sort_order}</TableCell>
+                        <TableCell>{type.is_active ? 'Sí' : 'No'}</TableCell>
+                        <TableCell className="flex gap-2">
+                          <Button size="sm" variant="secondary" onClick={() => startTypeEdit(type)}>Editar</Button>
+                          <Button
+                            size="sm"
+                            variant="destructive"
+                            onClick={() => typeEditForm.delete(route('estimations.types.destroy', { estimation_type: type.id }), {
+                              preserveScroll: true,
+                              onSuccess: () => {
+                                toast.success('Tipo eliminado.');
+                                cancelTypeEdit();
                               },
                               onError: (errors) => {
                                 toast.error(firstError(errors));

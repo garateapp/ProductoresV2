@@ -5,6 +5,7 @@ namespace App\Http\Controllers;
 use App\Http\Controllers\Concerns\EnsuresEstimationsAccess;
 use App\Models\EstimationSeason;
 use App\Models\EstimationStatus;
+use App\Models\EstimationType;
 use Illuminate\Http\Request;
 use Inertia\Inertia;
 
@@ -24,9 +25,15 @@ class EstimationMaintainerController extends Controller
             ->orderBy('name')
             ->get();
 
+        $types = EstimationType::query()
+            ->orderBy('sort_order')
+            ->orderBy('name')
+            ->get();
+
         return Inertia::render('Estimations/Maintainers', [
             'seasons' => $seasons,
             'statuses' => $statuses,
+            'types' => $types,
         ]);
     }
 }

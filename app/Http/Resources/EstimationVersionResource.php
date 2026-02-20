@@ -19,7 +19,8 @@ class EstimationVersionResource extends JsonResource
                     'name' => $this->season->name,
                 ];
             }),
-            'type' => $this->type?->value ?? $this->type,
+            'type' => $this->type,
+            'species' => $this->species,
             'period_start_week' => $this->period_start_week,
             'period_end_week' => $this->period_end_week,
             'source' => $this->source,

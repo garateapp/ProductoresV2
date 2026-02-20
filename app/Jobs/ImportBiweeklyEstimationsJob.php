@@ -32,13 +32,25 @@ class ImportBiweeklyEstimationsJob implements ShouldQueue
     {
         $user = User::findOrFail($this->userId);
 
-        $importService->importExcelFromPath(
+        $version = $importService->importExcelFromPath(
             $this->absolutePath,
             $this->originalName,
             $this->meta,
             $user,
             $this->storedPath
         );
+
+        $key = 'import_feedback:'.$this->userId;
+        $feedback = Cache::get($key, []);
+        $feedback[] = [
+            'status' => 'success',
+            'type' => 'estimations_biweekly',
+            'label' => 'bisemanal',
+            'file' => $this->originalName,
+            'message' => 'Importacion completada correctamente.',
+            'version_id' => $version->id,
+        ];
+        Cache::put($key, $feedback, now()->addHours(12));
     }
 
     public function failed(Throwable $exception): void
@@ -68,5 +80,16 @@ class ImportBiweeklyEstimationsJob implements ShouldQueue
             'message' => $message,
         ];
         Cache::put($key, $errors, now()->addHours(12));
+
+        $feedbackKey = 'import_feedback:'.$this->userId;
+        $feedback = Cache::get($feedbackKey, []);
+        $feedback[] = [
+            'status' => 'error',
+            'type' => 'estimations_biweekly',
+            'label' => 'bisemanal',
+            'file' => $this->originalName,
+            'message' => $message,
+        ];
+        Cache::put($feedbackKey, $feedback, now()->addHours(12));
     }
 }

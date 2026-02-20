@@ -16,10 +16,12 @@ class EstimationRow extends Model
         'grupo',
         'tipo_productor',
         'producer_id',
-        'sucursal',
         'agronomist_id',
         'status_id',
         'variedad_id',
+        'variedad_rotulada',
+        'planta',
+        'mexico',
         'acopio',
         'radio_mosca',
         'corea_greenex',
@@ -31,6 +33,7 @@ class EstimationRow extends Model
         'acopio' => 'boolean',
         'radio_mosca' => 'boolean',
         'corea_greenex' => 'boolean',
+        'mexico' => 'boolean',
         'total_kilo' => 'decimal:3',
     ];
 

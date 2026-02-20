@@ -41,6 +41,14 @@ class HandleInertiaRequests extends Middleware
 
                 return cache()->pull('import_errors:'.$user->id);
             },
+            'import_feedback' => function () use ($request) {
+                $user = $request->user();
+                if (! $user) {
+                    return null;
+                }
+
+                return cache()->pull('import_feedback:'.$user->id);
+            },
             'unread_notifications_count' => fn () => $request->user()?->unreadNotifications()->count() ?? 0,
             'flash' => [
                 'success' => fn () => $request->session()->get('success'),

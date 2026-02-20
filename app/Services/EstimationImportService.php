@@ -2,7 +2,6 @@
 
 namespace App\Services;
 
-use App\Enums\EstimationType;
 use App\Enums\EstimationVersionStatus;
 use App\Models\EstimationAudit;
 use App\Models\EstimationRow;
@@ -35,14 +34,32 @@ class EstimationImportService
     {
         $payload = validator($meta, [
             'season_id' => ['required', 'exists:estimation_seasons,id'],
-            'type' => ['required', Rule::in(array_column(EstimationType::cases(), 'value'))],
+            'type' => [
+                'required',
+                'string',
+                'max:32',
+                Rule::exists('estimation_types', 'code')->where(fn ($query) => $query->where('is_active', true)),
+            ],
+            'species' => ['required', Rule::in(['cherries', 'carozos', 'plums', 'nectarines', 'peaches'])],
             'period_start_week' => ['nullable', 'integer', 'min:1', 'max:53'],
             'period_end_week' => ['nullable', 'integer', 'min:1', 'max:53'],
             'source' => ['nullable', 'string', 'max:32'],
             'notes' => ['nullable', 'string'],
         ])->validate();
+        $requestedSpeciesGroup = $this->normalizeSpeciesGroup((string) $payload['species']);
+        $detectedSpeciesGroup = $this->detectSpeciesGroupFromCsv($absolutePath);
 
-        $parsed = $this->parseCsv($absolutePath);
+        if ($detectedSpeciesGroup && $detectedSpeciesGroup !== $requestedSpeciesGroup) {
+            throw ValidationException::withMessages([
+                'species' => [
+                    'La especie seleccionada no coincide con el formato del CSV.',
+                ],
+            ]);
+        }
+
+        $speciesGroup = $detectedSpeciesGroup ?? $requestedSpeciesGroup;
+
+        $parsed = $this->parseCsv($absolutePath, $speciesGroup);
         $rows = $parsed['rows'];
         $weekNumbers = $parsed['weeks'];
         $errors = $parsed['errors'];
@@ -63,11 +80,15 @@ class EstimationImportService
             throw ValidationException::withMessages(['file' => ['No se encontraron filas validas para importar.']]);
         }
 
-        return DB::transaction(function () use ($payload, $rows, $user, $originalName, $storedPath, $absolutePath): EstimationVersion {
+        return DB::transaction(function () use ($payload, $speciesGroup, $rows, $user, $originalName, $storedPath, $absolutePath): EstimationVersion {
             $filePath = $storedPath ?? $this->storeFileFromPath($absolutePath, $originalName);
 
             EstimationVersion::where('season_id', $payload['season_id'])
                 ->where('type', $payload['type'])
+                ->where(function ($query) use ($speciesGroup) {
+                    $query->where('species', $speciesGroup)
+                        ->orWhereNull('species');
+                })
                 ->where('period_start_week', $payload['period_start_week'] ?? null)
                 ->where('period_end_week', $payload['period_end_week'] ?? null)
                 ->where('status', EstimationVersionStatus::ACTIVE->value)
@@ -76,6 +97,7 @@ class EstimationImportService
             $version = EstimationVersion::create([
                 'season_id' => $payload['season_id'],
                 'type' => $payload['type'],
+                'species' => $speciesGroup,
                 'period_start_week' => $payload['period_start_week'] ?? null,
                 'period_end_week' => $payload['period_end_week'] ?? null,
                 'source' => $payload['source'] ?? 'upload',
@@ -126,6 +148,13 @@ class EstimationImportService
 
             EstimationVersion::where('season_id', $base->season_id)
                 ->where('type', $base->type)
+                ->where(function ($query) use ($base) {
+                    if ($base->species) {
+                        $query->where('species', $base->species);
+                    } else {
+                        $query->whereNull('species');
+                    }
+                })
                 ->where('period_start_week', $base->period_start_week)
                 ->where('period_end_week', $base->period_end_week)
                 ->where('status', EstimationVersionStatus::ACTIVE->value)
@@ -134,6 +163,7 @@ class EstimationImportService
             $version = EstimationVersion::create([
                 'season_id' => $base->season_id,
                 'type' => $base->type,
+                'species' => $base->species,
                 'period_start_week' => $base->period_start_week,
                 'period_end_week' => $base->period_end_week,
                 'source' => $source,
@@ -183,7 +213,6 @@ class EstimationImportService
             ->where('producer_id', $baseRow->producer_id)
             ->where('variedad_id', $baseRow->variedad_id)
             ->where('radio_mosca', $baseRow->radio_mosca)
-            ->where('sucursal', $baseRow->sucursal)
             ->firstOrFail();
 
         $row->load('weekValues');
@@ -201,6 +230,13 @@ class EstimationImportService
                 ['kilos' => (float) $kilos]
             );
         }
+
+        // Keep row total synchronized with the persisted week values.
+        $updatedTotal = (float) EstimationWeekValue::query()
+            ->where('estimation_row_id', $row->id)
+            ->sum('kilos');
+        $row->total_kilo = $updatedTotal > 0 ? $updatedTotal : null;
+        $row->save();
 
         $row->load('weekValues');
         $newSnapshot = $this->snapshotRow($row);
@@ -220,7 +256,7 @@ class EstimationImportService
         return $version;
     }
 
-    private function parseCsv(string $path): array
+    private function parseCsv(string $path, string $species): array
     {
         $handle = fopen($path, 'r');
         if (! $handle) {
@@ -247,14 +283,35 @@ class EstimationImportService
             }
         }
 
-        $required = ['RAZON SOCIAL', 'SUCURSAL', 'VARIEDAD', 'RADIO MOSCA', 'STATUS'];
+        $isCherryFormat = in_array('RADIO MOSCA', $header, true)
+            || in_array('COREA GREENEX', $header, true)
+            || in_array('TIPO CEREZA', $header, true);
+        $selectedIsCherry = $this->isCherrySpecies($species);
+        $hasVariedad = in_array('VARIEDAD', $header, true);
+        $hasVariedadRotulada = in_array('VARIEDAD ROTULADA', $header, true);
+
+        $required = ['RAZON SOCIAL', 'STATUS'];
+        if ($selectedIsCherry) {
+            $required[] = 'VARIEDAD';
+            $required[] = 'RADIO MOSCA';
+        }
+
         $missing = array_values(array_diff($required, $header));
         $errors = [];
         if (! empty($missing)) {
             $errors[] = 'Faltan columnas requeridas: '.implode(', ', $missing);
         }
+        if (! $hasVariedad && ! $hasVariedadRotulada) {
+            $errors[] = 'Falta columna requerida: VARIEDAD o VARIEDAD ROTULADA.';
+        }
         if (empty($weekColumns)) {
             $errors[] = 'No se encontraron columnas de semanas en el CSV.';
+        }
+        if ($selectedIsCherry && ! $isCherryFormat) {
+            $errors[] = 'La especie seleccionada es Cherries, pero el archivo no tiene columnas de cereza (RADIO MOSCA, COREA GREENEX, TIPO CEREZA).';
+        }
+        if (! $selectedIsCherry && $isCherryFormat) {
+            $errors[] = 'La especie seleccionada es Carozos, pero el archivo contiene columnas de cereza.';
         }
 
         $rows = [];
@@ -278,18 +335,29 @@ class EstimationImportService
             }
 
             $producerName = $this->normalizeText($data['RAZON SOCIAL'] ?? '');
-            $sucursal = $this->normalizeText($data['SUCURSAL'] ?? '');
-            $variedadName = $this->normalizeText($data['VARIEDAD'] ?? '');
+            $variedadName = $this->normalizeText($data['VARIEDAD'] ?? ($data['VARIEDAD ROTULADA'] ?? ''));
+            $variedadRotulada = $this->normalizeText($data['VARIEDAD ROTULADA'] ?? '');
+            $planta = $this->normalizeText($data['PLANTA'] ?? '');
             $statusRaw = trim((string) ($data['STATUS'] ?? ''));
             $statusName = $this->normalizeText($statusRaw);
-            $radioMosca = $this->parseYesNo($data['RADIO MOSCA'] ?? null);
+            $radioMosca = $selectedIsCherry
+                ? $this->parseYesNo($data['RADIO MOSCA'] ?? null)
+                : false;
+            $mexico = ! $selectedIsCherry
+                ? $this->parseYesNo($data['MEXICO'] ?? null)
+                : null;
+            $rawMexico = trim((string) ($data['MEXICO'] ?? ''));
 
-            if ($producerName === '' || $sucursal === '' || $variedadName === '' || $statusRaw === '') {
-                $errors[] = "Fila {$line}: faltan PRODUCTOR, SUCURSAL, VARIEDAD o STATUS.";
+            if ($producerName === '' ||  $variedadName === '' || $statusRaw === '') {
+                $errors[] = "Fila {$line}: faltan PRODUCTOR, VARIEDAD o STATUS.";
                 continue;
             }
-            if ($radioMosca === null) {
+            if ($selectedIsCherry && $radioMosca === null) {
                 $errors[] = "Fila {$line}: RADIO MOSCA debe ser SI/NO.";
+                continue;
+            }
+            if (! $selectedIsCherry && $rawMexico !== '' && $mexico === null) {
+                $errors[] = "Fila {$line}: MEXICO debe ser SI/NO.";
                 continue;
             }
 
@@ -349,9 +417,9 @@ class EstimationImportService
                 }
             }
 
-            $key = $producer->id.'|'.mb_strtolower($sucursal).'|'.$variedad->id.'|'.($radioMosca ? '1' : '0');
+            $key = $producer->id.'|'.$variedad->id.'|'.($radioMosca ? '1' : '0');
             if (isset($seenKeys[$key])) {
-                $errors[] = "Fila {$line}: clave unica duplicada (PRODUCTOR+SUCURSAL+VARIEDAD+RADIO MOSCA).";
+                $errors[] = "Fila {$line}: clave unica duplicada (PRODUCTOR+VARIEDAD+RADIO MOSCA).";
                 continue;
             }
             $seenKeys[$key] = true;
@@ -377,14 +445,18 @@ class EstimationImportService
                     'grupo' => $this->normalizeText($data['GRUPO'] ?? ''),
                     'tipo_productor' => $this->normalizeText($data['TIPO DE PRODUCTOR'] ?? ''),
                     'producer_id' => $producer->id,
-                    'sucursal' => $sucursal,
                     'agronomist_id' => $agronomist?->id,
                     'status_id' => $status->id,
                     'variedad_id' => $variedad->id,
+                    'variedad_rotulada' => ! $selectedIsCherry
+                        ? ($variedadRotulada !== '' ? $variedadRotulada : $variedadName)
+                        : null,
+                    'planta' => ! $selectedIsCherry ? ($planta !== '' ? $planta : null) : null,
+                    'mexico' => ! $selectedIsCherry ? $mexico : null,
                     'acopio' => $this->parseYesNo($data['ACOPIO'] ?? null) ?? false,
-                    'radio_mosca' => $radioMosca,
-                    'corea_greenex' => $this->parseYesNo($data['COREA GREENEX'] ?? null),
-                    'tipo_cereza' => $this->normalizeText($data['TIPO CEREZA'] ?? ''),
+                    'radio_mosca' => $radioMosca ?? false,
+                    'corea_greenex' => $selectedIsCherry ? $this->parseYesNo($data['COREA GREENEX'] ?? null) : null,
+                    'tipo_cereza' => $selectedIsCherry ? $this->normalizeText($data['TIPO CEREZA'] ?? '') : null,
                     'total_kilo' => $totalKilo > 0 ? $totalKilo : null,
                 ],
                 'weeks' => $weeks,
@@ -463,6 +535,52 @@ class EstimationImportService
         return null;
     }
 
+    private function isCherrySpecies(string $species): bool
+    {
+        return mb_strtolower(trim($species)) === 'cherries';
+    }
+
+    private function normalizeSpeciesGroup(string $species): string
+    {
+        return $this->isCherrySpecies($species) ? 'cherries' : 'carozos';
+    }
+
+    private function detectSpeciesGroupFromCsv(string $path): ?string
+    {
+        $handle = fopen($path, 'r');
+        if (! $handle) {
+            return null;
+        }
+
+        try {
+            $rawHeader = fgetcsv($handle, 0, ';');
+            if (! is_array($rawHeader)) {
+                return null;
+            }
+
+            $header = array_map(fn ($value) => $this->normalizeHeader($value), $rawHeader);
+
+            $hasCherrySignals = in_array('RADIO MOSCA', $header, true)
+                || in_array('COREA GREENEX', $header, true)
+                || in_array('TIPO CEREZA', $header, true);
+            $hasCarozoSignals = in_array('VARIEDAD ROTULADA', $header, true)
+                || in_array('PLANTA', $header, true)
+                || in_array('MEXICO', $header, true);
+
+            if ($hasCherrySignals && ! $hasCarozoSignals) {
+                return 'cherries';
+            }
+
+            if ($hasCarozoSignals && ! $hasCherrySignals) {
+                return 'carozos';
+            }
+
+            return null;
+        } finally {
+            fclose($handle);
+        }
+    }
+
     private function rowIsEmpty(array $row): bool
     {
         foreach ($row as $value) {
@@ -496,16 +614,18 @@ class EstimationImportService
                     'grupo',
                     'tipo_productor',
                     'producer_id',
-                    'sucursal',
                     'agronomist_id',
                     'status_id',
                     'variedad_id',
-                'acopio',
-                'radio_mosca',
-                'corea_greenex',
-                'tipo_cereza',
-                'total_kilo',
-            ]),
+                    'variedad_rotulada',
+                    'planta',
+                    'mexico',
+                    'acopio',
+                    'radio_mosca',
+                    'corea_greenex',
+                    'tipo_cereza',
+                    'total_kilo',
+                ]),
             'weeks' => $row->weekValues
                 ->sortBy('week_number')
                 ->mapWithKeys(fn ($week) => [$week->week_number => (float) $week->kilos])

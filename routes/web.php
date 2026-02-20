@@ -271,6 +271,7 @@ Route::post('producers/{producer}/welcome-email', [App\Http\Controllers\Producer
         Route::get('maintainers', [App\Http\Controllers\EstimationMaintainerController::class, 'index'])->name('maintainers');
         Route::post('upload', [App\Http\Controllers\EstimationVersionController::class, 'upload'])->name('upload');
         Route::get('template', [App\Http\Controllers\EstimationVersionController::class, 'downloadTemplate'])->name('template');
+        Route::get('{estimation_version}/download', [App\Http\Controllers\EstimationVersionController::class, 'downloadVersion'])->name('download');
         Route::post('{estimation_version}/clone', [App\Http\Controllers\EstimationVersionController::class, 'clone'])->name('clone');
         Route::patch('{estimation_version}/rows/{estimation_row}', [App\Http\Controllers\EstimationRowController::class, 'update'])->name('rows.update');
 
@@ -283,6 +284,11 @@ Route::post('producers/{producer}/welcome-email', [App\Http\Controllers\Producer
         Route::patch('weeks/{estimation_week}', [App\Http\Controllers\EstimationWeekController::class, 'update'])->name('weeks.update');
         Route::delete('weeks/{estimation_week}', [App\Http\Controllers\EstimationWeekController::class, 'destroy'])->name('weeks.destroy');
 
+        Route::get('types', [App\Http\Controllers\EstimationTypeController::class, 'index'])->name('types.index');
+        Route::post('types', [App\Http\Controllers\EstimationTypeController::class, 'store'])->name('types.store');
+        Route::patch('types/{estimation_type}', [App\Http\Controllers\EstimationTypeController::class, 'update'])->name('types.update');
+        Route::delete('types/{estimation_type}', [App\Http\Controllers\EstimationTypeController::class, 'destroy'])->name('types.destroy');
+
         Route::get('statuses', [App\Http\Controllers\EstimationStatusController::class, 'index'])->name('statuses.index');
         Route::post('statuses', [App\Http\Controllers\EstimationStatusController::class, 'store'])->name('statuses.store');
         Route::patch('statuses/{estimation_status}', [App\Http\Controllers\EstimationStatusController::class, 'update'])->name('statuses.update');
@@ -292,6 +298,7 @@ Route::post('producers/{producer}/welcome-email', [App\Http\Controllers\Producer
             Route::get('/', [App\Http\Controllers\EstimationBiweeklyVersionController::class, 'index'])->name('index');
             Route::post('upload', [App\Http\Controllers\EstimationBiweeklyVersionController::class, 'upload'])->name('upload');
             Route::patch('{estimation_biweekly_version}/rows/{estimation_biweekly_row}', [App\Http\Controllers\EstimationBiweeklyRowController::class, 'update'])->name('rows.update');
+            Route::get('{estimation_biweekly_version}/download', [App\Http\Controllers\EstimationBiweeklyVersionController::class, 'downloadVersion'])->name('download');
             Route::get('{estimation_biweekly_version}', [App\Http\Controllers\EstimationBiweeklyVersionController::class, 'show'])->name('show');
         });
 
@@ -301,6 +308,8 @@ Route::post('producers/{producer}/welcome-email', [App\Http\Controllers\Producer
     // Planificación de Proceso (Packing)
     Route::prefix('planning')->name('planning.')->group(function () {
         Route::get('fruit-flow', [App\Http\Controllers\Planning\FruitFlowController::class, 'index'])->name('fruit-flow.index');
+        Route::get('service-estimations', [App\Http\Controllers\Planning\ServiceEstimationController::class, 'index'])->name('service-estimations.index');
+        Route::post('service-estimations', [App\Http\Controllers\Planning\ServiceEstimationController::class, 'store'])->name('service-estimations.store');
 
         // Plan semanal (multi-día)
         Route::get('batches', [App\Http\Controllers\Planning\PackingProcessBatchController::class, 'index'])->name('batches.index');

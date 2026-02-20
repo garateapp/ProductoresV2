@@ -76,6 +76,21 @@ const KoreaFlag = ({ className = '' }) => (
   </svg>
 );
 
+const MexicoFlag = ({ className = '' }) => (
+  <svg
+    className={`h-5 w-8 ${className}`}
+    viewBox="0 0 60 40"
+    role="img"
+    aria-label="Bandera de Mexico"
+  >
+    <rect x="0" y="0" width="20" height="40" fill="#006847" />
+    <rect x="20" y="0" width="20" height="40" fill="#ffffff" />
+    <rect x="40" y="0" width="20" height="40" fill="#ce1126" />
+    <circle cx="30" cy="20" r="4" fill="#b8860b" opacity="0.75" />
+    <rect x="0" y="0" width="60" height="40" rx="3" fill="none" stroke="#e5e7eb" />
+  </svg>
+);
+
 const IconBadge = ({ children, active = true, label }) => (
   <span
     className={`inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-xs ${active ? 'bg-slate-100 text-slate-700' : 'bg-gray-100 text-gray-400'}`}
@@ -87,6 +102,12 @@ const IconBadge = ({ children, active = true, label }) => (
 
 export default function Show({ auth, version, weeks, rows }) {
   const { flash } = usePage().props;
+  const isCherrySpecies = (version?.species || 'cherries') === 'cherries';
+  const tableRows = Array.isArray(rows?.data)
+    ? rows.data
+    : Array.isArray(rows)
+      ? rows
+      : [];
   const orderedWeeks = useMemo(() => {
     const list = [...(weeks || [])];
     list.sort((a, b) => {
@@ -100,14 +121,49 @@ export default function Show({ auth, version, weeks, rows }) {
     return list;
   }, [weeks]);
   const weekNumbers = useMemo(() => orderedWeeks.map((w) => String(w.week_number)), [orderedWeeks]);
-  const paginationLinks = Array.isArray(rows?.links)
-    ? rows.links
-    : Array.isArray(rows?.meta?.links)
-      ? rows.meta.links
-      : [];
   const [rowEdits, setRowEdits] = useState({});
   const [savingRowId, setSavingRowId] = useState(null);
   const [editingRow, setEditingRow] = useState(null);
+  const [producerFilter, setProducerFilter] = useState('');
+  const [variedadFilter, setVariedadFilter] = useState('');
+  const [acopioFilter, setAcopioFilter] = useState('all');
+  const [mexicoFilter, setMexicoFilter] = useState('all');
+
+  const filteredRows = useMemo(() => {
+    const producerNeedle = producerFilter.trim().toLowerCase();
+    const variedadNeedle = variedadFilter.trim().toLowerCase();
+
+    return tableRows.filter((row) => {
+      if (producerNeedle && !String(row.producer || '').toLowerCase().includes(producerNeedle)) {
+        return false;
+      }
+
+      const variedadValue = `${row.variedad || ''} ${row.variedad_rotulada || ''}`.toLowerCase();
+      if (variedadNeedle && !variedadValue.includes(variedadNeedle)) {
+        return false;
+      }
+
+      if (acopioFilter === 'yes' && !row.acopio) {
+        return false;
+      }
+
+      if (acopioFilter === 'no' && row.acopio) {
+        return false;
+      }
+
+      if (!isCherrySpecies) {
+        if (mexicoFilter === 'yes' && row.mexico !== true) {
+          return false;
+        }
+
+        if (mexicoFilter === 'no' && row.mexico !== false) {
+          return false;
+        }
+      }
+
+      return true;
+    });
+  }, [tableRows, producerFilter, variedadFilter, acopioFilter, mexicoFilter, isCherrySpecies]);
 
   useEffect(() => {
     if (flash?.success) toast.success(flash.success);
@@ -116,7 +172,7 @@ export default function Show({ auth, version, weeks, rows }) {
 
   useEffect(() => {
     const next = {};
-    (rows?.data || []).forEach((row) => {
+    tableRows.forEach((row) => {
       const weekValues = row.week_values || {};
       const perWeek = {};
       weekNumbers.forEach((week) => {
@@ -126,7 +182,7 @@ export default function Show({ auth, version, weeks, rows }) {
       next[row.id] = perWeek;
     });
     setRowEdits(next);
-  }, [rows?.data, weekNumbers.join('|')]);
+  }, [tableRows, weekNumbers.join('|')]);
 
   const updateCell = (rowId, week, value) => {
     setRowEdits((prev) => ({
@@ -140,21 +196,29 @@ export default function Show({ auth, version, weeks, rows }) {
 
   const handleSave = (row) => {
     const edits = rowEdits[row.id] || {};
+    const calculatedTotal = weekNumbers.reduce((sum, week) => {
+      const value = edits[week];
+      const numeric = value === '' || value === null || value === undefined ? 0 : Number(value);
+      return Number.isNaN(numeric) ? sum : sum + numeric;
+    }, 0);
+
     const payload = {
       row_id: row.id,
       row: {
         grupo: row.grupo || '',
         tipo_productor: row.tipo_productor || '',
         producer_id: row.producer_id,
-        sucursal: row.sucursal || '',
         agronomist_id: row.agronomist_id || null,
         status_id: row.status_id,
         variedad_id: row.variedad_id,
+        variedad_rotulada: row.variedad_rotulada || null,
+        planta: row.planta || null,
+        mexico: row.mexico === null ? null : !!row.mexico,
         acopio: !!row.acopio,
         radio_mosca: !!row.radio_mosca,
         corea_greenex: row.corea_greenex === null ? null : !!row.corea_greenex,
         tipo_cereza: row.tipo_cereza || null,
-        total_kilo: row.total_kilo ?? null,
+        total_kilo: calculatedTotal > 0 ? calculatedTotal : null,
       },
       weeks: edits,
     };
@@ -216,7 +280,7 @@ export default function Show({ auth, version, weeks, rows }) {
     <AuthenticatedLayout user={auth?.user} header={<h2 className="font-semibold text-xl text-gray-800 leading-tight">Detalle de Estimación</h2>}>
       <Head title="Detalle Estimación" />
       <Toaster richColors position="top-right" />
-      <div className="container mx-auto py-8 space-y-6">
+      <div className="w-full mx-30 py-8 space-y-6">
         <Card>
           <CardHeader className="flex flex-row items-center justify-between">
             <CardTitle>Versión #{version.id}</CardTitle>
@@ -226,6 +290,7 @@ export default function Show({ auth, version, weeks, rows }) {
             <div className="grid grid-cols-1 md:grid-cols-3 gap-3 text-sm">
               <div><strong>Temporada:</strong> {version.season?.code || '-'}</div>
               <div><strong>Tipo:</strong> {version.type}</div>
+              <div><strong>Especie:</strong> {isCherrySpecies ? 'Cherries' : 'Carozos'}</div>
               <div><strong>Periodo:</strong> {version.period_start_week ? `${version.period_start_week}-${version.period_end_week || ''}` : '-'}</div>
               <div><strong>Estado:</strong> {version.status}</div>
               <div><strong>Origen:</strong> {version.source}</div>
@@ -242,34 +307,84 @@ export default function Show({ auth, version, weeks, rows }) {
             <div className="mb-4 text-sm text-gray-600">
               Selecciona una fila para ver y editar sus semanas en un panel lateral. Las semanas están ordenadas por fecha.
             </div>
+            <div className="mb-4 grid grid-cols-1 gap-3 rounded-xl border bg-slate-50 p-3 md:grid-cols-2 lg:grid-cols-4">
+              <div>
+                <label className="mb-1 block text-xs font-medium text-slate-600">Productor</label>
+                <Input
+                  value={producerFilter}
+                  onChange={(e) => setProducerFilter(e.target.value)}
+                  placeholder="Filtrar productor..."
+                />
+              </div>
+              <div>
+                <label className="mb-1 block text-xs font-medium text-slate-600">Variedad</label>
+                <Input
+                  value={variedadFilter}
+                  onChange={(e) => setVariedadFilter(e.target.value)}
+                  placeholder="Filtrar variedad..."
+                />
+              </div>
+              <div>
+                <label className="mb-1 block text-xs font-medium text-slate-600">Acopio</label>
+                <select
+                  value={acopioFilter}
+                  onChange={(e) => setAcopioFilter(e.target.value)}
+                  className="h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm"
+                >
+                  <option value="all">Todos</option>
+                  <option value="yes">Sí</option>
+                  <option value="no">No</option>
+                </select>
+              </div>
+              <div>
+                <label className="mb-1 block text-xs font-medium text-slate-600">México</label>
+                <select
+                  value={mexicoFilter}
+                  onChange={(e) => setMexicoFilter(e.target.value)}
+                  disabled={isCherrySpecies}
+                  className="h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm disabled:cursor-not-allowed disabled:opacity-60"
+                >
+                  <option value="all">Todos</option>
+                  <option value="yes">Sí</option>
+                  <option value="no">No</option>
+                </select>
+              </div>
+            </div>
+            <div className="mb-3 text-xs text-slate-500">
+              Mostrando {filteredRows.length} de {tableRows.length} filas.
+            </div>
             <div className="overflow-auto border rounded-xl bg-white shadow-sm">
               <Table className="min-w-[900px] text-sm">
                 <TableHeader className="sticky top-0 bg-white z-20 shadow-sm">
                   <TableRow>
-                    <TableHead className="min-w-[320px] px-4 py-3">Productor</TableHead>
-                    <TableHead className="min-w-[160px] px-3 py-3 text-center">Sucursal</TableHead>
+                    <TableHead className="min-w-[520px] px-4 py-3">Productor</TableHead>
                     <TableHead className="min-w-[200px] px-3 py-3">Variedad</TableHead>
                     <TableHead className="min-w-[140px] px-3 py-3 text-center">Acopio</TableHead>
-                    <TableHead className="min-w-[140px] px-3 py-3 text-center">Radio Mosca</TableHead>
-                    <TableHead className="min-w-[140px] px-3 py-3 text-center">Corea</TableHead>
-                    <TableHead className="min-w-[180px] px-3 py-3 text-center">Tipo Cereza</TableHead>
+                    {isCherrySpecies ? (
+                      <>
+                        <TableHead className="min-w-[140px] px-3 py-3 text-center">Radio Mosca</TableHead>
+                        <TableHead className="min-w-[140px] px-3 py-3 text-center">Corea</TableHead>
+                        <TableHead className="min-w-[180px] px-3 py-3 text-center">Tipo Cereza</TableHead>
+                      </>
+                    ) : (
+                      <>
+                        <TableHead className="min-w-[200px] px-3 py-3">Variedad Rotulada</TableHead>
+                        <TableHead className="min-w-[160px] px-3 py-3 text-center">Planta</TableHead>
+                        <TableHead className="min-w-[140px] px-3 py-3 text-center">México</TableHead>
+                      </>
+                    )}
                     <TableHead className="min-w-[140px] px-3 py-3 text-center">Status</TableHead>
                     <TableHead className="min-w-[160px] px-3 py-3 text-right">Total Estimado</TableHead>
                     <TableHead className="min-w-[140px] px-3 py-3 text-center">Acción</TableHead>
                   </TableRow>
                 </TableHeader>
                 <TableBody>
-                  {(rows?.data || []).map((row) => (
+                  {filteredRows.map((row) => (
                     <TableRow key={row.id} className="hover:bg-gray-50/60 odd:bg-gray-50/40">
                       <TableCell className="px-4 py-4 align-top">
-                        <div className="font-semibold text-sm truncate max-w-[300px]" title={row.producer || ''}>
+                        <div className="font-semibold text-sm " title={row.producer || ''}>
                           {row.producer || '-'}
                         </div>
-                      </TableCell>
-                      <TableCell className="px-3 py-4 text-center">
-                        <span className="rounded-full bg-slate-100 px-2 py-0.5 text-xs text-slate-700">
-                          {row.sucursal || '-'}
-                        </span>
                       </TableCell>
                       <TableCell className="px-3 py-4">
                         <span className="rounded-full bg-indigo-50 px-2 py-0.5 text-xs text-indigo-700">
@@ -282,25 +397,48 @@ export default function Show({ auth, version, weeks, rows }) {
                           {row.acopio ? 'Sí' : 'No'}
                         </IconBadge>
                       </TableCell>
-                      <TableCell className="px-3 py-4 text-center">
-                        <IconBadge active={!!row.radio_mosca} label={row.radio_mosca ? 'Radio Mosca' : 'Sin Radio Mosca'}>
-                          {row.radio_mosca ? (
-                            <Bug className="h-4 w-4 text-amber-600" />
-                          ) : (
-                            <BugOff className="h-4 w-4 text-gray-400" />
-                          )}
-                          {row.radio_mosca ? 'Sí' : 'No'}
-                        </IconBadge>
-                      </TableCell>
-                      <TableCell className="px-3 py-4 text-center">
-                        <IconBadge active={row.corea_greenex !== null} label={row.corea_greenex ? 'Corea Greenex' : 'No Corea'}>
-                          <KoreaFlag className={row.corea_greenex ? '' : 'opacity-40'} />
-                          {row.corea_greenex ? 'Sí' : 'No'}
-                        </IconBadge>
-                      </TableCell>
-                      <TableCell className="px-3 py-4 text-center">
-                        {renderCherryType(row.tipo_cereza)}
-                      </TableCell>
+                      {isCherrySpecies ? (
+                        <>
+                          <TableCell className="px-3 py-4 text-center">
+                            <IconBadge active={!!row.radio_mosca} label={row.radio_mosca ? 'Radio Mosca' : 'Sin Radio Mosca'}>
+                              {row.radio_mosca ? (
+                                <Bug className="h-4 w-4 text-amber-600" />
+                              ) : (
+                                <BugOff className="h-4 w-4 text-gray-400" />
+                              )}
+                              {row.radio_mosca ? 'Sí' : 'No'}
+                            </IconBadge>
+                          </TableCell>
+                          <TableCell className="px-3 py-4 text-center">
+                            <IconBadge active={row.corea_greenex !== null} label={row.corea_greenex ? 'Corea Greenex' : 'No Corea'}>
+                              <KoreaFlag className={row.corea_greenex ? '' : 'opacity-40'} />
+                              {row.corea_greenex ? 'Sí' : 'No'}
+                            </IconBadge>
+                          </TableCell>
+                          <TableCell className="px-3 py-4 text-center">
+                            {renderCherryType(row.tipo_cereza)}
+                          </TableCell>
+                        </>
+                      ) : (
+                        <>
+                          <TableCell className="px-3 py-4">
+                            <span className="rounded-full bg-sky-50 px-2 py-0.5 text-xs text-sky-700">
+                              {row.variedad_rotulada || row.variedad || '-'}
+                            </span>
+                          </TableCell>
+                          <TableCell className="px-3 py-4 text-center">
+                            <span className="rounded-full bg-slate-100 px-2 py-0.5 text-xs text-slate-700">
+                              {row.planta || '-'}
+                            </span>
+                          </TableCell>
+                          <TableCell className="px-3 py-4 text-center">
+                            <IconBadge active={row.mexico !== null} label={row.mexico ? 'México' : 'No México'}>
+                              <MexicoFlag className={row.mexico ? '' : 'opacity-40'} />
+                              {row.mexico ? 'Sí' : 'No'}
+                            </IconBadge>
+                          </TableCell>
+                        </>
+                      )}
                       <TableCell className="px-3 py-4 text-center">{row.status || '-'}</TableCell>
                       <TableCell className="px-3 py-4 text-right font-semibold">{getRowTotal(row)}</TableCell>
                       <TableCell className="px-3 py-4 text-center">
@@ -308,13 +446,15 @@ export default function Show({ auth, version, weeks, rows }) {
                       </TableCell>
                     </TableRow>
                   ))}
+                  {filteredRows.length === 0 && (
+                    <TableRow>
+                      <TableCell colSpan={9} className="py-6 text-center text-sm text-slate-500">
+                        No hay filas que coincidan con los filtros.
+                      </TableCell>
+                    </TableRow>
+                  )}
                 </TableBody>
               </Table>
-            </div>
-            <div className="mt-4 flex gap-2">
-              {paginationLinks.map((link, idx) => (
-                <Link key={idx} href={link.url || '#'} className={`px-2 ${link.active ? 'font-bold' : ''}`} dangerouslySetInnerHTML={{ __html: link.label }} />
-              ))}
             </div>
           </CardContent>
         </Card>
@@ -325,7 +465,7 @@ export default function Show({ auth, version, weeks, rows }) {
           <SheetHeader>
             <SheetTitle>Editar semanas</SheetTitle>
             <SheetDescription>
-              {editingRow ? `${editingRow.producer || '-'} · ${editingRow.variedad || '-'} · ${editingRow.sucursal || '-'}` : ''}
+              {editingRow ? `${editingRow.producer || '-'} · ${editingRow.variedad || '-'}` : ''}
             </SheetDescription>
           </SheetHeader>
 
@@ -336,21 +476,38 @@ export default function Show({ auth, version, weeks, rows }) {
                   <Boxes className={`h-4 w-4 ${editingRow.acopio ? 'text-slate-700' : 'text-gray-400'}`} />
                   {editingRow.acopio ? 'Acopio' : 'Sin acopio'}
                 </IconBadge>
-                <IconBadge active={!!editingRow.radio_mosca} label="Radio Mosca">
-                  {editingRow.radio_mosca ? (
-                    <Bug className="h-4 w-4 text-amber-600" />
-                  ) : (
-                    <BugOff className="h-4 w-4 text-gray-400" />
-                  )}
-                  {editingRow.radio_mosca ? 'Radio Mosca' : 'Sin Radio Mosca'}
-                </IconBadge>
-                <IconBadge active={editingRow.corea_greenex !== null} label="Corea Greenex">
-                  <KoreaFlag className={editingRow.corea_greenex ? '' : 'opacity-40'} />
-                  {editingRow.corea_greenex ? 'Corea' : 'No Corea'}
-                </IconBadge>
-                <span className="inline-flex items-center gap-2 rounded-full bg-slate-50 px-2 py-0.5 text-xs text-slate-700">
-                  {renderCherryType(editingRow.tipo_cereza)}
-                </span>
+                {isCherrySpecies ? (
+                  <>
+                    <IconBadge active={!!editingRow.radio_mosca} label="Radio Mosca">
+                      {editingRow.radio_mosca ? (
+                        <Bug className="h-4 w-4 text-amber-600" />
+                      ) : (
+                        <BugOff className="h-4 w-4 text-gray-400" />
+                      )}
+                      {editingRow.radio_mosca ? 'Radio Mosca' : 'Sin Radio Mosca'}
+                    </IconBadge>
+                    <IconBadge active={editingRow.corea_greenex !== null} label="Corea Greenex">
+                      <KoreaFlag className={editingRow.corea_greenex ? '' : 'opacity-40'} />
+                      {editingRow.corea_greenex ? 'Corea' : 'No Corea'}
+                    </IconBadge>
+                    <span className="inline-flex items-center gap-2 rounded-full bg-slate-50 px-2 py-0.5 text-xs text-slate-700">
+                      {renderCherryType(editingRow.tipo_cereza)}
+                    </span>
+                  </>
+                ) : (
+                  <>
+                    <span className="inline-flex items-center gap-2 rounded-full bg-sky-50 px-2 py-0.5 text-xs text-sky-700">
+                      Variedad Rotulada: {editingRow.variedad_rotulada || editingRow.variedad || '-'}
+                    </span>
+                    <span className="inline-flex items-center gap-2 rounded-full bg-slate-50 px-2 py-0.5 text-xs text-slate-700">
+                      Planta: {editingRow.planta || '-'}
+                    </span>
+                    <span className="inline-flex items-center gap-2 rounded-full bg-slate-50 px-2 py-0.5 text-xs text-slate-700">
+                      <MexicoFlag className={editingRow.mexico ? '' : 'opacity-40'} />
+                      México: {editingRow.mexico === null ? '-' : editingRow.mexico ? 'Sí' : 'No'}
+                    </span>
+                  </>
+                )}
               </div>
               <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-4">
                 {orderedWeeks.map((week) => (
