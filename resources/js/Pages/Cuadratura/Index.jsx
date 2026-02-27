@@ -220,16 +220,16 @@ export default function Index({ procesos, filters, statusOptions = [] }) {
               <TableHeader>
                 <TableRow>
                   <TableHead className="w-10"></TableHead>
-                  <TableHead>N° Proceso</TableHead>
+                  <TableHead className="w-20">N° Proceso</TableHead>
                   <TableHead>Productor</TableHead>
-                  <TableHead>Especie</TableHead>
-                  <TableHead>Variedad</TableHead>
-                  <TableHead>Lote(s)</TableHead>
-                  <TableHead className="text-right">Peso Neto</TableHead>
+                  <TableHead className="w-20">Especie</TableHead>
+                  <TableHead className="w-22">Variedad</TableHead>
+                  <TableHead className="w-30">Lote(s)</TableHead>
+                  <TableHead className="w-20">Peso Neto</TableHead>
                   <TableHead className="text-right">% Exportación</TableHead>
                   <TableHead className="text-right">% Exp. Calidad</TableHead>
                   <TableHead>Estado</TableHead>
-                  <TableHead>Último hito</TableHead>
+                  <TableHead className="w-25">Último hito</TableHead>
                   {/* <TableHead>Informe</TableHead> */}
                   <TableHead>Acción</TableHead>
                 </TableRow>
@@ -254,7 +254,7 @@ export default function Index({ procesos, filters, statusOptions = [] }) {
                       <TableCell>{item.agricola || '-'}</TableCell>
                       <TableCell>{item.especie || '-'}</TableCell>
                       <TableCell>{item.variedad || '-'}</TableCell>
-                      <TableCell className="max-w-[100px] whitespace-normal break-words">{formatLotes(item)}</TableCell>
+                      <TableCell>{formatLotes(item)}</TableCell>
                       <TableCell className="text-right">{formatNumber(item.peso_neto, 2)}</TableCell>
                       <TableCell className="text-right">{renderExportacion(item)}</TableCell>
                       <TableCell className="text-right">{renderExportacionCalidad(item)}</TableCell>
