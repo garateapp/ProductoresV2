@@ -377,6 +377,53 @@ class CuadraturaController extends Controller
         return back()->with('success', $message);
     }
 
+    public function finalize(Request $request, Proceso $proceso): RedirectResponse
+    {
+        $user = $request->user();
+        $this->ensureModuleAccess($user);
+
+        try {
+            $snapshot = $this->fetchProcesoSnapshotFromSqlsrv($proceso);
+        } catch (\Throwable $e) {
+            Log::error('Cuadratura finalize SQLSRV fetch failed', [
+                'proceso_id' => $proceso->id,
+                'n_proceso' => $proceso->n_proceso,
+                'id_empresa' => $proceso->id_empresa,
+                'error' => $e->getMessage(),
+            ]);
+
+            return back()->with('error', 'No fue posible consultar SQLSRV para actualizar el proceso.');
+        }
+
+        if ($snapshot === null) {
+            return back()->with('error', 'No se encontraron datos en SQLSRV para este proceso.');
+        }
+
+        DB::transaction(function () use ($proceso, $snapshot) {
+            $proceso->fill($snapshot);
+            $proceso->estado = 'Finalizado';
+            $proceso->save();
+        });
+
+        try {
+            [$storedPath, $storedFilename] = $this->generateAndStoreProcessPdf($request, $proceso->fresh());
+            $proceso->informe = $storedPath;
+            $proceso->informe_uploaded_at = Carbon::now('America/Santiago');
+            $proceso->save();
+        } catch (\Throwable $e) {
+            Log::error('Cuadratura finalize PDF generation failed', [
+                'proceso_id' => $proceso->id,
+                'n_proceso' => $proceso->n_proceso,
+                'id_empresa' => $proceso->id_empresa,
+                'error' => $e->getMessage(),
+            ]);
+
+            return back()->with('error', 'Proceso actualizado a Finalizado, pero no se pudo generar el PDF.');
+        }
+
+        return back()->with('success', "Proceso actualizado a Finalizado y PDF generado: {$storedFilename}");
+    }
+
     public function approve(Request $request, Proceso $proceso): RedirectResponse
     {
         $user = $request->user();
@@ -394,24 +441,7 @@ class CuadraturaController extends Controller
         $actor = $this->actorMeta($user);
         $approvalTimestamp = Carbon::now('America/Santiago');
 
-        try {
-            [$storedPath, $storedFilename] = $this->generateAndStoreApprovedProcessPdf(
-                $request,
-                $proceso,
-                $actor,
-                $approvalTimestamp
-            );
-        } catch (\Throwable $e) {
-            Log::error('Cuadratura approve PDF generation failed', [
-                'proceso_id' => $proceso->id,
-                'n_proceso' => $proceso->n_proceso,
-                'error' => $e->getMessage(),
-            ]);
-
-            return back()->with('error', 'No se pudo generar el PDF del informe. El proceso no fue aprobado.');
-        }
-
-        DB::transaction(function () use ($workflow, $proceso, $actor, $storedPath, $approvalTimestamp) {
+        DB::transaction(function () use ($workflow, $actor, $approvalTimestamp, $proceso) {
             $workflow->fill([
                 'estado' => self::STATUS_APPROVED,
                 'aprobado_jefe_at' => $approvalTimestamp,
@@ -433,13 +463,9 @@ class CuadraturaController extends Controller
                 'actor_email' => $actor['email'],
                 'meta' => ['ciclo' => $workflow->ciclo],
             ]);
-
-            $proceso->informe = $storedPath;
-            $proceso->informe_uploaded_at = $approvalTimestamp;
-            $proceso->save();
         });
 
-        return back()->with('success', "Proceso aprobado correctamente. PDF generado: {$storedFilename}");
+        return back()->with('success', 'Proceso aprobado correctamente.');
     }
 
     public function reject(Request $request, Proceso $proceso): RedirectResponse
@@ -754,11 +780,93 @@ class CuadraturaController extends Controller
         return round(max(0, 100 - $totalDefectos), 2);
     }
 
-    private function generateAndStoreApprovedProcessPdf(
+    private function fetchProcesoSnapshotFromSqlsrv(Proceso $proceso): ?array
+    {
+        $rows = DB::connection('sqlsrv')
+            ->table('V_PKG_Produccion_Completo as ppc')
+            ->selectRaw("
+                n_productor_proceso AS agricola,
+                c_productor,
+                numero_proceso AS n_proceso,
+                ppc.n_especie_proceso AS especie,
+                ppc.n_variedad_proceso AS variedad,
+                ppc.LPP_recepcion,
+                ppc.estado,
+                ppc.recepciones_trazabilidad as lote_recepcion,
+                CAST(ppc.fecha_proceso AS DATE) AS fecha,
+                id_empresa,
+                n_exportadora
+            ")
+            ->selectRaw("SUM(CASE WHEN t_categoria = 'Exportacion' THEN ppc.peso_neto ELSE 0 END) AS exp")
+            ->selectRaw("SUM(CASE WHEN t_categoria = 'Mercado Interno' THEN ppc.peso_neto ELSE 0 END) AS comercial")
+            ->selectRaw("SUM(CASE WHEN t_categoria = 'Desecho' THEN ppc.peso_neto ELSE 0 END) AS desecho")
+            ->selectRaw("SUM(CASE WHEN t_categoria = 'Merma' THEN ppc.peso_neto ELSE 0 END) AS merma")
+            ->selectRaw("SUM(CASE WHEN t_categoria = 'Sin Procesar' THEN ppc.peso_neto ELSE 0 END) AS kilos_netos")
+            ->selectRaw("GETDATE() AS FechaConsulta")
+            ->where('ppc.tipo_proceso', 'PRN')
+            ->where('ppc.peso_neto', '>', 0)
+            ->where('ppc.numero_proceso', (string) $proceso->n_proceso)
+            ->where('ppc.id_empresa', (int) $proceso->id_empresa)
+            ->groupBy(
+                'n_productor_proceso',
+                'c_productor',
+                'numero_proceso',
+                'ppc.n_especie_proceso',
+                'ppc.n_variedad_proceso',
+                'ppc.fecha_proceso',
+                'id_empresa',
+                'ppc.estado',
+                'ppc.recepciones_trazabilidad',
+                'ppc.LPP_recepcion',
+                'n_exportadora'
+            )
+            ->orderBy('numero_proceso', 'desc')
+            ->get();
+
+        if ($rows->isEmpty()) {
+            return null;
+        }
+
+        $firstNonEmpty = static function (Collection $values): ?string {
+            foreach ($values as $value) {
+                $normalized = trim((string) $value);
+                if ($normalized !== '') {
+                    return $normalized;
+                }
+            }
+
+            return null;
+        };
+
+        $fecha = $rows->pluck('fecha')->first();
+        if ($fecha instanceof \DateTimeInterface) {
+            $fecha = $fecha->format('Y-m-d');
+        } else {
+            $fecha = $fecha ? (string) $fecha : null;
+        }
+
+        return [
+            'agricola' => $firstNonEmpty($rows->pluck('agricola')) ?? $proceso->agricola,
+            'c_productor' => $firstNonEmpty($rows->pluck('c_productor')) ?? $proceso->c_productor,
+            'n_proceso' => $proceso->n_proceso,
+            'especie' => $firstNonEmpty($rows->pluck('especie')) ?? $proceso->especie,
+            'variedad' => $firstNonEmpty($rows->pluck('variedad')) ?? $proceso->variedad,
+            'fecha' => $fecha ?? $proceso->fecha,
+            'id_empresa' => (int) ($rows->first()->id_empresa ?? $proceso->id_empresa),
+            'exp' => (float) $rows->sum(fn ($row) => (float) ($row->exp ?? 0)),
+            'comercial' => (float) $rows->sum(fn ($row) => (float) ($row->comercial ?? 0)),
+            'desecho' => (float) $rows->sum(fn ($row) => (float) ($row->desecho ?? 0)),
+            'merma' => (float) $rows->sum(fn ($row) => (float) ($row->merma ?? 0)),
+            'kilos_netos' => (float) $rows->sum(fn ($row) => (float) ($row->kilos_netos ?? 0)),
+            'lote_recepcion' => $firstNonEmpty($rows->pluck('lote_recepcion')) ?? $proceso->lote_recepcion,
+            'LPP_recepcion' => $firstNonEmpty($rows->pluck('LPP_recepcion')) ?? $proceso->LPP_recepcion,
+            'exportadora' => $firstNonEmpty($rows->pluck('n_exportadora')) ?? $proceso->exportadora,
+        ];
+    }
+
+    private function generateAndStoreProcessPdf(
         Request $request,
-        Proceso $proceso,
-        array $actor,
-        Carbon $approvalTimestamp
+        Proceso $proceso
     ): array
     {
         $pdfRequest = Request::create(
@@ -767,10 +875,6 @@ class CuadraturaController extends Controller
             [
                 'format' => 'pdf',
                 'download' => 1,
-                'chief_signature' => 1,
-                'chief_signature_name' => (string) ($actor['name'] ?? ''),
-                'chief_signature_email' => (string) ($actor['email'] ?? ''),
-                'chief_signature_at' => $approvalTimestamp->toDateTimeString(),
             ]
         );
         $pdfRequest->setUserResolver(fn () => $request->user());
@@ -790,14 +894,14 @@ class CuadraturaController extends Controller
             throw new \RuntimeException('El contenido generado no corresponde a un PDF válido.');
         }
 
-        $filename = $this->buildApprovedProcessPdfFilename($proceso);
+        $filename = $this->buildProcessPdfFilename($proceso);
         $relativePath = 'pdf-procesos/' . $filename;
         Storage::disk('public')->put($relativePath, $pdfBinary);
 
         return [$relativePath, $filename];
     }
 
-    private function buildApprovedProcessPdfFilename(Proceso $proceso): string
+    private function buildProcessPdfFilename(Proceso $proceso): string
     {
         $lpp = trim((string) ($proceso->LPP_recepcion ?? ''));
         if ($lpp === '') {

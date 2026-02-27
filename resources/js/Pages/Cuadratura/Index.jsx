@@ -12,7 +12,7 @@ import {
   TableHeader,
   TableRow,
 } from '@/Components/ui/table';
-import { ArrowDown, ArrowRight, ArrowUp, Eye } from 'lucide-react';
+import { ArrowDown, ArrowRight, ArrowUp, CheckCircle2, Eye } from 'lucide-react';
 
 const statusClassMap = {
   pendiente_cuadratura: 'bg-slate-100 text-slate-800',
@@ -96,6 +96,7 @@ export default function Index({ procesos, filters, statusOptions = [] }) {
   const { props } = usePage();
   const [selected, setSelected] = useState([]);
   const [sending, setSending] = useState(false);
+  const [finalizingId, setFinalizingId] = useState(null);
 
   const { data, setData, get } = useForm({
     search: filters?.search || '',
@@ -150,6 +151,17 @@ export default function Index({ procesos, filters, statusOptions = [] }) {
       preserveScroll: true,
       onSuccess: () => setSelected([]),
       onFinish: () => setSending(false),
+    });
+  };
+
+  const finalizeProcess = (item) => {
+    if (!item?.id || finalizingId === item.id) return;
+    if (!confirm(`¿Actualizar proceso ${item.n_proceso} a estado Finalizado y regenerar PDF?`)) return;
+
+    setFinalizingId(item.id);
+    router.post(route('cuadratura.finalize', item.id), {}, {
+      preserveScroll: true,
+      onFinish: () => setFinalizingId(null),
     });
   };
 
@@ -264,6 +276,17 @@ export default function Index({ procesos, filters, statusOptions = [] }) {
                       </TableCell> */}
                       <TableCell>
                         <div className="flex items-center gap-3">
+                          <Button
+                            type="button"
+                            variant="default"
+                            size="sm"
+                            onClick={() => finalizeProcess(item)}
+                            disabled={finalizingId === item.id}
+                            title="Actualizar estado Finalizado y generar PDF"
+                          >
+                            <CheckCircle2 className="h-4 w-4" />
+                            {finalizingId === item.id ? 'Finalizando...' : 'Finalizar'}
+                          </Button>
                           {item.preview_url ? (
                             <Button
                               type="button"

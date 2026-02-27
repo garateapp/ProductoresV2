@@ -96,6 +96,7 @@ Route::post('producers/{producer}/welcome-email', [App\Http\Controllers\Producer
     Route::prefix('cuadratura')->name('cuadratura.')->group(function () {
         Route::get('/', [CuadraturaController::class, 'index'])->name('index');
         Route::post('/send-for-approval', [CuadraturaController::class, 'sendForApproval'])->name('send-for-approval');
+        Route::post('/procesos/{proceso}/finalize', [CuadraturaController::class, 'finalize'])->name('finalize');
         Route::get('/procesos/{proceso}/preview', [CuadraturaController::class, 'preview'])->name('preview');
         Route::get('/procesos/{proceso}', [CuadraturaController::class, 'review'])->name('review');
         Route::post('/procesos/{proceso}/approve', [CuadraturaController::class, 'approve'])->name('approve');
