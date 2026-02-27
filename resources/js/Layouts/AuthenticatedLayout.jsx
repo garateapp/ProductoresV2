@@ -111,7 +111,7 @@ export default function AuthenticatedLayout({ header, children }) {
                                             </NavigationMenuItem>
                                         )}
 
-                                        {hasAnyRole(['Administrador', 'Admin', 'Cuadratura']) && (
+                                        {hasAnyRole(['Administrador', 'Admin', 'Cuadratura','JefePlanta']) && (
                                             <NavigationMenuItem>
                                                 <NavigationMenuLink asChild className={navLinkClasses}>
                                                     <Link href={route('cuadratura.index')}>Cuadratura</Link>
