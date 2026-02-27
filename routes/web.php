@@ -16,6 +16,8 @@ use App\Http\Controllers\ValidacionesController;
 use App\Http\Controllers\SystemLogController;
 use App\Http\Controllers\ProspectoProductorController;
 use App\Http\Controllers\ContractProducerFlowController;
+use App\Http\Controllers\CuadraturaController;
+use App\Http\Controllers\ProcesoReportController;
 
 Route::get('/', function () {
     return redirect()->route('login');
@@ -83,12 +85,22 @@ Route::post('producers/{producer}/welcome-email', [App\Http\Controllers\Producer
     Route::post('recepciones/{recepcion}/send-whatsapp-test', [App\Http\Controllers\RecepcionController::class, 'sendWhatsappTest'])->name('recepciones.send-whatsapp-test');
 
     Route::resource('procesos', App\Http\Controllers\ProcesoController::class)->only(['index'])->names('procesos');
+    Route::get('procesos/{proceso}/report', [ProcesoReportController::class, 'show'])->name('procesos.report');
     Route::post('procesos/informes/upload', [App\Http\Controllers\ProcesoController::class, 'uploadInformes'])->name('procesos.informes.upload');
     Route::post('procesos/{proceso}/resend-report', [App\Http\Controllers\ProcesoController::class, 'resendReport'])->name('procesos.resend-report');
     Route::post('procesos/{proceso}/sync-exportadora', [App\Http\Controllers\ProcesoController::class, 'syncExportadora'])->name('procesos.sync-exportadora');
     Route::post('procesos/sync-exportadora', [App\Http\Controllers\ProcesoController::class, 'syncExportadoraAll'])->name('procesos.sync-exportadora-all');
     Route::post('procesos/sync', [App\Http\Controllers\ProcesoController::class, 'procesos_sync'])->name('procesos.sync');
     Route::post('procesos/sync-lpp', [App\Http\Controllers\ProcesoController::class, 'sync_lpp'])->name('procesos.sync-lpp');
+
+    Route::prefix('cuadratura')->name('cuadratura.')->group(function () {
+        Route::get('/', [CuadraturaController::class, 'index'])->name('index');
+        Route::post('/send-for-approval', [CuadraturaController::class, 'sendForApproval'])->name('send-for-approval');
+        Route::get('/procesos/{proceso}/preview', [CuadraturaController::class, 'preview'])->name('preview');
+        Route::get('/procesos/{proceso}', [CuadraturaController::class, 'review'])->name('review');
+        Route::post('/procesos/{proceso}/approve', [CuadraturaController::class, 'approve'])->name('approve');
+        Route::post('/procesos/{proceso}/reject', [CuadraturaController::class, 'reject'])->name('reject');
+    });
 
     Route::resource('control-calidad', App\Http\Controllers\ControlCalidadController::class)->only(['index'])->names('control-calidad');
     Route::get('control-calidad/get-valores', [App\Http\Controllers\ControlCalidadController::class, 'getValores'])->name('control-calidad.get-valores');
@@ -310,6 +322,10 @@ Route::post('producers/{producer}/welcome-email', [App\Http\Controllers\Producer
         Route::get('fruit-flow', [App\Http\Controllers\Planning\FruitFlowController::class, 'index'])->name('fruit-flow.index');
         Route::get('service-estimations', [App\Http\Controllers\Planning\ServiceEstimationController::class, 'index'])->name('service-estimations.index');
         Route::post('service-estimations', [App\Http\Controllers\Planning\ServiceEstimationController::class, 'store'])->name('service-estimations.store');
+        Route::patch('service-estimations/{estimation_biweekly_version}/rows/{estimation_biweekly_row}', [App\Http\Controllers\Planning\ServiceEstimationController::class, 'updateRow'])->name('service-estimations.rows.update');
+        Route::delete('service-estimations/{estimation_biweekly_version}/rows/{estimation_biweekly_row}', [App\Http\Controllers\Planning\ServiceEstimationController::class, 'destroyRow'])->name('service-estimations.rows.destroy');
+        Route::delete('service-estimations/{estimation_biweekly_version}', [App\Http\Controllers\Planning\ServiceEstimationController::class, 'destroy'])->name('service-estimations.destroy');
+        Route::get('service-estimations/{estimation_biweekly_version}', [App\Http\Controllers\Planning\ServiceEstimationController::class, 'show'])->name('service-estimations.show');
 
         // Plan semanal (multi-día)
         Route::get('batches', [App\Http\Controllers\Planning\PackingProcessBatchController::class, 'index'])->name('batches.index');

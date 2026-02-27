@@ -111,15 +111,23 @@ export default function AuthenticatedLayout({ header, children }) {
                                             </NavigationMenuItem>
                                         )}
 
+                                        {hasAnyRole(['Administrador', 'Admin', 'Cuadratura']) && (
+                                            <NavigationMenuItem>
+                                                <NavigationMenuLink asChild className={navLinkClasses}>
+                                                    <Link href={route('cuadratura.index')}>Cuadratura</Link>
+                                                </NavigationMenuLink>
+                                            </NavigationMenuItem>
+                                        )}
+
                                         {hasAnyRole(['Administrador', 'Calidad']) && <ControlCalidadMenu />}
 
-                                        {hasAnyRole(['Administrador', 'Agronomo']) && (
+                                        {/* {hasAnyRole(['Administrador', 'Agronomo']) && (
                                             <NavigationMenuItem>
                                                 <NavigationMenuLink asChild className={navLinkClasses}>
                                                     <Link href={route('field-visits.index')}>Visitas</Link>
                                                 </NavigationMenuLink>
                                             </NavigationMenuItem>
-                                        )}
+                                        )} */}
 
                                         {hasAnyRole(['Administrador', 'Agronomo', 'Sag']) && <SagMenu/>}
 
@@ -226,6 +234,16 @@ export default function AuthenticatedLayout({ header, children }) {
                                 >
                                     Procesos
                                 </ResponsiveNavLink>
+                                {hasAnyRole(['Administrador', 'Admin', 'Cuadratura']) && (
+                                    <ResponsiveNavLink
+                                        {...mobileNavLinkProps}
+                                        href={route('cuadratura.index')}
+                                        active={route().current('cuadratura.*')}
+                                        onClick={() => setShowingNavigationDropdown(false)}
+                                    >
+                                        Cuadratura
+                                    </ResponsiveNavLink>
+                                )}
                                 {hasAnyRole(['Administrador', 'Calidad', 'Gerencia']) && (
                                     <>
                                         <ResponsiveNavLink
@@ -265,6 +283,17 @@ export default function AuthenticatedLayout({ header, children }) {
                                     </ResponsiveNavLink>
                                 )}
                             </>
+                        )}
+
+                        {!hasAnyRole(['Administrador', 'Productor', 'Gerencia']) && hasAnyRole(['Administrador', 'Admin', 'Cuadratura']) && (
+                            <ResponsiveNavLink
+                                {...mobileNavLinkProps}
+                                href={route('cuadratura.index')}
+                                active={route().current('cuadratura.*')}
+                                onClick={() => setShowingNavigationDropdown(false)}
+                            >
+                                Cuadratura
+                            </ResponsiveNavLink>
                         )}
 
                         {hasAnyRole(validacionesAllowedRoles) && (

@@ -4,6 +4,8 @@ namespace App\Models;
 
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
+use Illuminate\Database\Eloquent\Relations\HasMany;
+use Illuminate\Database\Eloquent\Relations\HasOne;
 
 class Proceso extends Model
 {
@@ -41,5 +43,15 @@ class Proceso extends Model
     public function processedFruitQualities()
     {
         return $this->hasMany(ProcessedFruitQuality::class);
+    }
+
+    public function cuadraturaWorkflow(): HasOne
+    {
+        return $this->hasOne(ProcesoCuadratura::class, 'proceso_id');
+    }
+
+    public function cuadraturaEventos(): HasMany
+    {
+        return $this->hasMany(ProcesoCuadraturaEvento::class, 'proceso_id');
     }
 }
