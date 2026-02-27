@@ -100,7 +100,6 @@ class ProcesoController extends Controller
         if ($shouldRestrict) {
             if ($allowedProducerNames->isNotEmpty() || $allowedProducerCodes->isNotEmpty()) {
                 $this->applyProcesoProducerFilters($query, $allowedProducerNames, $allowedProducerCodes);
-                $query->whereNotNull('informe');
             } else {
                 $query->whereRaw('1 = 0');
             }
@@ -236,6 +235,7 @@ class ProcesoController extends Controller
                 'email_sent' => $statusByProcess[$proceso->id]['email'] ?? false,
                 'whatsapp_sent' => $statusByProcess[$proceso->id]['whatsapp'] ?? false,
             ];
+            $proceso->report_url = route('procesos.report', $proceso);
 
             return $proceso;
         });
@@ -577,7 +577,7 @@ class ProcesoController extends Controller
                 'n_exportadora',
             )
             ->where('ppc.tipo_proceso', 'PRN')
-            ->where('ppc.Estado', 'Finalizado')
+            //->where('ppc.Estado', 'Finalizado')
             ->where('peso_neto','>',0)
             ->whereNotIn('numero_proceso',[1615,1616]) //temporal
             ->groupBy(

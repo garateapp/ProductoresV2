@@ -742,6 +742,11 @@ export default function Index({ procesos, especies, variedades = [], exportadora
               {procesos.data.map((proceso) => {
                 const emailSent = proceso.notifications?.email_sent;
                 const whatsappSent = proceso.notifications?.whatsapp_sent;
+                const hasInforme = Boolean(
+                  proceso?.informe
+                  && String(proceso.informe).trim() !== ''
+                  && String(proceso.informe).toLowerCase() !== 'null'
+                );
 
                 return (
                   <TableRow key={proceso.id}>
@@ -773,13 +778,11 @@ export default function Index({ procesos, especies, variedades = [], exportadora
                     <TableCell>{calculatePercentage(proceso.desecho ?? 0, proceso.kilos_netos ?? 0)}</TableCell>
                     <TableCell>{calculatePercentage(proceso.merma ?? 0, proceso.kilos_netos ?? 0)}</TableCell>
                     <TableCell>
-                      {proceso.informe ? (
-                        <a href={"storage/" + proceso.informe} target="_blank" rel="noopener noreferrer" className="text-blue-600 hover:text-blue-800">
+                      {hasInforme ? (
+                        <a href={`/storage/${proceso.informe}`} target="_blank" rel="noopener noreferrer" className="text-blue-600 hover:text-blue-800">
                           <FileText className="h-5 w-5" />
                         </a>
-                      ) : (
-                        '-'
-                      )}
+                      ) : null}
                     </TableCell>
                     <TableCell>
                       {isAdmin ? (
@@ -817,7 +820,7 @@ export default function Index({ procesos, especies, variedades = [], exportadora
                     </div>
                   </a>
                 </Button>
-                {isAdmin && proceso.informe ? (
+                {isAdmin && hasInforme ? (
                   <Button
                     variant="outline"
                     size="sm"

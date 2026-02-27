@@ -37,7 +37,7 @@ class CuadraturaController extends Controller
         $status = trim((string) $request->input('status', ''));
 
         $query = Proceso::query()
-            ->where('estado', 'Finalizado')
+            //->where('estado', 'Finalizado')
             ->with('cuadraturaWorkflow');
 
         if ($search !== '') {
