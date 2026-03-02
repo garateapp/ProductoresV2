@@ -1088,9 +1088,114 @@ class PackingProcessController extends Controller
                 ['fecha', 'shift_id', 'packing_line_id', 'process_id'],
                 ['orden', 'updated_by', 'updated_at']
             );
+
+            $this->recalculateLineScheduleByProcessOrder(
+                $date,
+                $shiftId,
+                $lineId,
+                $finalOrder->all()
+            );
         });
 
         return back()->with('success', 'Orden de procesos guardado.');
+    }
+
+    /**
+     * Recalcula inicio/fin estimado de los lotes de una línea completa
+     * respetando el orden de procesos configurado en Index.
+     *
+     * @param array<int,int> $orderedProcessIds
+     */
+    private function recalculateLineScheduleByProcessOrder(string $date, int $shiftId, int $lineId, array $orderedProcessIds): void
+    {
+        $processOrder = collect($orderedProcessIds)
+            ->map(fn ($id) => (int) $id)
+            ->filter(fn ($id) => $id > 0)
+            ->unique()
+            ->values();
+
+        if ($processOrder->isEmpty() || $shiftId <= 0 || $lineId <= 0) {
+            return;
+        }
+
+        $shift = Shift::query()->find($shiftId, ['id', 'hora_inicio']);
+        if (! $shift) {
+            return;
+        }
+
+        $startTime = trim((string) ($shift->hora_inicio ?? '')) !== ''
+            ? (string) $shift->hora_inicio
+            : '00:00:00';
+        $cursor = Carbon::parse($date.' '.$startTime);
+
+        $processesById = PackingProcess::query()
+            ->whereIn('id', $processOrder->all())
+            ->get(['id', 'especie'])
+            ->keyBy('id');
+
+        $lotsByProcess = PackingProcessLot::query()
+            ->where('packing_line_id', $lineId)
+            ->whereIn('process_id', $processOrder->all())
+            ->orderBy('orden')
+            ->orderBy('id')
+            ->get()
+            ->groupBy('process_id');
+
+        foreach ($processOrder as $processId) {
+            $process = $processesById->get((int) $processId);
+            if (! $process) {
+                continue;
+            }
+
+            $binsPorHora = (float) ($this->capacityResolver->resolveBinsPorHora(
+                $lineId,
+                (string) ($process->especie ?? ''),
+                $shiftId,
+                Carbon::parse($date)
+            ) ?? 0);
+
+            $lineLots = $lotsByProcess->get((int) $processId, collect())
+                ->sortBy([
+                    ['orden', 'asc'],
+                    ['id', 'asc'],
+                ])
+                ->values();
+
+            foreach ($lineLots as $lot) {
+                $minutes = $this->resolveLotDurationMinutesForLineReorder($lot, $binsPorHora);
+                $start = $cursor->copy();
+                $end = $cursor->copy()->addMinutes($minutes);
+                $cursor = $end->copy();
+
+                $lot->forceFill([
+                    'inicio_estimado' => $start,
+                    'fin_estimado' => $end,
+                ])->save();
+            }
+        }
+    }
+
+    private function resolveLotDurationMinutesForLineReorder(PackingProcessLot $lot, float $binsPorHora): int
+    {
+        $bins = (float) ($lot->cantidad_bins ?? 0);
+        if ($binsPorHora > 0 && $bins > 0) {
+            return max(1, (int) round(($bins / $binsPorHora) * 60));
+        }
+
+        $existingStart = $lot->inicio_estimado;
+        $existingEnd = $lot->fin_estimado;
+        if ($existingStart && $existingEnd) {
+            try {
+                $diff = (int) Carbon::parse((string) $existingStart)->diffInMinutes(Carbon::parse((string) $existingEnd), false);
+                if ($diff > 0) {
+                    return $diff;
+                }
+            } catch (\Throwable) {
+                // fallback abajo
+            }
+        }
+
+        return 30;
     }
 
     public function updateLots(UpdatePackingProcessLotsRequest $request, PackingProcess $process)
@@ -1759,22 +1864,48 @@ class PackingProcessController extends Controller
     {
         $process->loadMissing(['shift', 'lots:process_id,packing_line_id']);
 
-        $statuses = [
-            PlanningProcessStatus::CONFIRMADO->value,
-            PlanningProcessStatus::EN_PROCESO->value,
-            PlanningProcessStatus::CERRADO->value,
-        ];
-
         $processIds = PackingProcess::query()
             ->whereDate('fecha', $date)
             ->where('shift_id', $shiftId)
-            ->whereIn('estado', $statuses)
             ->pluck('id')
             ->map(fn ($id) => (int) $id)
             ->values();
 
         if (! $processIds->contains((int) $process->id)) {
             $processIds->push((int) $process->id);
+        }
+
+        $manualOrderByLineProcess = [];
+        if (Schema::hasTable('process_line_orders')) {
+            $lineOrderQuery = DB::table('process_line_orders')
+                ->where('fecha', $date)
+                ->where('shift_id', $shiftId)
+                ->whereIn('process_id', $processIds->all());
+
+            if (! empty($lineIds)) {
+                $lineOrderQuery->whereIn('packing_line_id', collect($lineIds)
+                    ->map(fn ($id) => (int) $id)
+                    ->filter(fn ($id) => $id > 0)
+                    ->values()
+                    ->all());
+            }
+
+            $lineOrderRows = $lineOrderQuery
+                ->orderBy('orden')
+                ->get(['packing_line_id', 'process_id', 'orden']);
+
+            foreach ($lineOrderRows as $row) {
+                $lid = (int) ($row->packing_line_id ?? 0);
+                $pid = (int) ($row->process_id ?? 0);
+                $ord = (int) ($row->orden ?? 0);
+                if ($lid <= 0 || $pid <= 0 || $ord <= 0) {
+                    continue;
+                }
+                if (! isset($manualOrderByLineProcess[$lid])) {
+                    $manualOrderByLineProcess[$lid] = [];
+                }
+                $manualOrderByLineProcess[$lid][$pid] = $ord;
+            }
         }
 
         $lotsQuery = PackingProcessLot::query()
@@ -1787,14 +1918,38 @@ class PackingProcessController extends Controller
 
         $lots = $lotsQuery
             ->get()
-            ->sortBy([
-                ['packing_line_id', 'asc'],
-                [fn ($l) => $l->inicio_estimado ? 0 : 1, 'asc'],
-                ['inicio_estimado', 'asc'],
-                ['process_id', 'asc'],
-                ['orden', 'asc'],
-                ['id', 'asc'],
-            ])
+            ->sort(function ($a, $b) use ($manualOrderByLineProcess) {
+                $lineA = (int) ($a->packing_line_id ?? 0);
+                $lineB = (int) ($b->packing_line_id ?? 0);
+                if ($lineA !== $lineB) {
+                    return $lineA <=> $lineB;
+                }
+
+                $processA = (int) ($a->process_id ?? 0);
+                $processB = (int) ($b->process_id ?? 0);
+                $manualA = $manualOrderByLineProcess[$lineA][$processA] ?? PHP_INT_MAX;
+                $manualB = $manualOrderByLineProcess[$lineA][$processB] ?? PHP_INT_MAX;
+                if ($manualA !== $manualB) {
+                    return $manualA <=> $manualB;
+                }
+
+                if ($processA !== $processB) {
+                    $startA = $a->inicio_estimado ? Carbon::parse((string) $a->inicio_estimado)->timestamp : PHP_INT_MAX;
+                    $startB = $b->inicio_estimado ? Carbon::parse((string) $b->inicio_estimado)->timestamp : PHP_INT_MAX;
+                    if ($startA !== $startB) {
+                        return $startA <=> $startB;
+                    }
+                    return $processA <=> $processB;
+                }
+
+                $lotOrderA = (int) ($a->orden ?? 0);
+                $lotOrderB = (int) ($b->orden ?? 0);
+                if ($lotOrderA !== $lotOrderB) {
+                    return $lotOrderA <=> $lotOrderB;
+                }
+
+                return (int) ($a->id ?? 0) <=> (int) ($b->id ?? 0);
+            })
             ->values();
 
         if ($lots->isEmpty()) {
