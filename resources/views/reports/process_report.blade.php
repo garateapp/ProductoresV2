@@ -343,7 +343,7 @@
         <div class="section-body">
             <div class="summary-grid">
                 <div class="summary-box">
-                    Ingreso Cantidad
+                    Cantidad ({{ $ingresoPackagingName ?? 'Ingreso a Proceso' }})
                     <strong>{{ number_format($totalIngresosCantidad, 0, ',', '.') }}</strong>
                 </div>
                 <div class="summary-box">
@@ -351,20 +351,24 @@
                     <strong>{{ number_format($totalIngresosPeso, 2, ',', '.') }}</strong>
                 </div>
                 <div class="summary-box">
-                    Salida Cantidad
-                    <strong>{{ number_format($totalSalidasCantidad, 0, ',', '.') }}</strong>
-                </div>
-                <div class="summary-box">
-                    Salida Peso Neto
+                    Kilos Procesados
                     <strong>{{ number_format($totalSalidasPeso, 2, ',', '.') }}</strong>
                 </div>
                 <div class="summary-box">
+                    Kilos Merma
+                     <strong>{{ number_format($diferenciaPeso, 2, ',', '.') }}</strong>
+                </div>
+                 <div class="summary-box">
                     % Exportación
                     <strong>{{ number_format((float) ($destinoPercentages['exportable'] ?? 0), 2, ',', '.') }}%</strong>
                 </div>
                 <div class="summary-box">
-                    % Mercado Interno
-                    <strong>{{ number_format((float) ($destinoPercentages['mercado_interno'] ?? 0), 2, ',', '.') }}%</strong>
+                    % Mercado Interno / Sobrecalibre
+                    <strong>
+                        {{ number_format((float) ($destinoPercentages['mercado_interno'] ?? 0), 2, ',', '.') }}%
+                        /
+                        {{ number_format((float) ($destinoPercentages['sobrecalibre'] ?? 0), 2, ',', '.') }}%
+                    </strong>
                 </div>
                 <div class="summary-box">
                     % Desecho
@@ -375,10 +379,10 @@
                     <strong>{{ number_format((float) ($mermasPercentage ?? 0), 2, ',', '.') }}%</strong>
                 </div>
             </div>
-            <div style="margin-top: 8px;">
+            {{-- <div style="margin-top: 8px;">
                 Diferencia de Peso (Ingreso - Salida):
                 <strong>{{ number_format($diferenciaPeso, 2, ',', '.') }}</strong>
-            </div>
+            </div> --}}
         </div>
     </div>
 
@@ -395,18 +399,20 @@
                     <div class="chart-meta">
                         <span class="chart-chip">Exportable (Cat 1 / Cat I): {{ number_format((float) ($destinoPercentages['exportable'] ?? 0), 2, ',', '.') }}%</span>
                         <span class="chart-chip">Mercado Interno: {{ number_format((float) ($destinoPercentages['mercado_interno'] ?? 0), 2, ',', '.') }}%</span>
+                        <span class="chart-chip">Sobrecalibre: {{ number_format((float) ($destinoPercentages['sobrecalibre'] ?? 0), 2, ',', '.') }}%</span>
                         <span class="chart-chip">Desecho: {{ number_format((float) ($destinoPercentages['desecho'] ?? 0), 2, ',', '.') }}%</span>
                         <span class="chart-chip">Mermas: {{ number_format((float) ($mermasPercentage ?? 0), 2, ',', '.') }}%</span>
                     </div>
                 </div>
                 <div class="chart-card">
-                    <div class="chart-title">Curva de Calibre por Cantidad</div>
+                    <div class="chart-title">Curva de Calibre por Cantidad y %</div>
                     <div class="chart-canvas-wrap">
                         <canvas id="calibre-curve-chart"></canvas>
                     </div>
                     <p id="calibre-empty" class="muted chart-empty" style="display: none;">Sin datos suficientes para el gráfico.</p>
                     <div class="chart-meta">
                         <span class="chart-chip">Total Cantidad Curva: {{ number_format(array_sum($calibreCurveCantidad ?? []), 0, ',', '.') }}</span>
+                        <span class="chart-chip">Total % Curva: {{ number_format(array_sum($calibreCurvePorcentaje ?? []), 2, ',', '.') }}%</span>
                     </div>
                 </div>
             </div>
@@ -515,6 +521,7 @@
                 $salidasSecciones = [
                     ['titulo' => 'Exportación', 'rows' => $salidasExportacion ?? collect()],
                     ['titulo' => 'Mercado Interno', 'rows' => $salidasMercadoInterno ?? collect()],
+                    ['titulo' => 'Sobrecalibre', 'rows' => $salidasSobrecalibre ?? collect()],
                     ['titulo' => 'Desecho', 'rows' => $salidasDesecho ?? collect()],
                 ];
 
@@ -693,18 +700,21 @@
             const destinoLabels = [
                 'Exportable (Cat 1 / Cat I)',
                 'Mercado Interno',
+                'Sobrecalibre',
                 'Desecho',
                 'Mermas'
             ];
             const destinoValues = [
                 Number(destinoPercentages.exportable || 0),
                 Number(destinoPercentages.mercado_interno || 0),
+                Number(destinoPercentages.sobrecalibre || 0),
                 Number(destinoPercentages.desecho || 0),
                 mermasPercentage
             ];
             const destinoAbsolute = [
                 Number(destinoTotalsPeso.exportable || 0),
                 Number(destinoTotalsPeso.mercado_interno || 0),
+                Number(destinoTotalsPeso.sobrecalibre || 0),
                 Number(destinoTotalsPeso.desecho || 0),
                 mermasPeso
             ];
@@ -720,7 +730,7 @@
                             labels: destinoLabels,
                             datasets: [{
                                 data: destinoValues,
-                                backgroundColor: [palette.exportable, palette.precalibre, palette.danosPlaga, '#9ca3af'],
+                                backgroundColor: [palette.exportable, palette.precalibre, palette.defectosCondicion, palette.danosPlaga, '#9ca3af'],
                                 borderColor: '#ffffff',
                                 borderWidth: 1
                             }]
@@ -760,48 +770,71 @@
 
             const calibreLabels = @json($calibreCurveLabels ?? []);
             const calibreCantidad = @json($calibreCurveCantidad ?? []);
+            const calibrePorcentaje = @json($calibreCurvePorcentaje ?? []);
             const curveCanvas = document.getElementById('calibre-curve-chart');
             const calibreEmpty = document.getElementById('calibre-empty');
-            const hasCurveData = Array.isArray(calibreCantidad) && calibreCantidad.some(function (value) {
-                return Number(value) > 0;
-            });
+            const hasCurveData = Array.isArray(calibreCantidad)
+                && calibreCantidad.some(function (value) {
+                    return Number(value) > 0;
+                });
 
             if (curveCanvas) {
                 if (Array.isArray(calibreLabels) && calibreLabels.length > 0 && hasCurveData) {
                     new Chart(curveCanvas, {
-                        type: 'line',
+                        type: 'bar',
                         data: {
                             labels: calibreLabels,
-                            datasets: [{
-                                label: 'Cantidad',
-                                data: calibreCantidad,
-                                borderColor: palette.defectosCalidad,
-                                backgroundColor: palette.exportable,
-                                pointBackgroundColor: palette.defectosCondicion,
-                                pointBorderColor: '#ffffff',
-                                pointBorderWidth: 1,
-                                pointRadius: 3,
-                                tension: 0.25,
-                                fill: false
-                            }]
+                            datasets: [
+                                {
+                                    label: 'Cantidad',
+                                    data: calibreCantidad,
+                                    backgroundColor: palette.exportable,
+                                    borderColor: palette.defectosCalidad,
+                                    borderWidth: 1,
+                                    yAxisID: 'y',
+                                    stack: 'curva-calibre'
+                                },
+                                {
+                                    label: '%',
+                                    data: calibrePorcentaje,
+                                    backgroundColor: palette.precalibre,
+                                    borderColor: palette.defectosCondicion,
+                                    borderWidth: 1,
+                                    yAxisID: 'y1',
+                                    stack: 'curva-calibre-porcentaje'
+                                }
+                            ]
                         },
                         options: {
                             responsive: true,
                             maintainAspectRatio: false,
                             plugins: {
                                 legend: {
-                                    display: false
+                                    display: true,
+                                    position: 'bottom',
+                                    labels: {
+                                        boxWidth: 12,
+                                        font: {
+                                            size: 10
+                                        }
+                                    }
                                 },
                                 tooltip: {
                                     callbacks: {
                                         label: function (context) {
-                                            return 'Cantidad: ' + numberFormatter.format(Number(context.parsed.y || 0));
+                                            const rawValue = Number(context.parsed.y || 0);
+                                            if (context.dataset.yAxisID === 'y1') {
+                                                return '%: ' + rawValue.toFixed(2) + '%';
+                                            }
+
+                                            return 'Cantidad: ' + numberFormatter.format(rawValue);
                                         }
                                     }
                                 }
                             },
                             scales: {
                                 x: {
+                                    stacked: true,
                                     ticks: {
                                         font: {
                                             size: 9
@@ -815,6 +848,7 @@
                                     }
                                 },
                                 y: {
+                                    stacked: true,
                                     beginAtZero: true,
                                     ticks: {
                                         callback: function (value) {
@@ -827,6 +861,25 @@
                                     title: {
                                         display: true,
                                         text: 'Cantidad'
+                                    }
+                                },
+                                y1: {
+                                    position: 'right',
+                                    beginAtZero: true,
+                                    grid: {
+                                        drawOnChartArea: false
+                                    },
+                                    ticks: {
+                                        callback: function (value) {
+                                            return Number(value || 0).toFixed(2) + '%';
+                                        },
+                                        font: {
+                                            size: 9
+                                        }
+                                    },
+                                    title: {
+                                        display: true,
+                                        text: '%'
                                     }
                                 }
                             }

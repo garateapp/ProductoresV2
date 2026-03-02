@@ -51,23 +51,36 @@ class ProcesoReportController extends Controller
         $totalIngresosPeso = (float) $ingresos->sum('peso');
         $totalSalidasCantidad = (float) $salidas->sum('cantidad');
         $totalSalidasPeso = (float) $salidas->sum('peso_neto');
+        $ingresoPackagingNames = $ingresos
+            ->map(fn ($row) => trim((string) ($row['n_embalaje'] ?? $row['c_embalaje'] ?? '')))
+            ->filter()
+            ->unique()
+            ->values();
+        $ingresoPackagingName = $ingresoPackagingNames->isEmpty()
+            ? 'Ingreso a Proceso'
+            : ($ingresoPackagingNames->count() === 1
+                ? (string) $ingresoPackagingNames->first()
+                : ((string) $ingresoPackagingNames->first()) . ' +' . ($ingresoPackagingNames->count() - 1));
         $speciesForCharts = (string) ($cabecera['n_especie'] ?? $proceso->especie ?? '');
         $chiefSignature = $this->resolveChiefSignature($request, $proceso);
 
         $destinoTotals = [
             'exportable' => 0.0,
             'mercado_interno' => 0.0,
+            'sobrecalibre' => 0.0,
             'desecho' => 0.0,
         ];
         $destinoTotalsPeso = [
             'exportable' => 0.0,
             'mercado_interno' => 0.0,
+            'sobrecalibre' => 0.0,
             'desecho' => 0.0,
         ];
 
         $salidasGrouped = [
             'exportable' => [],
             'mercado_interno' => [],
+            'sobrecalibre' => [],
             'desecho' => [],
             'sin_clasificacion' => [],
         ];
@@ -97,6 +110,15 @@ class ProcesoReportController extends Controller
         }
 
         uksort($calibreTotals, fn ($a, $b) => $this->compareCalibreLabels((string) $a, (string) $b));
+        $calibreCurveLabels = array_values(array_keys($calibreTotals));
+        $calibreCurveCantidad = array_values($calibreTotals);
+        $calibreCurveTotalCantidad = array_sum($calibreCurveCantidad);
+        $calibreCurvePorcentaje = array_map(
+            fn ($value) => $calibreCurveTotalCantidad > 0
+                ? round((((float) $value) * 100) / $calibreCurveTotalCantidad, 2)
+                : 0.0,
+            $calibreCurveCantidad
+        );
 
         $totalDestinoCantidad = array_sum($destinoTotals);
         $totalDestinoPeso = array_sum($destinoTotalsPeso);
@@ -119,6 +141,7 @@ class ProcesoReportController extends Controller
             'totalIngresosPeso' => $totalIngresosPeso,
             'totalSalidasCantidad' => $totalSalidasCantidad,
             'totalSalidasPeso' => $totalSalidasPeso,
+            'ingresoPackagingName' => $ingresoPackagingName,
             'diferenciaPeso' => $totalIngresosPeso - $totalSalidasPeso,
             'queryError' => $queryError,
             'generatedAt' => Carbon::now('America/Santiago')->format('d-m-Y H:i'),
@@ -130,10 +153,12 @@ class ProcesoReportController extends Controller
             'totalDestinoPeso' => $totalDestinoPeso,
             'mermasPercentage' => $mermasPercentage,
             'mermasPeso' => $mermasPeso,
-            'calibreCurveLabels' => array_values(array_keys($calibreTotals)),
-            'calibreCurveCantidad' => array_values($calibreTotals),
+            'calibreCurveLabels' => $calibreCurveLabels,
+            'calibreCurveCantidad' => $calibreCurveCantidad,
+            'calibreCurvePorcentaje' => $calibreCurvePorcentaje,
             'salidasExportacion' => collect($salidasGrouped['exportable']),
             'salidasMercadoInterno' => collect($salidasGrouped['mercado_interno']),
+            'salidasSobrecalibre' => collect($salidasGrouped['sobrecalibre']),
             'salidasDesecho' => collect($salidasGrouped['desecho']),
             'salidasSinClasificacion' => collect($salidasGrouped['sin_clasificacion']),
             'chiefSignature' => $chiefSignature,
@@ -280,9 +305,12 @@ class ProcesoReportController extends Controller
             return null;
         }
 
+        if (str_contains($compact, 'sobrecalibre')) {
+            return 'sobrecalibre';
+        }
+
         if (
             str_contains($compact, 'comercial')
-            || str_contains($compact, 'sobrecalibre')
             || str_contains($compact, 'precalibre')
         ) {
             return 'mercado_interno';
