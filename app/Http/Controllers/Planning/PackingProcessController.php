@@ -81,6 +81,7 @@ class PackingProcessController extends Controller
         $linesByProcess = [];
         $lineTimesByProcess = [];
         $lineLotsByProcess = [];
+        $manualLineOrderByProcess = [];
 
         if (! empty($processIds)) {
             // Líneas involucradas por proceso (para agrupar en Index y permitir “Imprimir por línea”).
@@ -276,10 +277,34 @@ class PackingProcessController extends Controller
                     $lineLotsByProcess[$processId][$lineId] = array_values($items);
                 }
             }
+
+            if (Schema::hasTable('process_line_orders')) {
+                $lineOrderRows = DB::table('process_line_orders as plo')
+                    ->join('processes as p', 'p.id', '=', 'plo.process_id')
+                    ->whereIn('plo.process_id', $processIds)
+                    ->whereColumn('plo.fecha', 'p.fecha')
+                    ->whereColumn('plo.shift_id', 'p.shift_id')
+                    ->select('plo.process_id', 'plo.packing_line_id', 'plo.orden')
+                    ->orderBy('plo.orden')
+                    ->get();
+
+                foreach ($lineOrderRows as $row) {
+                    $pid = (int) ($row->process_id ?? 0);
+                    $lid = (int) ($row->packing_line_id ?? 0);
+                    $order = (int) ($row->orden ?? 0);
+                    if ($pid <= 0 || $lid <= 0 || $order <= 0) {
+                        continue;
+                    }
+                    if (! isset($manualLineOrderByProcess[$pid])) {
+                        $manualLineOrderByProcess[$pid] = [];
+                    }
+                    $manualLineOrderByProcess[$pid][$lid] = $order;
+                }
+            }
         }
 
         $processes->setCollection(
-            $processes->getCollection()->map(function (PackingProcess $process) use ($firstLotsByProcess, $sdpByKey, $linesByProcess, $lineTimesByProcess, $sqlsrvSdpMaps, $lineLotsByProcess) {
+            $processes->getCollection()->map(function (PackingProcess $process) use ($firstLotsByProcess, $sdpByKey, $linesByProcess, $lineTimesByProcess, $sqlsrvSdpMaps, $lineLotsByProcess, $manualLineOrderByProcess) {
                 $lot = $firstLotsByProcess->get($process->id);
                 $csg = $lot?->csg_productor ? trim((string) $lot->csg_productor) : null;
                 $variedad = $lot?->n_variedad ? trim((string) $lot->n_variedad) : null;
@@ -306,6 +331,7 @@ class PackingProcessController extends Controller
 
                 $process->setAttribute('line_times', $lineTimesByProcess[$process->id] ?? []);
                 $process->setAttribute('line_lots', $lineLotsByProcess[$process->id] ?? []);
+                $process->setAttribute('manual_line_order', $manualLineOrderByProcess[$process->id] ?? []);
 
                 return $process;
             })
@@ -958,6 +984,113 @@ class PackingProcessController extends Controller
                 'especie' => trim((string) $request->input('especie', '')) ?: null,
             ])
             ->with('success', "Proceso #{$processId} eliminado correctamente.");
+    }
+
+    public function updateLineOrder(Request $request)
+    {
+        $this->authorizePlanning($request);
+
+        if (! Schema::hasTable('process_line_orders')) {
+            return back()->with('error', 'No se puede guardar el orden porque falta aplicar migraciones.');
+        }
+
+        $validated = $request->validate([
+            'date' => ['required', 'date_format:Y-m-d'],
+            'shift_id' => ['required', 'integer', 'min:1'],
+            'line_id' => ['required', 'integer', 'min:1'],
+            'process_ids' => ['required', 'array', 'min:1'],
+            'process_ids.*' => ['integer', 'min:1'],
+        ]);
+
+        $date = (string) $validated['date'];
+        $shiftId = (int) $validated['shift_id'];
+        $lineId = (int) $validated['line_id'];
+        $requestedIds = collect($validated['process_ids'])
+            ->map(fn ($id) => (int) $id)
+            ->filter(fn ($id) => $id > 0)
+            ->unique()
+            ->values();
+
+        if ($requestedIds->isEmpty()) {
+            return back()->with('error', 'Debes enviar al menos un proceso para guardar el orden.');
+        }
+
+        $validProcessIds = PackingProcess::query()
+            ->whereDate('fecha', $date)
+            ->where('shift_id', $shiftId)
+            ->whereHas('lots', fn ($q) => $q->where('packing_line_id', $lineId))
+            ->pluck('id')
+            ->map(fn ($id) => (int) $id)
+            ->filter(fn ($id) => $id > 0)
+            ->values();
+
+        if ($validProcessIds->isEmpty()) {
+            return back()->with('error', 'No hay procesos válidos para ese día/turno/línea.');
+        }
+
+        $validById = $validProcessIds->flip();
+        $requestedValid = $requestedIds
+            ->filter(fn ($id) => $validById->has((int) $id))
+            ->values();
+
+        if ($requestedValid->isEmpty()) {
+            return back()->with('error', 'El orden enviado no coincide con los procesos de la línea.');
+        }
+
+        $existingOrderByProcess = DB::table('process_line_orders')
+            ->where('fecha', $date)
+            ->where('shift_id', $shiftId)
+            ->where('packing_line_id', $lineId)
+            ->whereIn('process_id', $validProcessIds->all())
+            ->orderBy('orden')
+            ->get(['process_id', 'orden'])
+            ->mapWithKeys(fn ($row) => [(int) $row->process_id => (int) $row->orden]);
+
+        $remaining = $validProcessIds
+            ->filter(fn ($id) => ! $requestedValid->contains((int) $id))
+            ->sort(function (int $a, int $b) use ($existingOrderByProcess) {
+                $orderA = (int) ($existingOrderByProcess[$a] ?? PHP_INT_MAX);
+                $orderB = (int) ($existingOrderByProcess[$b] ?? PHP_INT_MAX);
+                if ($orderA !== $orderB) {
+                    return $orderA <=> $orderB;
+                }
+                return $a <=> $b;
+            })
+            ->values();
+
+        $finalOrder = $requestedValid->concat($remaining)->values();
+        $userId = (int) ($request->user()?->id ?? 0);
+        $now = now();
+
+        DB::transaction(function () use ($date, $shiftId, $lineId, $finalOrder, $userId, $now) {
+            DB::table('process_line_orders')
+                ->where('fecha', $date)
+                ->where('shift_id', $shiftId)
+                ->where('packing_line_id', $lineId)
+                ->whereNotIn('process_id', $finalOrder->all())
+                ->delete();
+
+            $rows = $finalOrder->values()->map(function (int $processId, int $idx) use ($date, $shiftId, $lineId, $userId, $now) {
+                return [
+                    'fecha' => $date,
+                    'shift_id' => $shiftId,
+                    'packing_line_id' => $lineId,
+                    'process_id' => $processId,
+                    'orden' => $idx + 1,
+                    'updated_by' => $userId > 0 ? $userId : null,
+                    'created_at' => $now,
+                    'updated_at' => $now,
+                ];
+            })->all();
+
+            DB::table('process_line_orders')->upsert(
+                $rows,
+                ['fecha', 'shift_id', 'packing_line_id', 'process_id'],
+                ['orden', 'updated_by', 'updated_at']
+            );
+        });
+
+        return back()->with('success', 'Orden de procesos guardado.');
     }
 
     public function updateLots(UpdatePackingProcessLotsRequest $request, PackingProcess $process)

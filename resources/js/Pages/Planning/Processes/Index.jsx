@@ -13,7 +13,7 @@ import {
   TableRow,
 } from '@/Components/ui/table'
 import { Input } from '@/Components/ui/input'
-import { Calendar, GanttChartSquare, Layers, Printer } from 'lucide-react'
+import { Calendar, ChevronDown, ChevronUp, GanttChartSquare, Layers, Printer, RotateCcw, Save } from 'lucide-react'
 
 function StatusBadge({ status }) {
   const value = String(status || '')
@@ -81,7 +81,71 @@ function lotDisplayLabel(lot) {
   return lot?.n_g_recepcion ? String(lot.n_g_recepcion) : '-'
 }
 
-function LineGroupGantt({ group, onDelete }) {
+function getManualLineOrder(process, lineId) {
+  const map = process?.manual_line_order || {}
+  const raw = map?.[String(lineId)] ?? map?.[Number(lineId)]
+  const num = Number(raw)
+  return Number.isFinite(num) && num > 0 ? num : null
+}
+
+function normalizeIdList(values) {
+  if (!Array.isArray(values)) return []
+  return values
+    .map((id) => Number(id))
+    .filter((id) => Number.isFinite(id) && id > 0)
+}
+
+function areIdListsEqual(a, b) {
+  const left = normalizeIdList(a)
+  const right = normalizeIdList(b)
+  if (left.length !== right.length) return false
+  for (let i = 0; i < left.length; i += 1) {
+    if (left[i] !== right[i]) return false
+  }
+  return true
+}
+
+function applyProcessOrder(processes, orderIds) {
+  const desired = normalizeIdList(orderIds)
+  if (!desired.length) return processes
+  const byId = new Map((processes || []).map((p) => [Number(p?.id || 0), p]))
+  const used = new Set()
+  const ordered = []
+
+  for (const id of desired) {
+    const p = byId.get(id)
+    if (p && !used.has(id)) {
+      ordered.push(p)
+      used.add(id)
+    }
+  }
+
+  for (const p of (processes || [])) {
+    const id = Number(p?.id || 0)
+    if (id > 0 && !used.has(id)) {
+      ordered.push(p)
+      used.add(id)
+    }
+  }
+
+  return ordered
+}
+
+function moveProcessInOrder(orderIds, processId, direction) {
+  const ids = normalizeIdList(orderIds)
+  const pid = Number(processId)
+  const idx = ids.findIndex((id) => id === pid)
+  if (idx < 0) return ids
+  const target = direction === 'up' ? idx - 1 : idx + 1
+  if (target < 0 || target >= ids.length) return ids
+  const next = [...ids]
+  const tmp = next[idx]
+  next[idx] = next[target]
+  next[target] = tmp
+  return next
+}
+
+function LineGroupGantt({ group, onDelete, onMoveOrder, onSaveOrder, onResetOrder, savingOrder }) {
   const { dateKey, shiftLabel, shiftId, lineId, lineName, processes: list, printableProcessId } = group
   const shift = list?.[0]?.shift || null
   const shiftStartStr = shift?.hora_inicio ? String(shift.hora_inicio) : '08:00:00'
@@ -112,12 +176,6 @@ function LineGroupGantt({ group, onDelete }) {
         durationMinutes,
     }
   })
-    .sort((a, b) => {
-      const sa = a.startMin ?? Number.POSITIVE_INFINITY
-      const sb = b.startMin ?? Number.POSITIVE_INFINITY
-      if (sa !== sb) return sa - sb
-      return Number(a?.p?.id || 0) - Number(b?.p?.id || 0)
-    })
 
   return (
     <div className="rounded border overflow-hidden bg-white">
@@ -130,6 +188,24 @@ function LineGroupGantt({ group, onDelete }) {
         </div>
 
         <div className="flex items-center gap-2">
+          {Number(lineId) > 0 ? (
+            <Button
+              size="sm"
+              onClick={() => onSaveOrder?.(group)}
+              disabled={!group?.hasDraft || !!savingOrder}
+            >
+              <Save className="h-4 w-4 mr-2" />
+              {savingOrder ? 'Guardando...' : 'Guardar orden'}
+            </Button>
+          ) : null}
+
+          {Number(lineId) > 0 && group?.hasDraft ? (
+            <Button size="sm" variant="outline" onClick={() => onResetOrder?.(group?.key)} disabled={!!savingOrder}>
+              <RotateCcw className="h-4 w-4 mr-2" />
+              Restablecer
+            </Button>
+          ) : null}
+
           {Number(lineId) > 0 ? (
             <a
               href={route('planning.lines.day', { packingLine: lineId, date: dateKey, shift_id: shiftId })}
@@ -167,7 +243,7 @@ function LineGroupGantt({ group, onDelete }) {
           <div className="divide-y">
             {(() => {
               let cursor = shiftStartMin
-              return rows.map(({ p, lt, lineLots, startMin, endMin, start, end, durationMinutes }) => {
+              return rows.map(({ p, lt, lineLots, startMin, endMin, start, end, durationMinutes }, rowIndex) => {
               const status = p?.estado?.value ?? p?.estado
                 const lotsPreview = (lineLots || []).map(lotDisplayLabel).slice(0, 3).join(', ')
                 const lotsMore = Math.max(0, (lineLots || []).length - 3)
@@ -175,6 +251,9 @@ function LineGroupGantt({ group, onDelete }) {
                   ? `${lotsPreview}${lotsMore > 0 ? ` +${lotsMore}` : ''}`
                   : '-'
                 const producerLabel = (lineLots?.[0]?.producer || p?.first_lot?.producer || '-')
+                const canMove = Number(lineId) > 0
+                const canMoveUp = canMove && rowIndex > 0
+                const canMoveDown = canMove && rowIndex < (rows.length - 1)
                 // Respetar secuencialidad: los procesos se ejecutan uno tras otro por línea.
                 // Si el estimado tiene un "hueco" (startMin > cursor), lo respetamos.
                 if (startMin !== null && startMin > cursor) {
@@ -202,6 +281,28 @@ function LineGroupGantt({ group, onDelete }) {
                 <div key={String(p?.id)} className="grid grid-cols-12 gap-3 px-3 py-2 items-center">
                   <div className="col-span-3 min-w-0">
                     <div className="flex items-center gap-2">
+                      {canMove ? (
+                        <span className="inline-flex items-center gap-1 rounded border bg-white px-1 py-0.5">
+                          <Button
+                            size="icon"
+                            variant="ghost"
+                            className="h-5 w-5"
+                            disabled={!canMoveUp || !!savingOrder}
+                            onClick={() => onMoveOrder?.(group, p?.id, 'up')}
+                          >
+                            <ChevronUp className="h-3.5 w-3.5" />
+                          </Button>
+                          <Button
+                            size="icon"
+                            variant="ghost"
+                            className="h-5 w-5"
+                            disabled={!canMoveDown || !!savingOrder}
+                            onClick={() => onMoveOrder?.(group, p?.id, 'down')}
+                          >
+                            <ChevronDown className="h-3.5 w-3.5" />
+                          </Button>
+                        </span>
+                      ) : null}
                       <span className="font-semibold">#{p.id}</span>
                       <StatusBadge status={status} />
                     </div>
@@ -291,6 +392,8 @@ export default function Index({ processes, filters }) {
       return 'table'
     }
   })
+  const [draftOrdersByGroup, setDraftOrdersByGroup] = useState({})
+  const [savingGroupKey, setSavingGroupKey] = useState('')
 
   useEffect(() => {
     try {
@@ -299,6 +402,61 @@ export default function Index({ processes, filters }) {
       // ignore
     }
   }, [viewKey, view])
+
+  useEffect(() => {
+    setDraftOrdersByGroup({})
+    setSavingGroupKey('')
+  }, [processes?.data])
+
+  const resetGroupOrderDraft = (groupKey) => {
+    setDraftOrdersByGroup((prev) => {
+      if (!prev?.[groupKey]) return prev
+      const next = { ...prev }
+      delete next[groupKey]
+      return next
+    })
+  }
+
+  const moveProcessOrder = (group, processId, direction) => {
+    const groupKey = String(group?.key || '')
+    const current = normalizeIdList(group?.currentOrderIds)
+    if (!groupKey || current.length < 2) return
+
+    const next = moveProcessInOrder(current, processId, direction)
+    if (areIdListsEqual(next, current)) return
+
+    const base = normalizeIdList(group?.baseOrderIds)
+    setDraftOrdersByGroup((prev) => {
+      if (areIdListsEqual(next, base)) {
+        if (!prev?.[groupKey]) return prev
+        const cleaned = { ...prev }
+        delete cleaned[groupKey]
+        return cleaned
+      }
+      return { ...prev, [groupKey]: next }
+    })
+  }
+
+  const saveGroupOrder = (group) => {
+    const lineId = Number(group?.lineId || 0)
+    const shiftId = Number(group?.shiftId || 0)
+    const date = String(group?.dateKey || '')
+    const processIds = normalizeIdList(group?.currentOrderIds)
+    if (lineId <= 0 || shiftId <= 0 || !date || !processIds.length) return
+
+    setSavingGroupKey(String(group.key || ''))
+    router.patch(route('planning.processes.line-order.update'), {
+      date,
+      shift_id: shiftId,
+      line_id: lineId,
+      process_ids: processIds,
+    }, {
+      preserveScroll: true,
+      preserveState: true,
+      onSuccess: () => resetGroupOrderDraft(String(group.key || '')),
+      onFinish: () => setSavingGroupKey(''),
+    })
+  }
 
   const dateSections = useMemo(() => {
     const list = Array.isArray(processes?.data) ? processes.data : []
@@ -344,17 +502,38 @@ export default function Index({ processes, filters }) {
           return Number.isFinite(minutes) ? minutes : Number.POSITIVE_INFINITY
         }
 
-        // Orden operativo: primero por hora estimada, luego por ID (estable).
+        // Orden operativo: prioridad al último orden guardado manualmente.
+        // Fallback: hora estimada y luego ID (estable).
         const sorted = [...g.processes].sort((a, b) => {
+          const orderA = getManualLineOrder(a, g.lineId)
+          const orderB = getManualLineOrder(b, g.lineId)
+          if (orderA !== null || orderB !== null) {
+            if (orderA !== null && orderB !== null && orderA !== orderB) return orderA - orderB
+            if (orderA !== null && orderB === null) return -1
+            if (orderA === null && orderB !== null) return 1
+          }
           const sa = getStartMinutes(a)
           const sb = getStartMinutes(b)
           if (sa !== sb) return sa - sb
           return Number(a?.id || 0) - Number(b?.id || 0)
         })
 
-        const shiftStartMinutes = timeToMinutes(sorted?.[0]?.shift?.hora_inicio || null) ?? Number.POSITIVE_INFINITY
-        const printable = sorted.find((p) => (p?.estado?.value ?? p?.estado) === 'CONFIRMADO') || null
-        return { ...g, processes: sorted, shiftStartMinutes, printableProcessId: printable?.id || null }
+        const baseOrderIds = normalizeIdList(sorted.map((p) => p?.id))
+        const draftOrderIds = normalizeIdList(draftOrdersByGroup?.[g.key])
+        const processesForRender = draftOrderIds.length ? applyProcessOrder(sorted, draftOrderIds) : sorted
+        const currentOrderIds = normalizeIdList(processesForRender.map((p) => p?.id))
+        const hasDraft = !areIdListsEqual(currentOrderIds, baseOrderIds)
+        const shiftStartMinutes = timeToMinutes(processesForRender?.[0]?.shift?.hora_inicio || null) ?? Number.POSITIVE_INFINITY
+        const printable = processesForRender.find((p) => (p?.estado?.value ?? p?.estado) === 'CONFIRMADO') || null
+        return {
+          ...g,
+          processes: processesForRender,
+          baseOrderIds,
+          currentOrderIds,
+          hasDraft,
+          shiftStartMinutes,
+          printableProcessId: printable?.id || null,
+        }
       })
       .sort((a, b) => {
         // Fecha desc, luego línea asc, luego hora de turno asc.
@@ -375,7 +554,7 @@ export default function Index({ processes, filters }) {
     }
 
     return Array.from(byDate.values()).sort((a, b) => String(b.dateKey).localeCompare(String(a.dateKey)))
-  }, [processes?.data])
+  }, [processes?.data, draftOrdersByGroup])
 
   useEffect(() => {
     const t = setTimeout(() => {
@@ -503,7 +682,15 @@ export default function Index({ processes, filters }) {
                   <div className="p-4 space-y-4">
                     {section.groups.map((g) => (
                       view === 'gantt' ? (
-                        <LineGroupGantt key={g.key} group={g} onDelete={handleDeleteProcess} />
+                        <LineGroupGantt
+                          key={g.key}
+                          group={g}
+                          onDelete={handleDeleteProcess}
+                          onMoveOrder={moveProcessOrder}
+                          onSaveOrder={saveGroupOrder}
+                          onResetOrder={resetGroupOrderDraft}
+                          savingOrder={savingGroupKey === g.key}
+                        />
                       ) : (
                       <div key={g.key} className="rounded border overflow-hidden bg-white">
                         <div className="flex items-center justify-between gap-3 border-b bg-gray-50 px-3 py-2">
@@ -515,6 +702,29 @@ export default function Index({ processes, filters }) {
                           </div>
 
                           <div className="flex items-center gap-2">
+                            {g.lineId > 0 ? (
+                              <Button
+                                size="sm"
+                                onClick={() => saveGroupOrder(g)}
+                                disabled={!g.hasDraft || savingGroupKey === g.key}
+                              >
+                                <Save className="h-4 w-4 mr-2" />
+                                {savingGroupKey === g.key ? 'Guardando...' : 'Guardar orden'}
+                              </Button>
+                            ) : null}
+
+                            {g.lineId > 0 && g.hasDraft ? (
+                              <Button
+                                size="sm"
+                                variant="outline"
+                                onClick={() => resetGroupOrderDraft(g.key)}
+                                disabled={savingGroupKey === g.key}
+                              >
+                                <RotateCcw className="h-4 w-4 mr-2" />
+                                Restablecer
+                              </Button>
+                            ) : null}
+
                             {g.lineId > 0 ? (
                               <a
                                 href={route('planning.lines.day', { packingLine: g.lineId, date: g.dateKey, shift_id: g.shiftId })}
@@ -564,7 +774,33 @@ export default function Index({ processes, filters }) {
                                       : ''
                                 }
                               >
-                                <TableCell className="font-medium">#{p.id}</TableCell>
+                                <TableCell className="font-medium">
+                                  <div className="flex items-center gap-2">
+                                    {g.lineId > 0 ? (
+                                      <span className="inline-flex items-center gap-1 rounded border bg-white px-1 py-0.5">
+                                        <Button
+                                          size="icon"
+                                          variant="ghost"
+                                          className="h-5 w-5"
+                                          disabled={savingGroupKey === g.key || (g.currentOrderIds || []).findIndex((id) => Number(id) === Number(p.id)) <= 0}
+                                          onClick={() => moveProcessOrder(g, p.id, 'up')}
+                                        >
+                                          <ChevronUp className="h-3.5 w-3.5" />
+                                        </Button>
+                                        <Button
+                                          size="icon"
+                                          variant="ghost"
+                                          className="h-5 w-5"
+                                          disabled={savingGroupKey === g.key || (g.currentOrderIds || []).findIndex((id) => Number(id) === Number(p.id)) >= ((g.currentOrderIds || []).length - 1)}
+                                          onClick={() => moveProcessOrder(g, p.id, 'down')}
+                                        >
+                                          <ChevronDown className="h-3.5 w-3.5" />
+                                        </Button>
+                                      </span>
+                                    ) : null}
+                                    <span>#{p.id}</span>
+                                  </div>
+                                </TableCell>
                                 <TableCell>
                                   {(() => {
                                     const lineLots = getProcessLineLots(p, g.lineId)
