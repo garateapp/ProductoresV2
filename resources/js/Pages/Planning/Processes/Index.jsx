@@ -315,15 +315,34 @@ export default function Index({ processes, filters }) {
 
     const groups = Array.from(groupMap.values())
       .map((g) => {
-        // Orden interno: más reciente primero (id desc).
-        const sorted = [...g.processes].sort((a, b) => Number(b?.id || 0) - Number(a?.id || 0))
+        const getStartMinutes = (p) => {
+          const keyA = String(g.lineId)
+          const keyB = Number(g.lineId)
+          const lineTimes = p?.line_times || {}
+          const slot = lineTimes?.[keyA] || lineTimes?.[keyB] || null
+          const minutes = timeToMinutes(slot?.inicio_estimado || null)
+          return Number.isFinite(minutes) ? minutes : Number.POSITIVE_INFINITY
+        }
+
+        // Orden operativo: primero por hora estimada, luego por ID (estable).
+        const sorted = [...g.processes].sort((a, b) => {
+          const sa = getStartMinutes(a)
+          const sb = getStartMinutes(b)
+          if (sa !== sb) return sa - sb
+          return Number(a?.id || 0) - Number(b?.id || 0)
+        })
+
+        const shiftStartMinutes = timeToMinutes(sorted?.[0]?.shift?.hora_inicio || null) ?? Number.POSITIVE_INFINITY
         const printable = sorted.find((p) => (p?.estado?.value ?? p?.estado) === 'CONFIRMADO') || null
-        return { ...g, processes: sorted, printableProcessId: printable?.id || null }
+        return { ...g, processes: sorted, shiftStartMinutes, printableProcessId: printable?.id || null }
       })
       .sort((a, b) => {
-        // Fecha desc, luego línea asc, luego turno asc.
+        // Fecha desc, luego línea asc, luego hora de turno asc.
         if (a.dateKey !== b.dateKey) return String(b.dateKey).localeCompare(String(a.dateKey))
         if (a.lineName !== b.lineName) return String(a.lineName).localeCompare(String(b.lineName), 'es', { sensitivity: 'base' })
+        if (Number(a.shiftStartMinutes || 0) !== Number(b.shiftStartMinutes || 0)) {
+          return Number(a.shiftStartMinutes || 0) - Number(b.shiftStartMinutes || 0)
+        }
         return String(a.shiftLabel).localeCompare(String(b.shiftLabel), 'es', { sensitivity: 'base' })
       })
 

@@ -49,7 +49,10 @@ class PackingProcess extends Model
 
     public function lots(): HasMany
     {
-        return $this->hasMany(PackingProcessLot::class, 'process_id')->orderBy('orden');
+        return $this->hasMany(PackingProcessLot::class, 'process_id')
+            ->orderBy('packing_line_id')
+            ->orderBy('orden')
+            ->orderBy('id');
     }
 
     public function lineOverrides(): HasMany

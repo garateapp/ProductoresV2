@@ -77,6 +77,7 @@ class PackingProcessController extends Controller
         $processIds = $processes->getCollection()->pluck('id')->values()->all();
         $firstLotsByProcess = collect();
         $sdpByKey = [];
+        $sqlsrvSdpMaps = ['triple' => [], 'pair' => []];
         $linesByProcess = [];
         $lineTimesByProcess = [];
 
@@ -163,6 +164,9 @@ class PackingProcessController extends Controller
                 $firstLotsByProcess->put($lot->process_id, $lot);
             }
 
+            $processSpeciesById = $processes->getCollection()
+                ->mapWithKeys(fn (PackingProcess $process) => [(int) $process->id => trim((string) ($process->especie ?? ''))]);
+
             $csgCodes = $firstLotsByProcess
                 ->pluck('csg_productor')
                 ->filter(fn ($v) => is_string($v) && trim($v) !== '')
@@ -170,6 +174,23 @@ class PackingProcessController extends Controller
                 ->unique()
                 ->values()
                 ->all();
+
+            $sqlsrvLookups = [];
+            foreach ($firstLotsByProcess as $processId => $lot) {
+                $csg = trim((string) ($lot->csg_productor ?? ''));
+                $variedad = trim((string) ($lot->n_variedad ?? ''));
+                $especie = trim((string) ($processSpeciesById[(int) $processId] ?? ''));
+                if ($csg === '' || $variedad === '' || $especie === '') {
+                    continue;
+                }
+                $sqlsrvLookups[] = [
+                    'csg' => $csg,
+                    'especie' => $especie,
+                    'variedad' => $variedad,
+                ];
+            }
+
+            $sqlsrvSdpMaps = $this->resolveSqlsrvSdpMaps($sqlsrvLookups);
 
             $variedades = $firstLotsByProcess
                 ->pluck('n_variedad')
@@ -179,6 +200,7 @@ class PackingProcessController extends Controller
                 ->values()
                 ->all();
 
+            // Fallback local: si no hay SDP en SQL Server, intentamos con catálogo interno.
             if (! empty($csgCodes) && ! empty($variedades)) {
                 $producerCsgRows = ProducerCsg::query()
                     ->whereIn('csg_code', $csgCodes)
@@ -186,7 +208,10 @@ class PackingProcessController extends Controller
                     ->get(['csg_code', 'variedad', 'sdp']);
 
                 foreach ($producerCsgRows as $row) {
-                    $key = mb_strtolower(trim((string) $row->csg_code).'|'.trim((string) $row->variedad));
+                    $key = $this->buildSdpPairKey(
+                        trim((string) $row->csg_code),
+                        trim((string) $row->variedad),
+                    );
                     if (! array_key_exists($key, $sdpByKey) && ($row->sdp ?? null)) {
                         $sdpByKey[$key] = $row->sdp;
                     }
@@ -195,18 +220,25 @@ class PackingProcessController extends Controller
         }
 
         $processes->setCollection(
-            $processes->getCollection()->map(function (PackingProcess $process) use ($firstLotsByProcess, $sdpByKey, $linesByProcess, $lineTimesByProcess) {
+            $processes->getCollection()->map(function (PackingProcess $process) use ($firstLotsByProcess, $sdpByKey, $linesByProcess, $lineTimesByProcess, $sqlsrvSdpMaps) {
                 $lot = $firstLotsByProcess->get($process->id);
                 $csg = $lot?->csg_productor ? trim((string) $lot->csg_productor) : null;
                 $variedad = $lot?->n_variedad ? trim((string) $lot->n_variedad) : null;
-                $key = ($csg && $variedad) ? mb_strtolower($csg.'|'.$variedad) : null;
+                $especie = trim((string) ($process->especie ?? ''));
+                $tripleKey = $this->buildSdpTripleKey($csg, $especie, $variedad);
+                $pairKey = $this->buildSdpPairKey($csg, $variedad);
+                $sqlsrvSdp = ($tripleKey !== '' && isset($sqlsrvSdpMaps['triple'][$tripleKey]))
+                    ? $sqlsrvSdpMaps['triple'][$tripleKey]
+                    : (($pairKey !== '' && isset($sqlsrvSdpMaps['pair'][$pairKey]))
+                        ? $sqlsrvSdpMaps['pair'][$pairKey]
+                        : null);
 
                 $process->setAttribute('first_lot', $lot ? [
                     'n_g_recepcion' => $lot->n_g_recepcion ?: null,
                     'producer' => $lot->n_productor ?: null,
                     'variedad' => $lot->n_variedad ?: null,
                     'csg' => $lot->csg_productor ?: null,
-                    'sdp' => ($key && isset($sdpByKey[$key])) ? $sdpByKey[$key] : null,
+                    'sdp' => $sqlsrvSdp ?: (($pairKey !== '' && isset($sdpByKey[$pairKey])) ? $sdpByKey[$pairKey] : null),
                 ] : null);
 
                 $lines = $linesByProcess[$process->id] ?? [];
@@ -347,6 +379,7 @@ class PackingProcessController extends Controller
         $this->authorizePlanning($request);
 
         $process->load(['shift', 'lots.packingLine', 'lots.lastPackagingChange.user', 'lineOverrides']);
+        $this->enrichLotsWithSqlsrvSdp($process);
 
         // Exportadora (snapshot) para mostrar en UI: si aún no está seteada, la inferimos desde Recepción.
         // No guardamos aquí para evitar side-effects; se persiste al confirmar.
@@ -548,6 +581,8 @@ class PackingProcessController extends Controller
                 $inventory = $inventory->filter(fn ($row) => ($row['brix'] ?? null) !== null && (float) $row['brix'] <= $max)->values();
             }
         }
+
+        $inventory = $this->enrichInventoryRowsWithSqlsrvSdp($inventory, (string) ($process->especie ?? ''));
 
         // Badges (México / Mosca) por productor+variedad para esta fecha.
         $badges = [
@@ -1328,6 +1363,10 @@ class PackingProcessController extends Controller
                     ])->save();
                     $changed = true;
                 }
+            }
+
+            if ($this->normalizeLotOrderByLine($process)) {
+                $changed = true;
             }
 
         });
@@ -2548,6 +2587,303 @@ class PackingProcessController extends Controller
         }
 
         PackingProcessLot::create($newLotData);
+    }
+
+    private function normalizeLotOrderByLine(PackingProcess $process): bool
+    {
+        $changed = false;
+
+        $lots = PackingProcessLot::query()
+            ->where('process_id', $process->id)
+            ->orderBy('packing_line_id')
+            ->orderBy('orden')
+            ->orderBy('id')
+            ->get(['id', 'packing_line_id', 'orden']);
+
+        $positionByLine = [];
+
+        foreach ($lots as $lot) {
+            $lineId = (int) ($lot->packing_line_id ?? 0);
+            if ($lineId <= 0) {
+                continue;
+            }
+
+            $positionByLine[$lineId] = ($positionByLine[$lineId] ?? 0) + 1;
+            $expectedOrder = (int) $positionByLine[$lineId];
+            if ((int) ($lot->orden ?? 0) === $expectedOrder) {
+                continue;
+            }
+
+            $lot->forceFill(['orden' => $expectedOrder])->save();
+            $changed = true;
+        }
+
+        return $changed;
+    }
+
+    private function enrichLotsWithSqlsrvSdp(PackingProcess $process): void
+    {
+        $lookups = [];
+        foreach ($process->lots as $lot) {
+            $existingSdp = trim((string) ($lot->sdp_centrocosto ?? ''));
+            if ($existingSdp !== '') {
+                continue;
+            }
+
+            $csg = trim((string) ($lot->csg_productor ?? ''));
+            $variedad = trim((string) ($lot->n_variedad ?? ''));
+            $especie = trim((string) ($process->especie ?? ''));
+            if ($csg === '' || $variedad === '' || $especie === '') {
+                continue;
+            }
+
+            $lookups[] = [
+                'csg' => $csg,
+                'especie' => $especie,
+                'variedad' => $variedad,
+            ];
+        }
+
+        if (empty($lookups)) {
+            return;
+        }
+
+        $maps = $this->resolveSqlsrvSdpMaps($lookups);
+        foreach ($process->lots as $lot) {
+            $existingSdp = trim((string) ($lot->sdp_centrocosto ?? ''));
+            if ($existingSdp !== '') {
+                continue;
+            }
+
+            $tripleKey = $this->buildSdpTripleKey(
+                (string) ($lot->csg_productor ?? ''),
+                (string) ($process->especie ?? ''),
+                (string) ($lot->n_variedad ?? ''),
+            );
+            $pairKey = $this->buildSdpPairKey(
+                (string) ($lot->csg_productor ?? ''),
+                (string) ($lot->n_variedad ?? ''),
+            );
+
+            $sdp = ($tripleKey !== '' && isset($maps['triple'][$tripleKey]))
+                ? $maps['triple'][$tripleKey]
+                : (($pairKey !== '' && isset($maps['pair'][$pairKey]))
+                    ? $maps['pair'][$pairKey]
+                    : null);
+
+            if ($sdp) {
+                $lot->setAttribute('sdp_centrocosto', $sdp);
+            }
+        }
+    }
+
+    private function enrichInventoryRowsWithSqlsrvSdp($inventory, string $defaultEspecie)
+    {
+        if (! $inventory || $inventory->isEmpty()) {
+            return $inventory;
+        }
+
+        $lookups = [];
+        foreach ($inventory as $row) {
+            $existingSdp = trim((string) ($row['sdp_centrocosto'] ?? ''));
+            if ($existingSdp !== '') {
+                continue;
+            }
+
+            $csg = trim((string) ($row['csg_productor'] ?? ''));
+            $variedad = trim((string) ($row['variedad'] ?? ($row['n_variedad'] ?? '')));
+            $especie = trim((string) ($row['especie'] ?? $defaultEspecie));
+            if ($csg === '' || $variedad === '' || $especie === '') {
+                continue;
+            }
+
+            $lookups[] = [
+                'csg' => $csg,
+                'especie' => $especie,
+                'variedad' => $variedad,
+            ];
+        }
+
+        if (empty($lookups)) {
+            return $inventory;
+        }
+
+        $maps = $this->resolveSqlsrvSdpMaps($lookups);
+
+        return $inventory->map(function (array $row) use ($maps, $defaultEspecie) {
+            $existingSdp = trim((string) ($row['sdp_centrocosto'] ?? ''));
+            if ($existingSdp !== '') {
+                return $row;
+            }
+
+            $tripleKey = $this->buildSdpTripleKey(
+                (string) ($row['csg_productor'] ?? ''),
+                (string) ($row['especie'] ?? $defaultEspecie),
+                (string) ($row['variedad'] ?? ($row['n_variedad'] ?? '')),
+            );
+            $pairKey = $this->buildSdpPairKey(
+                (string) ($row['csg_productor'] ?? ''),
+                (string) ($row['variedad'] ?? ($row['n_variedad'] ?? '')),
+            );
+
+            $sdp = ($tripleKey !== '' && isset($maps['triple'][$tripleKey]))
+                ? $maps['triple'][$tripleKey]
+                : (($pairKey !== '' && isset($maps['pair'][$pairKey]))
+                    ? $maps['pair'][$pairKey]
+                    : null);
+
+            if (! $sdp) {
+                return $row;
+            }
+
+            return [
+                ...$row,
+                'sdp_centrocosto' => $sdp,
+            ];
+        })->values();
+    }
+
+    private function resolveSqlsrvSdpMaps(array $lookups): array
+    {
+        $empty = ['triple' => [], 'pair' => []];
+        if (empty($lookups)) {
+            return $empty;
+        }
+
+        $csgCodes = collect($lookups)
+            ->map(fn ($row) => trim((string) ($row['csg'] ?? '')))
+            ->filter(fn ($csg) => $csg !== '')
+            ->unique()
+            ->values()
+            ->all();
+
+        if (empty($csgCodes)) {
+            return $empty;
+        }
+
+        try {
+            $entities = DB::connection('sqlsrv')
+                ->table('V_ADM_Entidades')
+                ->select(['id', 'codigo_sag'])
+                ->where('tipo', 'Productor')
+                ->whereIn('codigo_sag', $csgCodes)
+                ->get();
+
+            $entityIdToCsg = [];
+            $entityIds = [];
+            foreach ($entities as $entity) {
+                $entityId = (int) ($entity->id ?? 0);
+                $csg = trim((string) ($entity->codigo_sag ?? ''));
+                if ($entityId <= 0 || $csg === '') {
+                    continue;
+                }
+                $entityIdToCsg[$entityId] = $csg;
+                $entityIds[] = $entityId;
+            }
+
+            if (empty($entityIds)) {
+                return $empty;
+            }
+
+            $centros = DB::connection('sqlsrv')
+                ->table('ADM_P_CentrosCosto')
+                ->select(['id_adm_p_entidades', 'nombre', 'sdp'])
+                ->whereIn('id_adm_p_entidades', array_values(array_unique($entityIds)))
+                ->whereNotNull('sdp')
+                ->where('sdp', '!=', '')
+                ->get();
+
+            $byTriple = [];
+            $byPair = [];
+            foreach ($centros as $row) {
+                $entityId = (int) ($row->id_adm_p_entidades ?? 0);
+                $csg = $entityIdToCsg[$entityId] ?? null;
+                if (! $csg) {
+                    continue;
+                }
+
+                $parsed = $this->parseCentroCostoName((string) ($row->nombre ?? ''));
+                if (! $parsed) {
+                    continue;
+                }
+
+                $sdp = trim((string) ($row->sdp ?? ''));
+                if ($sdp === '') {
+                    continue;
+                }
+
+                [$especie, $variedad] = $parsed;
+                $tripleKey = $this->buildSdpTripleKey($csg, $especie, $variedad);
+                $pairKey = $this->buildSdpPairKey($csg, $variedad);
+
+                if ($tripleKey !== '' && ! isset($byTriple[$tripleKey])) {
+                    $byTriple[$tripleKey] = $sdp;
+                }
+                if ($pairKey !== '' && ! isset($byPair[$pairKey])) {
+                    $byPair[$pairKey] = $sdp;
+                }
+            }
+
+            return [
+                'triple' => $byTriple,
+                'pair' => $byPair,
+            ];
+        } catch (\Throwable $e) {
+            Log::warning('No fue posible resolver SDP desde SQL Server', [
+                'error' => $e->getMessage(),
+            ]);
+            return $empty;
+        }
+    }
+
+    private function parseCentroCostoName(string $name): ?array
+    {
+        $parts = array_values(array_filter(array_map('trim', explode(' - ', trim($name))), fn ($v) => $v !== ''));
+        if (count($parts) < 3) {
+            return null;
+        }
+
+        $variedad = (string) ($parts[count($parts) - 1] ?? '');
+        $especie = (string) ($parts[count($parts) - 2] ?? '');
+        if ($variedad === '' || $especie === '') {
+            return null;
+        }
+
+        return [$especie, $variedad];
+    }
+
+    private function normalizeSdpLookupToken(?string $value): string
+    {
+        $raw = trim((string) $value);
+        if ($raw === '') {
+            return '';
+        }
+
+        $ascii = Str::ascii($raw);
+        return Str::lower(preg_replace('/\s+/', ' ', $ascii) ?? $ascii);
+    }
+
+    private function buildSdpPairKey(?string $csg, ?string $variedad): string
+    {
+        $c = $this->normalizeSdpLookupToken($csg);
+        $v = $this->normalizeSdpLookupToken($variedad);
+        if ($c === '' || $v === '') {
+            return '';
+        }
+
+        return $c.'|'.$v;
+    }
+
+    private function buildSdpTripleKey(?string $csg, ?string $especie, ?string $variedad): string
+    {
+        $c = $this->normalizeSdpLookupToken($csg);
+        $e = $this->normalizeSdpLookupToken($especie);
+        $v = $this->normalizeSdpLookupToken($variedad);
+        if ($c === '' || $e === '' || $v === '') {
+            return '';
+        }
+
+        return $c.'|'.$e.'|'.$v;
     }
 
     public function confirm(Request $request, PackingProcess $process)

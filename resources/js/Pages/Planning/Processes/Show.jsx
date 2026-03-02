@@ -692,38 +692,56 @@ export default function Show({ process, planningMode = null, lines = [], allLine
       const moving = prev.find((l) => l.id === lotId)
       if (!moving) return prev
 
-      // Extraemos listas ordenadas
-      const fromList = prev
-        .filter((l) => l.packing_line_id === fromLineId)
+      const sourceList = prev
+        .filter((l) => Number(l.packing_line_id) === fromLineId)
         .sort((a, b) => (a.orden ?? 0) - (b.orden ?? 0))
         .map((l) => l.id)
-      const toList = fromLineId === toLineId
-        ? fromList.slice()
-        : prev
-          .filter((l) => l.packing_line_id === toLineId)
-          .sort((a, b) => (a.orden ?? 0) - (b.orden ?? 0))
-          .map((l) => l.id)
 
-      const fromIndex = fromList.indexOf(lotId)
-      if (fromIndex === -1) return prev
+      const sourceIndex = sourceList.indexOf(lotId)
+      if (sourceIndex === -1) return prev
 
-      fromList.splice(fromIndex, 1)
-      const insertIndex = Math.max(0, Math.min(destination.index, toList.length))
-      toList.splice(insertIndex, 0, lotId)
+      // Reorden dentro de la misma línea (corrige bug de duplicación de IDs).
+      if (fromLineId === toLineId) {
+        const nextOrder = sourceList.slice()
+        nextOrder.splice(sourceIndex, 1)
+        const insertIndex = Math.max(0, Math.min(destination.index, nextOrder.length))
+        nextOrder.splice(insertIndex, 0, lotId)
+
+        const next = prev.map((l) => {
+          if (Number(l.packing_line_id) !== fromLineId) return l
+          const idx = nextOrder.indexOf(l.id)
+          if (idx === -1) return l
+          return { ...l, orden: idx + 1 }
+        })
+
+        setDirty(true)
+        return next
+      }
+
+      // Movimiento entre líneas.
+      const targetList = prev
+        .filter((l) => Number(l.packing_line_id) === toLineId)
+        .sort((a, b) => (a.orden ?? 0) - (b.orden ?? 0))
+        .map((l) => l.id)
+
+      const nextSource = sourceList.slice()
+      nextSource.splice(sourceIndex, 1)
+
+      const nextTarget = targetList.slice()
+      const insertIndex = Math.max(0, Math.min(destination.index, nextTarget.length))
+      nextTarget.splice(insertIndex, 0, lotId)
 
       const next = prev.map((l) => {
-        if (l.packing_line_id === fromLineId) {
-          const idx = fromList.indexOf(l.id)
-          if (idx !== -1) return { ...l, orden: idx + 1 }
-        }
-        if (l.packing_line_id === toLineId) {
-          const idx = toList.indexOf(l.id)
-          if (idx !== -1) return { ...l, orden: idx + 1 }
-        }
-        return l
-      }).map((l) => {
         if (l.id === lotId) {
-          return { ...l, packing_line_id: toLineId, orden: toList.indexOf(lotId) + 1 }
+          return { ...l, packing_line_id: toLineId, orden: nextTarget.indexOf(lotId) + 1 }
+        }
+        if (Number(l.packing_line_id) === fromLineId) {
+          const idx = nextSource.indexOf(l.id)
+          if (idx !== -1) return { ...l, orden: idx + 1 }
+        }
+        if (Number(l.packing_line_id) === toLineId) {
+          const idx = nextTarget.indexOf(l.id)
+          if (idx !== -1) return { ...l, orden: idx + 1 }
         }
         return l
       })
@@ -1524,6 +1542,7 @@ export default function Show({ process, planningMode = null, lines = [], allLine
                             <div className="text-xs font-semibold text-gray-800">
                               {String(item.n_productor || item.productor || '').trim() || 'Sin productor'}
                               {item.csg_productor ? <span className="text-gray-500"> · CSG {item.csg_productor}</span> : null}
+                              {item.sdp_centrocosto ? <span className="text-gray-500"> · SDP {item.sdp_centrocosto}</span> : null}
                             </div>
                             {badges?.inventory?.[item.n_g_recepcion]?.mexico ? (
                               <span className="inline-flex items-center gap-1 rounded-full bg-emerald-50 px-2 py-0.5 text-[11px] font-semibold text-emerald-800" title="México">
@@ -1803,6 +1822,7 @@ export default function Show({ process, planningMode = null, lines = [], allLine
                                           <div className="text-xs font-semibold text-gray-800">
                                             {String(lot.n_productor || '').trim() || 'Sin productor'}
                                             {lot.csg_productor ? <span className="text-gray-500"> · CSG {lot.csg_productor}</span> : null}
+                                            {lot.sdp_centrocosto ? <span className="text-gray-500"> · SDP {lot.sdp_centrocosto}</span> : null}
                                           </div>
                                           {badges?.lots?.[String(lot.id)]?.mexico ? (
                                             <span className="inline-flex items-center gap-1 rounded-full bg-emerald-50 px-2 py-0.5 text-[11px] font-semibold text-emerald-800" title="México">

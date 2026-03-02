@@ -1,5 +1,5 @@
 import React, { useEffect, useMemo } from 'react';
-import { Head, Link, useForm, usePage } from '@inertiajs/react';
+import { Head, Link, router, useForm, usePage } from '@inertiajs/react';
 import { Toaster, toast } from 'sonner';
 import AuthenticatedLayout from '@/Layouts/AuthenticatedLayout';
 import { Card, CardContent, CardHeader, CardTitle } from '@/Components/ui/card';
@@ -135,6 +135,19 @@ export default function Index({ auth, versions, seasons, services, especies, sta
         form.reset();
         form.setData('rows', [emptyRow()]);
       },
+      onError: (errors) => {
+        toast.error(firstError(errors));
+      },
+    });
+  };
+
+  const handleDeleteVersion = (versionId) => {
+    if (!window.confirm(`¿Eliminar la versión #${versionId}? Esta acción no se puede deshacer.`)) {
+      return;
+    }
+
+    router.delete(route('planning.service-estimations.destroy', versionId), {
+      preserveScroll: true,
       onError: (errors) => {
         toast.error(firstError(errors));
       },
@@ -376,6 +389,7 @@ export default function Index({ auth, versions, seasons, services, especies, sta
                     <TableHead>Usuario</TableHead>
                     <TableHead>Filas</TableHead>
                     <TableHead>Fecha</TableHead>
+                    <TableHead className="text-right">Acciones</TableHead>
                   </TableRow>
                 </TableHeader>
                 <TableBody>
@@ -388,11 +402,24 @@ export default function Index({ auth, versions, seasons, services, especies, sta
                       <TableCell>{version.uploader?.name || '-'}</TableCell>
                       <TableCell>{version.rows_count ?? 0}</TableCell>
                       <TableCell>{formatDate(version.created_at)}</TableCell>
+                      <TableCell className="text-right">
+                        <div className="flex items-center justify-end gap-2">
+                          <Link
+                            href={route('planning.service-estimations.show', version.id)}
+                            className="inline-flex h-8 items-center rounded-md bg-indigo-600 px-3 text-xs font-medium text-white hover:bg-indigo-700"
+                          >
+                            Editar
+                          </Link>
+                          <Button type="button" variant="destructive" size="sm" onClick={() => handleDeleteVersion(version.id)}>
+                            Eliminar
+                          </Button>
+                        </div>
+                      </TableCell>
                     </TableRow>
                   ))}
                   {versionRows.length === 0 ? (
                     <TableRow>
-                      <TableCell colSpan={7} className="py-8 text-center text-sm text-slate-500">
+                      <TableCell colSpan={8} className="py-8 text-center text-sm text-slate-500">
                         No hay versiones de servicios para los filtros seleccionados.
                       </TableCell>
                     </TableRow>
