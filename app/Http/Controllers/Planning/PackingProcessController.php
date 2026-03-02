@@ -80,6 +80,7 @@ class PackingProcessController extends Controller
         $sqlsrvSdpMaps = ['triple' => [], 'pair' => []];
         $linesByProcess = [];
         $lineTimesByProcess = [];
+        $lineLotsByProcess = [];
 
         if (! empty($processIds)) {
             // Líneas involucradas por proceso (para agrupar en Index y permitir “Imprimir por línea”).
@@ -151,10 +152,13 @@ class PackingProcessController extends Controller
                 ->get([
                     'id',
                     'process_id',
+                    'packing_line_id',
+                    'orden',
                     'n_g_recepcion',
                     'n_productor',
                     'n_variedad',
                     'csg_productor',
+                    'sdp_centrocosto',
                 ]);
 
             foreach ($lots as $lot) {
@@ -167,7 +171,7 @@ class PackingProcessController extends Controller
             $processSpeciesById = $processes->getCollection()
                 ->mapWithKeys(fn (PackingProcess $process) => [(int) $process->id => trim((string) ($process->especie ?? ''))]);
 
-            $csgCodes = $firstLotsByProcess
+            $csgCodes = $lots
                 ->pluck('csg_productor')
                 ->filter(fn ($v) => is_string($v) && trim($v) !== '')
                 ->map(fn ($v) => trim($v))
@@ -176,10 +180,11 @@ class PackingProcessController extends Controller
                 ->all();
 
             $sqlsrvLookups = [];
-            foreach ($firstLotsByProcess as $processId => $lot) {
+            foreach ($lots as $lot) {
+                $processId = (int) ($lot->process_id ?? 0);
                 $csg = trim((string) ($lot->csg_productor ?? ''));
                 $variedad = trim((string) ($lot->n_variedad ?? ''));
-                $especie = trim((string) ($processSpeciesById[(int) $processId] ?? ''));
+                $especie = trim((string) ($processSpeciesById[$processId] ?? ''));
                 if ($csg === '' || $variedad === '' || $especie === '') {
                     continue;
                 }
@@ -192,7 +197,7 @@ class PackingProcessController extends Controller
 
             $sqlsrvSdpMaps = $this->resolveSqlsrvSdpMaps($sqlsrvLookups);
 
-            $variedades = $firstLotsByProcess
+            $variedades = $lots
                 ->pluck('n_variedad')
                 ->filter(fn ($v) => is_string($v) && trim($v) !== '')
                 ->map(fn ($v) => trim($v))
@@ -217,10 +222,64 @@ class PackingProcessController extends Controller
                     }
                 }
             }
+
+            foreach ($lots as $lot) {
+                $processId = (int) ($lot->process_id ?? 0);
+                $lineId = (int) ($lot->packing_line_id ?? 0);
+                if ($processId <= 0 || $lineId <= 0) {
+                    continue;
+                }
+
+                $csg = trim((string) ($lot->csg_productor ?? ''));
+                $variedad = trim((string) ($lot->n_variedad ?? ''));
+                $especie = trim((string) ($processSpeciesById[$processId] ?? ''));
+                $tripleKey = $this->buildSdpTripleKey($csg, $especie, $variedad);
+                $pairKey = $this->buildSdpPairKey($csg, $variedad);
+
+                $sdp = trim((string) ($lot->sdp_centrocosto ?? ''));
+                if ($sdp === '' && $tripleKey !== '' && isset($sqlsrvSdpMaps['triple'][$tripleKey])) {
+                    $sdp = trim((string) $sqlsrvSdpMaps['triple'][$tripleKey]);
+                }
+                if ($sdp === '' && $pairKey !== '' && isset($sqlsrvSdpMaps['pair'][$pairKey])) {
+                    $sdp = trim((string) $sqlsrvSdpMaps['pair'][$pairKey]);
+                }
+                if ($sdp === '' && $pairKey !== '' && isset($sdpByKey[$pairKey])) {
+                    $sdp = trim((string) $sdpByKey[$pairKey]);
+                }
+
+                if (! isset($lineLotsByProcess[$processId])) {
+                    $lineLotsByProcess[$processId] = [];
+                }
+                if (! isset($lineLotsByProcess[$processId][$lineId])) {
+                    $lineLotsByProcess[$processId][$lineId] = [];
+                }
+
+                $lineLotsByProcess[$processId][$lineId][] = [
+                    'id' => (int) $lot->id,
+                    'orden' => (int) ($lot->orden ?? 0),
+                    'n_g_recepcion' => $lot->n_g_recepcion ?: null,
+                    'producer' => $lot->n_productor ?: null,
+                    'variedad' => $lot->n_variedad ?: null,
+                    'csg' => $lot->csg_productor ?: null,
+                    'sdp' => $sdp !== '' ? $sdp : null,
+                ];
+            }
+
+            foreach ($lineLotsByProcess as $processId => $byLine) {
+                foreach ($byLine as $lineId => $items) {
+                    usort($items, function (array $a, array $b) {
+                        if (($a['orden'] ?? 0) !== ($b['orden'] ?? 0)) {
+                            return (int) ($a['orden'] ?? 0) <=> (int) ($b['orden'] ?? 0);
+                        }
+                        return (int) ($a['id'] ?? 0) <=> (int) ($b['id'] ?? 0);
+                    });
+                    $lineLotsByProcess[$processId][$lineId] = array_values($items);
+                }
+            }
         }
 
         $processes->setCollection(
-            $processes->getCollection()->map(function (PackingProcess $process) use ($firstLotsByProcess, $sdpByKey, $linesByProcess, $lineTimesByProcess, $sqlsrvSdpMaps) {
+            $processes->getCollection()->map(function (PackingProcess $process) use ($firstLotsByProcess, $sdpByKey, $linesByProcess, $lineTimesByProcess, $sqlsrvSdpMaps, $lineLotsByProcess) {
                 $lot = $firstLotsByProcess->get($process->id);
                 $csg = $lot?->csg_productor ? trim((string) $lot->csg_productor) : null;
                 $variedad = $lot?->n_variedad ? trim((string) $lot->n_variedad) : null;
@@ -246,6 +305,7 @@ class PackingProcessController extends Controller
                 $process->setAttribute('primary_line', count($lines) === 1 ? $lines[0] : null);
 
                 $process->setAttribute('line_times', $lineTimesByProcess[$process->id] ?? []);
+                $process->setAttribute('line_lots', $lineLotsByProcess[$process->id] ?? []);
 
                 return $process;
             })

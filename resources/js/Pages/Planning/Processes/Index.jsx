@@ -68,6 +68,19 @@ function minutesToHM(totalMinutes) {
   return `${String(hh).padStart(2, '0')}:${String(mm).padStart(2, '0')}`
 }
 
+function getProcessLineLots(process, lineId) {
+  const map = process?.line_lots || {}
+  const a = map?.[String(lineId)]
+  const b = map?.[Number(lineId)]
+  if (Array.isArray(a)) return a
+  if (Array.isArray(b)) return b
+  return []
+}
+
+function lotDisplayLabel(lot) {
+  return lot?.n_g_recepcion ? String(lot.n_g_recepcion) : '-'
+}
+
 function LineGroupGantt({ group, onDelete }) {
   const { dateKey, shiftLabel, shiftId, lineId, lineName, processes: list, printableProcessId } = group
   const shift = list?.[0]?.shift || null
@@ -91,6 +104,7 @@ function LineGroupGantt({ group, onDelete }) {
       return {
       p,
       lt,
+      lineLots: getProcessLineLots(p, lineId),
       start: lt?.inicio_estimado || null,
       end: lt?.fin_estimado || null,
         startMin,
@@ -153,8 +167,14 @@ function LineGroupGantt({ group, onDelete }) {
           <div className="divide-y">
             {(() => {
               let cursor = shiftStartMin
-              return rows.map(({ p, lt, startMin, endMin, start, end, durationMinutes }) => {
+              return rows.map(({ p, lt, lineLots, startMin, endMin, start, end, durationMinutes }) => {
               const status = p?.estado?.value ?? p?.estado
+                const lotsPreview = (lineLots || []).map(lotDisplayLabel).slice(0, 3).join(', ')
+                const lotsMore = Math.max(0, (lineLots || []).length - 3)
+                const lotsLabel = (lineLots || []).length > 0
+                  ? `${lotsPreview}${lotsMore > 0 ? ` +${lotsMore}` : ''}`
+                  : '-'
+                const producerLabel = (lineLots?.[0]?.producer || p?.first_lot?.producer || '-')
                 // Respetar secuencialidad: los procesos se ejecutan uno tras otro por línea.
                 // Si el estimado tiene un "hueco" (startMin > cursor), lo respetamos.
                 if (startMin !== null && startMin > cursor) {
@@ -202,10 +222,10 @@ function LineGroupGantt({ group, onDelete }) {
                           #{p?.id || ''}
                         </span>
                         <span className="text-[11px] text-gray-700 whitespace-nowrap">
-                          Lote {p?.first_lot?.n_g_recepcion || '-'}
+                          Lotes {lotsLabel}
                         </span>
                         <span className="text-[11px] text-gray-600 truncate">
-                          {p?.first_lot?.producer || '-'}
+                          {producerLabel}
                         </span>
                         <span className="text-[11px] text-gray-600 whitespace-nowrap">
                           {Number(lt?.bins || 0) ? `${Number(lt.bins).toLocaleString('es-CL')} bins` : ''}
@@ -546,32 +566,61 @@ export default function Index({ processes, filters }) {
                               >
                                 <TableCell className="font-medium">#{p.id}</TableCell>
                                 <TableCell>
-                                  {p.first_lot ? (
-                                    <div className="min-w-0">
-                                      <div className="font-medium truncate">{p.first_lot.producer || '-'}</div>
-                                      <div className="text-xs text-gray-600 flex flex-wrap items-center gap-2">
-                                        {p.first_lot.n_g_recepcion ? (
-                                          <Badge variant="outline">Lote {p.first_lot.n_g_recepcion}</Badge>
-                                        ) : (
-                                          <Badge variant="outline" className="text-gray-500">Lote -</Badge>
-                                        )}
-                                        <span className="truncate">{p.first_lot.variedad || '-'}</span>
-                                        {p.first_lot.csg ? (
-                                          <Badge variant="outline">CSG {p.first_lot.csg}</Badge>
-                                        ) : (
-                                          <Badge variant="outline" className="text-gray-500">CSG -</Badge>
-                                        )}
-                                        {p.first_lot.sdp ? (
-                                          <Badge variant="secondary">SDP {p.first_lot.sdp}</Badge>
-                                        ) : (
-                                          <Badge variant="outline" className="text-gray-500">SDP -</Badge>
-                                        )}
+                                  {(() => {
+                                    const lineLots = getProcessLineLots(p, g.lineId)
+                                    if (!lineLots.length) {
+                                      return p.first_lot ? (
+                                        <div className="min-w-0">
+                                          <div className="font-medium truncate">{p.first_lot.producer || '-'}</div>
+                                          <div className="text-xs text-gray-600 flex flex-wrap items-center gap-2">
+                                            {p.first_lot.n_g_recepcion ? (
+                                              <Badge variant="outline">Lote {p.first_lot.n_g_recepcion}</Badge>
+                                            ) : (
+                                              <Badge variant="outline" className="text-gray-500">Lote -</Badge>
+                                            )}
+                                            <span className="truncate">{p.first_lot.variedad || '-'}</span>
+                                            {p.first_lot.csg ? (
+                                              <Badge variant="outline">CSG {p.first_lot.csg}</Badge>
+                                            ) : (
+                                              <Badge variant="outline" className="text-gray-500">CSG -</Badge>
+                                            )}
+                                            {p.first_lot.sdp ? (
+                                              <Badge variant="secondary">SDP {p.first_lot.sdp}</Badge>
+                                            ) : (
+                                              <Badge variant="outline" className="text-gray-500">SDP -</Badge>
+                                            )}
+                                          </div>
+                                          <div className="text-[11px] text-gray-500 mt-1">(resumen proceso)</div>
+                                        </div>
+                                      ) : (
+                                        <span className="text-sm text-gray-400">Sin lotes</span>
+                                      )
+                                    }
+
+                                    const producers = Array.from(new Set(lineLots.map((lot) => String(lot?.producer || '').trim()).filter(Boolean)))
+                                    const varieties = Array.from(new Set(lineLots.map((lot) => String(lot?.variedad || '').trim()).filter(Boolean)))
+                                    const csgValues = Array.from(new Set(lineLots.map((lot) => String(lot?.csg || '').trim()).filter(Boolean)))
+                                    const sdpValues = Array.from(new Set(lineLots.map((lot) => String(lot?.sdp || '').trim()).filter(Boolean)))
+
+                                    return (
+                                      <div className="min-w-0">
+                                        <div className="font-medium truncate">{producers.join(', ') || '-'}</div>
+                                        <div className="text-xs text-gray-600 flex flex-wrap items-center gap-2">
+                                          {lineLots.map((lot) => (
+                                            <Badge key={`${p.id}-${g.lineId}-${lot.id}`} variant="outline">
+                                              Lote {lotDisplayLabel(lot)}
+                                            </Badge>
+                                          ))}
+                                        </div>
+                                        <div className="text-[11px] text-gray-500 mt-1 flex flex-wrap items-center gap-2">
+                                          <span>{lineLots.length} lotes en esta línea</span>
+                                          {varieties.length ? <span>· {varieties.join(', ')}</span> : null}
+                                          {csgValues.length ? <span>· CSG {csgValues.join(', ')}</span> : null}
+                                          {sdpValues.length ? <span>· SDP {sdpValues.join(', ')}</span> : null}
+                                        </div>
                                       </div>
-                                      <div className="text-[11px] text-gray-500 mt-1">(del primer lote)</div>
-                                    </div>
-                                  ) : (
-                                    <span className="text-sm text-gray-400">Sin lotes</span>
-                                  )}
+                                    )
+                                  })()}
                                 </TableCell>
                                 <TableCell>{p.especie}</TableCell>
                                 <TableCell>
