@@ -2911,7 +2911,7 @@ public function resendReport(Recepcion $recepcion, ReportNotificationService $no
     {
         if (! $calidad) {
             if($tipoItem === 'CORAZON ACUOSO' || $tipoItem === 'CORAZON MOHOSO'){
-                return '<p style="font-size:10px; margin:6px 0;">No Observado.</p>';{
+                return '<p style="font-size:10px; margin:6px 0;">No Observado.</p>';
 
             }
             return '<p style="font-size:10px; margin:6px 0;">Sin datos.</p>';
@@ -2924,7 +2924,7 @@ public function resendReport(Recepcion $recepcion, ReportNotificationService $no
 
         if ($details->isEmpty()) {
              if($tipoItem === 'CORAZON ACUOSO' || $tipoItem === 'CORAZON MOHOSO'){
-                return '<p style="font-size:10px; margin:6px 0;">No Observado.</p>';{
+                return '<p style="font-size:10px; margin:6px 0;">No Observado.</p>';
 
             }
             return '<p style="font-size:10px; margin:6px 0;">Sin datos.</p>';
