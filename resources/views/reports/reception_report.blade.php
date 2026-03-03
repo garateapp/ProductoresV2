@@ -4987,11 +4987,46 @@ default: // Default colors if species not matched
 
     </div>
 
+    @php
+        $speciesAfterCharts = trim((string) ($recepcion->n_especie ?? ''));
+        $showApplesTablesAfterCharts = strcasecmp($speciesAfterCharts, 'Apples') === 0;
+        $showPearsTablesAfterCharts = strcasecmp($speciesAfterCharts, 'Pears') === 0;
+    @endphp
 
+    @if ($showApplesTablesAfterCharts || $showPearsTablesAfterCharts)
+        <div class="new-section-container" style="margin-top: 10px;">
+            @if ($showApplesTablesAfterCharts)
+                <div class="section-column">
+                    <h3>Corazón Acuoso</h3>
+                    @php echo $html_tabla_corazon_acuoso; @endphp
+                </div>
+                <div class="section-column">
+                    <h3>Corazón Mohoso</h3>
+                    @php echo $html_tabla_corazon_mohoso; @endphp
+                </div>
+            @else
+                <div class="section-column" style="border-right:none;">
+                    <h3>% Distribución de Presiones (Lbs)</h3>
+                    @php echo $html_tabla_presiones_lbs; @endphp
+                </div>
+            @endif
+        </div>
+
+        @if ($showApplesTablesAfterCharts)
+            <div class="new-section-container" style="margin-top: 8px;">
+                <div class="section-column">
+                    <h3>% Distribución de Presiones (Lbs)</h3>
+                    @php echo $html_tabla_presiones_lbs; @endphp
+                </div>
+                <div class="section-column">
+                    <h3>% Distribución Almidón</h3>
+                    @php echo $html_tabla_almidon; @endphp
+                </div>
+            </div>
+        @endif
+    @endif
 
     <div class="header-separator"></div>
-
-
 
     <div class="new-section-container">
 
@@ -5562,59 +5597,26 @@ default: // Default colors if species not matched
             </div>
         </div>
     @endif
-         @php
-             $speciesName = trim((string) ($recepcion->n_especie ?? ''));
-             $isApples = strcasecmp($speciesName, 'Apples') === 0;
-             $isPears = strcasecmp($speciesName, 'Pears') === 0;
-             $showTabulatedSection =
-                 in_array($recepcion->id_emisor, [
-                     8557,
-                     8558,
-                     8559,
-                     8563,
-                     8564,
-                     8657,
-                     8561,
-                     8666,
-                     8881,
-                     8895,
-                     8897,
-                     8898,
-                     8899,
-                     8900,
-                     8901
-                 ], true) || $isApples || $isPears;
-         @endphp
-         @if($showTabulatedSection)
+         @if(in_array($recepcion->id_emisor,[
+                                            8557,
+                                            8558,
+                                            8559,
+                                            8563,
+                                            8564,
+                                            8657,
+                                            8561,
+                                            8666,
+                                            8881,
+                                            8895,
+                                            8897,
+                                            8898,
+                                            8899,
+                                            8900,
+                                            8901
+                                            ]))
             <div class="page-break"></div>
 
                                     <div style="text-align: center; font-size: 12px; padding-left: 3px; padding-right: 3px;">
-                                        @if ($isApples)
-                                            <div style="display: flex; gap: 16px; align-items: flex-start; margin-bottom: 16px;">
-                                                <div style="flex: 1; text-align: left;">
-                                                    <h3 style="text-align: center;">Corazón Acuoso</h3>
-                                                    @php echo $html_tabla_corazon_acuoso; @endphp
-                                                </div>
-                                                <div style="flex: 1; text-align: left;">
-                                                    <h3 style="text-align: center;">Corazón Mohoso</h3>
-                                                    @php echo $html_tabla_corazon_mohoso; @endphp
-                                                </div>
-                                            </div>
-                                            <div style="display: flex; gap: 16px; align-items: flex-start; margin-bottom: 16px;">
-                                                <div style="flex: 1; text-align: left;">
-                                                    <h3 style="text-align: center;">% Distribución de Presiones (Lbs)</h3>
-                                                    @php echo $html_tabla_presiones_lbs; @endphp
-                                                </div>
-                                                <div style="flex: 1; text-align: left;">
-                                                    <h3 style="text-align: center;">% Distribución Almidón</h3>
-                                                    @php echo $html_tabla_almidon; @endphp
-                                                </div>
-                                            </div>
-                                        @elseif ($isPears)
-                                            <h3>% Distribución de Presiones (Lbs)</h3>
-                                            @php echo $html_tabla_presiones_lbs; @endphp
-                                        @endif
-
                                         <h3>Distribución de Calibres</h3>
                                         @php
                                         // if($html_tabla_distribucion_calibre != null){

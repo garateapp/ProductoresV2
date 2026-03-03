@@ -4,7 +4,7 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/Components/ui/card';
 import { Switch } from '@/Components/ui/switch';
 import { Button } from '@/Components/ui/button';
 import AuthenticatedLayout from '@/Layouts/AuthenticatedLayout';
-import { FileText, Repeat, Send, MessageCircle } from 'lucide-react';
+import { FileText, Repeat, Send, MessageCircle, RefreshCw } from 'lucide-react';
 
 export default function Preview({ recepcionId, numero, htmlUrl, approveUrl, approved: approvedProp, generateUrl, informeUrl, resendUrl, sendPreviewUrl, sendPreviewWhatsappUrl }) {
   const [approved, setApproved] = useState(!!approvedProp);
@@ -20,6 +20,7 @@ export default function Preview({ recepcionId, numero, htmlUrl, approveUrl, appr
   const viewHref = generateUrl;
   const viewLabel = approved ? 'Ver informe' : 'Ver previsualización (PDF)';
   const iframeSrc = `${htmlUrl}${htmlUrl.includes('?') ? '&' : '?'}v=${previewVersion}`;
+  const refreshPreview = () => setPreviewVersion((value) => value + 1);
 
   const handleApprove = async (value) => {
     if (!value) return; // one-way approve only
@@ -49,7 +50,7 @@ export default function Preview({ recepcionId, numero, htmlUrl, approveUrl, appr
 
       if (res.ok && data?.status === 'approved') {
         setApproved(true);
-        setPreviewVersion((value) => value + 1);
+        refreshPreview();
         // Disparar reenvío automático una vez aprobado
         // const resendOk = await handleResend();
         // if (!resendOk) {
@@ -100,6 +101,7 @@ export default function Preview({ recepcionId, numero, htmlUrl, approveUrl, appr
         return false;
       }
 
+      refreshPreview();
       alert('Informe reenviado correctamente');
       return true;
     } catch (e) {
@@ -127,6 +129,7 @@ export default function Preview({ recepcionId, numero, htmlUrl, approveUrl, appr
       if (!res.ok || data?.status !== 'sent') {
         alert(data?.message || 'No se pudo enviar el reporte de previsualización.');
       } else {
+        refreshPreview();
         alert('Reporte de previsualización enviado correctamente.');
       }
     } catch (e) {
@@ -152,6 +155,7 @@ export default function Preview({ recepcionId, numero, htmlUrl, approveUrl, appr
       if (!res.ok || data?.status !== 'sent') {
         alert(data?.message || 'No se pudo enviar el reporte por WhatsApp.');
       } else {
+        refreshPreview();
         alert('Reporte enviado por WhatsApp correctamente.');
       }
     } catch (e) {
@@ -187,6 +191,14 @@ export default function Preview({ recepcionId, numero, htmlUrl, approveUrl, appr
                 //   disabled={!isAdmin || !sendPreviewWhatsappUrl || approving || sendingWhatsapp}
                 >
                   <MessageCircle className="h-4 w-4 mr-2" /> {sendingWhatsapp ? "Enviando..." : "Enviar por WhatsApp"}
+                </Button>
+                <Button
+                  type="button"
+                  variant="outline"
+                  onClick={refreshPreview}
+                  disabled={approving || resending || sendingPreview || sendingWhatsapp}
+                >
+                  <RefreshCw className="h-4 w-4 mr-2" /> Actualizar vista
                 </Button>
               </div>
               <span className="text-sm">Aprobar reporte para descarga</span>
