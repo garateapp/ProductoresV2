@@ -5562,32 +5562,33 @@ default: // Default colors if species not matched
             </div>
         </div>
     @endif
-         @if(in_array($recepcion->id_emisor,[
-                                            8557,
-                                            8558,
-                                            8559,
-                                            8563,
-                                            8564,
-                                            8657,
-                                            8561,
-                                            8666,
-                                            8881,
-                                            8895,
-                                            8897,
-                                            8898,
-                                            8899,
-                                            8900,
-                                            8901
-                                            ]))
+         @php
+             $speciesName = trim((string) ($recepcion->n_especie ?? ''));
+             $isApples = strcasecmp($speciesName, 'Apples') === 0;
+             $isPears = strcasecmp($speciesName, 'Pears') === 0;
+             $showTabulatedSection =
+                 in_array($recepcion->id_emisor, [
+                     8557,
+                     8558,
+                     8559,
+                     8563,
+                     8564,
+                     8657,
+                     8561,
+                     8666,
+                     8881,
+                     8895,
+                     8897,
+                     8898,
+                     8899,
+                     8900,
+                     8901
+                 ], true) || $isApples || $isPears;
+         @endphp
+         @if($showTabulatedSection)
             <div class="page-break"></div>
 
                                     <div style="text-align: center; font-size: 12px; padding-left: 3px; padding-right: 3px;">
-                                        @php
-                                            $speciesName = trim((string) ($recepcion->n_especie ?? ''));
-                                            $isApples = strcasecmp($speciesName, 'Apples') === 0;
-                                            $isPears = strcasecmp($speciesName, 'Pears') === 0;
-                                        @endphp
-
                                         @if ($isApples)
                                             <div style="display: flex; gap: 16px; align-items: flex-start; margin-bottom: 16px;">
                                                 <div style="flex: 1; text-align: left;">
