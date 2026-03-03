@@ -33,6 +33,10 @@
         $html_tabla_calibrix = $html_tabla_calibrix ?? '';
         $html_tabla_porc_firmeza = $html_tabla_porc_firmeza ?? '';
         $html_tabla_porcentaje_firmeza = $html_tabla_porcentaje_firmeza ?? '';
+        $html_tabla_corazon_acuoso = $html_tabla_corazon_acuoso ?? '';
+        $html_tabla_corazon_mohoso = $html_tabla_corazon_mohoso ?? '';
+        $html_tabla_presiones_lbs = $html_tabla_presiones_lbs ?? '';
+        $html_tabla_almidon = $html_tabla_almidon ?? '';
     @endphp
 
     <style>
@@ -5578,6 +5582,38 @@ default: // Default colors if species not matched
             <div class="page-break"></div>
 
                                     <div style="text-align: center; font-size: 12px; padding-left: 3px; padding-right: 3px;">
+                                        @php
+                                            $speciesName = trim((string) ($recepcion->n_especie ?? ''));
+                                            $isApples = strcasecmp($speciesName, 'Apples') === 0;
+                                            $isPears = strcasecmp($speciesName, 'Pears') === 0;
+                                        @endphp
+
+                                        @if ($isApples)
+                                            <div style="display: flex; gap: 16px; align-items: flex-start; margin-bottom: 16px;">
+                                                <div style="flex: 1; text-align: left;">
+                                                    <h3 style="text-align: center;">Corazón Acuoso</h3>
+                                                    @php echo $html_tabla_corazon_acuoso; @endphp
+                                                </div>
+                                                <div style="flex: 1; text-align: left;">
+                                                    <h3 style="text-align: center;">Corazón Mohoso</h3>
+                                                    @php echo $html_tabla_corazon_mohoso; @endphp
+                                                </div>
+                                            </div>
+                                            <div style="display: flex; gap: 16px; align-items: flex-start; margin-bottom: 16px;">
+                                                <div style="flex: 1; text-align: left;">
+                                                    <h3 style="text-align: center;">% Distribución de Presiones (Lbs)</h3>
+                                                    @php echo $html_tabla_presiones_lbs; @endphp
+                                                </div>
+                                                <div style="flex: 1; text-align: left;">
+                                                    <h3 style="text-align: center;">% Distribución Almidón</h3>
+                                                    @php echo $html_tabla_almidon; @endphp
+                                                </div>
+                                            </div>
+                                        @elseif ($isPears)
+                                            <h3>% Distribución de Presiones (Lbs)</h3>
+                                            @php echo $html_tabla_presiones_lbs; @endphp
+                                        @endif
+
                                         <h3>Distribución de Calibres</h3>
                                         @php
                                         // if($html_tabla_distribucion_calibre != null){

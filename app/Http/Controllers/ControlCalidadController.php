@@ -1629,6 +1629,10 @@ public function previewPage(Recepcion $recepcion)
         $html_tabla_calibrix = '';
         $html_tabla_porc_firmeza = '';
         $html_tabla_porcentaje_firmeza = '';
+        $html_tabla_corazon_acuoso = $this->buildDetalleValorSsTable($calidad, 'CORAZON ACUOSO', 'Parámetro', 'Valor');
+        $html_tabla_corazon_mohoso = $this->buildDetalleValorSsTable($calidad, 'CORAZON MOHOSO', 'Parámetro', 'Valor');
+        $html_tabla_presiones_lbs = $this->buildDetalleValorSsTable($calidad, 'PRESIONES', 'Segmento', '%');
+        $html_tabla_almidon = $this->buildDetalleValorSsTable($calidad, 'ALMIDON', 'Segmento', '%');
 
         if ($shouldTabulateCharts) {
 
@@ -1997,7 +2001,11 @@ public function previewPage(Recepcion $recepcion)
             'html_tabla_color_fondo',
             'html_tabla_calibrix',
             'html_tabla_porc_firmeza',
-            'html_tabla_porcentaje_firmeza'
+            'html_tabla_porcentaje_firmeza',
+            'html_tabla_corazon_acuoso',
+            'html_tabla_corazon_mohoso',
+            'html_tabla_presiones_lbs',
+            'html_tabla_almidon'
 
         );
     }
@@ -2235,6 +2243,10 @@ public function previewPage(Recepcion $recepcion)
             if($recepcion->id_emisor=="7023"  && $recepcion->variedad=='Rainier'){
                 $exporterName = 'Greenex SpA';
             }
+        $html_tabla_corazon_acuoso = $this->buildDetalleValorSsTable($calidad, 'CORAZON ACUOSO', 'Parámetro', 'Valor');
+        $html_tabla_corazon_mohoso = $this->buildDetalleValorSsTable($calidad, 'CORAZON MOHOSO', 'Parámetro', 'Valor');
+        $html_tabla_presiones_lbs = $this->buildDetalleValorSsTable($calidad, 'PRESIONES', 'Segmento', '%');
+        $html_tabla_almidon = $this->buildDetalleValorSsTable($calidad, 'ALMIDON', 'Segmento', '%');
         $html = view('reports.reception_report', compact(
             'recepcion',
             'temperatura_pulpa',
@@ -2256,7 +2268,11 @@ public function previewPage(Recepcion $recepcion)
             'averageFirmness',
             'firmnessDistribution',
             'solubleSolids',
-            'isPreview'
+            'isPreview',
+            'html_tabla_corazon_acuoso',
+            'html_tabla_corazon_mohoso',
+            'html_tabla_presiones_lbs',
+            'html_tabla_almidon'
         ))->render();
 
         try {
@@ -2888,11 +2904,20 @@ public function resendReport(Recepcion $recepcion, ReportNotificationService $no
 
     private function buildPresionesTable(?Calidad $calidad): string
     {
+        return $this->buildDetalleValorSsTable($calidad, 'PRESIONES', 'Segmento', 'Valor');
+    }
+
+    private function buildDetalleValorSsTable(?Calidad $calidad, string $tipoItem, string $labelHeader = 'Parámetro', string $valueHeader = 'Valor'): string
+    {
         if (! $calidad) {
             return '<p style="font-size:10px; margin:6px 0;">Sin datos.</p>';
         }
 
-        $details = $calidad->detalles->where('tipo_item', 'PRESIONES');
+        $normalizedTarget = $this->normalizeTipoItem($tipoItem);
+        $details = $calidad->detalles->filter(function ($detail) use ($normalizedTarget) {
+            return $this->normalizeTipoItem($detail->tipo_item ?? '') === $normalizedTarget;
+        });
+
         if ($details->isEmpty()) {
             return '<p style="font-size:10px; margin:6px 0;">Sin datos.</p>';
         }
@@ -2904,6 +2929,11 @@ public function resendReport(Recepcion $recepcion, ReportNotificationService $no
             return [$label, $value];
         })->values()->all();
 
-        return $this->renderTabularTable(['Segmento', 'Valor'], $rows);
+        return $this->renderTabularTable([$labelHeader, $valueHeader], $rows);
+    }
+
+    private function normalizeTipoItem(?string $tipoItem): string
+    {
+        return strtoupper(trim((string) $tipoItem));
     }
 }

@@ -12,12 +12,14 @@ export default function Preview({ recepcionId, numero, htmlUrl, approveUrl, appr
   const [resending, setResending] = useState(false);
   const [sendingPreview, setSendingPreview] = useState(false);
   const [sendingWhatsapp, setSendingWhatsapp] = useState(false);
+  const [previewVersion, setPreviewVersion] = useState(0);
   const { auth } = usePage().props;
   const userRoles = auth?.user?.roles ?? [];
   const isAdmin = userRoles.some((role) => ['Administrador', 'Admin','Calidad'].includes(role.name));
   // Siempre generamos el PDF vía backend; si no está aprobado se entrega temporal y no se guarda en BD
   const viewHref = generateUrl;
   const viewLabel = approved ? 'Ver informe' : 'Ver previsualización (PDF)';
+  const iframeSrc = `${htmlUrl}${htmlUrl.includes('?') ? '&' : '?'}v=${previewVersion}`;
 
   const handleApprove = async (value) => {
     if (!value) return; // one-way approve only
@@ -47,6 +49,7 @@ export default function Preview({ recepcionId, numero, htmlUrl, approveUrl, appr
 
       if (res.ok && data?.status === 'approved') {
         setApproved(true);
+        setPreviewVersion((value) => value + 1);
         // Disparar reenvío automático una vez aprobado
         // const resendOk = await handleResend();
         // if (!resendOk) {
@@ -211,7 +214,7 @@ export default function Preview({ recepcionId, numero, htmlUrl, approveUrl, appr
         </CardHeader>
         <CardContent>
           <div className="w-full h-[80vh] border rounded">
-            <iframe title="reporte" src={htmlUrl} className="w-full h-full border-0" />
+            <iframe key={iframeSrc} title="reporte" src={iframeSrc} className="w-full h-full border-0" />
           </div>
         </CardContent>
       </Card>
