@@ -309,6 +309,7 @@
                                 <col style="width:4%">
                                 <col style="width:4%">
                                 <col style="width:8%">
+                                <col style="width:8%">
                                 <col style="width:6%">
                                 <col style="width:7%">
                                 <col style="width:4%">
@@ -331,6 +332,7 @@
                                 <th>% Exp</th>
                                 <th>Nota</th>
                                 <th>Variedad</th>
+                                <th>Variedad Rotulada</th>
                                 <th>Pulpa</th>
                                 <th>Fecha Recepción</th>
                                 <th>Bins</th>
@@ -367,6 +369,7 @@
                                     <td>{{ (string) (($r['categoria_origen'] ?? '') !== '' ? $r['categoria_origen'] : 'Cat 1') }}</td>
                                     <td>{{ $fmtPercent($r['porcentaje_exportacion'] ?? null) }}</td>
                                     <td>{{ (string) ($r['nota_calidad'] ?? '') }}</td>
+                                    <td>{{ (string) ($r['variedad_original'] ?? '') }}</td>
                                     <td>{{ (string) ($r['n_variedad'] ?? '') }}</td>
                                     <td>{{ (string) ($r['pulpa'] ?? '') }}</td>
                                     <td>
