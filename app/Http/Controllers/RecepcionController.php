@@ -359,7 +359,7 @@ class RecepcionController extends Controller
     private function fetchReceptionRows()
     {
 
-        $cutoff = Carbon::now()->subDays(1)->format('Y-m-d');
+        $cutoff = Carbon::now()->subDays(4)->format('Y-m-d');
 
         return DB::connection('sqlsrv')
             ->table('V_PKG_Recepcion_FG')
