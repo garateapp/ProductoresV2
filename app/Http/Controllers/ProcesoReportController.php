@@ -320,6 +320,10 @@ class ProcesoReportController extends Controller
             return 'desecho';
         }
 
+        if (str_contains($compact, 'supermercado')) {
+            return 'exportable';
+        }
+
         if (preg_match('/\bcat(?:egoria)?\s*(?:1|i)\b/u', $normalized) === 1) {
             return 'exportable';
         }
