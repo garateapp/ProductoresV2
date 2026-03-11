@@ -1542,7 +1542,7 @@ public function previewPage(Recepcion $recepcion)
         $colorFondo = [];
         $firmnessBySize = ['categories' => [], 'series' => [], 'mode' => null];
         $speciesKey = $this->normalizeSpeciesKey($recepcion);
-        $colorSwitchSpecies = ['plums', 'plum', 'peaches', 'peach', 'apples', 'apple', 'nectarines', 'nectarine','membrillos'];
+        $colorSwitchSpecies = ['plums', 'plum', 'peaches', 'peach', 'apples', 'apple', 'nectarines', 'nectarine', 'membrillos', 'membrillo', 'quince'];
         $isLbBrixMode = ($averageFirmness['mode'] ?? null) === 'lb_brix';
 
         // Series precomputadas para cerezas (evita consultas dentro de la vista)
@@ -1553,7 +1553,7 @@ public function previewPage(Recepcion $recepcion)
         $ch_color_series = [];
         $ch_color_counts_series = [];
 
-        if ($recepcion->n_especie === 'Cherries') {
+        if ($speciesKey === 'cherries') {
             $ch_calibre_categories = $sizeDistribution['categories'] ?? [];
             $ch_calibre_series = $sizeDistribution['series'] ?? [];
             $ch_calibre_counts_series = $sizeDistribution['countsSeries'] ?? [];
@@ -2086,11 +2086,26 @@ public function previewPage(Recepcion $recepcion)
 
     private function normalizeSpeciesKey(Recepcion $recepcion): string
     {
-        $species = strtolower((string) ($recepcion->n_especie ?? ''));
-        $variety = strtolower((string) ($recepcion->n_variedad ?? ''));
+        $species = mb_strtolower(trim((string) ($recepcion->n_especie ?? '')));
+        $species = Str::ascii($species);
+        $species = preg_replace('/\s+/', ' ', (string) $species);
+        $species = trim((string) $species);
+
+        $variety = mb_strtolower(trim((string) ($recepcion->n_variedad ?? '')));
+        $variety = Str::ascii($variety);
+        $variety = preg_replace('/\s+/', ' ', (string) $variety);
+        $variety = trim((string) $variety);
 
         if ($variety === 'dagen' || $species === 'dagen') {
             return 'plum';
+        }
+
+        if (str_contains($species, 'cherr') || str_contains($species, 'cerez')) {
+            return 'cherries';
+        }
+
+        if (in_array($species, ['membrillo', 'membrillos', 'quince'], true)) {
+            return 'membrillos';
         }
 
         return $species;
@@ -2209,10 +2224,10 @@ public function previewPage(Recepcion $recepcion)
         $ch_color_series = [];
         $ch_color_counts_series = [];
         $speciesKey = $this->normalizeSpeciesKey($recepcion);
-        $colorSwitchSpecies = ['plums', 'plum', 'peaches', 'peach', 'apples', 'apple', 'nectarines', 'nectarine','membrillos'];
+        $colorSwitchSpecies = ['plums', 'plum', 'peaches', 'peach', 'apples', 'apple', 'nectarines', 'nectarine', 'membrillos', 'membrillo', 'quince'];
         $isLbBrixMode = ($averageFirmness['mode'] ?? null) === 'lb_brix';
 
-        if ($recepcion->n_especie === 'Cherries') {
+        if ($speciesKey === 'cherries') {
             $ch_calibre_categories = $sizeDistribution['categories'] ?? [];
             $ch_calibre_series = $sizeDistribution['series'] ?? [];
             $ch_calibre_counts_series = $sizeDistribution['countsSeries'] ?? [];

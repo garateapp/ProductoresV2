@@ -1205,10 +1205,17 @@
 
 
     @php
-        $normalizedSpecies = strtolower($recepcion->n_especie);
-        if (strtolower($recepcion->n_variedad ?? '') === 'dagen') {
+        $normalizedSpecies = function_exists('mb_strtolower')
+            ? mb_strtolower(trim((string) ($recepcion->n_especie ?? '')), 'UTF-8')
+            : strtolower(trim((string) ($recepcion->n_especie ?? '')));
+        if (
+            (function_exists('mb_strtolower')
+                ? mb_strtolower(trim((string) ($recepcion->n_variedad ?? '')), 'UTF-8')
+                : strtolower(trim((string) ($recepcion->n_variedad ?? '')))) === 'dagen'
+        ) {
             $normalizedSpecies = 'plum';
         }
+        $isCherriesSpecies = in_array($normalizedSpecies, ['cherries', 'cherry', 'cerezas', 'cereza'], true);
     @endphp
 
 </head>
@@ -1251,7 +1258,7 @@
                 }
             }
 
-            if ($recepcion->n_especie == 'Cherries') {
+            if ($isCherriesSpecies) {
                 if ($item->detalle_item == 'Fuera de Color') {
                     $col += $item->valor_ss;
                 }
@@ -1275,7 +1282,7 @@
 
     <img src="{{ asset('img/logogreenex.png') }}" class="header-logo">
 
-    @if($recepcion->n_especie=='Cherries')
+    @if($isCherriesSpecies)
         @if($recepcion->nota_calidad<4)
             <img src="{{ asset('img/sellCC.png') }}" class="stamp-image">
         @elseif($recepcion->nota_calidad==4)
@@ -1284,7 +1291,7 @@
             <img src="{{ asset('img/sellRechazado.png') }}" class="stamp-image">
         @endif
     @endif
-      @if($recepcion->n_especie!='Cherries')
+      @if(!$isCherriesSpecies)
         @if($recepcion->nota_calidad<3)
             <img src="{{ asset('img/sellCC.png') }}" class="stamp-image">
         @elseif($recepcion->nota_calidad==3)
@@ -2527,11 +2534,11 @@ default: // Default colors if species not matched
 
 
 
-                const colors = (species == "Cherries") ? cherryCoverageColorsMap : getChartColors(species);
+                const colors = ((species || '').toLowerCase() === 'cherries') ? cherryCoverageColorsMap : getChartColors(species);
 
 
 
-                @if ($recepcion->n_especie === 'Cherries')
+                @if ($isCherriesSpecies)
 
 
 
@@ -3113,7 +3120,7 @@ default: // Default colors if species not matched
                                 },
                                 title: {
                                     display: true,
-                                    @if($recepcion->n_especie === 'Cherries')
+                                    @if($isCherriesSpecies)
                                     text:'Distribución de Calibres por Color',
                                     @else
                                     text: 'Distribución de Calibres',
@@ -3365,7 +3372,7 @@ default: // Default colors if species not matched
 
 
 
-            if (speciesForColorChart !== 'Cherries') {
+            if ((speciesForColorChart || '').toLowerCase() !== 'cherries') {
                 const ctxColor = document.getElementById('color-pie-chart-canvas');
 
                 if (ctxColor) {
@@ -4068,7 +4075,7 @@ default: // Default colors if species not matched
 
 
 
-            @if ($recepcion->n_especie == 'Cherries')
+            @if ($isCherriesSpecies)
 
 
 
@@ -4077,7 +4084,7 @@ default: // Default colors if species not matched
                     $colors = ['#2b1d16', '#71160e', '#dc0c15'];
 
                 @endphp
-            @elseif ($recepcion->n_especie == 'Apples')
+            @elseif ($normalizedSpecies === 'apples' || $normalizedSpecies === 'apple')
 
 
 
@@ -4086,7 +4093,7 @@ default: // Default colors if species not matched
                     $colors = ['#831816'];
 
                 @endphp
-            @elseif ($recepcion->n_especie == 'Membrillos')
+            @elseif ($normalizedSpecies === 'membrillos' || $normalizedSpecies === 'membrillo' || $normalizedSpecies === 'quince')
 
 
 
@@ -4095,7 +4102,7 @@ default: // Default colors if species not matched
                     $colors = ['#831816'];
 
                 @endphp
-            @elseif ($recepcion->n_especie == 'Pears')
+            @elseif ($normalizedSpecies === 'pears' || $normalizedSpecies === 'pear')
 
 
 
@@ -4709,7 +4716,7 @@ default: // Default colors if species not matched
         </div>
         <div class="chart-wrapper">
             <div class="chart-container">
-                @if ($recepcion->n_especie === 'Cherries')
+                @if ($isCherriesSpecies)
 
                     @php
 
@@ -4991,7 +4998,7 @@ default: // Default colors if species not matched
             @endif --}}
 
         @endif
-         @if ($recepcion->n_especie === 'Cherries')
+         @if ($isCherriesSpecies)
             <div class="chart-wrapper">
                 <div class="chart-container">
                     <div style="position: relative; height:150px; width:75%;">
@@ -5014,7 +5021,7 @@ default: // Default colors if species not matched
 
 
 
-         @if ($recepcion->n_especie === 'Cherries')
+         @if ($isCherriesSpecies)
         <div class="chart-wrapper full-width-chart">
             <div class="chart-container">
                 <div style="position: relative; height:150px; width:95%;">
@@ -5042,7 +5049,7 @@ default: // Default colors if species not matched
         $speciesAfterCharts = trim((string) ($recepcion->n_especie ?? ''));
         $showApplesTablesAfterCharts = in_array(
             function_exists('mb_strtolower') ? mb_strtolower($speciesAfterCharts, 'UTF-8') : strtolower($speciesAfterCharts),
-            ['apples', 'membrillos'],
+            ['apples', 'membrillos', 'membrillo', 'quince'],
             true,
         );
         $showPearsTablesAfterCharts = strcasecmp($speciesAfterCharts, 'Pears') === 0;
@@ -5683,7 +5690,7 @@ default: // Default colors if species not matched
                                         @php
                                             echo $html_tabla_color;
                                         @endphp
-                                         @if ($recepcion->n_especie != 'Cherries')
+                                         @if (!$isCherriesSpecies)
                                             <h3>Distribución de Firmeza Grande</h3>
                                             @php
                                                 echo $html_tabla_firmeza_grande;

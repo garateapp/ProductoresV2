@@ -245,7 +245,7 @@ public static function getPromedioFirmezasData(Collection $receptions): array
     {
         $first = $receptions->first();
         $species = self::normalizeSpecies($receptions);
-        $countByDetalleSpecies = ['plums', 'plum', 'peaches', 'peach', 'apples', 'apple', 'nectarines', 'nectarine'];
+        $countByDetalleSpecies = ['plums', 'plum', 'peaches', 'peach', 'apples', 'apple', 'nectarines', 'nectarine', 'membrillos', 'membrillo', 'quince'];
 
         // Para estas especies usamos distribución por cantidad (detalle_item) en COLOR DE CUBRIMIENTO
         if (in_array($species, $countByDetalleSpecies, true)) {
@@ -273,7 +273,7 @@ public static function getPromedioFirmezasData(Collection $receptions): array
             return $chartData;
         }
 
-        if ($first && ($first->n_especie === 'Cherries')) {
+        if ($first && self::isCherriesSpecies((string) ($first->n_especie ?? ''))) {
             $reception_numbers = $receptions->pluck('numero_g_recepcion')->filter()->unique()->map(fn ($n) => (string) $n)->values()->all();
             if (empty($reception_numbers)) {
                 return ['categories' => [], 'series' => [], 'countsSeries' => []];
@@ -556,7 +556,7 @@ public static function getPromedioFirmezasData(Collection $receptions): array
     private static function isLbBrixSpecies(Collection $receptions): bool
     {
         $species = self::normalizeSpecies($receptions);
-        $targets = ['nectirnes', 'nectarine', 'nectarines', 'plum', 'plums', 'peach', 'peaches', 'apple', 'apples', 'pear', 'pears'];
+        $targets = ['nectirnes', 'nectarine', 'nectarines', 'plum', 'plums', 'peach', 'peaches', 'apple', 'apples', 'pear', 'pears', 'membrillo', 'membrillos', 'quince'];
 
         return in_array($species, $targets, true);
     }
@@ -564,11 +564,22 @@ public static function getPromedioFirmezasData(Collection $receptions): array
     private static function normalizeSpecies(Collection $receptions): string
     {
         $first = $receptions->first();
-        $species = strtolower((string) ($first->n_especie ?? ''));
-        $variety = strtolower((string) ($first->n_variedad ?? ''));
+        $species = mb_strtolower(trim((string) ($first->n_especie ?? '')));
+        $species = Str::ascii($species);
+        $species = preg_replace('/\s+/', ' ', (string) $species);
+        $species = trim((string) $species);
+
+        $variety = mb_strtolower(trim((string) ($first->n_variedad ?? '')));
+        $variety = Str::ascii($variety);
+        $variety = preg_replace('/\s+/', ' ', (string) $variety);
+        $variety = trim((string) $variety);
 
         if ($variety === 'dagen' || $species === 'dagen') {
             return 'plum';
+        }
+
+        if (in_array($species, ['membrillo', 'membrillos', 'quince'], true)) {
+            return 'membrillos';
         }
 
         return $species;
