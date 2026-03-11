@@ -1445,6 +1445,42 @@
 
                     };
 
+                case 'membrillos':
+
+                    return {
+
+                        exportable: '#7bd66a',
+
+                            defectosCalidad: '#58b64c',
+
+                            defectosCondicion: '#3e8d36',
+
+                            danosPlaga: '#2f6c29',
+
+                            precalibre: '#c4f2b8',
+
+                            borderColor: 'rgba(255, 255, 255, 1)'
+
+                    };
+
+                case 'membrillo':
+
+                    return {
+
+                        exportable: '#7bd66a',
+
+                            defectosCalidad: '#58b64c',
+
+                            defectosCondicion: '#3e8d36',
+
+                            danosPlaga: '#2f6c29',
+
+                            precalibre: '#c4f2b8',
+
+                            borderColor: 'rgba(255, 255, 255, 1)'
+
+                    };
+
                 case 'peaches':
 
                     return {
@@ -1688,6 +1724,8 @@ default: // Default colors if species not matched
                 'plum': { LIGHT: '#c7b5ff', DARK: '#8d74e6', BLACK: '#5a4799', DEFAULT: '#8d74e6' },
                 'apples': { LIGHT: '#a2e7a1', DARK: '#4f9f4a', BLACK: '#2f6c29', DEFAULT: '#58b64c' },
                 'apple': { LIGHT: '#a2e7a1', DARK: '#4f9f4a', BLACK: '#2f6c29', DEFAULT: '#58b64c' },
+                'membrillos': { LIGHT: '#a2e7a1', DARK: '#4f9f4a', BLACK: '#2f6c29', DEFAULT: '#58b64c' },
+                'membrillo': { LIGHT: '#a2e7a1', DARK: '#4f9f4a', BLACK: '#2f6c29', DEFAULT: '#58b64c' },
                 'peaches': { LIGHT: '#ffd9b8', DARK: '#f59b56', BLACK: '#b85e1f', DEFAULT: '#f59b56' },
                 'peach': { LIGHT: '#ffd9b8', DARK: '#f59b56', BLACK: '#b85e1f', DEFAULT: '#f59b56' },
                 'nectarines': { LIGHT: '#ffc9b3', DARK: '#f07a4c', BLACK: '#a43a1c', DEFAULT: '#f07a4c' },
@@ -1704,6 +1742,8 @@ default: // Default colors if species not matched
                 'plum': ['#e9d5ff', '#c4b5fd', '#7c3aed'],
                 'apples': ['#c8f7c5', '#7bd47f', '#2f855a'],
                 'apple': ['#c8f7c5', '#7bd47f', '#2f855a'],
+                'membrillos': ['#c8f7c5', '#7bd47f', '#2f855a'],
+                'membrillo': ['#c8f7c5', '#7bd47f', '#2f855a'],
                 'peaches': ['#ffe0b2', '#ffb74d', '#f57c00'],
                 'peach': ['#ffe0b2', '#ffb74d', '#f57c00'],
                 'nectarines': ['#ffd4bf', '#ff9f68', '#d35425'],
@@ -1735,6 +1775,8 @@ default: // Default colors if species not matched
             } else if (key.includes('peach') || key.includes('nectarin')) {
                 base = ['#ffe9dc', '#ffd9c2', '#ffc8a7', '#ffb88d', '#f7a775', '#e5965e'];
             } else if (key.includes('apple')) {
+                base = ['#e8f5e9', '#d0ecd6', '#b9e3c3', '#a2daaf', '#8ad19c', '#73c888'];
+            } else if (key.includes('membrillo')) {
                 base = ['#e8f5e9', '#d0ecd6', '#b9e3c3', '#a2daaf', '#8ad19c', '#73c888'];
             }
 
@@ -4044,6 +4086,15 @@ default: // Default colors if species not matched
                     $colors = ['#831816'];
 
                 @endphp
+            @elseif ($recepcion->n_especie == 'Membrillos')
+
+
+
+                @php
+
+                    $colors = ['#831816'];
+
+                @endphp
             @elseif ($recepcion->n_especie == 'Pears')
 
 
@@ -4989,7 +5040,11 @@ default: // Default colors if species not matched
 
     @php
         $speciesAfterCharts = trim((string) ($recepcion->n_especie ?? ''));
-        $showApplesTablesAfterCharts = strcasecmp($speciesAfterCharts, 'Apples') === 0;
+        $showApplesTablesAfterCharts = in_array(
+            function_exists('mb_strtolower') ? mb_strtolower($speciesAfterCharts, 'UTF-8') : strtolower($speciesAfterCharts),
+            ['apples', 'membrillos'],
+            true,
+        );
         $showPearsTablesAfterCharts = strcasecmp($speciesAfterCharts, 'Pears') === 0;
     @endphp
 
