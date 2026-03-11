@@ -1542,7 +1542,7 @@ public function previewPage(Recepcion $recepcion)
         $colorFondo = [];
         $firmnessBySize = ['categories' => [], 'series' => [], 'mode' => null];
         $speciesKey = $this->normalizeSpeciesKey($recepcion);
-        $colorSwitchSpecies = ['plums', 'plum', 'peaches', 'peach', 'apples', 'apple', 'nectarines', 'nectarine'];
+        $colorSwitchSpecies = ['plums', 'plum', 'peaches', 'peach', 'apples', 'apple', 'nectarines', 'nectarine','membrillos'];
         $isLbBrixMode = ($averageFirmness['mode'] ?? null) === 'lb_brix';
 
         // Series precomputadas para cerezas (evita consultas dentro de la vista)
@@ -2209,7 +2209,7 @@ public function previewPage(Recepcion $recepcion)
         $ch_color_series = [];
         $ch_color_counts_series = [];
         $speciesKey = $this->normalizeSpeciesKey($recepcion);
-        $colorSwitchSpecies = ['plums', 'plum', 'peaches', 'peach', 'apples', 'apple', 'nectarines', 'nectarine'];
+        $colorSwitchSpecies = ['plums', 'plum', 'peaches', 'peach', 'apples', 'apple', 'nectarines', 'nectarine','membrillos'];
         $isLbBrixMode = ($averageFirmness['mode'] ?? null) === 'lb_brix';
 
         if ($recepcion->n_especie === 'Cherries') {
