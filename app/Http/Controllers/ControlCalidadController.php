@@ -1629,8 +1629,8 @@ public function previewPage(Recepcion $recepcion)
         $html_tabla_calibrix = '';
         $html_tabla_porc_firmeza = '';
         $html_tabla_porcentaje_firmeza = '';
-        $html_tabla_corazon_acuoso = $this->buildDetalleTextTable($calidad, 'CORAZÓN ACUOSO', 'Detalle');
-        $html_tabla_corazon_mohoso = $this->buildDetalleTextTable($calidad, 'CORAZÓN MOHOSO', 'Detalle');
+        $html_tabla_corazon_acuoso = $this->buildDetalleCantidadTable($calidad, 'CORAZÓN ACUOSO', 'Detalle', 'Cantidad');
+        $html_tabla_corazon_mohoso = $this->buildDetalleCantidadTable($calidad, 'CORAZÓN MOHOSO', 'Detalle', 'Cantidad');
         $html_tabla_presiones_lbs = $this->buildDetalleValorSsTable($calidad, 'PRESIONES', 'Segmento', '%');
         $html_tabla_almidon = $this->buildDetalleValorSsTable($calidad, 'ALMIDON', 'Segmento', '%');
 
@@ -2258,8 +2258,8 @@ public function previewPage(Recepcion $recepcion)
             if($recepcion->id_emisor=="7023"  && $recepcion->variedad=='Rainier'){
                 $exporterName = 'Greenex SpA';
             }
-        $html_tabla_corazon_acuoso = $this->buildDetalleTextTable($calidad, 'CORAZÓN ACUOSO', 'Detalle');
-        $html_tabla_corazon_mohoso = $this->buildDetalleTextTable($calidad, 'CORAZÓN MOHOSO', 'Detalle');
+        $html_tabla_corazon_acuoso = $this->buildDetalleCantidadTable($calidad, 'CORAZÓN ACUOSO', 'Detalle', 'Cantidad');
+        $html_tabla_corazon_mohoso = $this->buildDetalleCantidadTable($calidad, 'CORAZÓN MOHOSO', 'Detalle', 'Cantidad');
         $html_tabla_presiones_lbs = $this->buildDetalleValorSsTable($calidad, 'PRESIONES', 'Segmento', '%');
         $html_tabla_almidon = $this->buildDetalleValorSsTable($calidad, 'ALMIDON', 'Segmento', '%');
         $html = view('reports.reception_report', compact(
@@ -2922,7 +2922,12 @@ public function resendReport(Recepcion $recepcion, ReportNotificationService $no
         return $this->buildDetalleValorSsTable($calidad, 'PRESIONES', 'Segmento', 'Valor');
     }
 
-    private function buildDetalleTextTable(?Calidad $calidad, string $tipoItem, string $valueHeader = 'Detalle'): string
+    private function buildDetalleCantidadTable(
+        ?Calidad $calidad,
+        string $tipoItem,
+        string $labelHeader = 'Detalle',
+        string $valueHeader = 'Cantidad'
+    ): string
     {
         if (! $calidad) {
             return $this->getDetalleEmptyStateMessage($tipoItem);
@@ -2938,12 +2943,16 @@ public function resendReport(Recepcion $recepcion, ReportNotificationService $no
         }
 
         $rows = $details->map(function ($detail) {
-            $value = trim((string) ($detail->detalle_item ?? ''));
+            $label = trim((string) ($detail->detalle_item ?? ''));
+            $value = $detail->cantidad;
 
-            return [$value !== '' ? $value : 'N/A'];
+            return [
+                $label !== '' ? $label : 'N/A',
+                $value ?? 0,
+            ];
         })->values()->all();
 
-        return $this->renderTabularTable([$valueHeader], $rows);
+        return $this->renderTabularTable([$labelHeader, $valueHeader], $rows);
     }
 
     private function buildDetalleValorSsTable(?Calidad $calidad, string $tipoItem, string $labelHeader = 'Parámetro', string $valueHeader = 'Valor'): string
