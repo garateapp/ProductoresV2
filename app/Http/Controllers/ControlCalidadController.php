@@ -2926,7 +2926,7 @@ public function resendReport(Recepcion $recepcion, ReportNotificationService $no
         ?Calidad $calidad,
         string $tipoItem,
         string $labelHeader = 'Tipo',
-        string $valueHeader = 'Cantidad'
+        string $valueHeader = 'Valor_ss'
     ): string
     {
         if (! $calidad) {
