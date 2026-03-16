@@ -1629,8 +1629,8 @@ public function previewPage(Recepcion $recepcion)
         $html_tabla_calibrix = '';
         $html_tabla_porc_firmeza = '';
         $html_tabla_porcentaje_firmeza = '';
-        $html_tabla_corazon_acuoso = $this->buildDetalleCantidadTable($calidad, 'CORAZÓN ACUOSO', 'Detalle', 'Cantidad');
-        $html_tabla_corazon_mohoso = $this->buildDetalleCantidadTable($calidad, 'CORAZÓN MOHOSO', 'Detalle', 'Cantidad');
+        $html_tabla_corazon_acuoso = $this->buildDetalleCantidadTable($calidad, 'CORAZÓN ACUOSO', 'Detalle', 'Valor_ss');
+        $html_tabla_corazon_mohoso = $this->buildDetalleCantidadTable($calidad, 'CORAZÓN MOHOSO', 'Detalle', 'Valor_ss');
         $html_tabla_presiones_lbs = $this->buildDetalleValorSsTable($calidad, 'PRESIONES', 'Segmento', '%');
         $html_tabla_almidon = $this->buildDetalleValorSsTable($calidad, 'ALMIDON', 'Segmento', '%');
 
@@ -2925,7 +2925,7 @@ public function resendReport(Recepcion $recepcion, ReportNotificationService $no
     private function buildDetalleCantidadTable(
         ?Calidad $calidad,
         string $tipoItem,
-        string $labelHeader = 'Detalle',
+        string $labelHeader = 'Tipo',
         string $valueHeader = 'Cantidad'
     ): string
     {
