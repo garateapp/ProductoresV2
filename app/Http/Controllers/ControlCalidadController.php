@@ -1629,8 +1629,8 @@ public function previewPage(Recepcion $recepcion)
         $html_tabla_calibrix = '';
         $html_tabla_porc_firmeza = '';
         $html_tabla_porcentaje_firmeza = '';
-        $html_tabla_corazon_acuoso = $this->buildDetalleValorSsTable($calidad, 'CORAZON ACUOSO', 'Parámetro', 'Valor');
-        $html_tabla_corazon_mohoso = $this->buildDetalleValorSsTable($calidad, 'CORAZON MOHOSO', 'Parámetro', 'Valor');
+        $html_tabla_corazon_acuoso = $this->buildDetalleTextTable($calidad, 'CORAZÓN ACUOSO', 'Detalle');
+        $html_tabla_corazon_mohoso = $this->buildDetalleTextTable($calidad, 'CORAZÓN MOHOSO', 'Detalle');
         $html_tabla_presiones_lbs = $this->buildDetalleValorSsTable($calidad, 'PRESIONES', 'Segmento', '%');
         $html_tabla_almidon = $this->buildDetalleValorSsTable($calidad, 'ALMIDON', 'Segmento', '%');
 
@@ -2258,8 +2258,8 @@ public function previewPage(Recepcion $recepcion)
             if($recepcion->id_emisor=="7023"  && $recepcion->variedad=='Rainier'){
                 $exporterName = 'Greenex SpA';
             }
-        $html_tabla_corazon_acuoso = $this->buildDetalleValorSsTable($calidad, 'CORAZON ACUOSO', 'Parámetro', 'Valor');
-        $html_tabla_corazon_mohoso = $this->buildDetalleValorSsTable($calidad, 'CORAZON MOHOSO', 'Parámetro', 'Valor');
+        $html_tabla_corazon_acuoso = $this->buildDetalleTextTable($calidad, 'CORAZÓN ACUOSO', 'Detalle');
+        $html_tabla_corazon_mohoso = $this->buildDetalleTextTable($calidad, 'CORAZÓN MOHOSO', 'Detalle');
         $html_tabla_presiones_lbs = $this->buildDetalleValorSsTable($calidad, 'PRESIONES', 'Segmento', '%');
         $html_tabla_almidon = $this->buildDetalleValorSsTable($calidad, 'ALMIDON', 'Segmento', '%');
         $html = view('reports.reception_report', compact(
@@ -2922,14 +2922,10 @@ public function resendReport(Recepcion $recepcion, ReportNotificationService $no
         return $this->buildDetalleValorSsTable($calidad, 'PRESIONES', 'Segmento', 'Valor');
     }
 
-    private function buildDetalleValorSsTable(?Calidad $calidad, string $tipoItem, string $labelHeader = 'Parámetro', string $valueHeader = 'Valor'): string
+    private function buildDetalleTextTable(?Calidad $calidad, string $tipoItem, string $valueHeader = 'Detalle'): string
     {
         if (! $calidad) {
-            if($tipoItem === 'CORAZON ACUOSO' || $tipoItem === 'CORAZON MOHOSO'){
-                return '<p style="font-size:10px; margin:6px 0;">No Observado.</p>';
-
-            }
-            return '<p style="font-size:10px; margin:6px 0;">Sin datos.</p>';
+            return $this->getDetalleEmptyStateMessage($tipoItem);
         }
 
         $normalizedTarget = $this->normalizeTipoItem($tipoItem);
@@ -2938,11 +2934,31 @@ public function resendReport(Recepcion $recepcion, ReportNotificationService $no
         });
 
         if ($details->isEmpty()) {
-             if($tipoItem === 'CORAZON ACUOSO' || $tipoItem === 'CORAZON MOHOSO'){
-                return '<p style="font-size:10px; margin:6px 0;">No Observado.</p>';
+            return $this->getDetalleEmptyStateMessage($tipoItem);
+        }
 
-            }
-            return '<p style="font-size:10px; margin:6px 0;">Sin datos.</p>';
+        $rows = $details->map(function ($detail) {
+            $value = trim((string) ($detail->detalle_item ?? ''));
+
+            return [$value !== '' ? $value : 'N/A'];
+        })->values()->all();
+
+        return $this->renderTabularTable([$valueHeader], $rows);
+    }
+
+    private function buildDetalleValorSsTable(?Calidad $calidad, string $tipoItem, string $labelHeader = 'Parámetro', string $valueHeader = 'Valor'): string
+    {
+        if (! $calidad) {
+            return $this->getDetalleEmptyStateMessage($tipoItem);
+        }
+
+        $normalizedTarget = $this->normalizeTipoItem($tipoItem);
+        $details = $calidad->detalles->filter(function ($detail) use ($normalizedTarget) {
+            return $this->normalizeTipoItem($detail->tipo_item ?? '') === $normalizedTarget;
+        });
+
+        if ($details->isEmpty()) {
+            return $this->getDetalleEmptyStateMessage($tipoItem);
         }
 
         $rows = $details->map(function ($detail) {
@@ -2955,8 +2971,17 @@ public function resendReport(Recepcion $recepcion, ReportNotificationService $no
         return $this->renderTabularTable([$labelHeader, $valueHeader], $rows);
     }
 
+    private function getDetalleEmptyStateMessage(string $tipoItem): string
+    {
+        if (in_array($this->normalizeTipoItem($tipoItem), ['CORAZON ACUOSO', 'CORAZON MOHOSO'], true)) {
+            return '<p style="font-size:10px; margin:6px 0;">No Observado.</p>';
+        }
+
+        return '<p style="font-size:10px; margin:6px 0;">Sin datos.</p>';
+    }
+
     private function normalizeTipoItem(?string $tipoItem): string
     {
-        return strtoupper(trim((string) $tipoItem));
+        return Str::upper(Str::ascii(trim((string) $tipoItem)));
     }
 }
