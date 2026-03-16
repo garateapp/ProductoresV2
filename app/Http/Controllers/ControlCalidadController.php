@@ -2944,7 +2944,7 @@ public function resendReport(Recepcion $recepcion, ReportNotificationService $no
 
         $rows = $details->map(function ($detail) {
             $label = trim((string) ($detail->detalle_item ?? ''));
-            $value = $detail->cantidad;
+            $value = $detail->valor_ss ?? $detail->cantidad ?? 0;
 
             return [
                 $label !== '' ? $label : 'N/A',
@@ -2982,7 +2982,7 @@ public function resendReport(Recepcion $recepcion, ReportNotificationService $no
 
     private function getDetalleEmptyStateMessage(string $tipoItem): string
     {
-        if (in_array($this->normalizeTipoItem($tipoItem), ['CORAZON ACUOSO', 'CORAZON MOHOSO'], true)) {
+        if (in_array($this->normalizeTipoItem($tipoItem), ['CORAZÓN ACUOSO', 'CORAZÓN MOHOSO'], true)) {
             return '<p style="font-size:10px; margin:6px 0;">No Observado.</p>';
         }
 
