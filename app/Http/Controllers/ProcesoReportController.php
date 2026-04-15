@@ -323,7 +323,9 @@ class ProcesoReportController extends Controller
         if (str_contains($compact, 'supermercado')) {
             return 'exportable';
         }
-
+         if (str_contains($compact, 'vega')) {
+            return 'exportable';
+        }
         if (preg_match('/\bcat(?:egoria)?\s*(?:1|i)\b/u', $normalized) === 1) {
             return 'exportable';
         }
