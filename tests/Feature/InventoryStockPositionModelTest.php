@@ -178,6 +178,18 @@ class InventoryStockPositionModelTest extends TestCase
             'lot_code' => 'LOT-SP-001',
         ]);
 
+        $logisticUnitWithoutLot = InventoryLogisticUnit::create([
+            'license_plate_number' => 'LPN-SP-002',
+            'material_id' => $material->id,
+            'current_location_id' => $location->id,
+            'status' => 'active',
+            'base_quantity' => 4.0,
+            'available_quantity' => 4.0,
+            'unit_id' => $unit->id,
+            'created_by' => $user->id,
+            'lot_code' => 'LOT-SP-002',
+        ]);
+
         $position = InventoryStockPosition::create([
             'material_id' => $material->id,
             'location_id' => $location->id,
@@ -211,6 +223,15 @@ class InventoryStockPositionModelTest extends TestCase
             'logistic_unit_id' => null,
             'quantity' => 4.0,
             'lot_code' => null,
+            'status' => 'available',
+        ]);
+
+        $emptyLotNormalizedPosition = InventoryStockPosition::create([
+            'material_id' => $material->id,
+            'location_id' => $location->id,
+            'logistic_unit_id' => $logisticUnitWithoutLot->id,
+            'quantity' => 2.25,
+            'lot_code' => '',
             'status' => 'available',
         ]);
 
@@ -254,6 +275,16 @@ class InventoryStockPositionModelTest extends TestCase
             'status' => 'available',
         ]);
 
+        $this->assertDatabaseHas('inventory_stock_positions', [
+            'id' => $emptyLotNormalizedPosition->id,
+            'material_id' => $material->id,
+            'location_id' => $location->id,
+            'logistic_unit_id' => $logisticUnitWithoutLot->id,
+            'quantity' => '2.2500',
+            'lot_code' => null,
+            'status' => 'available',
+        ]);
+
         $this->assertStockPositionDuplicateFails(
             fn () => InventoryStockPosition::create([
                 'material_id' => $material->id,
@@ -264,6 +295,8 @@ class InventoryStockPositionModelTest extends TestCase
                 'status' => 'available',
             ])
         );
+
+        $this->assertStockPositionDeleteBlocked($logisticUnit, fn () => $logisticUnit->delete());
 
         $this->assertStockPositionDuplicateFails(
             fn () => InventoryStockPosition::create([
@@ -280,6 +313,7 @@ class InventoryStockPositionModelTest extends TestCase
         $positionWithDifferentStatus->refresh();
         $positionWithDifferentLot->refresh();
         $nullScopedPosition->refresh();
+        $emptyLotNormalizedPosition->refresh();
 
         $this->assertTrue($position->material->is($material));
         $this->assertTrue($position->location->is($location));
@@ -293,21 +327,26 @@ class InventoryStockPositionModelTest extends TestCase
         $this->assertTrue($material->stockPositions()->whereKey($positionWithDifferentStatus->id)->exists());
         $this->assertTrue($material->stockPositions()->whereKey($positionWithDifferentLot->id)->exists());
         $this->assertTrue($material->stockPositions()->whereKey($nullScopedPosition->id)->exists());
+        $this->assertTrue($material->stockPositions()->whereKey($emptyLotNormalizedPosition->id)->exists());
         $this->assertTrue($location->stockPositions()->whereKey($position->id)->exists());
         $this->assertTrue($location->stockPositions()->whereKey($positionWithDifferentStatus->id)->exists());
         $this->assertTrue($location->stockPositions()->whereKey($positionWithDifferentLot->id)->exists());
         $this->assertTrue($location->stockPositions()->whereKey($nullScopedPosition->id)->exists());
+        $this->assertTrue($location->stockPositions()->whereKey($emptyLotNormalizedPosition->id)->exists());
         $this->assertTrue($logisticUnit->stockPositions()->whereKey($position->id)->exists());
         $this->assertTrue($logisticUnit->stockPositions()->whereKey($positionWithDifferentStatus->id)->exists());
         $this->assertTrue($logisticUnit->stockPositions()->whereKey($positionWithDifferentLot->id)->exists());
         $this->assertFalse($logisticUnit->stockPositions()->whereKey($nullScopedPosition->id)->exists());
-        $this->assertCount(4, $material->stockPositions);
-        $this->assertCount(4, $location->stockPositions);
+        $this->assertFalse($logisticUnit->stockPositions()->whereKey($emptyLotNormalizedPosition->id)->exists());
+        $this->assertCount(5, $material->stockPositions);
+        $this->assertCount(5, $location->stockPositions);
         $this->assertCount(3, $logisticUnit->stockPositions);
     }
 
     private function assertStockPositionDuplicateFails(callable $createAttempt): void
     {
+        $beforeCount = InventoryStockPosition::query()->count();
+
         try {
             $createAttempt();
             $this->fail('Expected duplicate stock position insert to fail.');
@@ -322,9 +361,34 @@ class InventoryStockPositionModelTest extends TestCase
                 'Expected a unique-constraint violation, got: '.$e->getMessage()
             );
 
-            $this->assertDatabaseCount('inventory_stock_positions', 4);
+            $this->assertSame($beforeCount, InventoryStockPosition::query()->count());
         } catch (Throwable $e) {
             $this->fail('Expected a unique-constraint violation, got '.get_class($e).': '.$e->getMessage());
+        }
+    }
+
+    private function assertStockPositionDeleteBlocked(InventoryLogisticUnit $logisticUnit, callable $deleteAttempt): void
+    {
+        try {
+            $deleteAttempt();
+            $this->fail('Expected referenced logistic unit delete to be blocked.');
+        } catch (QueryException $e) {
+            $message = strtolower($e->getMessage());
+
+            $this->assertTrue(
+                str_contains((string) $e->getCode(), '23000')
+                    || str_contains($message, 'foreign key')
+                    || str_contains($message, 'constraint')
+                || str_contains($message, 'restrict'),
+                'Expected a restrictive foreign-key violation, got: '.$e->getMessage()
+            );
+
+            $this->assertTrue($logisticUnit->exists);
+            $this->assertDatabaseHas('inventory_logistic_units', [
+                'id' => $logisticUnit->id,
+            ]);
+        } catch (Throwable $e) {
+            $this->fail('Expected referenced logistic unit delete to be blocked, got '.get_class($e).': '.$e->getMessage());
         }
     }
 }

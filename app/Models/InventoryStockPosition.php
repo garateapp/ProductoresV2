@@ -27,6 +27,11 @@ class InventoryStockPosition extends Model
         'metadata' => 'array',
     ];
 
+    public function setLotCodeAttribute($value): void
+    {
+        $this->attributes['lot_code'] = $value === '' ? null : $value;
+    }
+
     public function material(): BelongsTo
     {
         return $this->belongsTo(InventoryMaterial::class, 'material_id');

@@ -19,7 +19,7 @@ return new class extends Migration
             $table->foreignId('logistic_unit_id')
                 ->nullable()
                 ->constrained('inventory_logistic_units')
-                ->nullOnDelete();
+                ->restrictOnDelete();
             $table->decimal('quantity', 18, 4);
             $table->string('lot_code', 100)->nullable();
             $table->string('status', 30)->default('available');
