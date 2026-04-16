@@ -188,5 +188,9 @@ class InventoryStockPositionModelTest extends TestCase
         $this->assertTrue($position->logisticUnit->is($logisticUnit));
         $this->assertSame(7.5, (float) $position->quantity);
         $this->assertSame('available', $position->status);
+
+        $this->assertTrue($material->stockPositions()->whereKey($position->id)->exists());
+        $this->assertTrue($location->stockPositions()->whereKey($position->id)->exists());
+        $this->assertTrue($logisticUnit->stockPositions()->whereKey($position->id)->exists());
     }
 }

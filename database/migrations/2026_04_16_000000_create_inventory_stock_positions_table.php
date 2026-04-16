@@ -20,8 +20,8 @@ return new class extends Migration
             $table->timestamps();
 
             $table->unique(
-                ['material_id', 'location_id', 'logistic_unit_id', 'lot_code'],
-                'ux_inventory_stock_positions_material_location_unit_lot'
+                ['material_id', 'location_id', 'logistic_unit_id'],
+                'ux_inventory_stock_positions_material_location_unit'
             );
             $table->index('material_id', 'idx_inventory_stock_positions_material_id');
             $table->index('location_id', 'idx_inventory_stock_positions_location_id');
