@@ -1,139 +1,198 @@
-# Traslado Parcial De Unidades Logisticas Sin Crear Nuevo LPN
+# Traslado Parcial Y Consumo Manual Basados En Posiciones De Stock
 
 **Fecha:** 2026-04-15
 
 **Objetivo**
 
-Permitir que un mismo `LPN` pueda mover solo una parte de sus unidades hacia otra ubicacion sin crear un pallet nuevo. El mismo codigo logistico debe poder quedar con saldo simultaneo en origen y destino, manteniendo trazabilidad operativa y stock consistente por ubicacion.
+Rediseñar el manejo de stock del modulo de inventario para que la fuente de verdad sea una capa de posiciones de stock, no el `LPN`. Esto debe permitir traslados parciales, traslados completos de pallet, consumo manual por seleccion de posicion y devoluciones consistentes sin crear nuevos pallets para cada fraccion movida.
 
 **Alcance**
 
-- Soportar saldos distribuidos por ubicacion para un mismo `inventory_logistic_units`.
-- Permitir traslados parciales desde `resources/js/Pages/Inventory/LogisticUnits/Index.jsx`.
-- Reutilizar el mismo `LPN` en origen y destino sin duplicar registros de pallet.
-- Validar cantidad disponible por ubicacion origen antes de mover.
-- Reflejar los saldos por ubicacion en backend y frontend.
-- Mantener compatibilidad funcional con traslados completos, rechazos y retornos ya implementados.
+- Introducir una entidad de posiciones de stock como base operativa del inventario.
+- Permitir traslados parciales de cantidad entre ubicaciones sin crear un nuevo `LPN`.
+- Permitir traslados completos de `LPN` resolviendo todas las posiciones asociadas en la ubicacion origen.
+- Preparar el modulo para consumo manual donde el usuario elige explicitamente la posicion a descontar.
+- Mantener `LPN` como referencia logistica y de trazabilidad, no como fuente de verdad del saldo.
+- Exponer en UI una vista resumen del movimiento del `LPN` con detalle desplegable por posicion.
 
 **Fuera de alcance**
 
-- Crear nuevos LPN o sub-LPN para representar fracciones.
-- Cambiar la semantica de materiales, empaques o unidades de medida.
-- Rehacer todo el flujo de escaneo multi-pallet en esta iteracion.
-- Resolver consolidacion automatica de saldos entre multiples destinos.
-- Replantear auditoria historica mas alla del ledger y movimientos existentes.
+- Reemplazar de una sola vez todo el modulo de inventario existente.
+- Automatizar reglas de consumo tipo FIFO o FEFO.
+- Crear sub-LPN o nuevos pallets para cada traslado parcial.
+- Rehacer todos los reportes o conciliaciones historicas en esta iteracion.
+- Eliminar de inmediato tablas agregadas o campos legacy que aun se necesiten para compatibilidad temporal.
 
-## Flujo de usuario
+## Problema actual
 
-1. El usuario entra a `Inventario > Unidades logisticias`.
-2. Selecciona un `LPN` y ve sus saldos actuales por ubicacion.
-3. Elige la ubicacion origen desde la cual saldra la cantidad.
-4. Ingresa la cantidad a mover.
-5. Selecciona la ubicacion destino.
-6. El sistema valida que el saldo disponible en origen sea suficiente.
-7. Al confirmar, descuenta la cantidad del saldo origen y suma la misma cantidad al saldo destino sin crear otro `LPN`.
-8. Si la cantidad movida consume todo el saldo de la ubicacion origen, ese saldo queda en cero y puede ocultarse o limpiarse.
+El modelo actual tiende a asociar el stock de un pallet a una sola ubicacion mediante el `LPN` o mediante campos agregados en la unidad logistica. Eso funciona mientras el pallet se mueve completo, pero se vuelve fragil cuando:
+
+- solo se traslada una parte del stock
+- distintas ubicaciones consumen el mismo material de forma distinta
+- se necesita elegir manualmente desde que saldo exacto consumir
+- hay rechazos, retornos o mermas parciales
+
+Si se intenta resolver esto repartiendo saldo sobre el mismo `LPN` por ubicacion, el pallet pasa a existir logicamente en varios lugares a la vez. Eso es posible contablemente, pero no es una base solida para la siguiente etapa de consumo manual.
 
 ## Arquitectura
 
-El cambio introduce una capa explicita de saldos por ubicacion para desacoplar el `LPN` maestro de una ubicacion unica. El pallet sigue existiendo como entidad logistica unica, pero su disponibilidad deja de depender de `current_location_id` y pasa a depender de una tabla de balances.
+La fuente de verdad del stock debe pasar a ser una tabla de posiciones de inventario. Cada posicion representa una cantidad concreta y homogenea de material en una ubicacion determinada. Opcionalmente, esa posicion puede estar asociada a un `LPN`, pero el stock deja de depender estructuralmente del pallet.
 
 Piezas:
 
-- Nueva tabla/modelo para balances de unidad logistica por ubicacion.
-- Servicio de unidades logisticas extendido para mover cantidades parciales.
-- Ajustes en controlador para exponer saldos por ubicacion y aceptar traslados parciales.
-- Pantalla React para visualizar y operar sobre esos saldos.
-- Tests de integracion para validar consistencia de stock y trazabilidad.
+- Nueva tabla/modelo `inventory_stock_positions`.
+- Servicios de inventario ajustados para mover, consumir, devolver o mermar posiciones concretas.
+- `LPN` mantenido como entidad logistica y de trazabilidad.
+- UI de unidades logisticas capaz de mostrar resumen por `LPN` y detalle por posiciones.
+- Flujos existentes de traslado, rechazo y retorno adaptados para operar contra posiciones.
 
 ## Datos y modelo
 
-Se agregara una tabla tipo `inventory_logistic_unit_balances` con al menos:
+Se agregara una tabla tipo `inventory_stock_positions` con campos conceptuales como:
 
 - `id`
-- `logistic_unit_id`
+- `material_id`
 - `location_id`
 - `quantity`
+- `logistic_unit_id` nullable
+- `lot_code` o referencia tecnica nullable
+- `status`
 - timestamps
 
 Reglas del modelo:
 
-- Un `LPN` puede tener cero o mas balances por ubicacion.
-- La suma de balances por ubicacion representa la cantidad total disponible del `LPN`.
-- `inventory_logistic_units.available_quantity` puede mantenerse temporalmente como total agregado para compatibilidad, pero no debe ser la fuente de verdad para validar traslados parciales por ubicacion.
-- `current_location_id` deja de ser fuente de verdad para movimientos parciales. Puede mantenerse solo como compatibilidad temporal o quedar nulo cuando un `LPN` tenga saldo repartido.
+- una posicion representa stock elegible como una sola unidad operativa
+- una ubicacion puede tener multiples posiciones del mismo material
+- un `LPN` puede referenciar una o varias posiciones
+- una posicion puede existir con o sin `LPN`
+- el stock disponible para mover o consumir siempre se valida contra una posicion o grupo explicito de posiciones
 
-## Reglas de negocio
+## Semantica del LPN
 
-- Un traslado parcial nunca crea un nuevo `LPN`.
-- El usuario siempre debe indicar desde que ubicacion sale la cantidad.
-- La cantidad a mover debe ser mayor que cero y menor o igual al saldo disponible en la ubicacion origen.
-- Origen y destino no pueden ser la misma ubicacion.
-- Si no existe saldo previo en destino para ese `LPN`, se crea el balance destino.
-- Si despues del traslado el saldo origen queda en cero, el balance origen puede eliminarse.
-- Los traslados completos siguen funcionando como un caso particular de traslado parcial donde la cantidad coincide con todo el saldo del origen.
+`inventory_logistic_units` se mantiene, pero cambia de rol:
+
+- deja de ser la fuente primaria del saldo
+- sigue siendo el contenedor operativo que se escanea o identifica en bodega
+- sirve para agrupar posiciones relacionadas en un mismo movimiento visible para el usuario
+- mantiene trazabilidad, etiquetas y contexto logistico
+
+Esto permite que un usuario siga trabajando con el concepto de pallet, pero el sistema descuenta y mueve stock real desde posiciones concretas.
+
+## Flujo de traslado parcial
+
+1. El usuario entra a `resources/js/Pages/Inventory/LogisticUnits/Index.jsx`.
+2. Selecciona un `LPN` o una combinacion de contexto equivalente.
+3. La UI muestra las posiciones asociadas a ese `LPN` en la ubicacion elegida.
+4. El usuario selecciona la posicion origen o un subconjunto claro de cantidad.
+5. Ingresa la cantidad a mover.
+6. Selecciona la ubicacion destino.
+7. El sistema valida saldo suficiente en la posicion origen.
+8. Al confirmar, descuenta la cantidad de la posicion origen y crea o incrementa una posicion destino compatible.
+9. No se crea un nuevo `LPN` por este solo hecho.
+
+## Flujo de traslado completo de LPN
+
+Un traslado completo no es un flujo separado. Es un caso particular del mismo motor de posiciones:
+
+- el usuario elige `mover LPN completo`
+- el backend resuelve todas las posiciones asociadas a ese `LPN` en la ubicacion origen
+- el sistema genera un movimiento resumen visible como una sola operacion logistica
+- la UI permite desplegar el detalle para ver cada posicion y cantidad incluidas
+
+Si el mismo `LPN` tiene saldo asociado en otras ubicaciones, ese saldo no se mueve salvo que pertenezca a la ubicacion origen seleccionada.
+
+## Flujo de consumo
+
+El consumo futuro debe operar sobre posiciones seleccionadas por el usuario. No se aplicara una regla global de salida automatica.
+
+Reglas:
+
+- cada ubicacion puede decidir desde que posicion consumir
+- el sistema mostrara posiciones elegibles por material y ubicacion
+- el usuario selecciona explicitamente la posicion a consumir
+- el backend descuenta solo desde esa posicion
+
+Esto evita imponer FIFO o FEFO donde la operacion real no lo usa y deja el modulo alineado con la forma en que cada area maneja su inventario.
 
 ## Integracion con flujos existentes
 
-El flujo nuevo debe convivir con los traslados ya implementados:
+El rediseño debe convivir con lo ya construido:
 
-- En traslados por escaneo de pallet completo, el backend debe mover todo el saldo del `LPN` desde la ubicacion origen seleccionada o resuelta.
-- Si en el futuro el flujo de escaneo acepta cantidad por `LPN`, debe reutilizar la misma primitiva de traslado parcial.
-- En rechazo con retorno pendiente, el retorno debe reponer saldo en la ubicacion origen sobre la tabla de balances, no contra una ubicacion unica del pallet.
+- el flujo de traslado multi-pallet ya implementado debe poder resolverse contra posiciones origen y destino
+- el rechazo con retorno pendiente debe reponer stock sobre la posicion correcta en origen
+- la confirmacion de recepcion debe operar sobre posiciones asociadas al movimiento, no solo sobre la entidad del pallet
+- el ledger puede seguir existiendo como auditoria de eventos
+- tablas o proyecciones agregadas existentes pueden mantenerse temporalmente como lectura o compatibilidad, pero no deben seguir siendo la fuente de verdad
 
 ## UX y validaciones
 
 La pantalla `resources/js/Pages/Inventory/LogisticUnits/Index.jsx` debe mostrar:
 
-- `LPN`
-- Material
-- Cantidad total
-- Saldos por ubicacion
-- Formulario de traslado parcial:
-  - ubicacion origen
+- resumen por `LPN`
+- material y cantidad total
+- accion de traslado parcial
+- accion de traslado completo del `LPN`
+- detalle desplegable con posiciones asociadas:
+  - ubicacion
   - cantidad
-  - ubicacion destino
-  - accion de confirmar
+  - referencia tecnica o lote si aplica
 
-Validaciones:
+Validaciones minimas:
 
-- El `LPN` debe existir.
-- Debe existir saldo en la ubicacion origen.
-- La cantidad debe ser numerica y positiva.
-- La cantidad no puede superar el saldo origen.
-- La ubicacion destino debe existir.
-- Origen y destino deben ser distintos.
+- la posicion origen debe existir
+- la cantidad debe ser numerica y positiva
+- la cantidad no puede superar el saldo disponible de la posicion
+- origen y destino deben ser diferentes
+- en `mover LPN completo`, debe existir al menos una posicion asociada al `LPN` en la ubicacion origen
 
 Mensajes minimos:
 
 - Exito: `Cantidad trasladada correctamente.`
-- Error de saldo: `La ubicacion origen no tiene saldo suficiente para este LPN.`
-- Error de validacion: mensaje claro por campo.
+- Exito traslado completo: `Pallet trasladado correctamente.`
+- Error de saldo: `La posicion seleccionada no tiene stock suficiente.`
+- Error de pallet: `El LPN no tiene stock disponible en la ubicacion origen.`
 
 ## Implementacion esperada
 
 Archivos probables a modificar o crear:
 
-- `database/migrations/*_create_inventory_logistic_unit_balances_table.php`
+- `database/migrations/*_create_inventory_stock_positions_table.php`
+- `app/Models/InventoryStockPosition.php`
 - `app/Models/InventoryLogisticUnit.php`
 - `app/Models/InventoryLocation.php`
-- `app/Models/InventoryLogisticUnitBalance.php`
 - `app/Services/Inventory/LogisticUnitService.php`
+- `app/Services/Inventory/InventoryTransactionService.php`
 - `app/Http/Controllers/Inventory/LogisticUnitController.php`
+- `app/Http/Controllers/Inventory/WorkflowController.php`
 - `resources/js/Pages/Inventory/LogisticUnits/Index.jsx`
+- `resources/js/Pages/Inventory/Movements/Index.jsx`
 - `tests/Feature/InventoryLogisticUnitPartialTransferTest.php`
+- `tests/Feature/InventoryConsumptionSelectionTest.php`
+
+## Estrategia de transicion
+
+No conviene reemplazar todo en un solo paso. La transicion debe considerar:
+
+1. crear la tabla de posiciones
+2. poblarla a partir del stock actual
+3. hacer que los nuevos traslados operen sobre posiciones
+4. adaptar rechazo y retorno
+5. usar posiciones como base del consumo
+6. dejar agregados legacy solo como compatibilidad temporal mientras se migra la lectura
 
 ## Riesgos
 
-- Parte del codigo actual asume que un `LPN` tiene una sola ubicacion via `current_location_id`; esos supuestos deben revisarse antes de reutilizar helpers existentes.
-- `available_quantity` y los balances por ubicacion pueden desalinearse si no se define una sola fuente de verdad durante la migracion.
-- El flujo de traslados ya implementado para `inventory_transfer_units` podria requerir adaptaciones posteriores para soportar rechazos o retornos parciales sobre un mismo `LPN`.
+- parte del modulo actual probablemente asume una ubicacion unica por `LPN`
+- si no se define claramente una sola fuente de verdad, se pueden duplicar saldos entre posiciones y agregados legacy
+- algunos movimientos existentes podrian requerir metadata adicional para enlazar posiciones origen/destino
+- la migracion inicial de datos debe mapear correctamente stock actual a posiciones sin perder trazabilidad
 
 ## Criterio de aceptacion
 
-- Un mismo `LPN` puede tener saldo simultaneo en dos ubicaciones.
-- Desde `LogisticUnits/Index.jsx` se puede mover una cantidad parcial sin crear otro pallet.
-- El backend valida saldo por ubicacion origen.
-- El saldo origen disminuye y el saldo destino aumenta por la misma cantidad.
-- El `LPN` mantiene su identidad unica durante todo el proceso.
-- La funcionalidad queda cubierta por pruebas de integracion.
+- el stock operable vive en posiciones de inventario
+- un traslado parcial mueve cantidad entre posiciones sin crear otro pallet
+- un traslado completo de `LPN` mueve todas las posiciones asociadas de la ubicacion origen seleccionada
+- la UI muestra movimiento resumen y detalle desplegable por posicion
+- el consumo futuro puede descontar desde una posicion elegida por el usuario
+- rechazo y retorno pueden reponer posiciones correctas
+- la funcionalidad queda cubierta por pruebas de integracion
