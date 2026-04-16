@@ -81,4 +81,11 @@ class InventoryLogisticUnit extends Model
     {
         return $this->hasMany(InventoryWasteRecord::class, 'logistic_unit_id');
     }
+
+    public function normalizedLotCode(): ?string
+    {
+        $lotCode = trim((string) $this->lot_code);
+
+        return $lotCode === '' ? null : $lotCode;
+    }
 }
