@@ -13,6 +13,7 @@ use Illuminate\Database\QueryException;
 use Illuminate\Database\Schema\Blueprint;
 use Illuminate\Support\Facades\Hash;
 use Illuminate\Support\Facades\Schema;
+use Throwable;
 use Tests\TestCase;
 
 class InventoryStockPositionModelTest extends TestCase
@@ -253,35 +254,27 @@ class InventoryStockPositionModelTest extends TestCase
             'status' => 'available',
         ]);
 
-        try {
-            InventoryStockPosition::create([
+        $this->assertStockPositionDuplicateFails(
+            fn () => InventoryStockPosition::create([
                 'material_id' => $material->id,
                 'location_id' => $location->id,
                 'logistic_unit_id' => $logisticUnit->id,
                 'quantity' => 7.5,
                 'lot_code' => 'LOT-SP-001',
                 'status' => 'available',
-            ]);
+            ])
+        );
 
-            $this->fail('Expected duplicate stock position insert to fail.');
-        } catch (QueryException $e) {
-            $this->assertDatabaseCount('inventory_stock_positions', 4);
-        }
-
-        try {
-            InventoryStockPosition::create([
+        $this->assertStockPositionDuplicateFails(
+            fn () => InventoryStockPosition::create([
                 'material_id' => $material->id,
                 'location_id' => $location->id,
                 'logistic_unit_id' => null,
                 'quantity' => 4.0,
                 'lot_code' => null,
                 'status' => 'available',
-            ]);
-
-            $this->fail('Expected null-scoped duplicate stock position insert to fail.');
-        } catch (QueryException $e) {
-            $this->assertDatabaseCount('inventory_stock_positions', 4);
-        }
+            ])
+        );
 
         $position->refresh();
         $positionWithDifferentStatus->refresh();
@@ -311,5 +304,27 @@ class InventoryStockPositionModelTest extends TestCase
         $this->assertCount(4, $material->stockPositions);
         $this->assertCount(4, $location->stockPositions);
         $this->assertCount(3, $logisticUnit->stockPositions);
+    }
+
+    private function assertStockPositionDuplicateFails(callable $createAttempt): void
+    {
+        try {
+            $createAttempt();
+            $this->fail('Expected duplicate stock position insert to fail.');
+        } catch (QueryException $e) {
+            $message = strtolower($e->getMessage());
+
+            $this->assertTrue(
+                str_contains((string) $e->getCode(), '23000')
+                    || str_contains($message, 'unique')
+                    || str_contains($message, 'duplicate')
+                    || str_contains($message, 'constraint'),
+                'Expected a unique-constraint violation, got: '.$e->getMessage()
+            );
+
+            $this->assertDatabaseCount('inventory_stock_positions', 4);
+        } catch (Throwable $e) {
+            $this->fail('Expected a unique-constraint violation, got '.get_class($e).': '.$e->getMessage());
+        }
     }
 }

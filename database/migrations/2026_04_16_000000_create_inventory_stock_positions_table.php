@@ -10,9 +10,16 @@ return new class extends Migration
     {
         Schema::create('inventory_stock_positions', function (Blueprint $table) {
             $table->id();
-            $table->foreignId('material_id')->constrained('inventory_materials');
-            $table->foreignId('location_id')->constrained('inventory_locations');
-            $table->foreignId('logistic_unit_id')->nullable()->constrained('inventory_logistic_units');
+            $table->foreignId('material_id')
+                ->constrained('inventory_materials')
+                ->cascadeOnDelete();
+            $table->foreignId('location_id')
+                ->constrained('inventory_locations')
+                ->cascadeOnDelete();
+            $table->foreignId('logistic_unit_id')
+                ->nullable()
+                ->constrained('inventory_logistic_units')
+                ->nullOnDelete();
             $table->decimal('quantity', 18, 4);
             $table->string('lot_code', 100)->nullable();
             $table->string('status', 30)->default('available');
