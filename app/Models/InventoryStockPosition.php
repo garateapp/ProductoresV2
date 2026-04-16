@@ -7,6 +7,11 @@ use Illuminate\Database\Eloquent\Relations\BelongsTo;
 
 class InventoryStockPosition extends Model
 {
+    protected $hidden = [
+        'logistic_unit_key',
+        'lot_code_key',
+    ];
+
     protected $fillable = [
         'material_id',
         'location_id',

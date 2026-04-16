@@ -9,6 +9,7 @@ use App\Models\InventoryMaterialFamily;
 use App\Models\InventoryStockPosition;
 use App\Models\InventoryUnit;
 use App\Models\User;
+use Illuminate\Database\QueryException;
 use Illuminate\Database\Schema\Blueprint;
 use Illuminate\Support\Facades\Hash;
 use Illuminate\Support\Facades\Schema;
@@ -104,6 +105,29 @@ class InventoryStockPositionModelTest extends TestCase
         $migration->up();
     }
 
+    protected function tearDown(): void
+    {
+        Schema::disableForeignKeyConstraints();
+
+        foreach ([
+            'inventory_stock_positions',
+            'inventory_logistic_units',
+            'inventory_locations',
+            'inventory_materials',
+            'inventory_units',
+            'inventory_material_families',
+            'users',
+        ] as $table) {
+            if (Schema::hasTable($table)) {
+                Schema::drop($table);
+            }
+        }
+
+        Schema::enableForeignKeyConstraints();
+
+        parent::tearDown();
+    }
+
     public function test_it_persists_and_resolves_stock_position_relations(): void
     {
         $user = User::create([
@@ -180,6 +204,15 @@ class InventoryStockPositionModelTest extends TestCase
             'status' => 'available',
         ]);
 
+        $nullScopedPosition = InventoryStockPosition::create([
+            'material_id' => $material->id,
+            'location_id' => $location->id,
+            'logistic_unit_id' => null,
+            'quantity' => 4.0,
+            'lot_code' => null,
+            'status' => 'available',
+        ]);
+
         $this->assertDatabaseHas('inventory_stock_positions', [
             'id' => $position->id,
             'material_id' => $material->id,
@@ -210,27 +243,73 @@ class InventoryStockPositionModelTest extends TestCase
             'status' => 'available',
         ]);
 
+        $this->assertDatabaseHas('inventory_stock_positions', [
+            'id' => $nullScopedPosition->id,
+            'material_id' => $material->id,
+            'location_id' => $location->id,
+            'logistic_unit_id' => null,
+            'quantity' => '4.0000',
+            'lot_code' => null,
+            'status' => 'available',
+        ]);
+
+        try {
+            InventoryStockPosition::create([
+                'material_id' => $material->id,
+                'location_id' => $location->id,
+                'logistic_unit_id' => $logisticUnit->id,
+                'quantity' => 7.5,
+                'lot_code' => 'LOT-SP-001',
+                'status' => 'available',
+            ]);
+
+            $this->fail('Expected duplicate stock position insert to fail.');
+        } catch (QueryException $e) {
+            $this->assertDatabaseCount('inventory_stock_positions', 4);
+        }
+
+        try {
+            InventoryStockPosition::create([
+                'material_id' => $material->id,
+                'location_id' => $location->id,
+                'logistic_unit_id' => null,
+                'quantity' => 4.0,
+                'lot_code' => null,
+                'status' => 'available',
+            ]);
+
+            $this->fail('Expected null-scoped duplicate stock position insert to fail.');
+        } catch (QueryException $e) {
+            $this->assertDatabaseCount('inventory_stock_positions', 4);
+        }
+
         $position->refresh();
         $positionWithDifferentStatus->refresh();
         $positionWithDifferentLot->refresh();
+        $nullScopedPosition->refresh();
 
         $this->assertTrue($position->material->is($material));
         $this->assertTrue($position->location->is($location));
         $this->assertTrue($position->logisticUnit->is($logisticUnit));
         $this->assertSame(7.5, (float) $position->quantity);
         $this->assertSame('available', $position->status);
+        $this->assertArrayNotHasKey('logistic_unit_key', $position->toArray());
+        $this->assertArrayNotHasKey('lot_code_key', $position->toArray());
 
         $this->assertTrue($material->stockPositions()->whereKey($position->id)->exists());
         $this->assertTrue($material->stockPositions()->whereKey($positionWithDifferentStatus->id)->exists());
         $this->assertTrue($material->stockPositions()->whereKey($positionWithDifferentLot->id)->exists());
+        $this->assertTrue($material->stockPositions()->whereKey($nullScopedPosition->id)->exists());
         $this->assertTrue($location->stockPositions()->whereKey($position->id)->exists());
         $this->assertTrue($location->stockPositions()->whereKey($positionWithDifferentStatus->id)->exists());
         $this->assertTrue($location->stockPositions()->whereKey($positionWithDifferentLot->id)->exists());
+        $this->assertTrue($location->stockPositions()->whereKey($nullScopedPosition->id)->exists());
         $this->assertTrue($logisticUnit->stockPositions()->whereKey($position->id)->exists());
         $this->assertTrue($logisticUnit->stockPositions()->whereKey($positionWithDifferentStatus->id)->exists());
         $this->assertTrue($logisticUnit->stockPositions()->whereKey($positionWithDifferentLot->id)->exists());
-        $this->assertCount(3, $material->stockPositions);
-        $this->assertCount(3, $location->stockPositions);
+        $this->assertFalse($logisticUnit->stockPositions()->whereKey($nullScopedPosition->id)->exists());
+        $this->assertCount(4, $material->stockPositions);
+        $this->assertCount(4, $location->stockPositions);
         $this->assertCount(3, $logisticUnit->stockPositions);
     }
 }
