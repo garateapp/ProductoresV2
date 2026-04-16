@@ -100,17 +100,8 @@ class InventoryStockPositionModelTest extends TestCase
             $table->timestamps();
         });
 
-        Schema::create('inventory_stock_positions', function (Blueprint $table) {
-            $table->id();
-            $table->foreignId('material_id');
-            $table->foreignId('location_id');
-            $table->foreignId('logistic_unit_id')->nullable();
-            $table->decimal('quantity', 18, 4);
-            $table->string('lot_code', 100)->nullable();
-            $table->string('status', 30)->default('available');
-            $table->json('metadata')->nullable();
-            $table->timestamps();
-        });
+        $migration = require base_path('database/migrations/2026_04_16_000000_create_inventory_stock_positions_table.php');
+        $migration->up();
     }
 
     public function test_it_persists_and_resolves_stock_position_relations(): void
@@ -171,6 +162,24 @@ class InventoryStockPositionModelTest extends TestCase
             'status' => 'available',
         ]);
 
+        $positionWithDifferentStatus = InventoryStockPosition::create([
+            'material_id' => $material->id,
+            'location_id' => $location->id,
+            'logistic_unit_id' => $logisticUnit->id,
+            'quantity' => 2.0,
+            'lot_code' => 'LOT-SP-001',
+            'status' => 'reserved',
+        ]);
+
+        $positionWithDifferentLot = InventoryStockPosition::create([
+            'material_id' => $material->id,
+            'location_id' => $location->id,
+            'logistic_unit_id' => $logisticUnit->id,
+            'quantity' => 1.5,
+            'lot_code' => 'LOT-SP-002',
+            'status' => 'available',
+        ]);
+
         $this->assertDatabaseHas('inventory_stock_positions', [
             'id' => $position->id,
             'material_id' => $material->id,
@@ -181,7 +190,29 @@ class InventoryStockPositionModelTest extends TestCase
             'status' => 'available',
         ]);
 
+        $this->assertDatabaseHas('inventory_stock_positions', [
+            'id' => $positionWithDifferentStatus->id,
+            'material_id' => $material->id,
+            'location_id' => $location->id,
+            'logistic_unit_id' => $logisticUnit->id,
+            'quantity' => '2.0000',
+            'lot_code' => 'LOT-SP-001',
+            'status' => 'reserved',
+        ]);
+
+        $this->assertDatabaseHas('inventory_stock_positions', [
+            'id' => $positionWithDifferentLot->id,
+            'material_id' => $material->id,
+            'location_id' => $location->id,
+            'logistic_unit_id' => $logisticUnit->id,
+            'quantity' => '1.5000',
+            'lot_code' => 'LOT-SP-002',
+            'status' => 'available',
+        ]);
+
         $position->refresh();
+        $positionWithDifferentStatus->refresh();
+        $positionWithDifferentLot->refresh();
 
         $this->assertTrue($position->material->is($material));
         $this->assertTrue($position->location->is($location));
@@ -190,7 +221,16 @@ class InventoryStockPositionModelTest extends TestCase
         $this->assertSame('available', $position->status);
 
         $this->assertTrue($material->stockPositions()->whereKey($position->id)->exists());
+        $this->assertTrue($material->stockPositions()->whereKey($positionWithDifferentStatus->id)->exists());
+        $this->assertTrue($material->stockPositions()->whereKey($positionWithDifferentLot->id)->exists());
         $this->assertTrue($location->stockPositions()->whereKey($position->id)->exists());
+        $this->assertTrue($location->stockPositions()->whereKey($positionWithDifferentStatus->id)->exists());
+        $this->assertTrue($location->stockPositions()->whereKey($positionWithDifferentLot->id)->exists());
         $this->assertTrue($logisticUnit->stockPositions()->whereKey($position->id)->exists());
+        $this->assertTrue($logisticUnit->stockPositions()->whereKey($positionWithDifferentStatus->id)->exists());
+        $this->assertTrue($logisticUnit->stockPositions()->whereKey($positionWithDifferentLot->id)->exists());
+        $this->assertCount(3, $material->stockPositions);
+        $this->assertCount(3, $location->stockPositions);
+        $this->assertCount(3, $logisticUnit->stockPositions);
     }
 }
