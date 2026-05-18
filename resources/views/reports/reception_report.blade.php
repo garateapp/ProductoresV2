@@ -2400,13 +2400,14 @@ default: // Default colors if species not matched
                 const sobrecalibre = Number(@json($sobrecalibrePercentage));
                 const exportableAdjusted = Math.max(exportable, 0);
                 const colors = getChartColors(species);
-                if(species==='apples' || species==='pear'){
+                if(species==='apples' || species==='pears'){
                  const doughnutData = [
                     exportableAdjusted,
                     defectosCalidad,
                     defectosCondicion,
                     danosPlaga,
-                    precalibre
+                    precalibre,
+                    sobrecalibre
                 ];
 
                 const exportableChart = new Chart(ctx, {
