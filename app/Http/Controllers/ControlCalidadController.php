@@ -1524,9 +1524,20 @@ public function previewPage(Recepcion $recepcion)
                 ->where('tipo_item', 'DEFECTOS DE CALIDAD')
                 ->where('detalle_item', 'PRECALIBRE')
                 ->sum('porcentaje_muestra');
+
+
             $defectos_calidad_sum=$defectos_calidad_sum-$defectos_calidad_precalibre;
 
             $total_defectos_sum = $defectos_calidad_sum + $defectos_condicion_sum + $danos_plaga_sum+$defectos_calidad_precalibre;
+            if($recepcion->n_especie === 'Apples' || $recepcion->n_especie==='Pears'){
+                //Para Pomaceas
+            $defectos_calidad_sobrecalibre = $calidad->detalles()
+                ->where('tipo_item', 'DISTRIBUCIÓN DE CALIBRES')
+                ->where('detalle_item', 'SOBRECALIBRE')
+                ->sum('porcentaje_muestra');
+            //FIn Para Pomaceas
+             $total_defectos_sum=$defectos_calidad_sum + $defectos_condicion_sum + $danos_plaga_sum+$defectos_calidad_precalibre+$defectos_calidad_sobrecalibre;
+            }
             $porcentaje_exportable = max(0, 100 - $total_defectos_sum);
             Log::info("Defectos Calidad: ",[$calidad]);
             Log::info("Detalle: ",[$calidad->detalles()]);
