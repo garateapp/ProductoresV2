@@ -1573,23 +1573,23 @@
 
                     };
 
-                case 'pears':
+                // case 'pears':
 
-                    return {
+                //     return {
 
-                        exportable: '#a7e16c',
+                //         exportable: '#a7e16c',
 
-                            defectosCalidad: '#86c452',
+                //             defectosCalidad: '#86c452',
 
-                            defectosCondicion: '#659a3a',
+                //             defectosCondicion: '#659a3a',
 
-                            danosPlaga: '#4d792c',
+                //             danosPlaga: '#4d792c',
 
-                            precalibre: '#d7f5b6',
+                //             precalibre: '#d7f5b6',
 
-                            borderColor: 'rgba(255, 255, 255, 1)'
+                //             borderColor: 'rgba(255, 255, 255, 1)'
 
-                    };
+                //     };
 
                 case 'pear':
 
