@@ -1329,7 +1329,16 @@
                         ->where('detalle_item', 'PRECALIBRE')
                         ->first(),
                 )->porcentaje_muestra ?? 0);
-
+            if($recepcion->n_especie === 'Apples' || $recepcion->n_especie === 'Pears'){
+                //Para Pomaceas
+                $sobrecalibrePercentage =
+                    (float) (optional(
+                        optional(optional($recepcion->calidad)->detalles)
+                            ->where('tipo_item', 'DISTRIBUCIÓN DE CALIBRES')
+                            ->where('detalle_item', 'SOBRECALIBRE')
+                            ->first(),
+                    )->porcentaje_muestra ?? 0);
+            }
             //dd($coverageColor, $averageFirmness, $firmnessDistribution, $coverageColor,$sizeDistribution);
 
         @endphp
@@ -1430,6 +1439,8 @@
 
                             precalibre: '#c4f2b8',
 
+                            sobrecalibre: '#a0d698',
+
                             borderColor: 'rgba(255, 255, 255, 1)'
 
                     };
@@ -1447,6 +1458,8 @@
                             danosPlaga: '#2f6c29',
 
                             precalibre: '#c4f2b8',
+
+                            sobrecalibre: '#a0d698',
 
                             borderColor: 'rgba(255, 255, 255, 1)'
 
@@ -1591,6 +1604,27 @@
                             danosPlaga: '#4d792c',
 
                             precalibre: '#d7f5b6',
+
+                            sobrecalibre: '#b0d97a',
+
+                            borderColor: 'rgba(255, 255, 255, 1)'
+
+                    };
+                     case 'pears':
+
+                    return {
+
+                        exportable: '#a7e16c',
+
+                            defectosCalidad: '#86c452',
+
+                            defectosCondicion: '#659a3a',
+
+                            danosPlaga: '#4d792c',
+
+                            precalibre: '#d7f5b6',
+
+                            sobrecalibre: '#b0d97a',
 
                             borderColor: 'rgba(255, 255, 255, 1)'
 
@@ -2363,6 +2397,7 @@ default: // Default colors if species not matched
                 const danosPlaga = {{ $danos_plaga_sum }};
                 const species = "{{ $normalizedSpecies }}";
                 const precalibre = Number(@json($precalibrePercentage));
+                const sobrecalibre = Number(@json($sobrecalibrePercentage));
                 const exportableAdjusted = Math.max(exportable, 0);
                 const colors = getChartColors(species);
                 const doughnutData = [
@@ -2376,7 +2411,9 @@ default: // Default colors if species not matched
                     type: 'doughnut',
                     data: {
                         labels: ['Exportable', 'Defectos de Calidad', 'Defectos de Condición',
-                            'Daños de Plaga', 'Precalibre'
+                            'Daños de Plaga', 'Precalibre',
+                            species.toLowerCase().includes('apples') ? 'Sobrecalibre' : null,
+                            species.toLowerCase().includes('pears') ? 'Sobrecalibre' : null
                         ],
                         datasets: [{
                             data: doughnutData,
@@ -2385,7 +2422,9 @@ default: // Default colors if species not matched
                                 colors.defectosCalidad,
                                 colors.defectosCondicion,
                                 colors.danosPlaga,
-                                colors.precalibre
+                                colors.precalibre,
+                                species.toLowerCase().includes('apples') ? colors.sobrecalibre : null
+                                species.toLowerCase().includes('pears') ? colors.sobrecalibre : null
                             ],
                             borderColor: colors.borderColor
                         }]
@@ -2393,127 +2432,38 @@ default: // Default colors if species not matched
 
 
                     },
-
-
-
                     options: {
-
-
-
                         responsive: true,
-
-
-
                         maintainAspectRatio: false,
-
-
-
                         animation: false,
-
-
-
                         plugins: {
-
-
-
                             legend: {
-
-
-
                                 display: false
-
-
-
                             },
-
-
-
                             datalabels: {
-
-
-
                                 display: false
-
-
-
                             },
-
-
-
                             title: {
-
-
-
                                 display: true,
-
-
-
                                 text: 'Resumen Recepción',
-
-
-
                                 font: {
-
                                     size: 10,
-
                                     weight: 'bold',
-
                                     color: '#333',
-
                                     family: 'Sans-Serif',
-
                                 },
-
-
-
                             },
-
-
-
                             centerText: {
-
-
-
                                 text: `${exportableAdjusted.toFixed(0)}%`,
-
-
-
                                 color: '#111827',
-
-
-
                                 font: 'bold 14px "Roboto", sans-serif'
-
-
-
                             }
-
-
-
                         }
-
-
-
                     }
-
-
-
                 });
-
-
-
                 generateHtmlLegend(exportableChart, 'exportable-legend', {
-
-
-
                     skipLabels: ['Exportable']
-
-
-
                 });
-
-
-
             }
 
 
