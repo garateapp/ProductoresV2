@@ -2460,6 +2460,9 @@ default: // Default colors if species not matched
                         }
                     }
                 });
+                 generateHtmlLegend(exportableChart, 'exportable-legend', {
+                    skipLabels: ['Exportable']
+                });
                 }
                 else{
                     const doughnutData = [
@@ -2521,10 +2524,11 @@ default: // Default colors if species not matched
                         }
                     }
                 });
-                }
-                generateHtmlLegend(exportableChart, 'exportable-legend', {
+                 generateHtmlLegend(exportableChart, 'exportable-legend', {
                     skipLabels: ['Exportable']
                 });
+                }
+
             }
 
 
