@@ -2400,20 +2400,20 @@ default: // Default colors if species not matched
                 const sobrecalibre = Number(@json($sobrecalibrePercentage));
                 const exportableAdjusted = Math.max(exportable, 0);
                 const colors = getChartColors(species);
-                const doughnutData = [
+                if(species==='apples' || species==='pear'){
+                 const doughnutData = [
                     exportableAdjusted,
                     defectosCalidad,
                     defectosCondicion,
                     danosPlaga,
                     precalibre
                 ];
+
                 const exportableChart = new Chart(ctx, {
                     type: 'doughnut',
                     data: {
                         labels: ['Exportable', 'Defectos de Calidad', 'Defectos de Condición',
-                            'Daños de Plaga', 'Precalibre',
-                            species.toLowerCase().includes('apples') ? 'Sobrecalibre' : null,
-                            species.toLowerCase().includes('pears') ? 'Sobrecalibre' : null
+                            'Daños de Plaga', 'Precalibre','Sobrecalibre'
                         ],
                         datasets: [{
                             data: doughnutData,
@@ -2423,8 +2423,7 @@ default: // Default colors if species not matched
                                 colors.defectosCondicion,
                                 colors.danosPlaga,
                                 colors.precalibre,
-                                species.toLowerCase().includes('apples') ? colors.sobrecalibre : null
-                                species.toLowerCase().includes('pears') ? colors.sobrecalibre : null
+                                colors.sobrecalibre
                             ],
                             borderColor: colors.borderColor
                         }]
@@ -2461,6 +2460,68 @@ default: // Default colors if species not matched
                         }
                     }
                 });
+                }
+                else{
+                    const doughnutData = [
+                    exportableAdjusted,
+                    defectosCalidad,
+                    defectosCondicion,
+                    danosPlaga,
+                    precalibre
+                ];
+
+                const exportableChart = new Chart(ctx, {
+                    type: 'doughnut',
+                    data: {
+                        labels: ['Exportable', 'Defectos de Calidad', 'Defectos de Condición',
+                            'Daños de Plaga', 'Precalibre'
+                        ],
+                        datasets: [{
+                            data: doughnutData,
+                            backgroundColor: [
+                                colors.exportable,
+                                colors.defectosCalidad,
+                                colors.defectosCondicion,
+                                colors.danosPlaga,
+                                colors.precalibre,
+
+                            ],
+                            borderColor: colors.borderColor
+                        }]
+
+
+
+                    },
+                    options: {
+                        responsive: true,
+                        maintainAspectRatio: false,
+                        animation: false,
+                        plugins: {
+                            legend: {
+                                display: false
+                            },
+                            datalabels: {
+                                display: false
+                            },
+                            title: {
+                                display: true,
+                                text: 'Resumen Recepción',
+                                font: {
+                                    size: 10,
+                                    weight: 'bold',
+                                    color: '#333',
+                                    family: 'Sans-Serif',
+                                },
+                            },
+                            centerText: {
+                                text: `${exportableAdjusted.toFixed(0)}%`,
+                                color: '#111827',
+                                font: 'bold 14px "Roboto", sans-serif'
+                            }
+                        }
+                    }
+                });
+                }
                 generateHtmlLegend(exportableChart, 'exportable-legend', {
                     skipLabels: ['Exportable']
                 });
