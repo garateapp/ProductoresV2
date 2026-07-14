@@ -18,6 +18,11 @@ class PackingLineController extends Controller
         $this->authorizePlanning($request);
 
         $lines = PackingLine::query()
+            ->with(['processLots' => function ($q) {
+                $q->with('process')
+                    ->whereHas('process', fn ($pq) => $pq->whereIn('estado', ['BORRADOR', 'CONFLICTO', 'CONFIRMADO', 'EN_PROCESO']))
+                    ->orderBy('orden');
+            }])
             ->orderBy('especie')
             ->orderBy('nombre')
             ->get();

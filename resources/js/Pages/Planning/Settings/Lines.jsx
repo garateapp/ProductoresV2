@@ -14,10 +14,26 @@ import {
   TableHeader,
   TableRow,
 } from '@/Components/ui/table'
+import { ChevronDown, ChevronRight } from 'lucide-react'
+
+const ESTADO_COLORS = {
+  BORRADOR: 'bg-yellow-50 text-yellow-800 border border-yellow-200',
+  CONFLICTO: 'bg-red-50 text-red-800 border border-red-200',
+  CONFIRMADO: 'bg-blue-50 text-blue-800 border border-blue-200',
+  EN_PROCESO: 'bg-purple-50 text-purple-800 border border-purple-200',
+}
+
+function fmtDate(dateString) {
+  if (!dateString) return '-'
+  const d = new Date(`${dateString}T12:00:00Z`)
+  if (Number.isNaN(d.getTime())) return '-'
+  return new Intl.DateTimeFormat('es-CL', { timeZone: 'America/Santiago' }).format(d)
+}
 
 export default function Lines({ lines = [], especies = [] }) {
   const { props } = usePage()
   const [editing, setEditing] = useState(null)
+  const [expandedLine, setExpandedLine] = useState(null)
 
   const { data, setData, post, patch, processing, errors, reset } = useForm({
     nombre: '',
@@ -75,6 +91,31 @@ export default function Lines({ lines = [], especies = [] }) {
     if (current.has(normalized)) current.delete(normalized)
     else current.add(normalized)
     setData('especies', Array.from(current))
+  }
+
+  const toggleExpand = (lineId) => {
+    setExpandedLine((prev) => (prev === lineId ? null : lineId))
+  }
+
+  const getProcessGroups = (line) => {
+    const lots = Array.isArray(line.processLots) ? line.processLots : []
+    const groups = {}
+    for (const lot of lots) {
+      const pid = lot?.process?.id ?? lot?.process_id
+      if (!pid) continue
+      if (!groups[pid]) {
+        groups[pid] = {
+          process: lot.process,
+          lots: [],
+        }
+      }
+      groups[pid].lots.push(lot)
+    }
+    return Object.values(groups).sort((a, b) => {
+      const fa = a.process?.fecha ?? ''
+      const fb = b.process?.fecha ?? ''
+      return fa.localeCompare(fb)
+    })
   }
 
   return (
@@ -154,6 +195,7 @@ export default function Lines({ lines = [], especies = [] }) {
           <Table>
             <TableHeader>
               <TableRow>
+                <TableHead className="w-8"></TableHead>
                 <TableHead>Especie</TableHead>
                 <TableHead>Nombre</TableHead>
                 <TableHead>Tipo</TableHead>
@@ -162,31 +204,119 @@ export default function Lines({ lines = [], especies = [] }) {
               </TableRow>
             </TableHeader>
             <TableBody>
-              {(lines || []).map((l) => (
-                <TableRow key={l.id}>
-                  <TableCell>
-                    <div className="text-sm font-medium">{l.especie}</div>
-                    {Array.isArray(l.especies) && l.especies.length > 1 ? (
-                      <div className="text-xs text-gray-500">{l.especies.join(', ')}</div>
-                    ) : null}
-                  </TableCell>
-                  <TableCell className="font-medium">{l.nombre}</TableCell>
-                  <TableCell>{l.tipo?.value ?? l.tipo}</TableCell>
-                  <TableCell>
-                    {l.activo ? (
-                      <Badge className="bg-green-50 text-green-800 border border-green-200">Sí</Badge>
-                    ) : (
-                      <Badge variant="outline" className="text-gray-600">No</Badge>
+              {(lines || []).map((l) => {
+                const isExpanded = expandedLine === l.id
+                const groups = isExpanded ? getProcessGroups(l) : []
+                const totalLots = Array.isArray(l.processLots) ? l.processLots.length : 0
+                return (
+                  <React.Fragment key={l.id}>
+                    <TableRow
+                      className={isExpanded ? 'bg-slate-50' : ''}
+                    >
+                      <TableCell className="w-8">
+                        {totalLots > 0 ? (
+                          <button
+                            type="button"
+                            onClick={() => toggleExpand(l.id)}
+                            className="p-0.5 rounded hover:bg-gray-200 text-gray-500"
+                            title={isExpanded ? 'Colapsar' : 'Ver procesos y lotes'}
+                          >
+                            {isExpanded ? <ChevronDown className="h-4 w-4" /> : <ChevronRight className="h-4 w-4" />}
+                          </button>
+                        ) : null}
+                      </TableCell>
+                      <TableCell>
+                        <div className="text-sm font-medium">{l.especie}</div>
+                        {Array.isArray(l.especies) && l.especies.length > 1 ? (
+                          <div className="text-xs text-gray-500">{l.especies.join(', ')}</div>
+                        ) : null}
+                      </TableCell>
+                      <TableCell className="font-medium">{l.nombre}</TableCell>
+                      <TableCell>{l.tipo?.value ?? l.tipo}</TableCell>
+                      <TableCell>
+                        {l.activo ? (
+                          <Badge className="bg-green-50 text-green-800 border border-green-200">Sí</Badge>
+                        ) : (
+                          <Badge variant="outline" className="text-gray-600">No</Badge>
+                        )}
+                      </TableCell>
+                      <TableCell className="text-right">
+                        <Button variant="outline" size="sm" onClick={() => startEdit(l)}>Editar</Button>
+                      </TableCell>
+                    </TableRow>
+                    {isExpanded && (
+                      <TableRow>
+                        <TableCell colSpan={6} className="p-0">
+                          <div className="px-6 py-3 bg-slate-50/80 border-t border-b">
+                            {groups.length === 0 ? (
+                              <div className="text-sm text-gray-500 py-2">Sin procesos activos.</div>
+                            ) : (
+                              <div className="space-y-3">
+                                {groups.map((g) => (
+                                  <div key={g.process?.id} className="rounded border bg-white p-3">
+                                    <div className="flex items-center gap-3 mb-2">
+                                      <span className="text-sm font-semibold">
+                                        Proceso N° {g.process?.id}
+                                      </span>
+                                      <Badge className={ESTADO_COLORS[g.process?.estado] || 'bg-gray-50 text-gray-800'}>
+                                        {g.process?.estado || '-'}
+                                      </Badge>
+                                      <span className="text-xs text-gray-600">
+                                        {fmtDate(g.process?.fecha)}
+                                      </span>
+                                      <span className="text-xs text-gray-600">
+                                        {g.process?.especie || '-'}
+                                      </span>
+                                      <span className="text-xs text-gray-500">
+                                        ({g.lots.length} lote{g.lots.length !== 1 ? 's' : ''})
+                                      </span>
+                                    </div>
+                                    <Table>
+                                      <TableHeader>
+                                        <TableRow>
+                                          <TableHead className="py-1 text-xs">N° Recepción</TableHead>
+                                          <TableHead className="py-1 text-xs">Destino</TableHead>
+                                          <TableHead className="py-1 text-xs">Variedad</TableHead>
+                                          <TableHead className="py-1 text-xs">Bins</TableHead>
+                                          <TableHead className="py-1 text-xs">Tipo Proceso</TableHead>
+                                        </TableRow>
+                                      </TableHeader>
+                                      <TableBody>
+                                        {g.lots.map((lot) => (
+                                          <TableRow key={lot.id} className="hover:bg-gray-50">
+                                            <TableCell className="py-1 text-xs font-medium">
+                                              {lot.n_g_recepcion || '-'}
+                                            </TableCell>
+                                            <TableCell className="py-1 text-xs">
+                                              {lot.destino || '-'}
+                                            </TableCell>
+                                            <TableCell className="py-1 text-xs">
+                                              {lot.n_variedad || '-'}
+                                            </TableCell>
+                                            <TableCell className="py-1 text-xs">
+                                              {Number(lot.cantidad_bins || 0).toLocaleString('es-CL')}
+                                            </TableCell>
+                                            <TableCell className="py-1 text-xs">
+                                              {lot.tipo_proceso || '-'}
+                                            </TableCell>
+                                          </TableRow>
+                                        ))}
+                                      </TableBody>
+                                    </Table>
+                                  </div>
+                                ))}
+                              </div>
+                            )}
+                          </div>
+                        </TableCell>
+                      </TableRow>
                     )}
-                  </TableCell>
-                  <TableCell className="text-right">
-                    <Button variant="outline" size="sm" onClick={() => startEdit(l)}>Editar</Button>
-                  </TableCell>
-                </TableRow>
-              ))}
+                  </React.Fragment>
+                )
+              })}
               {(!lines || lines.length === 0) && (
                 <TableRow>
-                  <TableCell colSpan={5} className="py-10 text-center text-sm text-gray-600">
+                  <TableCell colSpan={6} className="py-10 text-center text-sm text-gray-600">
                     No hay líneas/cámaras creadas.
                   </TableCell>
                 </TableRow>
