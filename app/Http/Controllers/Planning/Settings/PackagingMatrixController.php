@@ -30,7 +30,7 @@ class PackagingMatrixController extends Controller
         $this->authorizePlanning($request);
 
         $filters = $request->validate([
-            'matrix' => ['nullable', 'string', 'in:carozos,cherries'],
+            'matrix' => ['nullable', 'string', 'in:carozos,cherries,otros'],
             'especie' => ['nullable', 'string', 'max:80'],
             'destino' => ['nullable', 'string', 'max:60'],
             'q' => ['nullable', 'string', 'max:120'],
@@ -178,6 +178,12 @@ class PackagingMatrixController extends Controller
             $fromProcesses = [];
         }
 
+        // Species calibers from SQL Server (for "otros" matrix).
+        $speciesCalibers = [];
+        if ($matrix === 'otros') {
+            $speciesCalibers = $this->packagingRepository->getSpeciesCalibers();
+        }
+
         $map = [];
         foreach ($master as $name) {
             $k = mb_strtolower($name);
@@ -210,10 +216,22 @@ class PackagingMatrixController extends Controller
             }
         }
 
+        if ($matrix === 'otros') {
+            foreach (array_keys($speciesCalibers) as $name) {
+                $k = mb_strtolower($name);
+                if (! isset($map[$k])) {
+                    $map[$k] = $name;
+                }
+            }
+        }
+
         // Base mínima visible por matriz para asegurar opciones operativas.
-        $requiredSpecies = $matrix === 'carozos'
-            ? ['Nectarines', 'Plums', 'Peaches']
-            : ['Cherries'];
+        $requiredSpecies = match ($matrix) {
+            'carozos' => ['Nectarines', 'Plums', 'Peaches'],
+            'cherries' => ['Cherries'],
+            'otros' => array_keys($speciesCalibers),
+            default => [],
+        };
         foreach ($requiredSpecies as $name) {
             $k = mb_strtolower($name);
             if (! isset($map[$k])) {
@@ -234,13 +252,18 @@ class PackagingMatrixController extends Controller
             ->values()
             ->all();
 
-        $calibres = $matrix === 'cherries' ? self::CHERRIES_CALIBRES : self::CAROZOS_CALIBRES;
+        $calibres = match ($matrix) {
+            'cherries' => self::CHERRIES_CALIBRES,
+            'otros' => [], // dynamic per species
+            default => self::CAROZOS_CALIBRES,
+        };
 
         return Inertia::render('Planning/Settings/PackagingMatrix', [
             'rules' => $rulesOut,
             'especies' => $especies,
             'destinos' => $destinos,
             'calibres' => $calibres,
+            'speciesCalibers' => $speciesCalibers,
             'filters' => [
                 'matrix' => $matrix,
                 'especie' => $filters['especie'] ?? '',
@@ -268,7 +291,7 @@ class PackagingMatrixController extends Controller
 
         if (! isset($data['priority']) || $data['priority'] === null) {
             $matrix = (string) ($data['matrix'] ?? 'carozos');
-            if (! in_array($matrix, ['carozos', 'cherries'], true)) {
+            if (! in_array($matrix, ['carozos', 'cherries', 'otros'], true)) {
                 $matrix = 'carozos';
             }
             $max = (int) PackagingMatrixRule::query()->where('matrix', $matrix)->max('priority');
@@ -404,7 +427,7 @@ class PackagingMatrixController extends Controller
         $this->authorizePlanning($request);
 
         $matrix = (string) ($request->input('matrix') ?: 'carozos');
-        if (! in_array($matrix, ['carozos', 'cherries'], true)) {
+        if (! in_array($matrix, ['carozos', 'cherries', 'otros'], true)) {
             $matrix = 'carozos';
         }
 
@@ -440,8 +463,13 @@ class PackagingMatrixController extends Controller
                 if (in_array($h, self::CHERRIES_CALIBRES, true)) {
                     $calibreCols[] = $h;
                 }
+            } elseif ($matrix === 'otros') {
+                // Otros: calibres mixtos (text and numeric).
+                if (preg_match('/^\d{2,3}$/', $h) || preg_match('/^[A-Za-z0-9]{1,10}$/', $h)) {
+                    $calibreCols[] = $h;
+                }
             } else {
-                if (preg_match('/^\\d{2,3}$/', $h)) {
+                if (preg_match('/^\d{2,3}$/', $h)) {
                     $calibreCols[] = $h;
                 }
             }
@@ -463,7 +491,7 @@ class PackagingMatrixController extends Controller
             foreach ($calibreCols as $c) {
                 $val = trim((string) ($assoc[$c] ?? ''));
                 if ($this->isTruthyX($val)) {
-                    $allowed[] = $matrix === 'cherries' ? (string) $c : (string) (int) $c;
+                    $allowed[] = ($matrix === 'cherries' || $matrix === 'otros') ? (string) $c : (string) (int) $c;
                 }
             }
 
@@ -542,11 +570,15 @@ class PackagingMatrixController extends Controller
         $this->authorizePlanning($request);
 
         $matrix = (string) ($request->query('matrix') ?: 'carozos');
-        if (! in_array($matrix, ['carozos', 'cherries'], true)) {
+        if (! in_array($matrix, ['carozos', 'cherries', 'otros'], true)) {
             $matrix = 'carozos';
         }
 
-        $calibres = $matrix === 'cherries' ? self::CHERRIES_CALIBRES : self::CAROZOS_CALIBRES;
+        $calibres = match ($matrix) {
+            'cherries' => self::CHERRIES_CALIBRES,
+            'otros' => [], // dynamic; exportar con calibres de las reglas existentes
+            default => self::CAROZOS_CALIBRES,
+        };
 
         $header = array_merge(
             ['especie', 'Destino', 'Nota', 'Embalaje', 'Desc Embalaje', 'Peso Cja', 'Variedad', 'Color', 'Calibres'],

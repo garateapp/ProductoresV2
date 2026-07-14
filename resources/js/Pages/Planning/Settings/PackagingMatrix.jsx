@@ -27,12 +27,16 @@ function normalizeCalibres(value, matrix) {
   const list = value
     .map((v) => String(v ?? '').trim())
     .filter(Boolean)
-    .map((v) => v.toUpperCase().replace(/\s+/g, ''))
+    .map((v) => matrix === 'otros' ? v : v.toUpperCase().replace(/\s+/g, ''))
 
   const unique = Array.from(new Set(list))
   if (matrix === 'cherries') {
     const order = new Map(DEFAULT_CHERRIES_CALIBRES.map((k, idx) => [k, idx]))
     return unique.sort((a, b) => (order.get(a) ?? 999) - (order.get(b) ?? 999))
+  }
+
+  if (matrix === 'otros') {
+    return unique.sort((a, b) => a.localeCompare(b, undefined, { numeric: true, sensitivity: 'base' }))
   }
 
   // carozos: dejamos solo números y ordenamos por tamaño
@@ -114,17 +118,27 @@ function PackagingPicker({ value, onPick, disabled }) {
   )
 }
 
-export default function PackagingMatrix({ rules = [], especies = [], destinos = [], calibres = [], filters = {} }) {
+export default function PackagingMatrix({ rules = [], especies = [], destinos = [], calibres = [], speciesCalibers = {}, filters = {} }) {
   const { props } = usePage()
   const [editing, setEditing] = useState(null)
   const importRef = useRef(null)
   const [importing, setImporting] = useState(false)
 
   const activeMatrix = String(filters?.matrix || 'carozos')
+
+  // For "otros" matrix, calibers depend on the selected species.
   const CALIBRES = useMemo(() => {
+    if (activeMatrix === 'otros') {
+      const especie = String(filters?.especie || '')
+      if (especie && speciesCalibers[especie]) {
+        return speciesCalibers[especie]
+      }
+      // Fallback: union of all species calibers.
+      return Object.values(speciesCalibers).flat()
+    }
     if (Array.isArray(calibres) && calibres.length) return calibres
     return activeMatrix === 'cherries' ? DEFAULT_CHERRIES_CALIBRES : DEFAULT_CAROZOS_CALIBRES
-  }, [calibres, activeMatrix])
+  }, [calibres, activeMatrix, filters?.especie, speciesCalibers])
 
   const { data, setData, post, patch, processing, errors, reset, transform } = useForm({
     matrix: activeMatrix,
@@ -229,7 +243,7 @@ export default function PackagingMatrix({ rules = [], especies = [], destinos = 
   }
 
   const toggleCalibre = (c) => {
-    const val = String(c).toUpperCase().replace(/\s+/g, '')
+    const val = activeMatrix === 'otros' ? String(c) : String(c).toUpperCase().replace(/\s+/g, '')
     const set = new Set(normalizeCalibres(data.allowed_calibres, activeMatrix))
     if (set.has(val)) set.delete(val)
     else set.add(val)
@@ -272,7 +286,7 @@ export default function PackagingMatrix({ rules = [], especies = [], destinos = 
             <CardTitle className="text-2xl font-bold flex items-center gap-2">
               Configuración · Matriz Embalajes
               <Badge variant="outline" className="bg-sky-50 text-sky-800 border-sky-200">
-                {activeMatrix === 'cherries' ? 'Cherries' : 'Carozos'}
+                {activeMatrix === 'cherries' ? 'Cherries' : activeMatrix === 'otros' ? 'Otros' : 'Carozos'}
               </Badge>
             </CardTitle>
             <div className="text-sm text-gray-600">
@@ -298,6 +312,14 @@ export default function PackagingMatrix({ rules = [], especies = [], destinos = 
               className={activeMatrix === 'cherries' ? 'border-green-300 bg-green-50' : ''}
             >
               Cherries
+            </Button>
+            <Button
+              type="button"
+              variant="outline"
+              onClick={() => applyFilters({ matrix: 'otros' })}
+              className={activeMatrix === 'otros' ? 'border-green-300 bg-green-50' : ''}
+            >
+              Otros
             </Button>
             {activeMatrix === 'carozos' ? (
               <Button variant="outline" onClick={importCsv}>Importar CSV (servidor)</Button>
@@ -326,8 +348,10 @@ export default function PackagingMatrix({ rules = [], especies = [], destinos = 
             <div className="px-4 py-3 border-b bg-gray-50">
               <div className="font-semibold">Importar archivo</div>
               <div className="text-sm text-gray-600">
-                Sube el CSV con el mismo formato de <span className="font-semibold">matriz-carozos-embalajes.csv</span> (delimitador <span className="font-semibold">;</span>).
-                Reemplaza todas las reglas de la matriz seleccionada.
+                {activeMatrix === 'otros'
+                  ? <>Sube el CSV con columnas de calibres (ej: <span className="font-semibold">8mm</span>, <span className="font-semibold">10mm</span>, <span className="font-semibold">12mm</span>), delimitador <span className="font-semibold">;</span>. Reemplaza todas las reglas de la matriz.</>
+                  : <>Sube el CSV con el mismo formato de <span className="font-semibold">matriz-carozos-embalajes.csv</span> (delimitador <span className="font-semibold">;</span>). Reemplaza todas las reglas de la matriz seleccionada.</>
+                }
               </div>
             </div>
             <form onSubmit={importFile} className="p-4 flex flex-col md:flex-row md:items-center gap-3">
@@ -441,7 +465,9 @@ export default function PackagingMatrix({ rules = [], especies = [], destinos = 
                 </div>
                 <div className="mt-2 flex flex-wrap gap-2 rounded border bg-white p-2">
                   {CALIBRES.map((c) => {
-                    const checked = normalizeCalibres(data.allowed_calibres, activeMatrix).includes(String(c).toUpperCase().replace(/\s+/g, ''))
+                    const normalized = normalizeCalibres(data.allowed_calibres, activeMatrix)
+                    const key = activeMatrix === 'otros' ? String(c) : String(c).toUpperCase().replace(/\s+/g, '')
+                    const checked = normalized.includes(key)
                     return (
                       <button
                         key={String(c)}

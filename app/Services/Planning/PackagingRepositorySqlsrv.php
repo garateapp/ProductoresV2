@@ -132,6 +132,57 @@ class PackagingRepositorySqlsrv
         });
     }
 
+    /**
+     * Retorna especies y sus calibres disponibles desde SQL Server.
+     * Formato: [ 'Apples' => ['36','40','44',...], 'Apricot' => [...], ... ]
+     */
+    public function getSpeciesCalibers(): array
+    {
+        $species = [
+            'Apples', 'Apricot', 'Arandanos', 'Caquis', 'Clementinas',
+            'Granadas', 'Grapes', 'Kiwis', 'Lemons', 'Mandarinas',
+            'Membrillos', 'Orange', 'Paltas', 'Pears',
+        ];
+
+        return Cache::remember('planning:packaging-matrix:species-calibers:v1', now()->addHours(4), function () use ($species) {
+            $map = [];
+            try {
+                $rows = DB::connection('sqlsrv')
+                    ->table('PRO_P_Calibres AS c')
+                    ->join('PRO_P_Calibres_X_Especies AS ce', 'ce.id_pro_p_calibres', '=', 'c.id')
+                    ->join('PRO_P_Especies AS e', 'e.id', '=', 'ce.id_pro_p_especies')
+                    ->select('e.nombre AS especie', 'c.nombre AS calibre')
+                    ->whereIn('e.nombre', $species)
+                    ->orderBy('e.nombre')
+                    ->orderBy('c.nombre')
+                    ->get();
+
+                foreach ($rows as $row) {
+                    $esp = trim((string) ($row->especie ?? ''));
+                    $cal = trim((string) ($row->calibre ?? ''));
+                    if ($esp === '' || $cal === '') {
+                        continue;
+                    }
+                    if (! isset($map[$esp])) {
+                        $map[$esp] = [];
+                    }
+                    $map[$esp][] = $cal;
+                }
+            } catch (\Throwable $e) {
+                Log::warning('getSpeciesCalibers failed: '.$e->getMessage());
+            }
+
+            // Asegurar que todas las especies tengan entrada, aunque vacía.
+            foreach ($species as $s) {
+                if (! isset($map[$s])) {
+                    $map[$s] = [];
+                }
+            }
+
+            return $map;
+        });
+    }
+
     private function normalizeCp2ToInt(mixed $value): ?int
     {
         if ($value === null) {

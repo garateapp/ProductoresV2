@@ -3583,7 +3583,7 @@ class PackingProcessController extends Controller
             if (! ($result['ok'] ?? false)) {
                 return redirect()
                     ->route('planning.processes.index', ['especie' => null])
-                    ->with('error', "Se generaron {$created} procesos, pero hay {$conflicts} conflicto(s). Revisa los procesos en rojo y vuelve a confirmar los que corresponda.");
+                    ->with('warning', "Se generaron {$created} procesos, pero {$conflicts} tienen conflicto(s). Los procesos con conflicto quedaron marcados en rojo.");
             }
 
             // Versionado inicial del instructivo (v1) por línea/turno/fecha.
@@ -3611,7 +3611,10 @@ class PackingProcessController extends Controller
         }
 
         if (! ($result['ok'] ?? false)) {
-            return back()->with('error', 'Hay conflictos. Revisa los lotes marcados y vuelve a confirmar.');
+            $conflictCount = count($result['conflicts'] ?? []);
+            return redirect()
+                ->route('planning.processes.show', $process->id)
+                ->with('warning', "Proceso confirmado con {$conflictCount} conflicto(s). Los lotes con conflicto quedaron marcados en rojo. Puedes re-intentar confirmar para resolverlos.");
         }
 
         // Versionado inicial del instructivo (v1) por línea/turno/fecha.

@@ -1271,10 +1271,10 @@ export default function Show({ process, planningMode = null, lines = [], allLine
                 variant="destructive"
                 onClick={confirmProcess}
                 disabled={isLocked || ['CONFIRMADO', 'CERRADO'].includes(status) || missingDestinoLots.length > 0}
-                className="min-w-28"
-                title={missingDestinoLots.length > 0 ? 'Falta seleccionar destino por lote' : 'Confirmar'}
+                className={status === 'CONFLICTO' ? 'bg-amber-600 hover:bg-amber-700' : ''}
+                title={missingDestinoLots.length > 0 ? 'Falta seleccionar destino por lote' : status === 'CONFLICTO' ? 'Re-intentar confirmar para resolver conflictos' : 'Confirmar'}
               >
-                Confirmar
+                {status === 'CONFLICTO' ? 'Re-confirmar' : 'Confirmar'}
               </Button>
               {(() => {
                 const lineId = lines?.[0]?.id
@@ -1331,6 +1331,21 @@ export default function Show({ process, planningMode = null, lines = [], allLine
           {props.flash.error}
         </div>
       )}
+      {props?.flash?.warning && (
+        <div className="mb-3 rounded border border-amber-200 bg-amber-50 text-amber-900 px-3 py-2 text-sm">
+          {props.flash.warning}
+        </div>
+      )}
+
+      {status === 'CONFLICTO' && !isLineDay ? (
+        <Alert className="mb-4 border-red-200 bg-red-50 text-red-900">
+          <AlertTitle>Proceso en Conflicto</AlertTitle>
+          <AlertDescription>
+            Este proceso tiene lotes con conflicto de inventario (bins insuficientes o reserva duplicada).
+            Los lotes en conflicto están marcados en rojo. Puedes re-intentar "Confirmar" para resolver los conflictos, o ajustar la planificación.
+          </AlertDescription>
+        </Alert>
+      ) : null}
 
       {isConfirmed && !isLineDay ? (
         <Alert className="mb-4 border-amber-200 bg-amber-50 text-amber-900">
