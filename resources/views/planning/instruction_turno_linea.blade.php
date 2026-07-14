@@ -189,52 +189,19 @@
                     </thead>
                     <tbody>
                     @foreach($packagingSummary as $row)
-                        @php
-                            $rule = $row['rule'] ?? null;
-                            $desc = $rule?->desc_embalaje ?? ($row['n_item'] ?? '');
-                            $peso = $rule?->peso_caja ?? null;
-                            $allowed = is_array($rule?->allowed_calibres) ? $rule->allowed_calibres : [];
-                            $override = is_array($row['override'] ?? null) ? $row['override'] : [];
-
-                            // Resumen tipo "36 AL 56" cuando hay calibres numéricos.
-                            $calibresResumen = '-';
-                            $numeric = [];
-                            foreach ($allowed as $a) {
-                                $a = trim((string) $a);
-                                if ($a === '') continue;
-                                if (is_numeric($a)) $numeric[] = (float) $a;
-                            }
-                            if (!empty($numeric)) {
-                                $calibresResumen = ((int) min($numeric)).' AL '.((int) max($numeric));
-                            } elseif (!empty($allowed)) {
-                                $calibresResumen = implode(', ', array_map('strval', $allowed));
-                            }
-                            if (! empty($override['calibres'])) {
-                                $calibresResumen = (string) $override['calibres'];
-                            }
-
-                            $nota = $rule?->nota ?? null;
-                            $obs = trim((string) ($rule?->calibres_note ?? ''));
-                            $sobre = trim((string) ($rule?->sobre_calibre_note ?? ''));
-                            if ($sobre !== '') {
-                                $obs = ($obs !== '' ? ($obs.' · ') : '').$sobre;
-                            }
-                            $obsFinal = ! empty($override['observaciones']) ? (string) $override['observaciones'] : ($obs !== '' ? $obs : '-');
-                            $pedidoFinal = ! empty($override['pedido']) ? (string) $override['pedido'] : '-';
-                        @endphp
                         <tr>
                             <td class="nowrap">{{ $row['destino'] ?? '-' }}</td>
                             <td class="nowrap"><strong>{{ $row['c_item'] ?? '-' }}</strong></td>
-                            <td class="wrap-any">{{ $desc ?: '-' }}</td>
-                            <td class="wrap-any">-</td>
-                            <td class="right nowrap">{{ $peso !== null ? number_format((float) $peso, 1, ',', '.') : '-' }}</td>
+                            <td class="wrap-any">{{ $row['desc_embalaje'] ?? '-' }}</td>
+                            <td class="wrap-any">{{ $row['etiqueta'] ?? '-' }}</td>
+                            <td class="right nowrap">{{ ($row['peso_caja'] ?? null) !== null ? number_format((float) $row['peso_caja'], 1, ',', '.') : '-' }}</td>
                             <td class="right nowrap">{{ $row['cp2'] ?? '-' }}</td>
                             <td class="nowrap">{{ $row['altura'] ?? '-' }}</td>
-                            <td class="wrap-any">{{ $calibresResumen }}</td>
-                            <td class="nowrap">{{ $nota ?: '-' }}</td>
-                            <td class="wrap-any">{{ $obsFinal }}</td>
-                            <td class="wrap-any">-</td>
-                            <td class="wrap-any">{{ $pedidoFinal }}</td>
+                            <td class="wrap-any">{{ $row['calibres'] ?? '-' }}</td>
+                            <td class="nowrap">{{ $row['nota'] ?? '-' }}</td>
+                            <td class="wrap-any">{{ $row['observaciones'] ?? '-' }}</td>
+                            <td class="wrap-any">{{ $row['count'] ?? '-' }}</td>
+                            <td class="wrap-any">{{ $row['pedido'] ?? '-' }}</td>
                         </tr>
                     @endforeach
                     </tbody>

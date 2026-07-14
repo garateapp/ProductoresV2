@@ -270,12 +270,12 @@ export default function Show({ process, shift, lineSheets, metaByLineId }) {
                 ) : null}
               </div>
                 <div className="flex items-center gap-2">
-                  <Link href={editUrl}>
+                  <a href={editUrl}>
                     <Button variant="outline">
                       <Pencil className="h-4 w-4 mr-2" />
                       Editar
                     </Button>
-                  </Link>
+                  </a>
                   <a href={pdfUrl}>
                     <Button variant="secondary">
                       <FileDown className="h-4 w-4 mr-2" />

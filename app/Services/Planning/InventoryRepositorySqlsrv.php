@@ -44,7 +44,7 @@ class InventoryRepositorySqlsrv
      */
     public function getAvailableLots(array $filters = []): Collection
     {
-        $limit = (int) ($filters['limit'] ?? 200);
+        $limit = (int) ($filters['limit'] ?? 1200);
 
         $query = DB::connection('sqlsrv')
             ->table('V_PKG_Stock_Inventario')
@@ -163,6 +163,11 @@ class InventoryRepositorySqlsrv
                 max(c_productor_original) as c_productor_original,
                 max(n_productor_original) as n_productor_original,
 
+                max(id_exportadora) as id_exportadora,
+                max(r_exportadora) as r_exportadora,
+                max(c_exportadora) as c_exportadora,
+                max(n_exportadora) as n_exportadora,
+
                 max(notas_recepcion) as notas_recepcion,
                 max(referencias_recepcion) as referencias_recepcion,
 
@@ -250,6 +255,11 @@ class InventoryRepositorySqlsrv
                 'numero_guia' => $row->numero_guia ?? null,
                 'c_productor_original' => $row->c_productor_original ?? null,
                 'n_productor_original' => $row->n_productor_original ?? null,
+
+                'id_exportadora' => $row->id_exportadora ?? null,
+                'r_exportadora' => $row->r_exportadora ?? null,
+                'c_exportadora' => $row->c_exportadora ?? null,
+                'n_exportadora' => $row->n_exportadora ?? null,
 
                 'notas_recepcion' => $row->notas_recepcion ?? null,
                 'referencias_recepcion' => $row->referencias_recepcion ?? null,

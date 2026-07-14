@@ -12,7 +12,7 @@ import { Popover, PopoverContent, PopoverTrigger } from '@/Components/ui/popover
 import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem } from '@/Components/ui/command'
 import Combobox from '@/Components/ui/combobox'
 import axios from 'axios'
-import { ArrowDown, ArrowUp, Bug, Check, GripVertical, Plus, Printer, RefreshCw, Trash2, Wand2 } from 'lucide-react'
+import { ArrowDown, ArrowLeftRight, ArrowUp, Bug, Check, GripVertical, Plus, Printer, RefreshCw, Trash2, Wand2 } from 'lucide-react'
 import { DragDropContext, Draggable, Droppable } from '@hello-pangea/dnd'
 
 function statusLabel(status) {
@@ -361,6 +361,7 @@ export default function Show({ process, planningMode = null, lines = [], allLine
   const [packagingEdit, setPackagingEdit] = useState(null) // { lot, nextPack, reason }
   const confirmedReasonStorageKey = useMemo(() => `planning.process.confirmed_change_reason.${process?.id}`, [process?.id])
   const [changeReason, setChangeReason] = useState('')
+  const [splitByLot, setSplitByLot] = useState(false)
   const [inventoryDraftFilters, setInventoryDraftFilters] = useState(() => ({ ...(inventoryFilters || {}) }))
   const repackDefaultEspecie = String(process?.especie || '').trim()
 
@@ -499,6 +500,18 @@ export default function Show({ process, planningMode = null, lines = [], allLine
       return !assignedInventoryKeys.has(key)
     })
   }, [inventory, assignedInventoryKeys])
+
+  const crossProcessOwnership = useMemo(() => {
+    const map = new Map()
+    ;(inventory || []).forEach((item) => {
+      const ap = item?.assigned_to_process
+      if (ap && ap.process_id) {
+        const key = String(item?.inventory_key || item?.source_key || item?.n_g_recepcion || '').trim()
+        if (key) map.set(key, ap)
+      }
+    })
+    return map
+  }, [inventory])
 
   const [sizeCurves, setSizeCurves] = useState({})
   const [sizeCurvesLoading, setSizeCurvesLoading] = useState({})
@@ -896,8 +909,11 @@ export default function Show({ process, planningMode = null, lines = [], allLine
       if (!confirm('Tienes cambios pendientes en “Pedidos”. ¿Guardar y luego confirmar?')) return
       await save()
     }
-    if (!confirm('¿Confirmar esta planificación? Se validará inventario, se reservarán los lotes y se generarán procesos (1 por lote).')) return
-    router.post(route('planning.processes.confirm', process.id), {}, { preserveScroll: true })
+    const msg = splitByLot
+      ? '¿Confirmar y separar en 1 proceso por lote? Se validará inventario, se reservarán los lotes y se generarán procesos individuales.'
+      : '¿Confirmar esta planificación? Se validará inventario, se reservarán los lotes y todos los lotes quedarán en un solo proceso.'
+    if (!confirm(msg)) return
+    router.post(route('planning.processes.confirm', process.id), { split_by_lot: splitByLot }, { preserveScroll: true })
   }
 
   const deleteProcess = () => {
@@ -1024,6 +1040,43 @@ export default function Show({ process, planningMode = null, lines = [], allLine
           setLots(nextLots)
           setDirty(false)
         }
+      },
+      onError: (errors) => {
+        const conflict = errors?.add_n_g_recepcion?.lot_in_other_process
+          || errors?.add_source_key?.lot_in_other_process
+        if (conflict) {
+          const msg = `El lote ya está en el Proceso N° ${conflict.process_id} (${conflict.process_estado}). ¿Deseas moverlo a este proceso?`
+          if (confirm(msg)) {
+            moveFromOtherProcess(conflict.lot_id, conflict.process_id, inventoryKey, lineId)
+          }
+        }
+      },
+    })
+  }
+
+  const moveFromOtherProcess = (lotId, fromProcessId, inventoryKey, lineIdOverride = null) => {
+    const lineId = lineIdOverride ?? targetLineId
+    if (!lineId) return
+    const confirmedReason = isConfirmed ? String(changeReason || '').trim() : null
+    if (isConfirmed && !confirmedReason) {
+      alert('Debes indicar el motivo del cambio para editar un proceso confirmado.')
+      return
+    }
+    router.patch(route('planning.processes.lots.update', process.id), {
+      move_lot_id: lotId,
+      move_from_process_id: fromProcessId,
+      add_packing_line_id: lineId,
+      ...(isConfirmed ? { change_reason: confirmedReason } : {}),
+    }, {
+      preserveScroll: true,
+      onSuccess: (page) => {
+        const nextLots = page?.props?.process?.lots
+        if (Array.isArray(nextLots)) {
+          setLots(nextLots)
+          setDirty(false)
+        }
+        // Refrescar inventario para que el lote ahora aparezca como asignado a este proceso.
+        runInventorySearch()
       },
     })
   }
@@ -1204,6 +1257,16 @@ export default function Show({ process, planningMode = null, lines = [], allLine
                 <RefreshCw className={`h-4 w-4 mr-2 ${saving ? 'animate-spin' : ''}`} />
                 Recalcular
               </Button>
+              <label className="flex items-center gap-1.5 text-xs text-gray-600 select-none" title="Si está activado, al confirmar se creará 1 proceso por cada lote. Si está desactivado, todos los lotes quedan en un solo proceso.">
+                <input
+                  type="checkbox"
+                  className="h-3.5 w-3.5 rounded border-gray-300"
+                  checked={splitByLot}
+                  onChange={(e) => setSplitByLot(e.target.checked)}
+                  disabled={isLocked || ['CONFIRMADO', 'CERRADO'].includes(status)}
+                />
+                Separar por lote
+              </label>
               <Button
                 variant="destructive"
                 onClick={confirmProcess}
@@ -1543,6 +1606,13 @@ export default function Show({ process, planningMode = null, lines = [], allLine
                               {String(item.n_productor || item.productor || '').trim() || 'Sin productor'}
                               {item.csg_productor ? <span className="text-gray-500"> · CSG {item.csg_productor}</span> : null}
                               {item.sdp_centrocosto ? <span className="text-gray-500"> · SDP {item.sdp_centrocosto}</span> : null}
+                              {item.n_exportadora ? <span className="text-gray-500"> · Exporta: {item.n_exportadora}</span> : null}
+                              {crossProcessOwnership.has(inventoryKey) ? (
+                                <span className="inline-flex items-center gap-1 rounded-full bg-orange-50 px-2 py-0.5 text-[11px] font-semibold text-orange-800 border border-orange-200">
+                                  <ArrowLeftRight className="h-3 w-3" />
+                                  En Proceso N° {crossProcessOwnership.get(inventoryKey).process_id}
+                                </span>
+                              ) : null}
                             </div>
                             {badges?.inventory?.[item.n_g_recepcion]?.mexico ? (
                               <span className="inline-flex items-center gap-1 rounded-full bg-emerald-50 px-2 py-0.5 text-[11px] font-semibold text-emerald-800" title="México">
@@ -1629,14 +1699,31 @@ export default function Show({ process, planningMode = null, lines = [], allLine
                             <div className="text-xs text-gray-500">
                               Tip: arrastra a la línea/cámara para agregar.
                             </div>
-                            <Button
-                              size="sm"
-                              onClick={() => addFromInventory(inventoryKey)}
-                              disabled={isLocked}
-                              title="Agregar al programa"
-                            >
-                              Agregar
-                            </Button>
+                            {crossProcessOwnership.has(inventoryKey) ? (
+                              <Button
+                                size="sm"
+                                variant="outline"
+                                className="border-orange-300 text-orange-700 hover:bg-orange-50"
+                                onClick={() => {
+                                  const ap = crossProcessOwnership.get(inventoryKey)
+                                  moveFromOtherProcess(ap.lot_id, ap.process_id, inventoryKey)
+                                }}
+                                disabled={isLocked}
+                                title="Mover desde otro proceso a este"
+                              >
+                                <ArrowLeftRight className="mr-1 h-3.5 w-3.5" />
+                                Mover del Proc. N° {crossProcessOwnership.get(inventoryKey).process_id}
+                              </Button>
+                            ) : (
+                              <Button
+                                size="sm"
+                                onClick={() => addFromInventory(inventoryKey)}
+                                disabled={isLocked}
+                                title="Agregar al programa"
+                              >
+                                Agregar
+                              </Button>
+                            )}
                           </div>
                         </div>
                       )}
@@ -1823,6 +1910,7 @@ export default function Show({ process, planningMode = null, lines = [], allLine
                                             {String(lot.n_productor || '').trim() || 'Sin productor'}
                                             {lot.csg_productor ? <span className="text-gray-500"> · CSG {lot.csg_productor}</span> : null}
                                             {lot.sdp_centrocosto ? <span className="text-gray-500"> · SDP {lot.sdp_centrocosto}</span> : null}
+                                            {lot.exportadora ? <span className="text-gray-500"> · Exp: {lot.exportadora}</span> : null}
                                           </div>
                                           {badges?.lots?.[String(lot.id)]?.mexico ? (
                                             <span className="inline-flex items-center gap-1 rounded-full bg-emerald-50 px-2 py-0.5 text-[11px] font-semibold text-emerald-800" title="México">

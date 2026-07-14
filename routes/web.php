@@ -1,23 +1,23 @@
 <?php
 
-use App\Http\Controllers\ProfileController;
-use App\Http\Controllers\ReporteriaController;
-use App\Http\Controllers\UserController;
-use Illuminate\Support\Facades\Route;
-use App\Models\Service;
 use App\Http\Controllers\AdminDashboardController;
-use App\Http\Controllers\DashboardController;
-use App\Http\Controllers\MassCommunicationController;
 use App\Http\Controllers\CommercialDiscardController;
-use App\Http\Controllers\NotificationLogController;
-use App\Http\Controllers\FieldVisitController;
-use App\Http\Controllers\FieldManagementController;
-use App\Http\Controllers\ValidacionesController;
-use App\Http\Controllers\SystemLogController;
-use App\Http\Controllers\ProspectoProductorController;
 use App\Http\Controllers\ContractProducerFlowController;
 use App\Http\Controllers\CuadraturaController;
+use App\Http\Controllers\DashboardController;
+use App\Http\Controllers\FieldManagementController;
+use App\Http\Controllers\FieldVisitController;
+use App\Http\Controllers\MassCommunicationController;
+use App\Http\Controllers\NotificationLogController;
 use App\Http\Controllers\ProcesoReportController;
+use App\Http\Controllers\ProfileController;
+use App\Http\Controllers\ProspectoProductorController;
+use App\Http\Controllers\ReporteriaController;
+use App\Http\Controllers\SystemLogController;
+use App\Http\Controllers\UserController;
+use App\Http\Controllers\ValidacionesController;
+use App\Models\Service;
+use Illuminate\Support\Facades\Route;
 
 Route::get('/', function () {
     return redirect()->route('login');
@@ -39,12 +39,12 @@ Route::get('/dashboard', function () {
     if ($service) {
         return redirect()->route('services.dashboard', $service);
     }
+
     // Por defecto dashboard genérico
     return app(DashboardController::class)(request());
 })->middleware(['auth', 'verified'])->name('dashboard');
 
-
-Route::get('/admin/dashboard', [AdminDashboardController::class, 'index'])->middleware(['auth','verified'])->name('admin.dashboard');
+Route::get('/admin/dashboard', [AdminDashboardController::class, 'index'])->middleware(['auth', 'verified'])->name('admin.dashboard');
 
 Route::middleware('auth')->group(function () {
     Route::get('/profile', [ProfileController::class, 'edit'])->name('profile.edit');
@@ -70,10 +70,10 @@ Route::middleware('auth')->group(function () {
         ->parameters(['valores' => 'valor'])
         ->names('valores');
 
-Route::resource('producers', App\Http\Controllers\ProducerController::class)->names('producers');
-Route::post('producers/sync-active', [App\Http\Controllers\ProducerController::class, 'syncActive'])->name('producers.sync-active');
-Route::get('producers/{producer}/dashboard', [App\Http\Controllers\ProducerController::class, 'dashboard'])->name('producers.dashboard');
-Route::post('producers/{producer}/welcome-email', [App\Http\Controllers\ProducerController::class, 'sendWelcomeEmail'])->name('producers.welcome-email');
+    Route::resource('producers', App\Http\Controllers\ProducerController::class)->names('producers');
+    Route::post('producers/sync-active', [App\Http\Controllers\ProducerController::class, 'syncActive'])->name('producers.sync-active');
+    Route::get('producers/{producer}/dashboard', [App\Http\Controllers\ProducerController::class, 'dashboard'])->name('producers.dashboard');
+    Route::post('producers/{producer}/welcome-email', [App\Http\Controllers\ProducerController::class, 'sendWelcomeEmail'])->name('producers.welcome-email');
 
     Route::resource('telefonos', App\Http\Controllers\TelefonoController::class)->only(['store', 'update', 'destroy'])->names('telefonos');
 
@@ -248,11 +248,10 @@ Route::post('producers/{producer}/welcome-email', [App\Http\Controllers\Producer
     Route::get('/api/variedades-by-especie/{especieId}', [App\Http\Controllers\MrlSampleController::class, 'getVariedadesByEspecie'])->name('api.variedades-by-especie');
     Route::get('/api/csgs-by-rut/{rut}', [App\Http\Controllers\MrlSampleController::class, 'getCsgsByRut'])->name('api.csgs-by-rut');
 
-
     Route::resource('contracts', App\Http\Controllers\ContractController::class)
         ->except(['show'])
         ->names('contracts');
-        Route::get('/contract/export', [App\Http\Controllers\ContractController::class, 'export'])->name('contracts.export');
+    Route::get('/contract/export', [App\Http\Controllers\ContractController::class, 'export'])->name('contracts.export');
     Route::get('contracts/producer-flow', [ContractProducerFlowController::class, 'index'])->name('contracts.producer-flow');
     Route::post('contracts/producer-flow/check-rut', [ContractProducerFlowController::class, 'checkRut'])->name('contracts.producer-flow.check-rut');
     Route::post('contracts/producer-flow/activate', [ContractProducerFlowController::class, 'activate'])->name('contracts.producer-flow.activate');
@@ -350,6 +349,9 @@ Route::post('producers/{producer}/welcome-email', [App\Http\Controllers\Producer
         Route::get('processes/{process}/instruction', [App\Http\Controllers\Planning\PackingProcessController::class, 'instruction'])->name('processes.instruction');
         Route::get('processes/{process}/instruction/edit', [App\Http\Controllers\Planning\PackingProcessController::class, 'instructionEdit'])->name('processes.instruction.edit');
         Route::post('processes/{process}/instruction/edit', [App\Http\Controllers\Planning\PackingProcessController::class, 'instructionUpdate'])->name('processes.instruction.update');
+        Route::get('processes/{process}/instruction/editor', [App\Http\Controllers\Planning\PackingProcessController::class, 'instructionEditorBlade'])->name('processes.instruction.editor');
+        Route::get('sag-labels', [App\Http\Controllers\Planning\SagLabelController::class, 'index'])->name('sag-labels.index');
+        Route::post('sag-labels/{process}/send', [App\Http\Controllers\Planning\SagLabelController::class, 'send'])->name('sag-labels.send');
 
         // Vista operacional por línea (todos los procesos del día/turno en una línea).
         Route::get('lines/{packingLine}/day', [App\Http\Controllers\Planning\LineDayController::class, 'show'])->name('lines.day');
@@ -387,6 +389,95 @@ Route::post('producers/{producer}/welcome-email', [App\Http\Controllers\Producer
         Route::post('settings/packaging-matrix/import-csv', [App\Http\Controllers\Planning\Settings\PackagingMatrixController::class, 'importCsv'])->name('settings.packaging-matrix.import');
         Route::post('settings/packaging-matrix/import-upload', [App\Http\Controllers\Planning\Settings\PackagingMatrixController::class, 'importUpload'])->name('settings.packaging-matrix.import-upload');
         Route::get('settings/packaging-matrix/export-csv', [App\Http\Controllers\Planning\Settings\PackagingMatrixController::class, 'exportCsv'])->name('settings.packaging-matrix.export');
+    });
+
+    Route::prefix('inventory')->name('inventory.')->group(function () {
+        Route::get('/', [App\Http\Controllers\Inventory\DashboardController::class, 'index'])->name('dashboard');
+        Route::get('stocks', [App\Http\Controllers\Inventory\StockController::class, 'index'])->name('stocks.index');
+
+        Route::get('materials', [App\Http\Controllers\Inventory\MaterialController::class, 'index'])->name('materials.index');
+        Route::post('materials', [App\Http\Controllers\Inventory\MaterialController::class, 'store'])->name('materials.store');
+        Route::patch('materials/{material}', [App\Http\Controllers\Inventory\MaterialController::class, 'update'])->name('materials.update');
+        Route::post('materials/sync-sap', [App\Http\Controllers\Inventory\MaterialController::class, 'syncSap'])->name('materials.sync-sap');
+        Route::post('materials/sync-central-stock', [App\Http\Controllers\Inventory\MaterialController::class, 'syncCentralStock'])->name('materials.sync-central-stock');
+        Route::post('materials/import-csv', [App\Http\Controllers\Inventory\MaterialController::class, 'importCsv'])->name('materials.import-csv');
+
+        Route::get('locations', [App\Http\Controllers\Inventory\LocationController::class, 'index'])->name('locations.index');
+        Route::post('locations', [App\Http\Controllers\Inventory\LocationController::class, 'store'])->name('locations.store');
+        Route::patch('locations/{location}', [App\Http\Controllers\Inventory\LocationController::class, 'update'])->name('locations.update');
+
+        Route::get('packagings', [App\Http\Controllers\Inventory\PackagingController::class, 'index'])->name('packagings.index');
+        Route::patch('packagings/{packaging}', [App\Http\Controllers\Inventory\PackagingController::class, 'update'])->name('packagings.update');
+        Route::post('packagings/sync-sqlsrv', [App\Http\Controllers\Inventory\PackagingController::class, 'sync'])->name('packagings.sync-sqlsrv');
+
+        Route::get('movements', [App\Http\Controllers\Inventory\MovementController::class, 'index'])->name('movements.index');
+        Route::get('movements/stock-reference', [App\Http\Controllers\Inventory\MovementController::class, 'stockReference'])->name('movements.stock-reference');
+        Route::post('movements', [App\Http\Controllers\Inventory\MovementController::class, 'store'])->name('movements.store');
+        Route::post('movements/{movement}/apply', [App\Http\Controllers\Inventory\MovementController::class, 'apply'])->name('movements.apply');
+        Route::post('movements/{movement}/confirm', [App\Http\Controllers\Inventory\MovementController::class, 'confirm'])->name('movements.confirm');
+        Route::post('movements/{movement}/reject', [App\Http\Controllers\Inventory\MovementController::class, 'reject'])->name('movements.reject');
+
+        Route::get('logistic-units', [App\Http\Controllers\Inventory\LogisticUnitController::class, 'index'])->name('logistic-units.index');
+        Route::post('logistic-units', [App\Http\Controllers\Inventory\LogisticUnitController::class, 'store'])->name('logistic-units.store');
+        Route::get('logistic-units/by-code/{code}', [App\Http\Controllers\Inventory\LogisticUnitController::class, 'showByCode'])->name('logistic-units.by-code');
+        Route::get('logistic-units/{logisticUnit}', [App\Http\Controllers\Inventory\LogisticUnitController::class, 'show'])->name('logistic-units.show');
+        Route::post('logistic-units/{logisticUnit}/relocate', [App\Http\Controllers\Inventory\LogisticUnitController::class, 'relocate'])->name('logistic-units.relocate');
+        Route::post('logistic-units/positions/{stockPosition}/transfer', [App\Http\Controllers\Inventory\LogisticUnitController::class, 'transferPosition'])->name('logistic-units.transfer-position');
+        Route::put('logistic-units/{logisticUnit}', [App\Http\Controllers\Inventory\LogisticUnitController::class, 'update'])->name('logistic-units.update');
+        Route::delete('logistic-units/{logisticUnit}', [App\Http\Controllers\Inventory\LogisticUnitController::class, 'destroy'])->name('logistic-units.destroy');
+
+        Route::post('scans/resolve', [App\Http\Controllers\Inventory\ScanController::class, 'resolve'])->name('scans.resolve');
+        Route::post('scans/session/start', [App\Http\Controllers\Inventory\ScanController::class, 'startSession'])->name('scans.session.start');
+        Route::post('scans/session/close', [App\Http\Controllers\Inventory\ScanController::class, 'closeSession'])->name('scans.session.close');
+
+        Route::get('workflows/scan', [App\Http\Controllers\Inventory\WorkflowController::class, 'index'])->name('workflows.scan');
+        Route::get('workflows/transfer-reference', [App\Http\Controllers\Inventory\WorkflowController::class, 'transferReference'])->name('workflows.transfer-reference');
+        Route::get('workflows/lpn-search', [App\Http\Controllers\Inventory\WorkflowController::class, 'lpnSearch'])->name('workflows.lpn-search');
+        Route::get('workflows/waste-reference', [App\Http\Controllers\Inventory\WorkflowController::class, 'wasteReference'])->name('workflows.waste-reference');
+        Route::post('workflows/transfer-scan', [App\Http\Controllers\Inventory\WorkflowController::class, 'transfer'])->name('workflows.transfer');
+        Route::post('workflows/waste-scan', [App\Http\Controllers\Inventory\WorkflowController::class, 'waste'])->name('workflows.waste');
+        Route::post('transformation/check-availability', [App\Http\Controllers\Inventory\TransformationController::class, 'checkAvailability'])->name('transformation.check-availability');
+        Route::post('transformation', [App\Http\Controllers\Inventory\TransformationController::class, 'store'])->name('transformation.store');
+
+        Route::get('waste/{wasteRecord}/act-pdf', [App\Http\Controllers\Inventory\WasteController::class, 'pdfAct'])->name('waste.act-pdf');
+        Route::get('waste/{wasteRecord}', [App\Http\Controllers\Inventory\WasteController::class, 'show'])->name('waste.show');
+        Route::post('waste/{wasteRecord}/review', [App\Http\Controllers\Inventory\WasteController::class, 'review'])->name('waste.review');
+        Route::post('waste/{wasteRecord}/send-to-quarantine', [App\Http\Controllers\Inventory\WasteController::class, 'sendToQuarantine'])->name('waste.send-to-quarantine');
+        Route::post('waste/{wasteRecord}/dispose', [App\Http\Controllers\Inventory\WasteController::class, 'dispose'])->name('waste.dispose');
+        Route::get('waste', [App\Http\Controllers\Inventory\WasteController::class, 'index'])->name('waste.index');
+
+        Route::get('ledger/verify', [App\Http\Controllers\Inventory\LedgerController::class, 'verify'])->name('ledger.verify');
+        Route::get('traceability-report', [App\Http\Controllers\Inventory\TraceabilityReportController::class, 'index'])->name('traceability-report.index');
+        Route::get('planning-simulator', [App\Http\Controllers\Inventory\PlanningSimulatorController::class, 'index'])->name('planning-simulator.index');
+        Route::get('guide', [App\Http\Controllers\Inventory\GuideController::class, 'index'])->name('guide');
+
+        // Solicitudes de Materiales
+        Route::resource('material-requests', App\Http\Controllers\Inventory\MaterialRequestController::class)->only(['index', 'create', 'store', 'show'])->names('material-requests');
+        Route::patch('material-requests/{material_request}/status', [App\Http\Controllers\Inventory\MaterialRequestController::class, 'updateStatus'])->name('material-requests.update-status');
+        Route::patch('material-requests/{material_request}/items/{item}', [App\Http\Controllers\Inventory\MaterialRequestController::class, 'updateItemQuantity'])->name('material-requests.update-item-quantity');
+        Route::post('material-requests/{material_request}/generate-transfer', [App\Http\Controllers\Inventory\MaterialRequestController::class, 'generateTransfer'])->name('material-requests.generate-transfer');
+
+        // Devoluciones
+        Route::resource('returns', App\Http\Controllers\Inventory\ReturnController::class)->only(['index', 'create', 'store'])->names('returns');
+        Route::patch('returns/{return}/status', [App\Http\Controllers\Inventory\ReturnController::class, 'updateStatus'])->name('returns.update-status');
+        Route::post('returns/{return}/generate-transfer', [App\Http\Controllers\Inventory\ReturnController::class, 'generateTransfer'])->name('returns.generate-transfer');
+        Route::get('person-deliveries/{person_delivery}/pdf', [App\Http\Controllers\Inventory\PersonDeliveryController::class, 'pdf'])->name('person-deliveries.pdf');
+        Route::resource('person-deliveries', App\Http\Controllers\Inventory\PersonDeliveryController::class)->only(['index', 'create', 'store', 'show'])->names('person-deliveries');
+
+        Route::get('locations/{location}/users', [App\Http\Controllers\Inventory\MaterialRequestController::class, 'showUsers'])->name('locations.users');
+        Route::post('locations/{location}/users', [App\Http\Controllers\Inventory\MaterialRequestController::class, 'syncUsers'])->name('locations.users.sync');
+
+        Route::resource('waste-types', App\Http\Controllers\Inventory\WasteTypeController::class)->only(['index', 'store', 'update'])->names('waste-types');
+        // Laravel ya le pone automáticamente los nombres 'waste-types.index', etc.
+
+        Route::get('technical-sheets', [App\Http\Controllers\Inventory\TechnicalSheetController::class, 'index'])->name('technical-sheets.index');
+        Route::post('technical-sheets', [App\Http\Controllers\Inventory\TechnicalSheetController::class, 'store'])->name('technical-sheets.store');
+        Route::patch('technical-sheets/{technicalSheet}', [App\Http\Controllers\Inventory\TechnicalSheetController::class, 'update'])->name('technical-sheets.update');
+        Route::post('technical-sheets/sync-packagings', [App\Http\Controllers\Inventory\TechnicalSheetController::class, 'syncPackagings'])->name('technical-sheets.sync-packagings');
+
+        Route::get('productions', [App\Http\Controllers\Inventory\ProductionController::class, 'index'])->name('productions.index');
+        Route::post('productions', [App\Http\Controllers\Inventory\ProductionController::class, 'store'])->name('productions.store');
+        Route::post('productions/preview', [App\Http\Controllers\Inventory\ProductionController::class, 'preview'])->name('productions.preview');
     });
 
     // Producer Groups

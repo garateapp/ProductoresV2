@@ -27,6 +27,7 @@ use App\Services\Planning\ProcessGeneratorService;
 use App\Services\Planning\QualityRepositoryMysql;
 use App\Services\Planning\CarozosPackagingMatrixService;
 use App\Services\Planning\PackagingRepositorySqlsrv;
+use App\Services\QualityChartsService;
 use Carbon\Carbon;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
@@ -471,6 +472,7 @@ class PackingProcessController extends Controller
         // No guardamos aquí para evitar side-effects; se persiste al confirmar.
         if (! is_string($process->exportadora) || trim((string) $process->exportadora) === '') {
             try {
+
                 $ngs = $process->lots
                     ->pluck('n_g_recepcion')
                     ->filter()
@@ -492,10 +494,39 @@ class PackingProcessController extends Controller
                     } elseif ($vals->count() > 1) {
                         $process->setAttribute('exportadora', 'VARIAS');
                     }
+                  
+                
                 }
             } catch (\Throwable) {
                 // noop
             }
+        }
+
+        // Exportadora por lote (transient, para UI): resolvemos desde Recepción y la seteamos como atributo.
+        try {
+            $allNgForLots = $process->lots
+                ->pluck('n_g_recepcion')
+                ->filter()
+                ->map(fn ($n) => trim((string) $n))
+                ->filter(fn ($n) => $n !== '')
+                ->unique()
+                ->values()
+                ->all();
+            if (! empty($allNgForLots)) {
+                $exportadoraByNg = Recepcion::query()
+                    ->whereIn('numero_g_recepcion', $allNgForLots)
+                    ->pluck('exportadora', 'numero_g_recepcion')
+                    ->map(fn ($v) => is_string($v) && trim($v) !== '' ? trim((string) $v) : null)
+                    ->all();
+                foreach ($process->lots as $lot) {
+                    $n = trim((string) ($lot->n_g_recepcion ?? ''));
+                    if ($n !== '') {
+                        $lot->setAttribute('exportadora', $exportadoraByNg[$n] ?? null);
+                    }
+                }
+            }
+        } catch (\Throwable) {
+            // noop
         }
 
         $extraByLine = $process->lineOverrides
@@ -599,7 +630,7 @@ class PackingProcessController extends Controller
                 'especie' => $process->especie,
                 'q' => $invFilters['q'] ?: null,
                 'variedad' => $invFilters['variedad'] ?: null,
-                'limit' => 200,
+                'limit' => 1200,
             ])->values();
 
             $inventoryNg = $inventory
@@ -775,6 +806,49 @@ class PackingProcessController extends Controller
                 ];
             }
         }
+
+        // Ownership cruzado: lotes en otros procesos BORRADOR/CONFLICTO de la misma especie.
+        $crossProcessOwnership = collect();
+        try {
+            $crossProcessRows = DB::table('process_lots as pl')
+                ->join('processes as p', 'p.id', '=', 'pl.process_id')
+                ->where('p.especie', $process->especie)
+                ->where('p.id', '!=', $process->id)
+                ->whereIn('p.estado', ['BORRADOR', 'CONFLICTO'])
+                ->select('pl.id as lot_id', 'pl.n_g_recepcion', 'pl.source_type', 'pl.source_key', 'pl.packing_line_id',
+                    'p.id as process_id', 'p.estado as process_estado', 'p.fecha as process_fecha')
+                ->get();
+            $crossProcessOwnership = $crossProcessRows;
+        } catch (\Throwable) {
+            // noop
+        }
+
+        // Enriquecer inventario con datos de ownership.
+        $ownershipByNg = $crossProcessOwnership
+            ->filter(fn ($row) => trim((string) ($row->n_g_recepcion ?? '')) !== '')
+            ->mapWithKeys(fn ($row) => ['recepcion|'.trim((string) $row->n_g_recepcion) => $row]);
+        $ownershipByKey = $crossProcessOwnership
+            ->filter(fn ($row) => trim((string) ($row->source_key ?? '')) !== '')
+            ->mapWithKeys(fn ($row) => ['reembalaje|'.trim((string) $row->source_key) => $row]);
+
+        $inventory = $inventory->map(function ($item) use ($ownershipByNg, $ownershipByKey, $isRepackMode) {
+            if ($isRepackMode) {
+                $key = 'reembalaje|'.trim((string) ($item['source_key'] ?? ''));
+                $owner = $ownershipByKey->get($key);
+            } else {
+                $key = 'recepcion|'.trim((string) ($item['n_g_recepcion'] ?? ''));
+                $owner = $ownershipByNg->get($key);
+            }
+            if ($owner) {
+                $item['assigned_to_process'] = [
+                    'process_id' => (int) $owner->process_id,
+                    'process_estado' => (string) $owner->process_estado,
+                    'lot_id' => (int) $owner->lot_id,
+                    'process_fecha' => $owner->process_fecha ?? null,
+                ];
+            }
+            return $item;
+        });
 
         // Destinos disponibles según matriz (para filtrar sugerencias de embalaje).
         $especieKey = Str::upper(Str::ascii((string) ($process->especie ?? '')));
@@ -1453,6 +1527,77 @@ class PackingProcessController extends Controller
                 }
             }
 
+            // ── Mover lote desde otro proceso ──────────────────────────────────
+            if ($request->filled('move_lot_id') && $request->filled('move_from_process_id')) {
+                $moveLotId = (int) $request->input('move_lot_id');
+                $moveFromProcessId = (int) $request->input('move_from_process_id');
+                $moveToLineId = (int) $request->input('add_packing_line_id');
+
+                $sourceProcess = PackingProcess::find($moveFromProcessId);
+                if ($sourceProcess && in_array($sourceProcess->estado?->value ?? (string) $sourceProcess->estado, ['BORRADOR', 'CONFLICTO'], true)) {
+                    $lotToMove = PackingProcessLot::query()
+                        ->where('process_id', $moveFromProcessId)
+                        ->where('id', $moveLotId)
+                        ->first();
+
+                    if ($lotToMove) {
+                        // Verificar que no exista ya ese n_g_recepcion en el proceso destino.
+                        $existsInTarget = PackingProcessLot::query()
+                            ->where('process_id', $process->id)
+                            ->where('n_g_recepcion', $lotToMove->n_g_recepcion)
+                            ->exists();
+                        if ($existsInTarget) {
+                            return;
+                        }
+
+                        // Auto-incluir línea en el proceso destino.
+                        $included = collect($process->included_packing_line_ids ?: [])->map(fn ($id) => (int) $id)->values();
+                        if ($included->isNotEmpty() && ! $included->contains($moveToLineId)) {
+                            $process->forceFill([
+                                'included_packing_line_ids' => $included->push($moveToLineId)->unique()->values()->all(),
+                            ])->save();
+                        }
+
+                        // Mover: actualizar process_id y packing_line_id.
+                        $maxOrden = (int) PackingProcessLot::query()
+                            ->where('process_id', $process->id)
+                            ->where('packing_line_id', $moveToLineId)
+                            ->max('orden');
+
+                        $lotToMove->forceFill([
+                            'process_id' => $process->id,
+                            'packing_line_id' => $moveToLineId,
+                            'orden' => $maxOrden + 1,
+                        ])->save();
+
+                        // Renumerar orden en proceso origen.
+                        $sourceLots = PackingProcessLot::query()
+                            ->where('process_id', $moveFromProcessId)
+                            ->orderBy('packing_line_id')
+                            ->orderBy('orden')
+                            ->orderBy('id')
+                            ->get();
+                        foreach ($sourceLots->groupBy('packing_line_id') as $sLineId => $sLineLots) {
+                            $i = 1;
+                            foreach ($sLineLots as $sLot) {
+                                if ((int) $sLot->orden !== $i) {
+                                    $sLot->forceFill(['orden' => $i])->save();
+                                }
+                                $i++;
+                            }
+                        }
+
+                        // Si el proceso origen quedó vacío, eliminarlo.
+                        $remainingCount = PackingProcessLot::query()->where('process_id', $moveFromProcessId)->count();
+                        if ($remainingCount === 0) {
+                            $sourceProcess->delete();
+                        }
+
+                        $changed = true;
+                    }
+                }
+            }
+
             if ($request->filled('add_source_key') || $request->filled('add_n_g_recepcion')) {
                 $lineId = (int) $request->input('add_packing_line_id');
                 $sourceTypeInput = Str::lower(trim((string) $request->input('add_source_type', '')));
@@ -1482,6 +1627,34 @@ class PackingProcessController extends Controller
                         return;
                     }
 
+                    // Verificación cross-process: ¿este lote está en otro proceso BORRADOR/CONFLICTO?
+                    if (! $request->filled('move_from_process_id')) {
+                        $hasSourceType = Schema::hasColumn('process_lots', 'source_type');
+                        $hasSourceKey = Schema::hasColumn('process_lots', 'source_key');
+                        $crossQuery = PackingProcessLot::query()
+                            ->where('process_id', '!=', $process->id);
+                        if ($hasSourceType && $hasSourceKey) {
+                            $crossQuery->where('source_type', 'reembalaje')->where('source_key', $sourceKey);
+                        } else {
+                            $crossQuery->where('n_g_recepcion', $sourceKey);
+                        }
+                        $crossLot = $crossQuery->whereHas('process', fn ($q) => $q->whereIn('estado', ['BORRADOR', 'CONFLICTO']))
+                            ->with('process:id,estado')
+                            ->first();
+                        if ($crossLot) {
+                            throw ValidationException::withMessages([
+                                'add_source_key' => [
+                                    'message' => 'El lote ya pertenece al proceso N° '.($crossLot->process_id ?? '?'),
+                                    'lot_in_other_process' => [
+                                        'process_id' => (int) $crossLot->process_id,
+                                        'process_estado' => $crossLot->process?->estado ?? '?',
+                                        'lot_id' => (int) $crossLot->id,
+                                    ],
+                                ],
+                            ]);
+                        }
+                    }
+
                     // Si el proceso está limitado a ciertas líneas, al agregar a una nueva la incluimos automáticamente.
                     $included = collect($process->included_packing_line_ids ?: [])->map(fn ($id) => (int) $id)->values();
                     if ($included->isNotEmpty() && ! $included->contains($lineId)) {
@@ -1504,6 +1677,28 @@ class PackingProcessController extends Controller
                         ->exists();
                     if ($already) {
                         return;
+                    }
+
+                    // Verificación cross-process: ¿este lote está en otro proceso BORRADOR/CONFLICTO?
+                    if (! $request->filled('move_from_process_id')) {
+                        $crossLot = PackingProcessLot::query()
+                            ->where('process_id', '!=', $process->id)
+                            ->where('n_g_recepcion', $n)
+                            ->whereHas('process', fn ($q) => $q->whereIn('estado', ['BORRADOR', 'CONFLICTO']))
+                            ->with('process:id,estado')
+                            ->first();
+                        if ($crossLot) {
+                            throw ValidationException::withMessages([
+                                'add_n_g_recepcion' => [
+                                    'message' => 'El lote ya pertenece al proceso N° '.($crossLot->process_id ?? '?'),
+                                    'lot_in_other_process' => [
+                                        'process_id' => (int) $crossLot->process_id,
+                                        'process_estado' => $crossLot->process?->estado ?? '?',
+                                        'lot_id' => (int) $crossLot->id,
+                                    ],
+                                ],
+                            ]);
+                        }
                     }
 
                     // Si el proceso está limitado a ciertas líneas, al agregar a una nueva la incluimos automáticamente.
@@ -2468,6 +2663,12 @@ class PackingProcessController extends Controller
                 'horas' => $process->shift->horas,
                 'hora_inicio' => $process->shift->hora_inicio,
             ] : null,
+            'shifts' => \App\Models\Shift::query()->where('activo', true)->orderBy('codigo')->get()->map(fn ($s) => [
+                'id' => (int) $s->id,
+                'codigo' => $s->codigo,
+                'nombre' => $s->nombre,
+                'horas' => $s->horas,
+            ])->values()->all(),
             'lineId' => $lineId,
             'processTypeOptions' => $this->getInstructionProcessTypeOptions(),
             'categoryOptions' => $this->getInstructionCategoryOptions(),
@@ -2483,6 +2684,95 @@ class PackingProcessController extends Controller
         ]);
     }
 
+    public function instructionEditorBlade(Request $request, PackingProcess $process)
+    {
+        $this->authorizePlanning($request);
+
+        $process->load(['shift']);
+
+        $lineId = (int) $request->query('line_id', 0);
+        if ($lineId <= 0) {
+            abort(404);
+        }
+
+        $date = $process->fecha ? Carbon::parse($process->fecha)->toDateString() : now()->toDateString();
+        $shiftId = (int) ($process->shift_id ?? 0);
+
+        $shifts = \App\Models\Shift::query()->where('activo', true)->orderBy('codigo')->get();
+
+        $latest = PlanningInstructionVersion::query()
+            ->where('fecha', $date)
+            ->where('shift_id', $shiftId)
+            ->where('packing_line_id', $lineId)
+            ->orderByDesc('version')
+            ->with('changer')
+            ->first();
+
+        $overridesByLineId = [];
+        if ($latest && is_array($latest->overrides)) {
+            $overridesByLineId[$lineId] = $latest->overrides;
+        }
+
+        $lineSheets = $this->buildInstructionLineSheets($process, $date, $shiftId, [$lineId], $overridesByLineId);
+        $speciesParam = trim((string) $request->query('species', ''));
+
+        $sheet = null;
+        if ($speciesParam !== '') {
+            $speciesTarget = Str::upper(Str::ascii($speciesParam));
+            $sheet = collect($lineSheets)->first(function ($s) use ($speciesTarget) {
+                if (! is_array($s)) {
+                    return false;
+                }
+                $label = trim((string) ($s['speciesLabel'] ?? ''));
+                $key = Str::upper(Str::ascii($label));
+                return $key !== '' && $key === $speciesTarget;
+            });
+        }
+
+        if (! is_array($sheet)) {
+            $sheet = $lineSheets[0] ?? null;
+        }
+        if (! is_array($sheet)) {
+            abort(404);
+        }
+
+        $serializedSheet = $this->serializeInstructionLineSheets([$sheet])[0] ?? null;
+
+        $downloadParams = [
+            'process' => $process->id,
+            'format' => 'pdf',
+            'download' => 1,
+            'line_id' => $lineId,
+            'version' => $latest?->version,
+        ];
+        $sheetSpeciesLabel = trim((string) ($sheet['speciesLabel'] ?? ''));
+        if ($sheetSpeciesLabel !== '' && Str::upper(Str::ascii($sheetSpeciesLabel)) !== 'VARIAS') {
+            $downloadParams['species'] = $sheetSpeciesLabel;
+        }
+        $downloadUrl = route('planning.processes.instruction', $downloadParams);
+
+        return view('planning.instruction_editor', [
+            'process' => (object) [
+                'id' => (int) $process->id,
+                'fecha' => $date,
+                'especie' => $process->especie,
+                'estado' => $process->estado?->value ?? $process->estado,
+            ],
+            'shifts' => $shifts,
+            'currentShiftId' => $shiftId,
+            'lineId' => $lineId,
+            'date' => $date,
+            'sheet' => $serializedSheet,
+            'latestVersion' => $latest ? [
+                'version' => (int) $latest->version,
+                'changed_at' => $latest->changed_at?->tz('America/Santiago')->toDateTimeString(),
+                'changer' => $latest->changer?->name,
+                'reason' => $latest->reason,
+            ] : null,
+            'downloadUrl' => $downloadUrl,
+        ]);
+    }
+
     public function instructionUpdate(Request $request, PackingProcess $process)
     {
         $this->authorizePlanning($request);
@@ -2492,7 +2782,9 @@ class PackingProcessController extends Controller
         $data = $request->validate([
             'line_id' => ['required', 'integer', 'min:1'],
             'change_reason' => ['required', 'string', 'min:3', 'max:500'],
+            'shift_id' => ['nullable', 'integer', 'min:1'],
             'species' => ['nullable', 'string', 'max:80'],
+            'pedidos' => ['nullable', 'string', 'max:500'],
             'lots' => ['nullable', 'array'],
             'lots.*.id' => ['required_with:lots', 'integer', 'min:1'],
             // Puede venir snapshot histórico (ej: "Recepcion Fruta Gran"), luego lo normalizamos.
@@ -2503,6 +2795,7 @@ class PackingProcessController extends Controller
             'lots.*.huerto' => ['nullable', 'string', 'in:Tipo A,Tipo B,Tipo C,Tipo C*'],
             'rows' => ['nullable', 'array'],
             'rows.*.key' => ['required_with:rows', 'string'],
+            'rows.*._deleted' => ['nullable', 'string', 'in:0,1'],
             // Campos editables del bloque "Destino + Embalajes"
             'rows.*.destino' => ['nullable', 'string', 'max:30'],
             'rows.*.c_item' => ['nullable', 'string', 'max:60'],
@@ -2523,6 +2816,20 @@ class PackingProcessController extends Controller
         $speciesFilter = trim((string) ($data['species'] ?? ''));
 
         $date = $process->fecha ? Carbon::parse($process->fecha)->toDateString() : now()->toDateString();
+
+        // Cambio de turno si se envía un nuevo shift_id.
+        $newShiftId = isset($data['shift_id']) ? (int) $data['shift_id'] : 0;
+        if ($newShiftId > 0 && $newShiftId !== (int) ($process->shift_id ?? 0)) {
+            $process->forceFill(['shift_id' => $newShiftId])->save();
+        }
+
+        // Cambio de pedidos si se envía un valor distinto.
+        if (array_key_exists('pedidos', $data)) {
+            $newPedidos = trim((string) $data['pedidos']);
+            if (($process->pedidos ?? null) !== $newPedidos) {
+                $process->forceFill(['pedidos' => $newPedidos])->save();
+            }
+        }
         $shiftId = (int) ($process->shift_id ?? 0);
 
         $baseVersion = (int) PlanningInstructionVersion::query()
@@ -2536,6 +2843,11 @@ class PackingProcessController extends Controller
         foreach (($data['rows'] ?? []) as $row) {
             $key = trim((string) ($row['key'] ?? ''));
             if ($key === '') {
+                continue;
+            }
+
+            // Filas marcadas como eliminadas: no incluir en overrides.
+            if (trim((string) ($row['_deleted'] ?? '')) === '1') {
                 continue;
             }
 
@@ -3262,7 +3574,8 @@ class PackingProcessController extends Controller
             return back()->with('error', 'Antes de confirmar debes seleccionar el destino por lote. Lotes: '.implode(', ', $preview).$more.'.');
         }
 
-        $result = $this->confirmationService->finalizeAndConfirm($process);
+        $splitByLot = (bool) $request->boolean('split_by_lot', false);
+        $result = $this->confirmationService->finalizeAndConfirm($process, $splitByLot);
 
         if (($result['mode'] ?? '') === 'split') {
             $created = count($result['created_process_ids'] ?? []);
@@ -3686,13 +3999,14 @@ class PackingProcessController extends Controller
 
         $exportableByNg = [];
         $defectsByNg = [];
+        $sizeCurveByNg = [];
         if (! empty($ngs)) {
             $recepciones = Recepcion::query()
-                ->select(['id', 'numero_g_recepcion'])
+                ->select(['id', 'numero_g_recepcion', 'n_especie'])
                 ->whereIn('numero_g_recepcion', $ngs)
                 ->with([
                     'calidad:id,recepcion_id',
-                    'calidad.detalles:id,calidad_id,tipo_item,detalle_item,porcentaje_muestra',
+                    'calidad.detalles:id,calidad_id,tipo_item,detalle_item,porcentaje_muestra,cantidad',
                 ])
                 ->get();
 
@@ -3707,6 +4021,12 @@ class PackingProcessController extends Controller
                     'defectos_calidad' => $this->extractDefectRowsByTipo($detalles, 'DEFECTOS DE CALIDAD'),
                     'defectos_condicion' => $this->extractDefectRowsByTipo($detalles, 'DEFECTOS DE CONDICION'),
                 ];
+                $sizeCurve = QualityChartsService::getSizeDistributionData(collect([$recepcion]));
+                if (isset($sizeCurve['categories']) && isset($sizeCurve['series'])) {
+                    $sizeCurveByNg[$ng] = ['type' => 'cherries', 'data' => $sizeCurve];
+                } else {
+                    $sizeCurveByNg[$ng] = ['type' => 'calibres', 'data' => is_array($sizeCurve) ? array_values($sizeCurve) : []];
+                }
             }
         }
 
@@ -3791,6 +4111,10 @@ class PackingProcessController extends Controller
                     'defectos_condicion' => (function () use ($lot, $defectsByNg) {
                         $ng = trim((string) ($lot?->n_g_recepcion ?? ''));
                         return $ng !== '' ? (($defectsByNg[$ng]['defectos_condicion'] ?? [])) : [];
+                    })(),
+                    'size_curve' => (function () use ($lot, $sizeCurveByNg) {
+                        $ng = trim((string) ($lot?->n_g_recepcion ?? ''));
+                        return $ng !== '' ? ($sizeCurveByNg[$ng] ?? null) : null;
                     })(),
                 ];
             }

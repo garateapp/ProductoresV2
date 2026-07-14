@@ -239,12 +239,12 @@ class ProcessConfirmationService
     /**
      * Finaliza la planificación:
      * - Permite que el usuario asigne varios lotes a líneas/cámaras en un solo "proceso de planificación".
-     * - Al confirmar, se generan procesos "reales" 1 por lote (n_g_recepcion).
-     *   Si el lote está dividido en varias líneas, esas partes se mantienen dentro del mismo proceso del lote.
+     * - Si $splitByLot es true, genera procesos "reales" 1 por lote (n_g_recepcion).
+     * - Si $splitByLot es false (default), mantiene todos los lotes en el mismo proceso.
      *
      * @return array{mode:string, ok:bool, created_process_ids:array<int,int>, conflicts:array<int,array<string,mixed>>}
      */
-    public function finalizeAndConfirm(PackingProcess $process): array
+    public function finalizeAndConfirm(PackingProcess $process, bool $splitByLot = false): array
     {
         $process->loadMissing(['shift', 'lots', 'lineOverrides']);
 
@@ -252,8 +252,8 @@ class ProcessConfirmationService
             ->filter(fn ($l) => $this->lotHasPlanningKey($l))
             ->groupBy(fn ($l) => $this->lotPlanKey($l));
 
-        // Caso simple: ya es 1 lote.
-        if ($groups->count() <= 1) {
+        // Modo directo: todos los lotes en un solo proceso.
+        if ($groups->count() <= 1 || ! $splitByLot) {
             $res = $this->confirm($process);
             return [
                 'mode' => 'single',

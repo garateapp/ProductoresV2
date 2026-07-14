@@ -38,6 +38,11 @@ export default function PlanningMenu() {
             Plan semanal
           </Link>
         </DropdownMenuItem>
+        <DropdownMenuItem asChild>
+          <Link href={route("planning.sag-labels.index")} className="w-full">
+            Enviar etiqueta a SAG
+          </Link>
+        </DropdownMenuItem>
 
         <DropdownMenuSeparator />
 

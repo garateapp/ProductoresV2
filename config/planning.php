@@ -1,6 +1,8 @@
 <?php
 
 return [
+    'sag_label_email' => env('PLANNING_SAG_LABEL_EMAIL'),
+
     // Ventana FIFO: dentro de los N más antiguos, elegimos el menor costo de cambio.
     'fifo_window' => (int) env('PLANNING_FIFO_WINDOW', 10),
 

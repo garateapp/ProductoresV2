@@ -65,8 +65,22 @@ function commentsByLots(lots) {
       if (!lote) return null
       const cal = defectSummaryText(lot?.defectos_calidad)
       const con = defectSummaryText(lot?.defectos_condicion)
-      if (!cal && !con) return null
-      return `${lote}: ${cal ? `Calidad [${cal}]` : ''}${cal && con ? ' · ' : ''}${con ? `Condición [${con}]` : ''}`
+      const sizeCurve = lot?.size_curve
+      let curveText = ''
+      if (sizeCurve?.type === 'calibres' && Array.isArray(sizeCurve.data) && sizeCurve.data.length > 0) {
+        const sorted = [...sizeCurve.data].sort((a, b) => {
+          const na = parseFloat(String(a.calibre || '').replace(/[^\d.]/g, '')) || 0
+          const nb = parseFloat(String(b.calibre || '').replace(/[^\d.]/g, '')) || 0
+          return na - nb
+        })
+        curveText = sorted.map((d) => `${d.calibre}(${Math.round(Number(d.count || 0))})`).join(' · ')
+      }
+      const parts = []
+      if (cal) parts.push(`Calidad [${cal}]`)
+      if (con) parts.push(`Condición [${con}]`)
+      if (curveText) parts.push(`Calibres: ${curveText}`)
+      if (parts.length === 0) return null
+      return `${lote}: ${parts.join(' · ')}`
     })
     .filter(Boolean)
 
@@ -405,6 +419,7 @@ function PackagingPicker({ value, disabled, onPick, className = 'w-full' }) {
 export default function Edit({
   process,
   shift,
+  shifts = [],
   lineId,
   latestVersion,
   sheet,
@@ -484,10 +499,38 @@ export default function Edit({
   const { data, setData, post, processing, errors } = useForm({
     line_id: Number(lineId || 0),
     change_reason: '',
+    shift_id: Number(shift?.id || 0),
+    pedidos: String(sheet?.pedidosLabel || '').trim() === '-' ? '' : String(sheet?.pedidosLabel || ''),
     species: String(sheet?.speciesLabel || '').toUpperCase() === 'VARIAS' ? '' : String(sheet?.speciesLabel || ''),
     lots: initialLots,
     rows: initialRows,
   })
+
+  const [newRows, setNewRows] = useState([])
+  const addNewRow = () => {
+    const key = `_new_${Date.now()}_${Math.random().toString(36).slice(2, 6)}`
+    const newRow = {
+      key,
+      destino: '',
+      c_item: '',
+      desc_embalaje: '',
+      etiqueta: '',
+      peso_caja: '',
+      cp2: '',
+      altura: '',
+      calibres: '',
+      indications: '',
+      observaciones: '',
+      count: '',
+      pedido: '',
+    }
+    setNewRows((prev) => [...prev, newRow])
+    setData('rows', [...(Array.isArray(data.rows) ? data.rows : []), newRow])
+  }
+
+  const removeNewRow = (newIdx) => {
+    setNewRows((prev) => prev.filter((_, i) => i !== newIdx))
+  }
 
   const lotComments = useMemo(() => commentsByLots(data.lots), [data.lots])
   const rowErrorState = useMemo(() => buildRowErrorState(errors), [errors])
@@ -536,6 +579,24 @@ export default function Edit({
     next[idx] = { ...base, ...patch, key: String(key || base.key || '') }
     setData('rows', next)
   }
+
+  const toggleDeleteRow = (idx) => {
+    const current = Array.isArray(data.rows) ? data.rows : []
+    const next = [...current]
+    const base = (next[idx] && typeof next[idx] === 'object') ? next[idx] : {}
+    const isDeleted = base._deleted === '1' || base._deleted === 1
+    next[idx] = { ...base, _deleted: isDeleted ? '0' : '1' }
+    setData('rows', next)
+  }
+
+  const visiblePackaging = useMemo(() => {
+    const existing = packaging.map((r, idx) => ({ ...r, _idx: idx, _isNew: false }))
+    const added = newRows.map((r, idx) => ({ ...r, _idx: packaging.length + idx, _isNew: true }))
+    return [...existing, ...added].filter((r) => {
+      const row = data.rows?.[r._idx] || {}
+      return row._deleted !== '1' && row._deleted !== 1
+    })
+  }, [packaging, newRows, data.rows])
 
   const updateLot = (lotId, patch) => {
     const id = Number(lotId || 0)
@@ -643,7 +704,18 @@ export default function Edit({
                 </div>
                 <div className="meta-box">
                   <div className="meta-label">Turno</div>
-                  <div className="meta-value">{shift ? `${shift.codigo || ''}${shift.nombre ? ` · ${shift.nombre}` : ''}` : '-'}</div>
+                  <div className="meta-value">
+                    <select
+                      value={data.shift_id || ''}
+                      onChange={(e) => setData('shift_id', Number(e.target.value))}
+                      className="w-full border border-gray-300 rounded px-2 py-1 text-sm bg-white"
+                    >
+                      <option value={0}>— Seleccionar turno —</option>
+                      {shifts.map((s) => (
+                        <option key={s.id} value={s.id}>{s.codigo} · {s.nombre}</option>
+                      ))}
+                    </select>
+                  </div>
                 </div>
                 <div className="meta-box">
                   <div className="meta-label">Línea Proceso</div>
@@ -655,7 +727,13 @@ export default function Edit({
                 </div>
                 <div className="meta-box" style={{ gridColumn: 'span 6' }}>
                   <div className="meta-label">Pedidos</div>
-                  <div className="meta-value">{sheet?.pedidosLabel || '-'}</div>
+                  <input
+                    type="text"
+                    value={data.pedidos ?? ''}
+                    onChange={(e) => setData('pedidos', e.target.value)}
+                    placeholder="Pedidos"
+                    className="w-full border border-gray-300 rounded px-2 py-1 text-sm bg-white"
+                  />
                 </div>
               </div>
 
@@ -677,6 +755,12 @@ export default function Edit({
               ) : null}
 
               <h2>Destino + Embalajes (editable)</h2>
+              <div className="flex items-center justify-between mb-1">
+                <div className="text-xs text-gray-500">{visiblePackaging.length} fila(s) visibles</div>
+                <Button type="button" variant="outline" size="sm" onClick={addNewRow}>
+                  + Agregar embalaje
+                </Button>
+              </div>
               <div className="table-wrap">
                 <table>
                   <thead>
@@ -691,18 +775,20 @@ export default function Edit({
                       <th>Calibres</th>
                       <th>Indicaciones</th>
                       <th>Observaciones</th>
-                      <th>count</th>
                       <th>Pedido</th>
+                      <th className="w-12"></th>
                     </tr>
                   </thead>
                   <tbody>
-                    {packaging.length ? packaging.map((r, idx) => {
+                    {visiblePackaging.length ? visiblePackaging.map((r) => {
+                      const idx = r._idx
                       const rowKey = String(r?.key || '')
                       const row = data.rows?.[idx] || {}
                       const rowErrors = rowErrorState.packagingErrorsByIndex?.[idx] || {}
                       const rowHasError = Object.keys(rowErrors).length > 0
+                      const isNew = r._isNew
                       return (
-                        <tr key={String(r?.key || idx)} className={rowHasError ? 'bg-red-50/40' : ''}>
+                        <tr key={String(r?.key || idx)} className={rowHasError ? 'bg-red-50/40' : isNew ? 'bg-blue-50/30' : ''}>
                           <td style={{ minWidth: 120 }}>
                             <Input
                               className={rowErrors?.destino ? 'border-red-500 bg-red-50' : ''}
@@ -842,17 +928,6 @@ export default function Edit({
                             />
                             {rowErrors?.observaciones ? <div className="mt-1 text-[10px] text-red-600">{rowErrors.observaciones}</div> : null}
                           </td>
-                          <td style={{ minWidth: 140 }}>
-                            <Input
-                              className={rowErrors?.count ? 'border-red-500 bg-red-50' : ''}
-                              value={row?.count ?? ''}
-                              onChange={(e) => {
-                                updateRow(idx, rowKey, { count: e.target.value })
-                              }}
-                              placeholder="Bins/Kg"
-                            />
-                            {rowErrors?.count ? <div className="mt-1 text-[10px] text-red-600">{rowErrors.count}</div> : null}
-                          </td>
                           <td style={{ minWidth: 220 }}>
                             <Input
                               className={rowErrors?.pedido ? 'border-red-500 bg-red-50' : ''}
@@ -863,6 +938,16 @@ export default function Edit({
                               placeholder="Ej: Pedido 123 / Cliente X"
                             />
                             {rowErrors?.pedido ? <div className="mt-1 text-[10px] text-red-600">{rowErrors.pedido}</div> : null}
+                          </td>
+                          <td className="text-center">
+                            <button
+                              type="button"
+                              onClick={() => isNew ? removeNewRow(idx - packaging.length) : toggleDeleteRow(idx)}
+                              className="inline-flex items-center justify-center h-7 w-7 rounded border border-red-200 bg-red-50 text-red-600 hover:bg-red-100 text-xs font-bold"
+                              title={isNew ? 'Quitar fila nueva' : 'Eliminar esta fila'}
+                            >
+                              ✕
+                            </button>
                           </td>
                         </tr>
                       )
