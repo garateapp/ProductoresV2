@@ -1505,11 +1505,13 @@ class PackingProcessController extends Controller
                                     continue;
                                 }
 
+                                $dest = isset($r['destino']) ? trim((string) $r['destino']) : '';
                                 $out[] = [
                                     'c_embalaje' => $c !== '' ? $c : null,
                                     'n_embalaje' => $n !== '' ? $n : null,
                                     'cp2_cajas_por_pallet' => is_numeric($cp2) ? (int) $cp2 : null,
                                     'indications' => $ind !== '' ? $ind : null,
+                                    'destino' => $dest !== '' ? $dest : null,
                                 ];
                             }
                             return empty($out) ? null : $out;
@@ -2329,7 +2331,7 @@ class PackingProcessController extends Controller
                 $destino = trim((string) ($lot->destino ?? ''));
                 $destKey = $destino !== '' ? mb_strtoupper($destino) : '-';
 
-                $appendPackaging = function (?string $code, ?string $name, ?int $cp2, ?string $indications, bool $count) use (
+                $appendPackaging = function (?string $code, ?string $name, ?int $cp2, ?string $indications, bool $count, ?string $overrideDestino = null) use (
                     &$packSummary,
                     $destKey,
                     $especieLot,
@@ -2346,7 +2348,11 @@ class PackingProcessController extends Controller
                         return;
                     }
 
-                    $k = $destKey.'|'.$code.'|'.mb_strtolower(trim($especieLot));
+                    // Permitir que embalajes extra traigan su propio destino.
+                    $effectiveDestino = ($overrideDestino !== null && trim($overrideDestino) !== '') ? trim($overrideDestino) : $destino;
+                    $effectiveDestKey = $effectiveDestino !== '' ? mb_strtoupper($effectiveDestino) : $destKey;
+
+                    $k = $effectiveDestKey.'|'.$code.'|'.mb_strtolower(trim($especieLot));
                     $catalog = $packCatalogByCode[$code] ?? null;
 
                     if (! isset($packSummary[$k])) {
@@ -2359,7 +2365,7 @@ class PackingProcessController extends Controller
 
                         $packSummary[$k] = [
                             'key' => $k,
-                            'destino' => $destKey,
+                            'destino' => $effectiveDestKey,
                             'especie' => $especieLot,
                             'c_item' => $code,
                             'n_item' => is_array($catalog) ? ($catalog['n_item'] ?? null) : null,
@@ -2446,6 +2452,7 @@ class PackingProcessController extends Controller
                             isset($ex['cp2_cajas_por_pallet']) && is_numeric($ex['cp2_cajas_por_pallet']) ? (int) $ex['cp2_cajas_por_pallet'] : null,
                             isset($ex['indications']) ? (string) $ex['indications'] : null,
                             false,
+                            isset($ex['destino']) ? (string) $ex['destino'] : null,
                         );
                     }
                 }
