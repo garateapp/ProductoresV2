@@ -13,7 +13,7 @@ import {
   TableRow,
 } from '@/Components/ui/table'
 import { Input } from '@/Components/ui/input'
-import { Calendar, ChevronDown, ChevronUp, GanttChartSquare, Layers, Printer, RotateCcw, Save } from 'lucide-react'
+import { Calendar, ChevronDown, ChevronUp, GanttChartSquare, Layers, RotateCcw, Save } from 'lucide-react'
 
 function StatusBadge({ status }) {
   const value = String(status || '')
@@ -146,7 +146,7 @@ function moveProcessInOrder(orderIds, processId, direction) {
 }
 
 function LineGroupGantt({ group, onDelete, onMoveOrder, onSaveOrder, onResetOrder, savingOrder }) {
-  const { dateKey, shiftLabel, shiftId, lineId, lineName, processes: list, printableProcessId } = group
+  const { dateKey, shiftLabel, shiftId, lineId, lineName, processes: list } = group
   const shift = list?.[0]?.shift || null
   const shiftStartStr = shift?.hora_inicio ? String(shift.hora_inicio) : '08:00:00'
   const shiftStartMin = timeToMinutes(shiftStartStr) ?? 8 * 60
@@ -215,21 +215,6 @@ function LineGroupGantt({ group, onDelete, onMoveOrder, onSaveOrder, onResetOrde
               <Button size="sm" variant="outline">Ver línea</Button>
             </a>
           ) : null}
-
-          {Number(lineId) > 0 && printableProcessId ? (
-            <a
-              href={`${route('planning.processes.instruction', printableProcessId)}?line_id=${lineId}`}
-              target="_blank"
-              rel="noopener noreferrer"
-            >
-              <Button size="sm" variant="secondary">
-                <Printer className="h-4 w-4 mr-2" />
-                Imprimir línea
-              </Button>
-            </a>
-          ) : (
-            <Badge variant="outline" className="text-gray-500">Sin imprimir</Badge>
-          )}
         </div>
       </div>
 
@@ -524,7 +509,6 @@ export default function Index({ processes, filters }) {
         const currentOrderIds = normalizeIdList(processesForRender.map((p) => p?.id))
         const hasDraft = !areIdListsEqual(currentOrderIds, baseOrderIds)
         const shiftStartMinutes = timeToMinutes(processesForRender?.[0]?.shift?.hora_inicio || null) ?? Number.POSITIVE_INFINITY
-        const printable = processesForRender.find((p) => (p?.estado?.value ?? p?.estado) === 'CONFIRMADO') || null
         return {
           ...g,
           processes: processesForRender,
@@ -532,7 +516,6 @@ export default function Index({ processes, filters }) {
           currentOrderIds,
           hasDraft,
           shiftStartMinutes,
-          printableProcessId: printable?.id || null,
         }
       })
       .sort((a, b) => {
@@ -733,22 +716,8 @@ export default function Index({ processes, filters }) {
                               >
                                 <Button size="sm" variant="outline">Ver línea</Button>
                               </a>
-                            ) : null}
+                              ) : null}
 
-                            {g.lineId > 0 && g.printableProcessId ? (
-                              <a
-                                href={`${route('planning.processes.instruction', g.printableProcessId)}?line_id=${g.lineId}`}
-                                target="_blank"
-                                rel="noopener noreferrer"
-                              >
-                                <Button size="sm" variant="secondary">
-                                  <Printer className="h-4 w-4 mr-2" />
-                                  Imprimir línea
-                                </Button>
-                              </a>
-                            ) : (
-                              <Badge variant="outline" className="text-gray-500">Sin imprimir</Badge>
-                            )}
                           </div>
                         </div>
 

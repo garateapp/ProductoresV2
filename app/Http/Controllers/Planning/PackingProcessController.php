@@ -2036,16 +2036,8 @@ class PackingProcessController extends Controller
     {
         $process->loadMissing(['shift', 'lots:process_id,packing_line_id']);
 
-        $processIds = PackingProcess::query()
-            ->whereDate('fecha', $date)
-            ->where('shift_id', $shiftId)
-            ->pluck('id')
-            ->map(fn ($id) => (int) $id)
-            ->values();
-
-        if (! $processIds->contains((int) $process->id)) {
-            $processIds->push((int) $process->id);
-        }
+        // Instructivo por proceso: solo incluye el proceso solicitado.
+        $processIds = collect([(int) $process->id]);
 
         $manualOrderByLineProcess = [];
         if (Schema::hasTable('process_line_orders')) {
@@ -3615,11 +3607,7 @@ class PackingProcessController extends Controller
 
         $process->load(['shift', 'lots:process_id,packing_line_id']);
 
-        // Instructivo por turno/línea:
-        // - Siempre usa la fecha + turno del proceso.
-        // - Incluye TODOS los procesos del mismo turno (aunque sean de otra especie) que se ejecutan
-        //   en la(s) misma(s) línea(s) del proceso (por defecto), para tener una sola “hoja” operativa
-        //   por línea para el turno.
+        // Instructivo por proceso: solo muestra el proceso solicitado.
         $date = $process->fecha ? Carbon::parse($process->fecha)->toDateString() : now()->toDateString();
         $shiftId = (int) ($process->shift_id ?? 0);
 

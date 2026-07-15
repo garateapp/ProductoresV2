@@ -631,7 +631,7 @@ export default function Show({ process, planningMode = null, lines = [], allLine
       const next = prev.map((l) => {
         if (Number(l.id) !== Number(lotId)) return l
         const arr = Array.isArray(l.extra_packagings) ? [...l.extra_packagings] : []
-        arr.push({ c_embalaje: null, n_embalaje: null, cp2_cajas_por_pallet: null, indications: '' })
+        arr.push({ c_embalaje: null, n_embalaje: null, cp2_cajas_por_pallet: null, indications: '', destino: null })
         return { ...l, extra_packagings: arr }
       })
       setDirty(true)
@@ -659,7 +659,7 @@ export default function Show({ process, planningMode = null, lines = [], allLine
       const next = prev.map((l) => {
         if (Number(l.id) !== Number(lotId)) return l
         const arr = Array.isArray(l.extra_packagings) ? [...l.extra_packagings] : []
-        const cur = arr[Number(index)] || { c_embalaje: null, n_embalaje: null, cp2_cajas_por_pallet: null, indications: '' }
+        const cur = arr[Number(index)] || { c_embalaje: null, n_embalaje: null, cp2_cajas_por_pallet: null, indications: '', destino: null }
         arr[Number(index)] = { ...cur, ...(patch || {}) }
         return { ...l, extra_packagings: arr }
       })
@@ -1288,25 +1288,7 @@ export default function Show({ process, planningMode = null, lines = [], allLine
                 )
               })()}
             </>
-          ) : (
-            <>
-              <a
-                href={`${route('planning.processes.instruction', lineDay?.print_process_id || process.id)}?line_id=${lineDay?.line?.id || lines?.[0]?.id || ''}`}
-              >
-                <Button variant="secondary" className="min-w-28" disabled={!lineDay?.print_process_id}>
-                  <Printer className="h-4 w-4 mr-2" />
-                  Imprimir línea
-                </Button>
-              </a>
-              <a
-                href={`${route('planning.processes.instruction', lineDay?.print_process_id || process.id)}?format=pdf&line_id=${lineDay?.line?.id || lines?.[0]?.id || ''}&download=1`}
-              >
-                <Button variant="outline" className="min-w-28" disabled={!lineDay?.print_process_id}>
-                  Descargar PDF
-                </Button>
-              </a>
-            </>
-          )}
+          ) : null}
         </div>
           </div>
         </CardContent>
@@ -2086,7 +2068,7 @@ export default function Show({ process, planningMode = null, lines = [], allLine
                                                   <PackagingPicker
                                                     lot={rowLot}
                                                     disabled={isLocked}
-                                                    destinos={String(lot?.destino || '').trim() ? [String(lot.destino)] : selectedDestinos}
+                                                    destinos={String(p?.destino || lot?.destino || '').trim() ? [String(p?.destino || lot.destino)] : selectedDestinos}
                                                     onPick={(pack) => {
                                                       setExtraPackagingRow(lot.id, pIdx, {
                                                         c_embalaje: pack?.c_embalaje ?? null,
@@ -2095,6 +2077,19 @@ export default function Show({ process, planningMode = null, lines = [], allLine
                                                       })
                                                     }}
                                                   />
+                                                  {(destinosAvailable || []).length > 0 ? (
+                                                    <select
+                                                      className="rounded border px-2 py-1 text-xs"
+                                                      value={String(p?.destino || '')}
+                                                      onChange={(e) => setExtraPackagingRow(lot.id, pIdx, { destino: e.target.value || null })}
+                                                      disabled={isLocked}
+                                                    >
+                                                      <option value="">Destino lote</option>
+                                                      {(destinosAvailable || []).map((d) => (
+                                                        <option key={d} value={d}>{d}</option>
+                                                      ))}
+                                                    </select>
+                                                  ) : null}
                                                   <Input
                                                     className="w-64"
                                                     placeholder="Indicaciones…"
