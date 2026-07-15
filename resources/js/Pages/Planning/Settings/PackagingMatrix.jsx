@@ -126,20 +126,6 @@ export default function PackagingMatrix({ rules = [], especies = [], destinos = 
 
   const activeMatrix = String(filters?.matrix || 'carozos')
 
-  // For "otros" matrix, calibers depend on the selected species.
-  const CALIBRES = useMemo(() => {
-    if (activeMatrix === 'otros') {
-      const especie = String(filters?.especie || '')
-      if (especie && speciesCalibers[especie]) {
-        return speciesCalibers[especie]
-      }
-      // Fallback: union of all species calibers.
-      return Object.values(speciesCalibers).flat()
-    }
-    if (Array.isArray(calibres) && calibres.length) return calibres
-    return activeMatrix === 'cherries' ? DEFAULT_CHERRIES_CALIBRES : DEFAULT_CAROZOS_CALIBRES
-  }, [calibres, activeMatrix, filters?.especie, speciesCalibers])
-
   const { data, setData, post, patch, processing, errors, reset, transform } = useForm({
     matrix: activeMatrix,
     especie: especies?.[0] ? String(especies[0]) : '',
@@ -157,6 +143,18 @@ export default function PackagingMatrix({ rules = [], especies = [], destinos = 
     priority: '',
     activo: true,
   })
+
+  const CALIBRES = useMemo(() => {
+    if (activeMatrix === 'otros') {
+      const especie = String(data?.especie || filters?.especie || '')
+      if (especie && speciesCalibers[especie]) {
+        return speciesCalibers[especie]
+      }
+      return []
+    }
+    if (Array.isArray(calibres) && calibres.length) return calibres
+    return activeMatrix === 'cherries' ? DEFAULT_CHERRIES_CALIBRES : DEFAULT_CAROZOS_CALIBRES
+  }, [calibres, activeMatrix, data?.especie, filters?.especie, speciesCalibers])
 
   const startCreate = () => {
     setEditing(null)
@@ -464,6 +462,9 @@ export default function PackagingMatrix({ rules = [], especies = [], destinos = 
                   </div>
                 </div>
                 <div className="mt-2 flex flex-wrap gap-2 rounded border bg-white p-2">
+                  {CALIBRES.length === 0 && activeMatrix === 'otros' ? (
+                    <div className="text-sm text-gray-500 py-1">Selecciona una especie para ver sus calibres.</div>
+                  ) : null}
                   {CALIBRES.map((c) => {
                     const normalized = normalizeCalibres(data.allowed_calibres, activeMatrix)
                     const key = activeMatrix === 'otros' ? String(c) : String(c).toUpperCase().replace(/\s+/g, '')

@@ -1627,34 +1627,6 @@ class PackingProcessController extends Controller
                         return;
                     }
 
-                    // Verificación cross-process: ¿este lote está en otro proceso BORRADOR/CONFLICTO?
-                    if (! $request->filled('move_from_process_id')) {
-                        $hasSourceType = Schema::hasColumn('process_lots', 'source_type');
-                        $hasSourceKey = Schema::hasColumn('process_lots', 'source_key');
-                        $crossQuery = PackingProcessLot::query()
-                            ->where('process_id', '!=', $process->id);
-                        if ($hasSourceType && $hasSourceKey) {
-                            $crossQuery->where('source_type', 'reembalaje')->where('source_key', $sourceKey);
-                        } else {
-                            $crossQuery->where('n_g_recepcion', $sourceKey);
-                        }
-                        $crossLot = $crossQuery->whereHas('process', fn ($q) => $q->whereIn('estado', ['BORRADOR', 'CONFLICTO']))
-                            ->with('process:id,estado')
-                            ->first();
-                        if ($crossLot) {
-                            throw ValidationException::withMessages([
-                                'add_source_key' => [
-                                    'message' => 'El lote ya pertenece al proceso N° '.($crossLot->process_id ?? '?'),
-                                    'lot_in_other_process' => [
-                                        'process_id' => (int) $crossLot->process_id,
-                                        'process_estado' => $crossLot->process?->estado ?? '?',
-                                        'lot_id' => (int) $crossLot->id,
-                                    ],
-                                ],
-                            ]);
-                        }
-                    }
-
                     // Si el proceso está limitado a ciertas líneas, al agregar a una nueva la incluimos automáticamente.
                     $included = collect($process->included_packing_line_ids ?: [])->map(fn ($id) => (int) $id)->values();
                     if ($included->isNotEmpty() && ! $included->contains($lineId)) {
@@ -1665,6 +1637,20 @@ class PackingProcessController extends Controller
 
                     $this->addRepackLotToProcess($process, $sourceKey, $lineId);
                     $changed = true;
+
+                    // Cross-process: si el lote existe en otro proceso BORRADOR/CONFLICTO, marcar CONFLICTO.
+                    $hasST = Schema::hasColumn('process_lots', 'source_type');
+                    $hasSK = Schema::hasColumn('process_lots', 'source_key');
+                    $crossQ = PackingProcessLot::query()->where('process_id', '!=', $process->id);
+                    if ($hasST && $hasSK) {
+                        $crossQ->where('source_type', 'reembalaje')->where('source_key', $sourceKey);
+                    } else {
+                        $crossQ->where('n_g_recepcion', $sourceKey);
+                    }
+                    $hasConflict = $crossQ->whereHas('process', fn ($q) => $q->whereIn('estado', ['BORRADOR', 'CONFLICTO']))->exists();
+                    if ($hasConflict && $process->estado?->value !== 'CONFLICTO') {
+                        $process->forceFill(['estado' => PlanningProcessStatus::CONFLICTO])->save();
+                    }
                 } else {
                     $n = trim((string) $request->input('add_n_g_recepcion', ''));
                     if ($n === '') {
@@ -1679,28 +1665,6 @@ class PackingProcessController extends Controller
                         return;
                     }
 
-                    // Verificación cross-process: ¿este lote está en otro proceso BORRADOR/CONFLICTO?
-                    if (! $request->filled('move_from_process_id')) {
-                        $crossLot = PackingProcessLot::query()
-                            ->where('process_id', '!=', $process->id)
-                            ->where('n_g_recepcion', $n)
-                            ->whereHas('process', fn ($q) => $q->whereIn('estado', ['BORRADOR', 'CONFLICTO']))
-                            ->with('process:id,estado')
-                            ->first();
-                        if ($crossLot) {
-                            throw ValidationException::withMessages([
-                                'add_n_g_recepcion' => [
-                                    'message' => 'El lote ya pertenece al proceso N° '.($crossLot->process_id ?? '?'),
-                                    'lot_in_other_process' => [
-                                        'process_id' => (int) $crossLot->process_id,
-                                        'process_estado' => $crossLot->process?->estado ?? '?',
-                                        'lot_id' => (int) $crossLot->id,
-                                    ],
-                                ],
-                            ]);
-                        }
-                    }
-
                     // Si el proceso está limitado a ciertas líneas, al agregar a una nueva la incluimos automáticamente.
                     $included = collect($process->included_packing_line_ids ?: [])->map(fn ($id) => (int) $id)->values();
                     if ($included->isNotEmpty() && ! $included->contains($lineId)) {
@@ -1711,6 +1675,16 @@ class PackingProcessController extends Controller
 
                     $this->addInventoryLotToProcess($process, $n, $lineId);
                     $changed = true;
+
+                    // Cross-process: si el lote existe en otro proceso BORRADOR/CONFLICTO, marcar CONFLICTO.
+                    $hasConflict = PackingProcessLot::query()
+                        ->where('process_id', '!=', $process->id)
+                        ->where('n_g_recepcion', $n)
+                        ->whereHas('process', fn ($q) => $q->whereIn('estado', ['BORRADOR', 'CONFLICTO']))
+                        ->exists();
+                    if ($hasConflict && $process->estado?->value !== 'CONFLICTO') {
+                        $process->forceFill(['estado' => PlanningProcessStatus::CONFLICTO])->save();
+                    }
                 }
             }
 

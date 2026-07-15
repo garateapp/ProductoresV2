@@ -153,6 +153,7 @@ class PackagingRepositorySqlsrv
                     ->join('PRO_P_Especies AS e', 'e.id', '=', 'ce.id_pro_p_especies')
                     ->select('e.nombre AS especie', 'c.nombre AS calibre')
                     ->whereIn('e.nombre', $species)
+                    ->whereNotIn('c.nombre', ['...','A','B','C','MIX','Comercial','Desecho','Descalibre','Precalibre','Sobre Calibre','Todo Calibre'])
                     ->orderBy('e.nombre')
                     ->orderBy('c.nombre')
                     ->get();

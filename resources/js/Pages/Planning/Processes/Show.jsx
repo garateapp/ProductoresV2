@@ -1041,16 +1041,7 @@ export default function Show({ process, planningMode = null, lines = [], allLine
           setDirty(false)
         }
       },
-      onError: (errors) => {
-        const conflict = errors?.add_n_g_recepcion?.lot_in_other_process
-          || errors?.add_source_key?.lot_in_other_process
-        if (conflict) {
-          const msg = `El lote ya está en el Proceso N° ${conflict.process_id} (${conflict.process_estado}). ¿Deseas moverlo a este proceso?`
-          if (confirm(msg)) {
-            moveFromOtherProcess(conflict.lot_id, conflict.process_id, inventoryKey, lineId)
-          }
-        }
-      },
+      onError: () => {},
     })
   }
 
