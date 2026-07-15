@@ -2036,6 +2036,23 @@ export default function Show({ process, planningMode = null, lines = [], allLine
                                                   requestPackagingChange(lot, pack)
                                                 }}
                                               />
+                                              {(destinosAvailable || []).length > 0 ? (
+                                                <select
+                                                  className="rounded border px-2 py-1 text-xs"
+                                                  value={String(lot?.destino || '')}
+                                                  onChange={(e) => {
+                                                    const v = String(e.target.value || '').trim()
+                                                    setLot(lot.id, { destino: v ? v : null })
+                                                  }}
+                                                  disabled={isLocked}
+                                                  title="Destino de este embalaje"
+                                                >
+                                                  <option value="">Destino…</option>
+                                                  {(destinosAvailable || []).map((d) => (
+                                                    <option key={d} value={d}>{d}</option>
+                                                  ))}
+                                                </select>
+                                              ) : null}
                                               <Input
                                                 className="w-64"
                                                 placeholder="Indicaciones embalaje…"
