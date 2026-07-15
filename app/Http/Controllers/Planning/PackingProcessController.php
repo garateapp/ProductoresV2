@@ -852,7 +852,10 @@ class PackingProcessController extends Controller
 
         // Destinos disponibles según matriz (para filtrar sugerencias de embalaje).
         $especieKey = Str::upper(Str::ascii((string) ($process->especie ?? '')));
-        $matrix = (Str::contains($especieKey, 'CHERR') || Str::contains($especieKey, 'CEREZ')) ? 'cherries' : 'carozos';
+        $otrosKeys = ['APPLE', 'APRICOT', 'ARANDAN', 'CAQUI', 'CLEMENT', 'GRANADA', 'GRAPE', 'KIWI', 'LEMON', 'MANDARIN', 'MEMBRIL', 'ORANGE', 'PALTA', 'PEAR'];
+        $matrix = (Str::contains($especieKey, 'CHERR') || Str::contains($especieKey, 'CEREZ'))
+            ? 'cherries'
+            : (collect($otrosKeys)->contains(fn ($k) => Str::contains($especieKey, $k)) ? 'otros' : 'carozos');
 
         $packagingDestinosAvailable = PackagingMatrixRule::query()
             ->where('matrix', $matrix)
