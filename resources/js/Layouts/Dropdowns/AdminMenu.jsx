@@ -6,7 +6,9 @@ import {
   DropdownMenuItem,
 } from "@/Components/ui/dropdown-menu";
 import { Link } from "@inertiajs/react";
+ const hasRole = (roleName) => user.roles?.some(role => role.name === roleName);
 
+    const hasAnyRole = (roles) => roles.some(role => hasRole(role));
 
 
 export default function AdminMenu() {
@@ -69,7 +71,19 @@ export default function AdminMenu() {
             Grupos de Productores
           </Link>
         </DropdownMenuItem>
-         <DropdownMenuItem asChild>
+
+        <DropdownMenuItem asChild>
+          <Link href={route("contracts.index")} className="w-full">
+            Contratos
+          </Link>
+        </DropdownMenuItem>
+
+          <DropdownMenuItem asChild>
+            <Link href={route("prospectos-productores.index")} className="w-full">
+              Prospectos productores
+            </Link>
+          </DropdownMenuItem>
+      <DropdownMenuItem asChild>
           <Link href={route("continents.index")} className="w-full">
             Continentes
           </Link>

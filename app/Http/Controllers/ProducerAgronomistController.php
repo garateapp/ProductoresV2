@@ -4,7 +4,6 @@ namespace App\Http\Controllers;
 
 use App\Models\User;
 use Illuminate\Http\Request;
-use Illuminate\Support\Facades\DB;
 
 class ProducerAgronomistController extends Controller
 {
@@ -13,7 +12,10 @@ class ProducerAgronomistController extends Controller
      */
     public function index()
     {
-        $agronomists = User::role('Agronomo')->get();
+        $agronomists = User::query()
+            ->whereHas('roles', fn ($query) => $query->whereIn('name', ['Agronomo', 'Agrónomo']))
+            ->orderBy('name')
+            ->get(['id', 'name', 'email']);
 
         return response()->json($agronomists);
     }
@@ -29,29 +31,30 @@ class ProducerAgronomistController extends Controller
     /**
      * Store a newly created resource in storage.
      */
-    public function store(Request $request)
+    public function store(Request $request, User $producer)
     {
         $request->validate([
-            'producer_id' => 'required|exists:users,id',
             'agronomist_id' => 'required|exists:users,id',
         ]);
 
-        // Check if the relationship already exists
-        $exists = DB::table('campo_staff')
-            ->where('user_id', $request->producer_id)
-            ->where('agronomo_id', $request->agronomist_id)
+        $agronomistId = (int) $request->input('agronomist_id');
+
+        $isAgronomist = User::query()
+            ->whereKey($agronomistId)
+            ->whereHas('roles', fn ($query) => $query->whereIn('name', ['Agronomo', 'Agrónomo']))
             ->exists();
 
-        if (! $exists) {
-            DB::table('campo_staff')->insert([
-                'user_id' => $request->producer_id,
-                'agronomo_id' => $request->agronomist_id,
-                'created_at' => now(),
-                'updated_at' => now(),
+        if (! $isAgronomist) {
+            return back()->withErrors([
+                'agronomist_id' => 'El usuario seleccionado no es un agrónomo válido.',
             ]);
         }
 
-        return back()->with('success', 'Agronomist attached successfully.');
+        $producer->agronomists()->syncWithoutDetaching([
+            $agronomistId => ['rol' => 'admin'],
+        ]);
+
+        return back()->with('success', 'Agrónomo asociado exitosamente.');
     }
 
     /**
@@ -81,18 +84,14 @@ class ProducerAgronomistController extends Controller
     /**
      * Remove the specified resource from storage.
      */
-    public function destroy(Request $request)
+    public function destroy(Request $request, User $producer)
     {
         $request->validate([
-            'producer_id' => 'required|exists:users,id',
             'agronomist_id' => 'required|exists:users,id',
         ]);
 
-        DB::table('campo_staff')
-            ->where('user_id', $request->producer_id)
-            ->where('agronomo_id', $request->agronomist_id)
-            ->delete();
+        $producer->agronomists()->detach([(int) $request->input('agronomist_id')]);
 
-        return back()->with('success', 'Agronomist detached successfully.');
+        return back()->with('success', 'Agrónomo desasociado exitosamente.');
     }
 }

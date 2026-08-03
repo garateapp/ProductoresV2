@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { useForm } from '@inertiajs/react';
+import { router } from '@inertiajs/react';
 import { Button } from '@/Components/ui/button';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/Components/ui/table';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/Components/ui/select';
@@ -8,9 +8,7 @@ import axios from 'axios';
 export default function AgronomistManager({ producer }) {
   const [agronomists, setAgronomists] = useState([]);
   const [availableAgronomists, setAvailableAgronomists] = useState([]);
-  const [selectedAgronomist, setSelectedAgronomist] = useState(null);
-
-  const { post, delete: destroy } = useForm();
+  const [selectedAgronomist, setSelectedAgronomist] = useState('');
 
   useEffect(() => {
     setAgronomists(producer.agronomists || []);
@@ -21,7 +19,7 @@ export default function AgronomistManager({ producer }) {
     try {
       const response = await axios.get(route('agronomists.index'));
       const allAgronomists = response.data;
-      const currentAgronomistIds = producer.agronomists.map(a => a.id);
+      const currentAgronomistIds = (producer.agronomists || []).map(a => a.id);
       const filteredAgronomists = allAgronomists.filter(ag => !currentAgronomistIds.includes(ag.id));
       setAvailableAgronomists(filteredAgronomists);
     } catch (error) {
@@ -31,11 +29,11 @@ export default function AgronomistManager({ producer }) {
 
   const handleAttachAgronomist = () => {
     if (selectedAgronomist) {
-      post(route('producers.agronomists.store', producer.id), {
-        producer_id: producer.id,
-        agronomist_id: selectedAgronomist,
+      router.post(route('producers.agronomists.store', producer.id), {
+        agronomist_id: Number(selectedAgronomist),
+      }, {
         onSuccess: () => {
-          setSelectedAgronomist(null);
+          setSelectedAgronomist('');
           // Refresh producer data to get updated agronomists list
           window.location.reload(); 
         },
@@ -44,8 +42,8 @@ export default function AgronomistManager({ producer }) {
   };
 
   const handleDetachAgronomist = (agronomistId) => {
-    destroy(route('producers.agronomists.destroy', producer.id), {
-      data: { producer_id: producer.id, agronomist_id: agronomistId },
+    router.delete(route('producers.agronomists.destroy', producer.id), {
+      data: { agronomist_id: agronomistId },
       onSuccess: () => {
         // Refresh producer data to get updated agronomists list
         window.location.reload();
@@ -62,7 +60,7 @@ export default function AgronomistManager({ producer }) {
           </SelectTrigger>
           <SelectContent>
             {availableAgronomists.map((agronomist) => (
-              <SelectItem key={agronomist.id} value={agronomist.id}>
+              <SelectItem key={agronomist.id} value={String(agronomist.id)}>
                 {agronomist.name}
               </SelectItem>
             ))}

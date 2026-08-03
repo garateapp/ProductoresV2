@@ -46,9 +46,44 @@ export default function Index({ auth, notifications }) {
                 )}
                 {rows.map((n) => (
                   <TableRow key={n.id} className={!n.read_at ? 'bg-amber-50/40' : ''}>
-                    <TableCell className="font-semibold">{n.label || n.type}</TableCell>
+                    <TableCell className="font-semibold">
+                      {n.kind === 'material_request_created' ? (
+                        <Link href={route('inventory.material-requests.index')} className="text-greenex-dark-green hover:underline">
+                          {n.label || n.type}
+                        </Link>
+                      ) : n.kind === 'return_created' ? (
+                        <Link href={route('inventory.returns.index')} className="text-greenex-dark-green hover:underline">
+                          {n.label || n.type}
+                        </Link>
+                      ) : n.kind === 'inventory_transfer_dispatched' || n.kind === 'inventory_transfer_return_pending' ? (
+                        <Link href={route('inventory.movements.index')} className="text-greenex-dark-green hover:underline">
+                          {n.label || n.type}
+                        </Link>
+                      ) : (
+                        n.label || n.type
+                      )}
+                    </TableCell>
                     <TableCell>{n.file || '-'}</TableCell>
-                    <TableCell className="max-w-[420px] text-sm text-gray-700">{n.message || '-'}</TableCell>
+                    <TableCell className="max-w-[420px] text-sm text-gray-700">
+                      {n.kind === 'material_request_created' ? (
+                        <Link href={route('inventory.material-requests.index')} className="hover:underline">
+                          <span className="font-medium">{n.codigo}</span>
+                          <span className="text-gray-500"> &mdash; {n.origin || '?'} → {n.destination || '?'}</span>
+                        </Link>
+                      ) : n.kind === 'return_created' ? (
+                        <Link href={route('inventory.returns.index')} className="hover:underline">
+                          <span className="font-medium">{n.codigo}</span>
+                          <span className="text-gray-500"> &mdash; {n.origin || '?'} → {n.destination || '?'}</span>
+                        </Link>
+                      ) : n.kind === 'inventory_transfer_dispatched' || n.kind === 'inventory_transfer_return_pending' ? (
+                        <Link href={route('inventory.movements.index')} className="hover:underline">
+                          <span className="font-medium">{n.folio}</span>
+                          <span className="text-gray-500"> &mdash; {n.origin || '?'} → {n.destination || '?'}</span>
+                        </Link>
+                      ) : (
+                        n.message || '-'
+                      )}
+                    </TableCell>
                     <TableCell className="text-sm">{n.created_at || '-'}</TableCell>
                     <TableCell className="text-sm">{n.read_at ? 'Leído' : 'Nuevo'}</TableCell>
                     <TableCell className="text-right">

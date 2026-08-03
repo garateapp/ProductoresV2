@@ -22,13 +22,15 @@ import ValidacionesMenu from './Dropdowns/ValidacionesMenu.jsx';
 import ContratosMenu from './Dropdowns/ContratosMenu.jsx';
 import EstimacionesMenu from './Dropdowns/EstimacionesMenu.jsx';
 import PlanningMenu from './Dropdowns/PlanningMenu.jsx';
+import InventoryMenu from './Dropdowns/InventoryMenu.jsx';
+import IntegrationsMenu from './Dropdowns/IntegrationsMenu.jsx';
 
 const navLinkClasses =
     "group inline-flex h-9 w-max items-center justify-center rounded-md bg-greenex-dark-green px-4 py-2 text-sm font-medium transition-colors hover:bg-greenex-vibrant-green hover:text-greenex-orange focus:bg-greenex-vibrant-green focus:text-greenex-orange focus:outline-none disabled:pointer-events-none disabled:opacity-50 text-greenex-white";
 
 const mobileNavLinkClasses =
     "text-greenex-white hover:bg-greenex-vibrant-green hover:text-greenex-orange focus:bg-greenex-vibrant-green focus:text-greenex-orange border-greenex-vibrant-green";
-
+const showProspectos = false;
 const mobileNavLinkProps = {
     variant: 'dark',
     className: mobileNavLinkClasses,
@@ -42,7 +44,7 @@ export default function AuthenticatedLayout({ header, children }) {
     const hasRole = (roleName) => user.roles?.some(role => role.name === roleName);
 
     const hasAnyRole = (roles) => roles.some(role => hasRole(role));
-    const validacionesAllowedRoles = ['Planificador', 'Administración', 'Gerencia de Planta', 'Administrador'];
+    const validacionesAllowedRoles = ['Planificador', 'Administración', 'Gerencia de Planta', 'Administrador','Inventario'];
 
     useEffect(() => {
         setLiveUnreadCount(unreadCount);
@@ -129,15 +131,15 @@ export default function AuthenticatedLayout({ header, children }) {
                                             </NavigationMenuItem>
                                         )} */}
 
-                                        {hasAnyRole(['Administrador', 'Agronomo', 'Sag']) && <SagMenu/>}
+                                        {/* {hasAnyRole(['Administrador', 'Agronomo', 'Sag']) && <SagMenu/>} */}
 
-                                        {hasAnyRole(['Administrador', 'Agronomo']) && <EstimacionesMenu />}
+                                        {/* {hasAnyRole(['Administrador', 'Agronomo']) && <EstimacionesMenu />} */}
 
-                                        {hasAnyRole(['Administrador',  'Gerencia', 'Contrato']) && (
-                                            <ContratosMenu showProspectos={hasRole('Administrador')} />
-                                        )}
 
-                                        {hasAnyRole(['Administrador', 'Calidad', 'Gerencia']) && <PlanningMenu />}
+
+                                        {hasAnyRole(['Administrador',  'Gerencia']) && <PlanningMenu />}
+                                        {hasAnyRole(['Administrador', 'Calidad', 'Gerencia', 'Inventario']) && <InventoryMenu />}
+                                        {hasRole('Administrador') && <IntegrationsMenu />}
 
                                         {/* Submenús extraídos */}
                                         {hasAnyRole(['Administrador', 'Gerencia', 'Agronomo', 'Sag']) && <DocumentationMenu />}
@@ -261,6 +263,14 @@ export default function AuthenticatedLayout({ header, children }) {
                                             onClick={() => setShowingNavigationDropdown(false)}
                                         >
                                             Planificación · Cámaras
+                                        </ResponsiveNavLink>
+                                        <ResponsiveNavLink
+                                            {...mobileNavLinkProps}
+                                            href={route('inventory.dashboard')}
+                                            active={route().current('inventory.*')}
+                                            onClick={() => setShowingNavigationDropdown(false)}
+                                        >
+                                            Inventario
                                         </ResponsiveNavLink>
                                     </>
                                 )}
@@ -468,6 +478,14 @@ export default function AuthenticatedLayout({ header, children }) {
 
                         {hasRole('Administrador') && (
                             <>
+                                <ResponsiveNavLink
+                                    {...mobileNavLinkProps}
+                                    href={route('integrations.dashboard')}
+                                    active={route().current('integrations.*')}
+                                    onClick={() => setShowingNavigationDropdown(false)}
+                                >
+                                    Integraciones
+                                </ResponsiveNavLink>
                                 <ResponsiveNavLink
                                     {...mobileNavLinkProps}
                                     href={route('users.index')}

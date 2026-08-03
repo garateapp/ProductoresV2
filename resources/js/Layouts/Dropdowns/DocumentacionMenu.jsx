@@ -42,6 +42,22 @@ export default function DocumentationMenu() {
             Mercados
           </Link>
         </DropdownMenuItem>
+         <DropdownMenuItem asChild>
+                    <Link href={route('sag.index')} className="w-full">Certificaciones SAG</Link>
+
+                </DropdownMenuItem>
+                <DropdownMenuItem asChild>
+                    <Link href={route('sag.sdp-assignments.index')} className="w-full">Asignación SDP</Link>
+                </DropdownMenuItem>
+                <DropdownMenuItem asChild>
+                    <Link href={route('sdp-sites.index')} className="w-full">SDP (Sitios)</Link>
+                </DropdownMenuItem>
+                 <DropdownMenuItem asChild>
+                  <Link href={route("producer-certifications.index")} className="w-full">
+                    Cert. Internacional
+                  </Link>
+                </DropdownMenuItem>
+
       </DropdownMenuContent>
     </DropdownMenu>
   );

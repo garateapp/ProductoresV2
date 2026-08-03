@@ -79,6 +79,7 @@ class ServiceController extends Controller
         $validated = $request->validate([
             'name' => 'required|string|max:255',
             'description' => 'nullable|string',
+            'rut' => 'nullable|string|max:60',
             'owner_id' => 'required|exists:users,id',
             'phones' => 'present|array',
             'phones.*' => 'nullable|string|max:255',
@@ -90,6 +91,7 @@ class ServiceController extends Controller
             $service = Service::create([
                 'name' => $validated['name'],
                 'description' => $validated['description'],
+                'rut' => $validated['rut'] ?? null,
                 'owner_id' => $validated['owner_id'],
             ]);
 
@@ -168,6 +170,7 @@ class ServiceController extends Controller
         $validated = $request->validate([
             'name' => 'required|string|max:255',
             'description' => 'nullable|string',
+            'rut' => 'nullable|string|max:60',
             'owner_id' => 'required|exists:users,id',
             'phones' => 'present|array',
             'phones.*' => 'nullable|string|max:255',
@@ -179,6 +182,7 @@ class ServiceController extends Controller
             $service->update([
                 'name' => $validated['name'],
                 'description' => $validated['description'],
+                'rut' => $validated['rut'] ?? null,
                 'owner_id' => $validated['owner_id'],
             ]);
 

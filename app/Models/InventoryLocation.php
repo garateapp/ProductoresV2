@@ -2,6 +2,7 @@
 
 namespace App\Models;
 
+use App\Traits\Auditable;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\BelongsToMany;
@@ -9,6 +10,8 @@ use Illuminate\Database\Eloquent\Relations\HasMany;
 
 class InventoryLocation extends Model
 {
+    use Auditable;
+
     protected $fillable = [
         'codigo',
         'scan_code',
@@ -23,6 +26,7 @@ class InventoryLocation extends Model
         'permite_stock_negativo',
         'metadata',
         'activo',
+        'es_bodega_central',
     ];
 
     protected $casts = [
@@ -33,6 +37,7 @@ class InventoryLocation extends Model
         'permite_stock_negativo' => 'boolean',
         'metadata' => 'array',
         'activo' => 'boolean',
+        'es_bodega_central' => 'boolean',
     ];
 
     public function parent(): BelongsTo

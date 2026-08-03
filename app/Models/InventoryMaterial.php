@@ -14,16 +14,19 @@ class InventoryMaterial extends Model
         'descripcion',
         'family_id',
         'unit_id',
+        'service_id',
         'tipo_material',
         'sap_on_hand',
         'sap_avg_price',
         'metadata',
+        'stock_minimo',
         'activo',
     ];
 
     protected $casts = [
         'sap_on_hand' => 'decimal:4',
         'sap_avg_price' => 'decimal:4',
+        'stock_minimo' => 'decimal:4',
         'metadata' => 'array',
         'activo' => 'boolean',
     ];
@@ -36,6 +39,11 @@ class InventoryMaterial extends Model
     public function unit(): BelongsTo
     {
         return $this->belongsTo(InventoryUnit::class, 'unit_id');
+    }
+
+    public function service(): BelongsTo
+    {
+        return $this->belongsTo(Service::class, 'service_id');
     }
 
     public function stockLocations(): HasMany
@@ -53,8 +61,9 @@ class InventoryMaterial extends Model
         return $this->hasMany(InventoryLogisticUnit::class, 'material_id');
     }
 
-    public function wasteRecords(): HasMany
+    public function scopeUnderMinimumStock($query)
     {
-        return $this->hasMany(InventoryWasteRecord::class, 'material_id');
+        return $query->where('activo', true)
+            ->whereColumn('stock_minimo', '>', 'sap_on_hand'); // Assuming sap_on_hand is the current stock source
     }
 }

@@ -3,6 +3,7 @@
 namespace App\Models;
 
 // use Illuminate\Contracts\Auth\MustVerifyEmail;
+use Illuminate\Database\Eloquent\Relations\BelongsToMany;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Foundation\Auth\User as Authenticatable;
 use Illuminate\Notifications\Notifiable;
@@ -78,12 +79,16 @@ class User extends Authenticatable
 
     public function agronomists()
     {
-        return $this->belongsToMany(User::class, 'campo_staff', 'user_id', 'agronomo_id', 'id', 'id');
+        return $this->belongsToMany(User::class, 'campo_staff', 'user_id', 'agronomo_id', 'id', 'id')
+            ->withPivot(['rol', 'campo_rut'])
+            ->withTimestamps();
     }
 
     public function producers()
     {
-        return $this->belongsToMany(User::class, 'campo_staff', 'agronomo_id', 'user_id', 'id', 'id');
+        return $this->belongsToMany(User::class, 'campo_staff', 'agronomo_id', 'user_id', 'id', 'id')
+            ->withPivot(['rol', 'campo_rut'])
+            ->withTimestamps();
     }
 
     public function especies()
@@ -139,5 +144,11 @@ class User extends Authenticatable
     public function loginEvents()
     {
         return $this->hasMany(LoginEvent::class);
+    }
+
+    public function inventoryLocations(): BelongsToMany
+    {
+        return $this->belongsToMany(InventoryLocation::class, 'inventory_location_user', 'user_id', 'inventory_location_id')
+            ->withTimestamps();
     }
 }

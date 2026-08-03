@@ -79,7 +79,7 @@ export default function ServiceIndex({ auth, services, availableUsers, filters }
             )}
 
             <div className="py-12">
-                <div className="max-w-7xl mx-auto sm:px-6 lg:px-8">
+                <div className="mx-auto sm:px-6 lg:px-8">
                     <div className="bg-white overflow-hidden shadow-sm sm:rounded-lg">
                         <div className="p-6 text-gray-900">
                             <div className="flex justify-end mb-4">
@@ -97,6 +97,7 @@ export default function ServiceIndex({ auth, services, availableUsers, filters }
                                     <tr>
                                         <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Nombre</th>
                                         <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Descripción</th>
+                                        <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">RUT</th>
                                         <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Dueño</th>
                                         <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Teléfonos</th>
                                         <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Emails</th>
@@ -108,6 +109,7 @@ export default function ServiceIndex({ auth, services, availableUsers, filters }
                                         <tr key={service.id}>
                                             <td className="px-6 py-4"><div className="max-w-xs truncate" title={service.name}>{service.name}</div></td>
                                             <td className="px-6 py-4"><div className="max-w-sm truncate" title={service.description}>{service.description}</div></td>
+                                            <td className="px-6 py-4"><div className="max-w-xs truncate" title={service.rut}>{service.rut || '-'}</div></td>
                                             <td className="px-6 py-4"><div className="max-w-xs truncate" title={service.owner?.name}>{service.owner?.name}</div></td>
                                             <td className="px-6 py-4"><div className="max-w-sm truncate" title={service.phones.map(p => p.phone).join(', ')}>{service.phones.map(p => p.phone).join(', ')}</div></td>
                                             <td className="px-6 py-4"><div className="max-w-sm truncate" title={service.emails.map(e => e.email).join(', ')}>{service.emails.map(e => e.email).join(', ')}</div></td>

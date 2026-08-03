@@ -11,6 +11,7 @@ use App\Models\Service;
 use App\Models\User;
 use App\Models\Variedad;
 use Carbon\Carbon;
+use Illuminate\Database\QueryException;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Str;
@@ -155,14 +156,7 @@ class EstimationBiweeklyImportService
         $version = $this->cloneVersion($base, $user, 'manual');
 
         $baseRow = $base->rows()->findOrFail($payload['row_id']);
-        $row = $version->rows()
-            ->where('producer_id', $baseRow->producer_id)
-            ->where('service_id', $baseRow->service_id)
-            ->where('sucursal', $baseRow->sucursal)
-            ->where('variedad_id', $baseRow->variedad_id)
-            ->whereDate('dia', $baseRow->dia)
-            ->where('total_kilo', $baseRow->total_kilo)
-            ->firstOrFail();
+        $row = $this->findMatchingRowInVersion($version, $baseRow);
 
         $oldSnapshot = $row->toArray();
         $row->fill($payload['row'] ?? []);
@@ -181,6 +175,171 @@ class EstimationBiweeklyImportService
         ]);
 
         return $version;
+    }
+
+    public function applyManualServiceUpdate(EstimationBiweeklyVersion $base, array $payload, User $user): EstimationBiweeklyVersion
+    {
+        if ((string) ($base->origin ?? '') !== 'servicio_planificador') {
+            throw ValidationException::withMessages([
+                'version' => ['La versión no corresponde a estimaciones de servicios.'],
+            ]);
+        }
+
+        $version = $this->cloneVersion($base, $user, 'manual');
+        $baseRow = $base->rows()->findOrFail($payload['row_id']);
+        $row = $this->findMatchingRowInVersion($version, $baseRow);
+
+        $rowData = validator($payload['row'] ?? [], [
+            'service_id' => ['required', 'exists:services,id'],
+            'variedad_id' => ['required', 'exists:variedads,id'],
+            'planta' => ['nullable', 'string', 'max:120'],
+            'tipo' => ['nullable', 'string', 'max:80'],
+            'acopio' => ['required', 'boolean'],
+            'mexico' => ['nullable', 'boolean'],
+            'dia' => ['required', 'date'],
+            'total_kilo' => ['required', 'numeric', 'min:0.001'],
+        ])->validate();
+
+        /** @var Service|null $service */
+        $service = Service::query()
+            ->with(['owner:id,name,csg'])
+            ->whereNotIn('id', [4, 6])
+            ->find((int) $rowData['service_id']);
+        if (! $service) {
+            throw ValidationException::withMessages([
+                'row.service_id' => ['Servicio no permitido para estimación de planificador.'],
+            ]);
+        }
+        if (! $service->owner_id || ! $service->owner) {
+            throw ValidationException::withMessages([
+                'row.service_id' => ['El servicio seleccionado no tiene dueño asociado.'],
+            ]);
+        }
+
+        /** @var Variedad|null $variedad */
+        $variedad = Variedad::query()
+            ->with(['especie:id,name'])
+            ->find((int) $rowData['variedad_id']);
+        if (! $variedad) {
+            throw ValidationException::withMessages([
+                'row.variedad_id' => ['Variedad no encontrada.'],
+            ]);
+        }
+
+        $dia = Carbon::parse((string) $rowData['dia'])->startOfDay();
+        $especie = trim((string) ($variedad->especie?->name ?? ''));
+        if ($especie === '') {
+            throw ValidationException::withMessages([
+                'row.variedad_id' => ['No se pudo resolver especie desde la variedad seleccionada.'],
+            ]);
+        }
+
+        $oldSnapshot = $row->toArray();
+
+        $row->fill([
+            'service_id' => (int) $service->id,
+            'producer_id' => (int) $service->owner_id,
+            'variedad_id' => (int) $variedad->id,
+            'planta' => trim((string) ($rowData['planta'] ?? '')) ?: null,
+            'sucursal' => 'SERV-'.$service->id,
+            'csg' => trim((string) ($service->owner?->csg ?? '')) ?: null,
+            'especie' => $especie,
+            'tipo' => trim((string) ($rowData['tipo'] ?? '')) ?: 'SERVICIO',
+            'acopio' => (bool) $rowData['acopio'],
+            'mexico' => array_key_exists('mexico', $rowData)
+                ? ($rowData['mexico'] === null ? null : (bool) $rowData['mexico'])
+                : null,
+            'dia' => $dia->toDateString(),
+            'semana' => (int) $dia->isoWeek(),
+            'total_kilo' => (float) $rowData['total_kilo'],
+        ]);
+
+        try {
+            $row->save();
+        } catch (QueryException $exception) {
+            throw ValidationException::withMessages([
+                'row' => ['La fila editada genera un duplicado con otra fila de la misma versión.'],
+            ]);
+        }
+
+        EstimationBiweeklyAudit::create([
+            'estimation_biweekly_version_id' => $version->id,
+            'estimation_biweekly_row_id' => $row->id,
+            'field_name' => 'row',
+            'action' => 'update',
+            'source' => 'manual',
+            'old_value' => json_encode($oldSnapshot),
+            'new_value' => json_encode($row->toArray()),
+            'changed_by' => $user->id,
+            'changed_at' => now(),
+        ]);
+
+        return $version;
+    }
+
+    public function deleteManualServiceRow(EstimationBiweeklyVersion $base, EstimationBiweeklyRow $baseRow, User $user): EstimationBiweeklyVersion
+    {
+        if ((string) ($base->origin ?? '') !== 'servicio_planificador') {
+            throw ValidationException::withMessages([
+                'version' => ['La versión no corresponde a estimaciones de servicios.'],
+            ]);
+        }
+
+        $version = $this->cloneVersion($base, $user, 'manual');
+        $row = $this->findMatchingRowInVersion($version, $baseRow);
+
+        EstimationBiweeklyAudit::query()
+            ->where('estimation_biweekly_version_id', $version->id)
+            ->where('estimation_biweekly_row_id', $row->id)
+            ->delete();
+        $row->delete();
+
+        return $version;
+    }
+
+    public function deleteManualServiceVersion(EstimationBiweeklyVersion $version): void
+    {
+        if ((string) ($version->origin ?? '') !== 'servicio_planificador') {
+            throw ValidationException::withMessages([
+                'version' => ['La versión no corresponde a estimaciones de servicios.'],
+            ]);
+        }
+
+        DB::transaction(function () use ($version): void {
+            $version->refresh();
+
+            $wasActive = (string) ($version->status?->value ?? $version->status) === EstimationVersionStatus::ACTIVE->value;
+            $seasonId = (int) $version->season_id;
+            $startWeek = $version->period_start_week;
+            $endWeek = $version->period_end_week;
+
+            EstimationBiweeklyAudit::query()
+                ->where('estimation_biweekly_version_id', $version->id)
+                ->delete();
+            EstimationBiweeklyRow::query()
+                ->where('estimation_biweekly_version_id', $version->id)
+                ->delete();
+            $version->delete();
+
+            if (! $wasActive) {
+                return;
+            }
+
+            $replacement = EstimationBiweeklyVersion::query()
+                ->where('season_id', $seasonId)
+                ->where('origin', 'servicio_planificador')
+                ->where('period_start_week', $startWeek)
+                ->where('period_end_week', $endWeek)
+                ->where('status', EstimationVersionStatus::SUPERSEDED->value)
+                ->orderByDesc('created_at')
+                ->orderByDesc('id')
+                ->first();
+
+            if ($replacement) {
+                $replacement->status = EstimationVersionStatus::ACTIVE;
+                $replacement->save();
+            }
+        });
     }
 
     public function createManualServiceVersion(array $payload, User $user): EstimationBiweeklyVersion
@@ -646,5 +805,23 @@ class EstimationBiweeklyImportService
         fclose($stream);
 
         return 'estimations/biweekly/'.$name;
+    }
+
+    private function findMatchingRowInVersion(EstimationBiweeklyVersion $version, EstimationBiweeklyRow $baseRow): EstimationBiweeklyRow
+    {
+        return $version->rows()
+            ->where('producer_id', $baseRow->producer_id)
+            ->where(function ($query) use ($baseRow) {
+                if ($baseRow->service_id === null) {
+                    $query->whereNull('service_id');
+                } else {
+                    $query->where('service_id', $baseRow->service_id);
+                }
+            })
+            ->where('sucursal', (string) ($baseRow->sucursal ?? ''))
+            ->where('variedad_id', $baseRow->variedad_id)
+            ->whereDate('dia', $baseRow->dia)
+            ->where('total_kilo', $baseRow->total_kilo)
+            ->firstOrFail();
     }
 }

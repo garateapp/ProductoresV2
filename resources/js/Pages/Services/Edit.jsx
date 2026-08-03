@@ -10,6 +10,7 @@ export default function ServiceEdit({ auth, service, users }) {
     const form = useForm({
         name: service.name || '',
         description: service.description || '',
+        rut: service.rut || '',
         owner_id: service.owner_id ? String(service.owner_id) : '',
         phones: service.phones.map((p) => p.phone) || [''],
         emails: service.emails.map((e) => e.email) || [''],
@@ -107,6 +108,18 @@ export default function ServiceEdit({ auth, service, users }) {
                                     {errors.description && (
                                         <div className="text-red-600 text-sm mt-1">{errors.description}</div>
                                     )}
+                                </div>
+
+                                <div>
+                                    <Label htmlFor="rut">RUT Exportadora</Label>
+                                    <Input
+                                        id="rut"
+                                        type="text"
+                                        value={data.rut}
+                                        onChange={(e) => setData('rut', e.target.value)}
+                                        className="mt-1 block w-full"
+                                    />
+                                    {errors.rut && <div className="text-red-600 text-sm mt-1">{errors.rut}</div>}
                                 </div>
 
                                 <div>

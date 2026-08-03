@@ -474,6 +474,8 @@ Route::middleware('auth')->group(function () {
         Route::post('technical-sheets', [App\Http\Controllers\Inventory\TechnicalSheetController::class, 'store'])->name('technical-sheets.store');
         Route::patch('technical-sheets/{technicalSheet}', [App\Http\Controllers\Inventory\TechnicalSheetController::class, 'update'])->name('technical-sheets.update');
         Route::post('technical-sheets/sync-packagings', [App\Http\Controllers\Inventory\TechnicalSheetController::class, 'syncPackagings'])->name('technical-sheets.sync-packagings');
+        Route::get('technical-sheets/template', [App\Http\Controllers\Inventory\TechnicalSheetController::class, 'downloadTemplate'])->name('technical-sheets.template');
+        Route::post('technical-sheets/import', [App\Http\Controllers\Inventory\TechnicalSheetController::class, 'import'])->name('technical-sheets.import');
 
         Route::get('productions', [App\Http\Controllers\Inventory\ProductionController::class, 'index'])->name('productions.index');
         Route::post('productions', [App\Http\Controllers\Inventory\ProductionController::class, 'store'])->name('productions.store');
@@ -482,6 +484,9 @@ Route::middleware('auth')->group(function () {
 
     // Producer Groups
     Route::resource('producer-groups', App\Http\Controllers\ProducerGroupController::class)->except(['show', 'create'])->names('producer-groups');
+
+    // Integrations Module
+    require __DIR__.'/integrations.php';
 });
 
 require __DIR__.'/auth.php';

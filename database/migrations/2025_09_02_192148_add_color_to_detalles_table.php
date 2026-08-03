@@ -11,6 +11,10 @@ return new class extends Migration
      */
     public function up(): void
     {
+        if (! Schema::hasTable('detalles')) {
+            return;
+        }
+
         Schema::table('detalles', function (Blueprint $table) {
             $table->string('color')->nullable()->after('porcentaje_muestra');
         });
@@ -21,6 +25,10 @@ return new class extends Migration
      */
     public function down(): void
     {
+        if (! Schema::hasTable('detalles')) {
+            return;
+        }
+
         Schema::table('detalles', function (Blueprint $table) {
             $table->dropColumn('color');
         });

@@ -10,7 +10,7 @@ class Service extends Model
 {
     use HasFactory;
 
-    protected $fillable = ['name', 'description', 'owner_id'];
+    protected $fillable = ['name', 'description', 'rut', 'owner_id'];
 
     public function users()
     {
@@ -30,6 +30,11 @@ class Service extends Model
     public function emails()
     {
         return $this->hasMany(ServiceEmail::class);
+    }
+
+    public function inventoryMaterials(): HasMany
+    {
+        return $this->hasMany(InventoryMaterial::class, 'service_id');
     }
 
     public function prospectosProductores(): HasMany

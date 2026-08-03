@@ -33,7 +33,7 @@ export default function Login({ status, canResetPassword }) {
 
             <Card className="w-full max-w-md mx-auto mt-6 bg-opacity-90">
                 <CardHeader>
-                    <CardTitle className="text-2xl font-bold text-center">Acceso Productores</CardTitle>
+                    <CardTitle className="text-2xl font-bold text-center">Portal Producción</CardTitle>
                 </CardHeader>
                 <CardContent>
                     <form onSubmit={submit} className="space-y-4">

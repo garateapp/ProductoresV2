@@ -12,12 +12,80 @@ class NotificationController extends Controller
         $user = $request->user();
         $notifications = $user
             ? $user->notifications()->latest()->paginate(20)->through(function ($notification) {
+                $data = $notification->data;
+                $kind = $data['kind'] ?? null;
+
+                if ($kind === 'material_request_created') {
+                    return [
+                        'id' => $notification->id,
+                        'type' => 'Solicitud',
+                        'label' => 'Solicitud de materiales',
+                        'message' => ($data['creator_name'] ?? 'Alguien') . ' creó ' . ($data['codigo'] ?? 'una solicitud'),
+                        'request_id' => $data['material_request_id'] ?? null,
+                        'codigo' => $data['codigo'] ?? null,
+                        'origin' => $data['origin']['nombre'] ?? null,
+                        'destination' => $data['destination']['nombre'] ?? null,
+                        'kind' => $kind,
+                        'read_at' => optional($notification->read_at)->toDateTimeString(),
+                        'created_at' => optional($notification->created_at)->toDateTimeString(),
+                    ];
+                }
+
+                if ($kind === 'return_created') {
+                    return [
+                        'id' => $notification->id,
+                        'type' => 'Devolución',
+                        'label' => 'Devolución de materiales',
+                        'message' => ($data['creator_name'] ?? 'Alguien') . ' creó ' . ($data['codigo'] ?? 'una devolución'),
+                        'request_id' => $data['return_id'] ?? null,
+                        'codigo' => $data['codigo'] ?? null,
+                        'origin' => $data['origin']['nombre'] ?? null,
+                        'destination' => $data['destination']['nombre'] ?? null,
+                        'kind' => $kind,
+                        'read_at' => optional($notification->read_at)->toDateTimeString(),
+                        'created_at' => optional($notification->created_at)->toDateTimeString(),
+                    ];
+                }
+
+                if ($kind === 'inventory_transfer_dispatched') {
+                    return [
+                        'id' => $notification->id,
+                        'type' => 'Traspaso',
+                        'label' => 'Traspaso de inventario',
+                        'message' => 'Folio ' . ($data['folio'] ?? '') . ' despachado',
+                        'movement_id' => $data['movement_id'] ?? null,
+                        'folio' => $data['folio'] ?? null,
+                        'origin' => $data['origin']['nombre'] ?? null,
+                        'destination' => $data['destination']['nombre'] ?? null,
+                        'kind' => $kind,
+                        'read_at' => optional($notification->read_at)->toDateTimeString(),
+                        'created_at' => optional($notification->created_at)->toDateTimeString(),
+                    ];
+                }
+
+                if ($kind === 'inventory_transfer_return_pending') {
+                    return [
+                        'id' => $notification->id,
+                        'type' => 'Devolución pendiente',
+                        'label' => 'Devolución de inventario pendiente',
+                        'message' => 'Folio ' . ($data['folio'] ?? '') . ' pendiente de devolución',
+                        'movement_id' => $data['movement_id'] ?? null,
+                        'folio' => $data['folio'] ?? null,
+                        'origin' => $data['origin']['nombre'] ?? null,
+                        'destination' => $data['destination']['nombre'] ?? null,
+                        'kind' => $kind,
+                        'read_at' => optional($notification->read_at)->toDateTimeString(),
+                        'created_at' => optional($notification->created_at)->toDateTimeString(),
+                    ];
+                }
+
                 return [
                     'id' => $notification->id,
-                    'type' => $notification->data['type'] ?? $notification->type,
-                    'label' => $notification->data['label'] ?? null,
-                    'file' => $notification->data['file'] ?? null,
-                    'message' => $notification->data['message'] ?? null,
+                    'type' => $data['type'] ?? $notification->type,
+                    'label' => $data['label'] ?? null,
+                    'file' => $data['file'] ?? null,
+                    'message' => $data['message'] ?? null,
+                    'kind' => $kind,
                     'read_at' => optional($notification->read_at)->toDateTimeString(),
                     'created_at' => optional($notification->created_at)->toDateTimeString(),
                 ];

@@ -127,6 +127,20 @@ return [
 
 
         ],
+        'sap' => [
+            'driver' => 'sqlsrv',
+            'url' => env('DB_SAP_URL'),
+            'host' => env('DB_SAP_HOST', '192.168.0.33'),
+            'port' => env('DB_SAP_PORT', '1433'),
+            'database' => env('DB_SAP_DATABASE', 'herramientas'),
+            'username' => env('DB_SAP_USERNAME', 'sa'),
+            'password' => env('DB_SAP_PASSWORD', 'GREENEX.2023'),
+            'charset' => 'utf8',
+            'prefix' => '',
+            'prefix_indexes' => true,
+            // 'encrypt' => env('DB_ENCRYPT', 'yes'),
+            'trust_server_certificate' => env('DB_TRUST_SERVER_CERTIFICATE', 'true'),
+        ],
         'unitec' => [
             'driver' => 'sqlsrv',
             'url' => env('UNITEC_DB_URL'),

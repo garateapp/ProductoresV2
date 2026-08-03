@@ -10,6 +10,7 @@ export default function ServiceCreate({ auth, users }) {
     const { data, setData, post, processing, errors } = useForm({
         name: '',
         description: '',
+        rut: '',
         owner_id: users[0] ? String(users[0].id) : '',
         phones: [''],
         emails: [''],
@@ -105,6 +106,18 @@ export default function ServiceCreate({ auth, users }) {
                                     {errors.description && (
                                         <div className="text-red-600 text-sm mt-1">{errors.description}</div>
                                     )}
+                                </div>
+
+                                <div>
+                                    <Label htmlFor="rut">RUT Exportadora</Label>
+                                    <Input
+                                        id="rut"
+                                        type="text"
+                                        value={data.rut}
+                                        onChange={(e) => setData('rut', e.target.value)}
+                                        className="mt-1 block w-full"
+                                    />
+                                    {errors.rut && <div className="text-red-600 text-sm mt-1">{errors.rut}</div>}
                                 </div>
 
                                 <div>
