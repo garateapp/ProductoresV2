@@ -15,7 +15,7 @@ use InvalidArgumentException;
 
 class MaterialCatalogService
 {
-    private const SAP_GROUP_CODES = [118, 127, 139, 312, 142, 150, 140, 444, 405, 124, 141, 129, 102, 130, 311, 313, 327, 329, 331, 400, 401, 403, 413, 421, 438, 458, 459];
+    private const SAP_GROUP_CODES = [104,118, 127, 139, 312, 142, 150, 140, 444, 405, 124, 141, 129, 102, 130, 311, 313, 327, 329, 331,387, 400, 401, 403, 413, 421, 438, 458, 459];
 
     private const LAST_SYNC_DATE_KEY = 'materials.last_sync_date';
 
