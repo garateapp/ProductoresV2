@@ -5,13 +5,84 @@ namespace App\Services\Inventory;
 use App\Models\InventoryMaterial;
 use App\Models\InventoryMaterialFamily;
 use App\Models\InventoryUnit;
+use App\Models\SapSyncState;
+use App\Services\Sap\ServiceLayerClient;
+use Carbon\Carbon;
+use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\DB;
+use InvalidArgumentException;
 
 class MaterialCatalogService
 {
     private const SAP_GROUP_CODES = [127, 139, 312, 142, 150, 140, 444, 405, 124, 141, 129, 102, 130, 311, 313, 327, 329, 331, 400, 401, 403, 421, 438, 458, 459];
 
-    public function syncFromSap(): array
+    private const LAST_SYNC_DATE_KEY = 'materials.last_sync_date';
+
+    private const SQL_QUERY_NAME = 'vGEX_OITM';
+
+    public function __construct(
+        private readonly ServiceLayerClient $serviceLayerClient,
+    ) {}
+
+    public function syncFromSap(?string $desde = null, ?string $hasta = null): array
+    {
+        if (config('services.sap_service_layer.enabled')) {
+            return $this->syncFromServiceLayer($desde, $hasta);
+        }
+
+        return $this->syncFromSql();
+    }
+
+    private function syncFromServiceLayer(?string $desde, ?string $hasta): array
+    {
+        $hastaDate = $hasta !== null ? $this->parseDate($hasta, 'hasta') : Carbon::today();
+
+        $desdeDate = $desde !== null
+            ? $this->parseDate($desde, 'desde')
+            : $this->resolveDesdeDate($hastaDate);
+
+        $rows = collect();
+
+        for ($date = $desdeDate->copy(); $date->lte($hastaDate); $date->addDay()) {
+            $rows = $rows->merge($this->serviceLayerClient->sqlQuery(
+                self::SQL_QUERY_NAME,
+                ['Fecha' => "'".$date->format('Ymd')."'"]
+            ));
+        }
+
+        $rows = $rows
+            ->filter(fn ($row) => isset($row->ItemCode) && trim((string) $row->ItemCode) !== '')
+            ->keyBy(fn ($row) => (string) $row->ItemCode)
+            ->values();
+
+        $summary = $this->syncRows($rows);
+
+        SapSyncState::set(self::LAST_SYNC_DATE_KEY, $hastaDate->format('Ymd'));
+
+        return $summary;
+    }
+
+    private function resolveDesdeDate(Carbon $hastaDate): Carbon
+    {
+        $lastSync = SapSyncState::get(self::LAST_SYNC_DATE_KEY);
+
+        if ($lastSync !== null && preg_match('/^\d{8}$/', $lastSync) === 1) {
+            return Carbon::createFromFormat('Ymd', $lastSync);
+        }
+
+        return $hastaDate->copy()->subDays((int) config('services.sap_service_layer.default_days_back', 30));
+    }
+
+    private function parseDate(string $value, string $label): Carbon
+    {
+        if (preg_match('/^\d{8}$/', $value) !== 1) {
+            throw new InvalidArgumentException("El parámetro '{$label}' debe tener formato YYYYMMDD.");
+        }
+
+        return Carbon::createFromFormat('Ymd', $value);
+    }
+
+    private function syncFromSql(): array
     {
         $rows = DB::connection('sap')
             ->table('dbo.tOITM')
@@ -34,6 +105,15 @@ class MaterialCatalogService
             ->whereIn('ItmsGrpCod', self::SAP_GROUP_CODES)
             ->orderBy('ItmsGrpCod')
             ->get();
+
+        return $this->syncRows($rows);
+    }
+
+    private function syncRows(Collection $rows): array
+    {
+        $rows = $rows
+            ->filter(fn ($row) => in_array((int) ($row->ItmsGrpCod ?? -1), self::SAP_GROUP_CODES, true))
+            ->values();
 
         $created = 0;
         $updated = 0;
@@ -88,6 +168,7 @@ class MaterialCatalogService
                 if ($material) {
                     $material->fill($payload)->save();
                     $updated++;
+
                     continue;
                 }
 

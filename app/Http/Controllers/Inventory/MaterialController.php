@@ -116,14 +116,17 @@ class MaterialController extends Controller
         $this->authorizeInventory($request);
 
         try {
-            $summary = $catalogService->syncFromSap();
+            $summary = $catalogService->syncFromSap(
+                $request->filled('desde') ? $request->input('desde') : null,
+                $request->filled('hasta') ? $request->input('hasta') : null,
+            );
         } catch (Throwable $exception) {
             report($exception);
 
             return back()->with('error', 'No fue posible sincronizar materiales desde SAP.');
         }
 
-        return back()->with('success', "SAP sincronizado. {$summary['created']} creados, {$summary['updated']} actualizados.");
+        return back()->with('success', "SAP sincronizado. {$summary['total']} filas, {$summary['created']} creados, {$summary['updated']} actualizados.");
     }
 
     public function syncCentralStock(Request $request, CentralStockSyncService $centralStockSyncService): RedirectResponse

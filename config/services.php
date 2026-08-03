@@ -48,4 +48,15 @@ return [
         'stream_host' => env('ASSEMBLYAI_STREAM_HOST', 'streaming.assemblyai.com'),
     ],
 
+    'sap_service_layer' => [
+        'enabled' => filter_var(env('SAP_SL_ENABLED', false), FILTER_VALIDATE_BOOLEAN),
+        'base_url' => env('SAP_SL_BASE_URL', 'https://188.34.132.98:50005/b1s/v1'),
+        'company_db' => env('SAP_SL_COMPANY_DB', 'SBOGREENEX1'),
+        'username' => env('SAP_SL_USERNAME', 'GER01'),
+        'password' => env('SAP_SL_PASSWORD', ''),
+        'timeout' => env('SAP_SL_TIMEOUT', 60),
+        'verify_ssl' => filter_var(env('SAP_SL_VERIFY_SSL', false), FILTER_VALIDATE_BOOLEAN),
+        'default_days_back' => env('SAP_SL_DEFAULT_DAYS_BACK', 30),
+    ],
+
 ];
