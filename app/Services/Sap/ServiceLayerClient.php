@@ -6,6 +6,7 @@ use Illuminate\Http\Client\Response;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\Http;
+use InvalidArgumentException;
 use RuntimeException;
 
 class ServiceLayerClient
@@ -53,6 +54,41 @@ class ServiceLayerClient
             ->map(fn ($row) => (object) $row);
     }
 
+    public function entitySet(string $name, array $params = []): Collection
+    {
+        if (preg_match('/^[A-Za-z][A-Za-z0-9_]*$/', $name) !== 1) {
+            throw new InvalidArgumentException('Nombre de EntitySet SAP inválido.');
+        }
+
+        $pageSize = 1000;
+        $offset = 0;
+        $rows = collect();
+
+        do {
+            $pageParams = [
+                ...$params,
+                '$top' => $pageSize,
+                '$skip' => $offset,
+            ];
+            $response = $this->entitySetRequest($name, $pageParams, $this->sessionId());
+
+            if ($response->status() === 401) {
+                Cache::forget(self::SESSION_CACHE_KEY);
+                $response = $this->entitySetRequest($name, $pageParams, $this->sessionId());
+            }
+
+            if (! $response->successful()) {
+                throw new RuntimeException($this->errorMessage($response));
+            }
+
+            $page = collect($response->json('value') ?? []);
+            $rows = $rows->merge($page->map(fn ($row) => (object) $row));
+            $offset += $page->count();
+        } while ($page->count() === $pageSize);
+
+        return $rows;
+    }
+
     private function request(string $name, array $params, string $sessionId): Response
     {
         $url = $this->baseUrl().'/SQLQueries(\''.$name.'\')/List';
@@ -60,6 +96,16 @@ class ServiceLayerClient
         return $this->http()
             ->withHeaders(['Cookie' => 'B1SESSION='.$sessionId])
             ->get($url, $params);
+    }
+
+    private function entitySetRequest(string $name, array $params, string $sessionId): Response
+    {
+        return $this->http()
+            ->withHeaders([
+                'Cookie' => 'B1SESSION='.$sessionId,
+                'Prefer' => 'odata.maxpagesize=1000',
+            ])
+            ->get($this->baseUrl().'/'.$name, $params);
     }
 
     private function http(): \Illuminate\Http\Client\PendingRequest
