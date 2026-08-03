@@ -3,6 +3,7 @@
 namespace App\Http\Requests\Inventory;
 
 use Illuminate\Foundation\Http\FormRequest;
+use Illuminate\Validation\Rule;
 
 class UpdateLogisticUnitRequest extends FormRequest
 {
@@ -13,9 +14,15 @@ class UpdateLogisticUnitRequest extends FormRequest
 
     public function rules(): array
     {
-        $id = $this->route('logisticUnit');
+        $logisticUnit = $this->route('logisticUnit');
+
         return [
-            'license_plate_number' => ['nullable', 'string', 'max:100', 'unique:inventory_logistic_units,license_plate_number,'.$id],
+            'license_plate_number' => [
+                'nullable',
+                'string',
+                'max:100',
+                Rule::unique('inventory_logistic_units', 'license_plate_number')->ignore($logisticUnit),
+            ],
             'material_id' => ['sometimes', 'integer', 'exists:inventory_materials,id'],
             'current_location_id' => ['nullable', 'integer', 'exists:inventory_locations,id'],
             'spatial_prefix' => ['nullable', 'string', 'max:50'],
