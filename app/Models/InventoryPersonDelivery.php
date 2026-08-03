@@ -16,6 +16,7 @@ class InventoryPersonDelivery extends Model
         'movement_id',
         'created_by',
         'origin_location_id',
+        'person_id',
         'person_name',
         'person_position',
         'delivered_at',
@@ -40,6 +41,11 @@ class InventoryPersonDelivery extends Model
     public function originLocation(): BelongsTo
     {
         return $this->belongsTo(InventoryLocation::class, 'origin_location_id');
+    }
+
+    public function person(): BelongsTo
+    {
+        return $this->belongsTo(Personal::class, 'person_id');
     }
 
     public function items(): HasMany

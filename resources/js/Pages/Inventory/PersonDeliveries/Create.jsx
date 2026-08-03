@@ -4,24 +4,36 @@ import AuthenticatedLayout from '@/Layouts/AuthenticatedLayout'
 import SearchableSelect from '@/Components/SearchableSelect'
 import { Button } from '@/Components/ui/button'
 import { Card, CardContent, CardHeader, CardTitle } from '@/Components/ui/card'
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from '@/Components/ui/dialog'
 import { Input } from '@/Components/ui/input'
 import { Label } from '@/Components/ui/label'
 import { Textarea } from '@/Components/ui/textarea'
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/Components/ui/table'
 import { getLocalDateTimeInputValue } from '@/lib/datetime'
-import { ArrowLeft, Eraser, Plus, Save, Trash2 } from 'lucide-react'
+import { ArrowLeft, Eraser, Plus, Save, Trash2, UserPlus } from 'lucide-react'
 
 const emptyItem = { material_id: '', cantidad: '' }
 
 const formatQuantity = (value) => Number(value || 0).toLocaleString('es-CL', { maximumFractionDigits: 4 })
 
-export default function CreatePersonDelivery({ locations = [], materials = [] }) {
+export default function CreatePersonDelivery({ locations = [], materials = [], people = [] }) {
   const [stockReferenceByIndex, setStockReferenceByIndex] = useState({})
   const [signatureError, setSignatureError] = useState('')
+  const [peopleList, setPeopleList] = useState(people)
+  const [personModalOpen, setPersonModalOpen] = useState(false)
+  const [personSaving, setPersonSaving] = useState(false)
+  const [personForm, setPersonForm] = useState({ nombre: '', email: '', cargo: '' })
+  const [personErrors, setPersonErrors] = useState({})
   const { data, setData, post, processing, errors, clearErrors } = useForm({
     origin_location_id: '',
-    person_name: '',
-    person_position: '',
+    person_id: '',
     delivered_at: getLocalDateTimeInputValue(),
     notes: '',
     signature_data_url: '',
@@ -29,6 +41,11 @@ export default function CreatePersonDelivery({ locations = [], materials = [] })
   })
 
   const locationOptions = locations.map((location) => ({ value: String(location.id), label: location.nombre }))
+  const personOptions = peopleList.map((person) => ({
+    value: String(person.id),
+    label: `${person.nombre} · ${person.email}${person.cargo ? ` · ${person.cargo}` : ''}`,
+  }))
+  const selectedPerson = peopleList.find((person) => String(person.id) === data.person_id)
   const materialOptions = materials.map((material) => ({
     value: String(material.id),
     label: `${material.codigo} · ${material.nombre}${material.unit ? ` (${material.unit})` : ''}`,
@@ -88,6 +105,46 @@ export default function CreatePersonDelivery({ locations = [], materials = [] })
     setData('items', nextItems)
   }
 
+  const updatePersonForm = (field, value) => {
+    setPersonForm((current) => ({ ...current, [field]: value }))
+    setPersonErrors((current) => ({ ...current, [field]: undefined }))
+  }
+
+  const closePersonModal = () => {
+    if (personSaving) {
+      return
+    }
+
+    setPersonModalOpen(false)
+    setPersonForm({ nombre: '', email: '', cargo: '' })
+    setPersonErrors({})
+  }
+
+  const createPerson = async (event) => {
+    event.preventDefault()
+    setPersonSaving(true)
+    setPersonErrors({})
+
+    try {
+      const response = await window.axios.post(route('inventory.personal.store'), personForm)
+      const person = response.data.person
+
+      setPeopleList((current) => [...current, person].sort((a, b) => a.nombre.localeCompare(b.nombre, 'es')))
+      setData('person_id', String(person.id))
+      clearErrors('person_id')
+      setPersonModalOpen(false)
+      setPersonForm({ nombre: '', email: '', cargo: '' })
+    } catch (error) {
+      if (error.response?.status === 422) {
+        setPersonErrors(error.response.data.errors || {})
+      } else {
+        setPersonErrors({ general: 'No fue posible crear la persona. Intenta nuevamente.' })
+      }
+    } finally {
+      setPersonSaving(false)
+    }
+  }
+
   const submit = (event) => {
     event.preventDefault()
 
@@ -125,16 +182,29 @@ export default function CreatePersonDelivery({ locations = [], materials = [] })
                 <CardTitle>Datos de Entrega</CardTitle>
               </CardHeader>
               <CardContent className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                <div className="space-y-2">
-                  <Label>Nombre de la persona</Label>
-                  <Input value={data.person_name} onChange={(event) => setData('person_name', event.target.value)} />
-                  {errors.person_name && <p className="text-sm text-red-600">{errors.person_name}</p>}
-                </div>
-
-                <div className="space-y-2">
-                  <Label>Cargo</Label>
-                  <Input value={data.person_position} onChange={(event) => setData('person_position', event.target.value)} />
-                  {errors.person_position && <p className="text-sm text-red-600">{errors.person_position}</p>}
+                <div className="space-y-2 md:col-span-2">
+                  <div className="flex items-center justify-between gap-3">
+                    <Label>Persona que recibe</Label>
+                    <Button type="button" variant="outline" size="sm" onClick={() => setPersonModalOpen(true)}>
+                      <UserPlus className="w-4 h-4 mr-2" />
+                      Crear persona
+                    </Button>
+                  </div>
+                  <SearchableSelect
+                    options={personOptions}
+                    value={personOptions.find((option) => option.value === data.person_id)}
+                    onChange={(option) => {
+                      setData('person_id', option?.value || '')
+                      clearErrors('person_id')
+                    }}
+                    placeholder="Buscar por nombre, correo o cargo"
+                  />
+                  {selectedPerson && (
+                    <p className="text-sm text-slate-500">
+                      {selectedPerson.email}{selectedPerson.cargo ? ` · ${selectedPerson.cargo}` : ' · Sin cargo informado'}
+                    </p>
+                  )}
+                  {errors.person_id && <p className="text-sm text-red-600">{errors.person_id}</p>}
                 </div>
 
                 <div className="space-y-2">
@@ -264,6 +334,65 @@ export default function CreatePersonDelivery({ locations = [], materials = [] })
           </form>
         </div>
       </div>
+
+      <Dialog open={personModalOpen} onOpenChange={(open) => (open ? setPersonModalOpen(true) : closePersonModal())}>
+        <DialogContent className="sm:max-w-md">
+          <form onSubmit={createPerson} className="space-y-5">
+            <DialogHeader>
+              <DialogTitle>Nueva persona</DialogTitle>
+              <DialogDescription>
+                Se guardará y quedará seleccionada inmediatamente para esta entrega.
+              </DialogDescription>
+            </DialogHeader>
+
+            <div className="space-y-4">
+              <div className="space-y-2">
+                <Label htmlFor="person-nombre">Nombre</Label>
+                <Input
+                  id="person-nombre"
+                  autoFocus
+                  value={personForm.nombre}
+                  onChange={(event) => updatePersonForm('nombre', event.target.value)}
+                />
+                {personErrors.nombre && <p className="text-sm text-red-600">{personErrors.nombre[0]}</p>}
+              </div>
+
+              <div className="space-y-2">
+                <Label htmlFor="person-email">Correo</Label>
+                <Input
+                  id="person-email"
+                  type="email"
+                  value={personForm.email}
+                  onChange={(event) => updatePersonForm('email', event.target.value)}
+                />
+                {personErrors.email && <p className="text-sm text-red-600">{personErrors.email[0]}</p>}
+              </div>
+
+              <div className="space-y-2">
+                <Label htmlFor="person-cargo">Cargo (opcional)</Label>
+                <Input
+                  id="person-cargo"
+                  value={personForm.cargo}
+                  onChange={(event) => updatePersonForm('cargo', event.target.value)}
+                />
+                {personErrors.cargo && <p className="text-sm text-red-600">{personErrors.cargo[0]}</p>}
+              </div>
+
+              {personErrors.general && <p className="text-sm text-red-600">{personErrors.general}</p>}
+            </div>
+
+            <DialogFooter className="gap-2">
+              <Button type="button" variant="outline" onClick={closePersonModal} disabled={personSaving}>
+                Cancelar
+              </Button>
+              <Button type="submit" disabled={personSaving}>
+                <UserPlus className="w-4 h-4 mr-2" />
+                {personSaving ? 'Guardando...' : 'Crear y seleccionar'}
+              </Button>
+            </DialogFooter>
+          </form>
+        </DialogContent>
+      </Dialog>
     </AuthenticatedLayout>
   )
 }

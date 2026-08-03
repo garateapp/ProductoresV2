@@ -463,6 +463,7 @@ Route::middleware('auth')->group(function () {
         Route::post('returns/{return}/generate-transfer', [App\Http\Controllers\Inventory\ReturnController::class, 'generateTransfer'])->name('returns.generate-transfer');
         Route::get('person-deliveries/{person_delivery}/pdf', [App\Http\Controllers\Inventory\PersonDeliveryController::class, 'pdf'])->name('person-deliveries.pdf');
         Route::resource('person-deliveries', App\Http\Controllers\Inventory\PersonDeliveryController::class)->only(['index', 'create', 'store', 'show'])->names('person-deliveries');
+        Route::post('personal', [App\Http\Controllers\Inventory\PersonalController::class, 'store'])->name('personal.store');
 
         Route::get('locations/{location}/users', [App\Http\Controllers\Inventory\MaterialRequestController::class, 'showUsers'])->name('locations.users');
         Route::post('locations/{location}/users', [App\Http\Controllers\Inventory\MaterialRequestController::class, 'syncUsers'])->name('locations.users.sync');

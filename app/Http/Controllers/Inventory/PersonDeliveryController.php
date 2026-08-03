@@ -10,6 +10,7 @@ use App\Models\InventoryMovementType;
 use App\Models\InventoryPersonDelivery;
 use App\Models\InventoryStockLocation;
 use App\Models\InventoryStockPosition;
+use App\Models\Personal;
 use App\Services\Inventory\MovementService;
 use Closure;
 use Illuminate\Http\RedirectResponse;
@@ -68,6 +69,9 @@ class PersonDeliveryController extends Controller
                     'nombre' => $material->nombre,
                     'unit' => $material->unit?->codigo,
                 ]),
+            'people' => Personal::query()
+                ->orderBy('nombre')
+                ->get(['id', 'nombre', 'email', 'cargo']),
         ]);
     }
 
@@ -77,8 +81,7 @@ class PersonDeliveryController extends Controller
 
         $data = $request->validate([
             'origin_location_id' => ['required', 'exists:inventory_locations,id'],
-            'person_name' => ['required', 'string', 'max:150'],
-            'person_position' => ['required', 'string', 'max:150'],
+            'person_id' => ['required', 'integer', 'exists:personal,id'],
             'delivered_at' => ['nullable', 'date'],
             'notes' => ['nullable', 'string'],
             'signature_data_url' => [
@@ -102,6 +105,7 @@ class PersonDeliveryController extends Controller
 
         $delivery = DB::transaction(function () use ($data, $items, $movementService, $request): InventoryPersonDelivery {
             $origin = InventoryLocation::query()->findOrFail((int) $data['origin_location_id']);
+            $person = Personal::query()->findOrFail((int) $data['person_id']);
             $materialNames = InventoryMaterial::query()
                 ->whereIn('id', $items->pluck('material_id')->all())
                 ->pluck('nombre', 'id');
@@ -113,8 +117,9 @@ class PersonDeliveryController extends Controller
                 'codigo' => $code,
                 'created_by' => (int) $request->user()->id,
                 'origin_location_id' => $origin->id,
-                'person_name' => trim((string) $data['person_name']),
-                'person_position' => trim((string) $data['person_position']),
+                'person_id' => $person->id,
+                'person_name' => $person->nombre,
+                'person_position' => $person->cargo ?? '',
                 'delivered_at' => $data['delivered_at'] ?? now(),
                 'signature_data_url' => $data['signature_data_url'],
                 'notes' => $data['notes'] ?? null,
@@ -141,6 +146,8 @@ class PersonDeliveryController extends Controller
                     'person_delivery_id' => $delivery->id,
                     'person_name' => $delivery->person_name,
                     'person_position' => $delivery->person_position,
+                    'person_id' => $person->id,
+                    'person_email' => $person->email,
                     'signature_hash' => hash('sha256', $delivery->signature_data_url),
                 ],
                 'details' => $movementDetails,
