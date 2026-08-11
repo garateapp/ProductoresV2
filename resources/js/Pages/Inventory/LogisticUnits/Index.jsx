@@ -1505,7 +1505,7 @@ export default function InventoryLogisticUnits({ units, materials = [], location
       </Dialog>
 
       <Dialog open={splitModal.open} onOpenChange={(val) => { if (!val) { setSplitModal({ open: false, unit: null }); splitForm.reset(); } }}>
-        <DialogContent className="max-h-[92vh] overflow-hidden p-0 sm:max-w-lg">
+        <DialogContent className="max-h-[78vh] overflow-hidden p-0 sm:max-w-lg">
           <DialogHeader className="border-b px-6 py-5">
             <DialogTitle>Dividir LPN {splitModal.unit?.license_plate_number}</DialogTitle>
             <DialogDescription>
@@ -1523,14 +1523,23 @@ export default function InventoryLogisticUnits({ units, materials = [], location
             </div>
             <div className="space-y-2">
               <Label>N° de pallets</Label>
-              <Input
-                type="number"
-                min="2"
-                max="100"
-                step="1"
-                value={splitForm.data.pallet_count}
-                onChange={(e) => splitForm.setData('pallet_count', e.target.value)}
-              />
+              <div className="flex items-end gap-2">
+                <Input
+                  type="number"
+                  min="2"
+                  max="100"
+                  step="1"
+                  className="flex-1"
+                  value={splitForm.data.pallet_count}
+                  onChange={(e) => splitForm.setData('pallet_count', e.target.value)}
+                />
+                <Button
+                  type="submit"
+                  disabled={splitForm.processing || splitPreview.length === 0 || !splitSumMatches}
+                >
+                  {splitForm.processing ? 'Dividiendo...' : `Dividir en ${splitForm.data.pallet_count} pallets`}
+                </Button>
+              </div>
               {splitForm.errors.pallet_count && <p className="text-sm text-red-500">{splitForm.errors.pallet_count}</p>}
             </div>
 
@@ -1568,13 +1577,6 @@ export default function InventoryLogisticUnits({ units, materials = [], location
 
             {splitForm.errors.logistic_unit && <p className="text-sm text-red-500">{splitForm.errors.logistic_unit}</p>}
             </div>
-
-            <DialogFooter className="border-t bg-white px-6 py-4">
-              <Button type="button" variant="ghost" onClick={() => { setSplitModal({ open: false, unit: null }); splitForm.reset(); }}>Cancelar</Button>
-              <Button type="submit" disabled={splitForm.processing || splitPreview.length === 0 || !splitSumMatches}>
-                {splitForm.processing ? 'Dividiendo...' : `Dividir en ${splitForm.data.pallet_count} pallets`}
-              </Button>
-            </DialogFooter>
           </form>
         </DialogContent>
       </Dialog>
