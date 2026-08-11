@@ -209,7 +209,7 @@ Route::middleware('auth')->group(function () {
     Route::delete('services/{service}/detach-user/{user}', [App\Http\Controllers\ServiceController::class, 'detachUser'])->name('services.detachUser');
     Route::get('services/{service}/producers', [App\Http\Controllers\ServiceController::class, 'getServiceProducers'])->name('services.getServiceProducers');
 
-    // Documentation Module Routes
+    // Documentation Module Routes Sin dobles rutas
     Route::resource('continents', App\Http\Controllers\ContinentController::class)->names('continents');
     Route::resource('countries', App\Http\Controllers\CountryController::class)->names('countries');
     Route::resource('authorization-types', App\Http\Controllers\AuthorizationTypeController::class)->names('authorization-types');
@@ -237,6 +237,8 @@ Route::middleware('auth')->group(function () {
     Route::get('sag/certifications/{certification}/download', [App\Http\Controllers\SagController::class, 'downloadCertification'])->name('sag.certifications.download'); // New route
     Route::delete('sag/certifications/{certification}', [App\Http\Controllers\SagController::class, 'destroyCertification'])->name('sag.certifications.destroy');
     Route::post('sag/certifications/{certification}/active', [App\Http\Controllers\SagController::class, 'setCertificationActive'])->name('sag.certifications.setActive');
+
+
 
     // SDP Sites (Sitios de Plantación) Maintainer
     Route::resource('sdp-sites', App\Http\Controllers\SdpSiteController::class)->names('sdp-sites');
@@ -485,9 +487,13 @@ Route::get('logistic-units/print-lot/{lotCode}', [App\Http\Controllers\Inventory
         Route::post('productions/preview', [App\Http\Controllers\Inventory\ProductionController::class, 'preview'])->name('productions.preview');
     });
 
+
+
     // Producer Groups
     Route::resource('producer-groups', App\Http\Controllers\ProducerGroupController::class)->except(['show', 'create'])->names('producer-groups');
 
+
+    
     // Integrations Module
     require __DIR__.'/integrations.php';
 });
