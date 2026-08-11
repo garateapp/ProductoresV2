@@ -713,7 +713,7 @@ export default function InventoryLogisticUnits({ units, materials = [], location
   }
 
   return (
-    <div className="container mx-auto py-10 space-y-4">
+    <div className=" mx-auto py-10 space-y-4">
       <Card>
         <CardHeader>
           <div className="flex justify-between items-center">
@@ -1505,15 +1505,15 @@ export default function InventoryLogisticUnits({ units, materials = [], location
       </Dialog>
 
       <Dialog open={splitModal.open} onOpenChange={(val) => { if (!val) { setSplitModal({ open: false, unit: null }); splitForm.reset(); } }}>
-        <DialogContent className="sm:max-w-lg">
-          <DialogHeader>
+        <DialogContent className="max-h-[92vh] overflow-hidden p-0 sm:max-w-lg">
+          <DialogHeader className="px-6 pt-6 pb-0">
             <DialogTitle>Dividir LPN {splitModal.unit?.license_plate_number}</DialogTitle>
             <DialogDescription>
               El LPN registrado a nivel de camión se dividirá en pallets con el correlativo automático.
               La posición geoespacial será la misma para todos y podrás ajustarla luego en cada pallet.
             </DialogDescription>
           </DialogHeader>
-          <form onSubmit={submitSplit} className="space-y-4">
+          <form onSubmit={submitSplit} className="space-y-4 overflow-y-auto px-6 py-5">
             <div className="rounded-lg bg-slate-50 px-4 py-3 text-sm">
               <div className="flex justify-between">
                 <span className="text-slate-500">Cantidad total disponible</span>
@@ -1534,7 +1534,7 @@ export default function InventoryLogisticUnits({ units, materials = [], location
             </div>
 
             {splitPreview.length > 0 && (
-              <div className="rounded-lg border bg-white p-3">
+              <div className="max-h-[45vh] overflow-y-auto rounded-lg border bg-white p-3">
                 <h4 className="mb-2 text-xs font-semibold uppercase tracking-wider text-muted-foreground">Reparto resultante</h4>
                 <ul className="space-y-1">
                   {splitPreview.map((quantity, index) => (
