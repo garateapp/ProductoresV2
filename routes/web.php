@@ -215,7 +215,7 @@ Route::middleware('auth')->group(function () {
     Route::resource('authorization-types', App\Http\Controllers\AuthorizationTypeController::class)->names('authorization-types');
     Route::resource('certifying-houses', App\Http\Controllers\CertifyingHouseController::class)->names('certifying-houses');
     Route::resource('certificate-types', App\Http\Controllers\CertificateTypeController::class)->names('certificate-types');
-    Route::resource('producer-certifications', App\Http\Controllers\ProducerCertificationController::class)->except(['update'])->names('producer-certifications');
+    Route::resource('producer-certifications', App\Http\Controllers\ProducerCertificationController::class)->except(['update', 'show'])->names('producer-certifications');
     Route::post('producer-certifications/{certification}', [App\Http\Controllers\ProducerCertificationController::class, 'update'])->name('producer-certifications.update');
     Route::get('producer-certifications/{producer}/show', [App\Http\Controllers\ProducerCertificationController::class, 'show'])->name('producer-certifications.show');
     Route::get('producer-certifications/{document}/download', [App\Http\Controllers\ProducerCertificationController::class, 'downloadOtherDocument'])->name('producer-certifications.downloadOtherDocument');
@@ -493,7 +493,7 @@ Route::get('logistic-units/print-lot/{lotCode}', [App\Http\Controllers\Inventory
     Route::resource('producer-groups', App\Http\Controllers\ProducerGroupController::class)->except(['show', 'create'])->names('producer-groups');
 
 
-    
+
     // Integrations Module
     require __DIR__.'/integrations.php';
 });
