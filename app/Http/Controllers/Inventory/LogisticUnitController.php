@@ -65,17 +65,7 @@ class LogisticUnitController extends Controller
             'status' => (string) $request->input('status', ''),
         ];
 
-        $units = InventoryLogisticUnit::query()
-            ->with([
-                'material:id,codigo,nombre,service_id',
-                'material.service:id,name',
-                'location:id,codigo,nombre',
-                'unit:id,codigo',
-                'stockPositions' => fn ($query) => $query
-                    ->with('location:id,codigo,nombre')
-                    ->orderByDesc('quantity')
-                    ->orderBy('id'),
-            ])
+        $units = $this->unitQuery()
             ->when($filters['q'] !== '', function ($query) use ($filters): void {
                 $query->where(function ($inner) use ($filters): void {
                     $inner->where('license_plate_number', 'like', '%'.$filters['q'].'%')
@@ -89,50 +79,7 @@ class LogisticUnitController extends Controller
             ->latest('id')
             ->paginate(20)
             ->withQueryString()
-            ->through(function (InventoryLogisticUnit $unit): array {
-                $positions = $unit->stockPositions->map(fn (InventoryStockPosition $position) => [
-                    'id' => $position->id,
-                    'quantity' => (float) $position->quantity,
-                    'lot_code' => $position->lot_code,
-                    'status' => $position->status,
-                    'location' => $position->location ? [
-                        'id' => $position->location->id,
-                        'codigo' => $position->location->codigo,
-                        'nombre' => $position->location->nombre,
-                    ] : null,
-                ])->values();
-
-                $positionQuantity = (float) $positions->sum('quantity');
-
-                return [
-                    'id' => $unit->id,
-                    'license_plate_number' => $unit->license_plate_number,
-                    'dispatch_guide' => $unit->dispatch_guide,
-                    'status' => $unit->status,
-                    'base_quantity' => (float) $unit->base_quantity,
-                    'available_quantity' => $positionQuantity > 0 ? $positionQuantity : (float) $unit->available_quantity,
-                    'spatial_prefix' => $unit->spatial_prefix,
-                    'spatial_column' => $unit->spatial_column,
-                    'spatial_row' => $unit->spatial_row,
-                    'lot_code' => $unit->lot_code,
-                    'supplier_lot' => $unit->supplier_lot,
-                    'material' => $unit->material ? [
-                        'id' => $unit->material->id,
-                        'codigo' => $unit->material->codigo,
-                        'nombre' => $unit->material->nombre,
-                        'service_id' => $unit->material->service_id,
-                        'service_name' => $unit->material->service?->name,
-                    ] : null,
-                    'location' => $unit->location ? [
-                        'id' => $unit->location->id,
-                        'codigo' => $unit->location->codigo,
-                        'nombre' => $unit->location->nombre,
-                    ] : null,
-                    'unit' => $unit->unit?->codigo,
-                    'positions' => $positions,
-                    'last_moved_at' => optional($unit->last_moved_at)->format('Y-m-d H:i'),
-                ];
-            });
+            ->through(fn (InventoryLogisticUnit $unit): array => $this->unitPayload($unit));
 
         $materials = InventoryMaterial::query()
             ->with('service:id,name')
@@ -165,6 +112,84 @@ class LogisticUnitController extends Controller
             'wasteTypes' => InventoryWasteType::query()->where('activo', true)->orderBy('nombre')->get(['id', 'codigo', 'nombre']),
             'nextLotCode' => $lotService->peekNextCode(),
         ]);
+    }
+
+    public function printLot(Request $request, string $lotCode): JsonResponse
+    {
+        $this->authorizeInventory($request);
+
+        $units = $this->unitQuery()
+            ->where('lot_code', $lotCode)
+            ->where('status', 'active')
+            ->orderBy('license_plate_number')
+            ->get()
+            ->map(fn (InventoryLogisticUnit $unit): array => $this->unitPayload($unit))
+            ->values();
+
+        return response()->json([
+            'lot_code' => $lotCode,
+            'units' => $units,
+        ]);
+    }
+
+    private function unitQuery(): \Illuminate\Database\Eloquent\Builder
+    {
+        return InventoryLogisticUnit::query()->with([
+            'material:id,codigo,nombre,service_id',
+            'material.service:id,name',
+            'location:id,codigo,nombre',
+            'unit:id,codigo',
+            'stockPositions' => fn ($query) => $query
+                ->with('location:id,codigo,nombre')
+                ->orderByDesc('quantity')
+                ->orderBy('id'),
+        ]);
+    }
+
+    private function unitPayload(InventoryLogisticUnit $unit): array
+    {
+        $positions = $unit->stockPositions->map(fn (InventoryStockPosition $position) => [
+            'id' => $position->id,
+            'quantity' => (float) $position->quantity,
+            'lot_code' => $position->lot_code,
+            'status' => $position->status,
+            'location' => $position->location ? [
+                'id' => $position->location->id,
+                'codigo' => $position->location->codigo,
+                'nombre' => $position->location->nombre,
+            ] : null,
+        ])->values();
+
+        $positionQuantity = (float) $positions->sum('quantity');
+
+        return [
+            'id' => $unit->id,
+            'license_plate_number' => $unit->license_plate_number,
+            'dispatch_guide' => $unit->dispatch_guide,
+            'status' => $unit->status,
+            'base_quantity' => (float) $unit->base_quantity,
+            'available_quantity' => $positionQuantity > 0 ? $positionQuantity : (float) $unit->available_quantity,
+            'spatial_prefix' => $unit->spatial_prefix,
+            'spatial_column' => $unit->spatial_column,
+            'spatial_row' => $unit->spatial_row,
+            'lot_code' => $unit->lot_code,
+            'supplier_lot' => $unit->supplier_lot,
+            'material' => $unit->material ? [
+                'id' => $unit->material->id,
+                'codigo' => $unit->material->codigo,
+                'nombre' => $unit->material->nombre,
+                'service_id' => $unit->material->service_id,
+                'service_name' => $unit->material->service?->name,
+            ] : null,
+            'location' => $unit->location ? [
+                'id' => $unit->location->id,
+                'codigo' => $unit->location->codigo,
+                'nombre' => $unit->location->nombre,
+            ] : null,
+            'unit' => $unit->unit?->codigo,
+            'positions' => $positions,
+            'last_moved_at' => optional($unit->last_moved_at)->format('Y-m-d H:i'),
+        ];
     }
 
     public function store(StoreLogisticUnitRequest $request, LogisticUnitService $logisticUnitService): RedirectResponse

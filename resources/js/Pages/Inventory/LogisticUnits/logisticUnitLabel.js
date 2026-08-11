@@ -306,7 +306,7 @@ const SHEET_WIDTH_MM = 100
 const SHEET_HEIGHT_MM = 150
 
 
-export const buildLogisticUnitLabelHtml = (label, qrDataUrl = '') => {
+const buildLabelSheet = (label, qrDataUrl = '') => {
   const qrMarkup = qrDataUrl
     ? `<img class="qr" src="${escapeHtml(qrDataUrl)}" alt="QR ${escapeHtml(label.lpn)}">`
     : '<div class="qr qr-placeholder">QR</div>'
@@ -319,13 +319,59 @@ export const buildLogisticUnitLabelHtml = (label, qrDataUrl = '') => {
     { desc: label.product5Desc || 'ABSOR TRIL-MILLAR', lpn: label.lpn5 || '-', lote: label.lotCode5 || '-', qty: label.quantity5 || '0' },
   ]
 
-  return `<!doctype html>
-<html>
-<head>
-  <meta charset="utf-8">
-  <title>Etiqueta ${escapeHtml(label.lpn)}</title>
-  <style>
+  return `  <section class="frame">
+    <div class="title-section">
+      <div class="title-main">NovaFresh - Materiales</div>
+      <div class="title-plant">PLANTA: ${escapeHtml(label.plant || 'CODEGUA')}</div>
+    </div>
+    <div class="header-info">
+      <div class="header-col">
+        <span>UBICACIÓN</span>
+        <span>${escapeHtml(label.center || '-')}</span>
+      </div>
+      <div class="header-col">
+        <span>FECHA</span>
+        <span>${escapeHtml(label.date)}</span>
+      </div>
+      <div class="header-col">
+        <span>HORA</span>
+        <span>${escapeHtml(label.time)}</span>
+      </div>
 
+    </div>
+    <div class="table-wrap">
+      <div class="table-header">
+        <div>#</div>
+        <div>DESCRIPCION</div>
+        <div>LPN ORIGEN</div>
+        <div>LOTE</div>
+        <div>CANTIDAD</div>
+      </div>
+      ${tableRows.map((row, idx) => `
+      <div class="table-row">
+        <div class="num">${idx + 1}</div>
+        <div class="desc">${escapeHtml(row.desc)}</div>
+        <div class="lpn">${escapeHtml(row.lpn)}</div>
+        <div class="lot">${escapeHtml(row.lote)}</div>
+        <div class="qty">${escapeHtml(row.qty)}</div>
+      </div>
+      `).join('')}
+    </div>
+    <div class="footer-section">
+      <div class="footer-left">
+        <span>FORMATO: ${escapeHtml(label.format || '-')}</span>
+        <span>MARCA/LINEA: ${escapeHtml(label.marcaLinea || 'CRYSTAL')}</span>
+      </div>
+      <div class="footer-right">
+        <span>Codigo QR LPN</span>
+        ${qrMarkup}
+        <span>${escapeHtml(label.palletNumber || '-')}</span>
+      </div>
+    </div>
+  </section>`
+}
+
+const LABEL_CSS = `
     @page {
       size: ${SHEET_WIDTH_MM}mm ${SHEET_HEIGHT_MM}mm;
       margin: 0;
@@ -499,60 +545,53 @@ export const buildLogisticUnitLabelHtml = (label, qrDataUrl = '') => {
     @media print {
       body { margin: 0; }
     }
+`
 
+export const buildLogisticUnitLabelHtml = (label, qrDataUrl = '') => `<!doctype html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <title>Etiqueta ${escapeHtml(label.lpn)}</title>
+  <style>${LABEL_CSS}
   </style>
 </head>
 <body>
-  <section class="frame">
-    <div class="title-section">
-      <div class="title-main">NovaFresh - Materiales</div>
-      <div class="title-plant">PLANTA: ${escapeHtml(label.plant || 'CODEGUA')}</div>
-    </div>
-    <div class="header-info">
-      <div class="header-col">
-        <span>UBICACIÓN</span>
-        <span>${escapeHtml(label.center || '-')}</span>
-      </div>
-      <div class="header-col">
-        <span>FECHA</span>
-        <span>${escapeHtml(label.date)}</span>
-      </div>
-      <div class="header-col">
-        <span>HORA</span>
-        <span>${escapeHtml(label.time)}</span>
-      </div>
-
-    </div>
-    <div class="table-wrap">
-      <div class="table-header">
-        <div>#</div>
-        <div>DESCRIPCION</div>
-        <div>LPN ORIGEN</div>
-        <div>LOTE</div>
-        <div>CANTIDAD</div>
-      </div>
-      ${tableRows.map((row, idx) => `
-      <div class="table-row">
-        <div class="num">${idx + 1}</div>
-        <div class="desc">${escapeHtml(row.desc)}</div>
-        <div class="lpn">${escapeHtml(row.lpn)}</div>
-        <div class="lot">${escapeHtml(row.lote)}</div>
-        <div class="qty">${escapeHtml(row.qty)}</div>
-      </div>
-      `).join('')}
-    </div>
-    <div class="footer-section">
-      <div class="footer-left">
-        <span>FORMATO: ${escapeHtml(label.format || '-')}</span>
-        <span>MARCA/LINEA: ${escapeHtml(label.marcaLinea || 'CRYSTAL')}</span>
-      </div>
-      <div class="footer-right">
-        <span>Codigo QR LPN</span>
-        ${qrMarkup}
-        <span>${escapeHtml(label.palletNumber || '-')}</span>
-      </div>
-    </div>
-  </section>
+${buildLabelSheet(label, qrDataUrl)}
 </body>
 </html>`
-}
+
+export const buildLotLabelHtml = (labels = [], qrDataUrls = []) => `<!doctype html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <title>Etiquetas de lote (${labels.length})</title>
+  <style>${LABEL_CSS}
+    html {
+      height: auto !important;
+      overflow: visible !important;
+    }
+
+    body {
+      display: block !important;
+      height: auto !important;
+      overflow: visible !important;
+      padding: 0 !important;
+    }
+
+    .label-sheet {
+      display: flex;
+      width: 100mm;
+      height: 150mm;
+      padding: 3mm 2mm;
+      page-break-after: always;
+    }
+
+    .label-sheet:last-child {
+      page-break-after: auto;
+    }
+  </style>
+</head>
+<body>
+${labels.map((label, index) => `<div class="label-sheet">${buildLabelSheet(label, qrDataUrls[index] || '')}</div>`).join('\n')}
+</body>
+</html>`

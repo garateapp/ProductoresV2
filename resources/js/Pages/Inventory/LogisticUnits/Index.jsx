@@ -1,5 +1,6 @@
 import React, { useEffect, useState } from 'react'
 import { Link, router, useForm, usePage } from '@inertiajs/react'
+import axios from 'axios'
 import QRCode from 'qrcode'
 import AuthenticatedLayout from '@/Layouts/AuthenticatedLayout'
 import { Card, CardContent, CardHeader, CardTitle } from '@/Components/ui/card'
@@ -26,6 +27,7 @@ import {
 } from '@/Components/ui/table'
 import {
   buildLogisticUnitLabelHtml,
+  buildLotLabelHtml,
   createLogisticUnitLabelData,
   generateLogisticUnitLabelZPL,
   generateMaterialLabelZPL,
@@ -38,6 +40,8 @@ export default function InventoryLogisticUnits({ units, materials = [], location
   const [transferModal, setTransferModal] = useState({ open: false, type: 'full', unit: null, position: null })
   const [labelModal, setLabelModal] = useState({ open: false, ...createLogisticUnitLabelData() })
   const [labelCopies, setLabelCopies] = useState(1)
+  const [lotCopies, setLotCopies] = useState(2)
+  const [printingLot, setPrintingLot] = useState(null)
   const [productionModal, setProductionModal] = useState({ open: false })
   const [showRequestDetail, setShowRequestDetail] = useState(false)
   const [productionLpnCode, setProductionLpnCode] = useState('')
@@ -652,6 +656,94 @@ export default function InventoryLogisticUnits({ units, materials = [], location
     printWindow.setTimeout(() => printWindow.print(), 250)
   }
 
+  const buildLabelDataFromUnit = (unit) => {
+    const materialId = unit.material?.id
+    const isSemiFinished = materialId && technicalSheets.some(ts => ts.material?.id === materialId)
+
+    return createLogisticUnitLabelData({
+      lpn: unit.license_plate_number,
+      dispatch_guide: unit.dispatch_guide,
+      material: unit.material,
+      location: unit.location,
+      spatialPosition: spatialPositionLabel(unit.spatial_prefix, unit.spatial_column, unit.spatial_row),
+      lotCode: unit.lot_code,
+      supplierLot: unit.supplier_lot,
+      quantity: unit.available_quantity,
+      unit: unit.unit,
+      labelType: isSemiFinished ? 'semielaborado' : 'material',
+    })
+  }
+
+  const generateLabelZpl = (label) => {
+    return label.labelType === 'semielaborado'
+      ? generateLogisticUnitLabelZPL(label)
+      : generateMaterialLabelZPL(label)
+  }
+
+  const openLotPrintPreview = (labels) => {
+    const printWindow = window.open('', '_blank', 'width=780,height=520')
+    if (!printWindow) {
+      return
+    }
+
+    Promise.all(labels.map((label) => {
+      const qrText = label.dispatchGuide ? `${label.lpn}-${label.dispatchGuide}` : label.lpn
+
+      return QRCode.toDataURL(qrText, {
+        errorCorrectionLevel: 'M',
+        margin: 1,
+        width: 360,
+      }).catch(() => '')
+    })).then((qrDataUrls) => {
+      printWindow.document.open()
+      printWindow.document.write(buildLotLabelHtml(labels, qrDataUrls))
+      printWindow.document.close()
+      printWindow.focus()
+      printWindow.setTimeout(() => printWindow.print(), 250)
+    })
+  }
+
+  const printLot = async (unit) => {
+    if (!unit.lot_code || printingLot) {
+      return
+    }
+
+    setPrintingLot(unit.lot_code)
+    let labels = []
+
+    try {
+      const { data } = await axios.get(route('inventory.logistic-units.print-lot', unit.lot_code))
+      labels = (data.units || [])
+        .map(buildLabelDataFromUnit)
+        .filter((label) => label.lpn)
+
+      if (!labels.length) {
+        toast.error(`El lote ${unit.lot_code} no tiene LPN activos para imprimir.`)
+        return
+      }
+
+      const copies = Math.max(1, parseInt(lotCopies, 10) || 1)
+      const zplAll = labels
+        .flatMap((label) => Array(copies).fill(generateLabelZpl(label)))
+        .join('\n')
+
+      const printer = await printWithQz(zplAll, 1)
+
+      toast.success(`Lote ${unit.lot_code}: ${labels.length} LPN × ${copies} copia${copies > 1 ? 's' : ''} enviadas a ${printer}`)
+    } catch (err) {
+      console.error('Error imprimiendo lote:', err)
+
+      toast.error(err.message || 'No se pudo imprimir el lote con QZ Tray.')
+
+      if (labels.length) {
+        const copies = Math.max(1, parseInt(lotCopies, 10) || 1)
+        openLotPrintPreview(labels.flatMap((label) => Array(copies).fill(label)))
+      }
+    } finally {
+      setPrintingLot(null)
+    }
+  }
+
   const applyFilters = (event) => {
     event.preventDefault()
     router.get(route('inventory.logistic-units.index'), filterForm.data, { preserveState: true, preserveScroll: true })
@@ -1132,6 +1224,18 @@ export default function InventoryLogisticUnits({ units, materials = [], location
             </div>
           </form>
 
+          <div className="flex items-center justify-end gap-2">
+            <Label className="shrink-0 text-sm text-muted-foreground">Copias por LPN (lote)</Label>
+            <Input
+              type="number"
+              min={1}
+              max={99}
+              value={lotCopies}
+              onChange={(e) => setLotCopies(Math.max(1, parseInt(e.target.value, 10) || 1))}
+              className="w-20 text-center"
+            />
+          </div>
+
           <Table>
             <TableHeader>
               <TableRow>
@@ -1158,6 +1262,9 @@ export default function InventoryLogisticUnits({ units, materials = [], location
                     <TableCell>{unit.status}</TableCell>
                     <TableCell className="text-right">
                       <div className="flex justify-end gap-2">
+                        <Button variant="outline" size="sm" disabled={!unit.lot_code || Boolean(printingLot)} onClick={(e) => { e.stopPropagation(); printLot(unit); }}>
+                          <Printer className="h-4 w-4 mr-1" /> {printingLot === unit.lot_code ? 'Imprimiendo...' : (unit.lot_code || 'Sin lote')}
+                        </Button>
                         <Button variant="outline" size="sm" onClick={(e) => { e.stopPropagation(); openLabelModal({ lpn: unit.license_plate_number, dispatch_guide: unit.dispatch_guide, material: unit.material, location: unit.location, spatialPosition: spatialPositionLabel(unit.spatial_prefix, unit.spatial_column, unit.spatial_row), lotCode: unit.lot_code, supplierLot: unit.supplier_lot, quantity: unit.available_quantity, unit: unit.unit }); }}>
                           <Printer className="h-4 w-4 mr-1" /> Etiqueta
                         </Button>

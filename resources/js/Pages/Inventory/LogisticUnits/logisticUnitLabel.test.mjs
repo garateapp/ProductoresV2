@@ -3,6 +3,7 @@ import test from 'node:test'
 
 import {
   buildLogisticUnitLabelHtml,
+  buildLotLabelHtml,
   createLogisticUnitLabelData,
   generateLogisticUnitLabelZPL,
 } from './logisticUnitLabel.js'
@@ -76,4 +77,24 @@ test('renders semielaborado fields and escapes dynamic text', () => {
   assert.match(html, /OC00035692-LO13436/)
   assert.match(html, /384 UN/)
   assert.doesNotMatch(html, /BOLSA <CRISTAL>/)
+})
+
+test('builds a stacked lot document with one page per label', () => {
+  const labels = [1, 2].map((n) => createLogisticUnitLabelData({
+    lpn: `249-${n}`,
+    materialCode: 'IN00200500237',
+    materialName: 'CAJA CE 500X300X120 MASTER GARCES',
+    lotCode: 'L101',
+    quantity: 128,
+    unit: 'UN',
+  }, { now: fixedDate }))
+
+  const html = buildLotLabelHtml(labels, ['qr1', 'qr2'])
+
+  assert.match(html, /class="label-sheet"/)
+  assert.equal(html.match(/class="label-sheet"/g).length, 2)
+  assert.match(html, /page-break-after:\s*always;/)
+  assert.match(html, /249-1/)
+  assert.match(html, /249-2/)
+  assert.match(html, /src="qr2"/)
 })

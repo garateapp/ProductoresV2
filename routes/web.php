@@ -420,6 +420,7 @@ Route::middleware('auth')->group(function () {
         Route::get('logistic-units', [App\Http\Controllers\Inventory\LogisticUnitController::class, 'index'])->name('logistic-units.index');
         Route::post('logistic-units', [App\Http\Controllers\Inventory\LogisticUnitController::class, 'store'])->name('logistic-units.store');
         Route::get('logistic-units/by-code/{code}', [App\Http\Controllers\Inventory\LogisticUnitController::class, 'showByCode'])->name('logistic-units.by-code');
+Route::get('logistic-units/print-lot/{lotCode}', [App\Http\Controllers\Inventory\LogisticUnitController::class, 'printLot'])->name('logistic-units.print-lot');
         Route::get('logistic-units/{logisticUnit}', [App\Http\Controllers\Inventory\LogisticUnitController::class, 'show'])->name('logistic-units.show');
         Route::post('logistic-units/{logisticUnit}/relocate', [App\Http\Controllers\Inventory\LogisticUnitController::class, 'relocate'])->name('logistic-units.relocate');
         Route::post('logistic-units/{logisticUnit}/split', [App\Http\Controllers\Inventory\LogisticUnitController::class, 'split'])->name('logistic-units.split');
