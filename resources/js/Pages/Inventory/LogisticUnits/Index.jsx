@@ -7,7 +7,7 @@ import { Button } from '@/Components/ui/button'
 import { Input } from '@/Components/ui/input'
 import { Label } from '@/Components/ui/label'
 import SearchableSelect from '@/Components/SearchableSelect'
-import { ChevronDown, ChevronRight, Eye, MoveHorizontal, Package, Plus, Printer, QrCode, Trash2 } from 'lucide-react'
+import { ChevronDown, ChevronRight, Eye, MoveHorizontal, Package, Plus, Printer, QrCode, Split, Trash2 } from 'lucide-react'
 import {
   Dialog,
   DialogContent,
@@ -30,9 +30,10 @@ import {
   generateLogisticUnitLabelZPL,
   generateMaterialLabelZPL,
 } from './logisticUnitLabel'
+import { splitEvenly } from './logisticUnitSplit'
 import qz from 'qz-tray'
 import { toast } from 'sonner'
-export default function InventoryLogisticUnits({ units, materials = [], locations = [], statuses = [], filters = {}, materialRequests = [], technicalSheets = [], wasteReasons = [], wasteTypes = [] }) {
+export default function InventoryLogisticUnits({ units, materials = [], locations = [], statuses = [], filters = {}, materialRequests = [], technicalSheets = [], wasteReasons = [], wasteTypes = [], nextLotCode = '' }) {
   const [expandedLpns, setExpandedLpns] = useState(new Set())
   const [transferModal, setTransferModal] = useState({ open: false, type: 'full', unit: null, position: null })
   const [labelModal, setLabelModal] = useState({ open: false, ...createLogisticUnitLabelData() })
@@ -45,6 +46,52 @@ export default function InventoryLogisticUnits({ units, materials = [], location
 
   const [editModal, setEditModal] = useState({ open: false, unit: null })
   const [deleteConfirm, setDeleteConfirm] = useState({ open: false, unit: null, reason: '' })
+
+  const [splitModal, setSplitModal] = useState({ open: false, unit: null })
+
+  const splitForm = useForm({
+    pallet_count: '2',
+    spatial_prefix: '',
+    spatial_column: '',
+    spatial_row: '',
+  })
+
+  const openSplitModal = (unit) => {
+    splitForm.reset()
+    splitForm.setData({
+      pallet_count: '2',
+      spatial_prefix: unit.spatial_prefix || '',
+      spatial_column: unit.spatial_column || '',
+      spatial_row: unit.spatial_row || '',
+    })
+    setSplitModal({ open: true, unit })
+  }
+
+  const submitSplit = (e) => {
+    e.preventDefault()
+    if (!splitModal.unit) return
+
+    splitForm.post(route('inventory.logistic-units.split', splitModal.unit.id), {
+      preserveScroll: true,
+      onSuccess: () => {
+        setSplitModal({ open: false, unit: null })
+        splitForm.reset()
+        toast.success('LPN dividido en pallets.')
+      },
+      onError: (errors) => {
+        const msg = Object.values(errors).join(', ')
+        toast.error(msg || 'Error al dividir el LPN.')
+      },
+    })
+  }
+
+  const splitPreview = splitModal.unit
+    ? splitEvenly(splitModal.unit.available_quantity, splitForm.data.pallet_count)
+    : []
+
+  const splitTotal = splitPreview.reduce((sum, q) => sum + q, 0)
+  const splitSumMatches = Math.abs(splitTotal - Number(splitModal.unit?.available_quantity || 0)) < 0.0001
+
 
   const editForm = useForm({
     license_plate_number: '',
@@ -314,12 +361,20 @@ export default function InventoryLogisticUnits({ units, materials = [], location
     spatial_row: '',
     base_quantity: '',
     available_quantity: '',
-    lot_code: '',
+    lot_code: nextLotCode || '',
     supplier_lot: '',
     production_batch: '',
     received_at: '',
     dispatch_guide: '',
+    pallet_count: '1',
   })
+
+  const palletCount = Number(createForm.data.pallet_count || 1)
+  const isBulkCreate = palletCount > 1
+
+  useEffect(() => {
+    createForm.setData('lot_code', nextLotCode || '')
+  }, [nextLotCode])
 
   const transferForm = useForm({
     to_location_id: '',
@@ -610,7 +665,9 @@ export default function InventoryLogisticUnits({ units, materials = [], location
       onSuccess: () => {
         createForm.reset()
         setLastSuggestedLpn('')
-        openLabelModal(labelData)
+        if (!isBulkCreate) {
+          openLabelModal(labelData)
+        }
       },
     })
   }
@@ -948,14 +1005,35 @@ export default function InventoryLogisticUnits({ units, materials = [], location
 
           <form onSubmit={submit} className="grid gap-3 rounded border bg-gray-50 p-4 md:grid-cols-4">
             <div>
+              <Label>N° Pallets</Label>
+              <Input
+                type="number"
+                min="1"
+                step="1"
+                value={createForm.data.pallet_count}
+                onChange={(e) => createForm.setData('pallet_count', e.target.value)}
+              />
+              {createForm.errors.pallet_count && <div className="mt-1 text-sm text-red-600">{createForm.errors.pallet_count}</div>}
+            </div>
+            <div>
               <Label>LPN</Label>
               <div className="flex gap-2">
-                <Input value={createForm.data.license_plate_number} onChange={(e) => createForm.setData('license_plate_number', e.target.value)} />
-                <Button type="button" variant="outline" onClick={() => openLabelModal(createLabelData())} disabled={!createForm.data.license_plate_number}>
-                  <QrCode className="h-4 w-4" />
-                </Button>
+                <Input
+                  value={createForm.data.license_plate_number}
+                  onChange={(e) => createForm.setData('license_plate_number', e.target.value)}
+                  disabled={isBulkCreate}
+                  placeholder={isBulkCreate ? 'Se asigna automáticamente' : ''}
+                />
+                {!isBulkCreate && (
+                  <Button type="button" variant="outline" onClick={() => openLabelModal(createLabelData())} disabled={!createForm.data.license_plate_number}>
+                    <QrCode className="h-4 w-4" />
+                  </Button>
+                )}
               </div>
-              {selectedCreateMaterial?.suggested_lpn && createForm.data.license_plate_number !== selectedCreateMaterial.suggested_lpn ? (
+              {isBulkCreate && (
+                <p className="mt-1 text-xs text-slate-500">El sistema asignará el correlativo automático a cada pallet.</p>
+              )}
+              {!isBulkCreate && selectedCreateMaterial?.suggested_lpn && createForm.data.license_plate_number !== selectedCreateMaterial.suggested_lpn ? (
                 <button
                   type="button"
                   className="mt-1 text-xs font-medium text-indigo-700 hover:underline"
@@ -1004,16 +1082,17 @@ export default function InventoryLogisticUnits({ units, materials = [], location
               {createForm.errors.spatial_row && <div className="mt-1 text-sm text-red-600">{createForm.errors.spatial_row}</div>}
             </div>
             <div>
-              <Label>Cantidad base</Label>
+              <Label>{isBulkCreate ? 'Cantidad base por pallet' : 'Cantidad base'}</Label>
               <Input type="number" step="0.0001" value={createForm.data.base_quantity} onChange={(e) => createForm.setData('base_quantity', e.target.value)} />
             </div>
             <div>
-              <Label>Cantidad disponible</Label>
+              <Label>{isBulkCreate ? 'Cantidad disponible por pallet' : 'Cantidad disponible'}</Label>
               <Input type="number" step="0.0001" value={createForm.data.available_quantity} onChange={(e) => createForm.setData('available_quantity', e.target.value)} />
             </div>
             <div>
               <Label>Lote</Label>
-              <Input value={createForm.data.lot_code} onChange={(e) => createForm.setData('lot_code', e.target.value)} />
+              <Input value={createForm.data.lot_code} onChange={(e) => createForm.setData('lot_code', e.target.value)} placeholder={nextLotCode || ''} />
+              <p className="mt-1 text-xs text-slate-500">Correlativo automático L[numero]; se asigna el mismo lote a todos los pallets del registro.</p>
             </div>
             <div>
               <Label>Lote proveedor</Label>
@@ -1024,7 +1103,7 @@ export default function InventoryLogisticUnits({ units, materials = [], location
               <Input value={createForm.data.dispatch_guide} onChange={(e) => createForm.setData('dispatch_guide', e.target.value)} placeholder="N° guía de despacho" />
             </div>
             <div className="flex items-end">
-              <Button type="submit" disabled={createForm.processing}>{createForm.processing ? 'Guardando...' : 'Registrar pallet'}</Button>
+              <Button type="submit" disabled={createForm.processing}>{createForm.processing ? 'Guardando...' : (isBulkCreate ? `Registrar ${palletCount} pallets` : 'Registrar pallet')}</Button>
             </div>
           </form>
 
@@ -1084,6 +1163,9 @@ export default function InventoryLogisticUnits({ units, materials = [], location
                         </Button>
                         <Button variant="outline" size="sm" disabled={unit.status !== 'active'} onClick={(e) => { e.stopPropagation(); openFullTransfer(unit); }}>
                           <MoveHorizontal className="h-4 w-4 mr-1" /> Traslado LPN
+                        </Button>
+                        <Button variant="outline" size="sm" disabled={unit.status !== 'active'} onClick={(e) => { e.stopPropagation(); openSplitModal(unit); }}>
+                          <Split className="h-4 w-4 mr-1" /> Dividir
                         </Button>
                         <Button variant="outline" size="sm" onClick={(e) => { e.stopPropagation(); openEditModal(unit); }}>
                           Editar
@@ -1419,6 +1501,79 @@ export default function InventoryLogisticUnits({ units, materials = [], location
               Eliminar pallet
             </Button>
           </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      <Dialog open={splitModal.open} onOpenChange={(val) => { if (!val) { setSplitModal({ open: false, unit: null }); splitForm.reset(); } }}>
+        <DialogContent className="sm:max-w-lg">
+          <DialogHeader>
+            <DialogTitle>Dividir LPN {splitModal.unit?.license_plate_number}</DialogTitle>
+            <DialogDescription>
+              El LPN registrado a nivel de camión se dividirá en pallets con el correlativo automático.
+              La posición geoespacial será la misma para todos y podrás ajustarla luego en cada pallet.
+            </DialogDescription>
+          </DialogHeader>
+          <form onSubmit={submitSplit} className="space-y-4">
+            <div className="rounded-lg bg-slate-50 px-4 py-3 text-sm">
+              <div className="flex justify-between">
+                <span className="text-slate-500">Cantidad total disponible</span>
+                <span className="font-bold">{Number(splitModal.unit?.available_quantity || 0).toLocaleString('es-CL')}</span>
+              </div>
+            </div>
+            <div className="space-y-2">
+              <Label>N° de pallets</Label>
+              <Input
+                type="number"
+                min="2"
+                max="100"
+                step="1"
+                value={splitForm.data.pallet_count}
+                onChange={(e) => splitForm.setData('pallet_count', e.target.value)}
+              />
+              {splitForm.errors.pallet_count && <p className="text-sm text-red-500">{splitForm.errors.pallet_count}</p>}
+            </div>
+
+            {splitPreview.length > 0 && (
+              <div className="rounded-lg border bg-white p-3">
+                <h4 className="mb-2 text-xs font-semibold uppercase tracking-wider text-muted-foreground">Reparto resultante</h4>
+                <ul className="space-y-1">
+                  {splitPreview.map((quantity, index) => (
+                    <li key={index} className="flex justify-between text-sm">
+                      <span className="text-slate-500">Pallet {index + 1}</span>
+                      <span className="font-medium">{quantity.toLocaleString('es-CL', { maximumFractionDigits: 4 })}</span>
+                    </li>
+                  ))}
+                </ul>
+                <p className={`mt-2 text-xs ${splitSumMatches ? 'text-green-600' : 'text-red-600'}`}>
+                  {splitSumMatches ? 'La suma coincide con el total disponible.' : 'La suma no coincide con el total disponible.'}
+                </p>
+              </div>
+            )}
+
+            <div className="grid grid-cols-3 gap-3">
+              <div className="space-y-2">
+                <Label>Prefijo</Label>
+                <Input value={splitForm.data.spatial_prefix} onChange={(e) => splitForm.setData('spatial_prefix', e.target.value)} />
+              </div>
+              <div className="space-y-2">
+                <Label>Columna</Label>
+                <Input value={splitForm.data.spatial_column} onChange={(e) => splitForm.setData('spatial_column', e.target.value)} />
+              </div>
+              <div className="space-y-2">
+                <Label>Fila</Label>
+                <Input value={splitForm.data.spatial_row} onChange={(e) => splitForm.setData('spatial_row', e.target.value)} />
+              </div>
+            </div>
+
+            {splitForm.errors.logistic_unit && <p className="text-sm text-red-500">{splitForm.errors.logistic_unit}</p>}
+
+            <DialogFooter>
+              <Button type="button" variant="ghost" onClick={() => { setSplitModal({ open: false, unit: null }); splitForm.reset(); }}>Cancelar</Button>
+              <Button type="submit" disabled={splitForm.processing || splitPreview.length === 0 || !splitSumMatches}>
+                {splitForm.processing ? 'Dividiendo...' : `Dividir en ${splitForm.data.pallet_count} pallets`}
+              </Button>
+            </DialogFooter>
+          </form>
         </DialogContent>
       </Dialog>
 

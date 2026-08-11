@@ -6,6 +6,7 @@ use App\Http\Controllers\Controller;
 use App\Http\Controllers\Inventory\Concerns\AuthorizesInventory;
 use App\Http\Requests\Inventory\StoreLogisticUnitRequest;
 use App\Http\Requests\Inventory\UpdateLogisticUnitRequest;
+use App\Http\Requests\Inventory\SplitLogisticUnitRequest;
 use App\Models\InventoryLocation;
 use App\Models\InventoryLogisticUnit;
 use App\Models\InventoryMaterial;
@@ -16,6 +17,7 @@ use App\Models\InventoryWasteReason;
 use App\Models\InventoryWasteType;
 use App\Notifications\InventoryTransferDispatchedNotification;
 use App\Services\Inventory\LogisticUnitService;
+use App\Services\Inventory\LotService;
 use App\Services\Inventory\MovementService;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\RedirectResponse;
@@ -30,7 +32,7 @@ class LogisticUnitController extends Controller
 {
     use AuthorizesInventory;
 
-    public function index(Request $request, LogisticUnitService $logisticUnitService): Response
+    public function index(Request $request, LogisticUnitService $logisticUnitService, LotService $lotService): Response
     {
         $this->authorizeInventory($request);
 
@@ -161,6 +163,7 @@ class LogisticUnitController extends Controller
             'materialRequests' => $materialRequests,
             'wasteReasons' => InventoryWasteReason::query()->where('activo', true)->orderBy('nombre')->get(['id', 'codigo', 'nombre']),
             'wasteTypes' => InventoryWasteType::query()->where('activo', true)->orderBy('nombre')->get(['id', 'codigo', 'nombre']),
+            'nextLotCode' => $lotService->peekNextCode(),
         ]);
     }
 
@@ -169,6 +172,14 @@ class LogisticUnitController extends Controller
         $this->authorizeInventory($request);
 
         $data = $request->validated();
+        $count = (int) ($data['pallet_count'] ?? 1);
+        unset($data['pallet_count']);
+
+        if ($count > 1) {
+            $logisticUnitService->createMany($data, $count, (int) $request->user()->id);
+
+            return back()->with('success', $count.' pallets registrados.');
+        }
 
         if (blank($data['license_plate_number'] ?? null)) {
             $data['license_plate_number'] = $logisticUnitService->suggestLicensePlateNumber((int) $data['material_id']);
@@ -177,6 +188,18 @@ class LogisticUnitController extends Controller
         $logisticUnitService->create($data, (int) $request->user()->id);
 
         return back()->with('success', 'Pallet registrado.');
+    }
+
+    public function split(SplitLogisticUnitRequest $request, InventoryLogisticUnit $logisticUnit, LogisticUnitService $logisticUnitService): RedirectResponse
+    {
+        $this->authorizeInventory($request);
+
+        $data = $request->validated();
+        $count = (int) $data['pallet_count'];
+
+        $logisticUnitService->split($logisticUnit, $count, $data, (int) $request->user()->id);
+
+        return back()->with('success', 'LPN dividido en '.$count.' pallets.');
     }
 
     public function update(UpdateLogisticUnitRequest $request, InventoryLogisticUnit $logisticUnit, LogisticUnitService $logisticUnitService): RedirectResponse

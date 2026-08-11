@@ -422,6 +422,7 @@ Route::middleware('auth')->group(function () {
         Route::get('logistic-units/by-code/{code}', [App\Http\Controllers\Inventory\LogisticUnitController::class, 'showByCode'])->name('logistic-units.by-code');
         Route::get('logistic-units/{logisticUnit}', [App\Http\Controllers\Inventory\LogisticUnitController::class, 'show'])->name('logistic-units.show');
         Route::post('logistic-units/{logisticUnit}/relocate', [App\Http\Controllers\Inventory\LogisticUnitController::class, 'relocate'])->name('logistic-units.relocate');
+        Route::post('logistic-units/{logisticUnit}/split', [App\Http\Controllers\Inventory\LogisticUnitController::class, 'split'])->name('logistic-units.split');
         Route::post('logistic-units/positions/{stockPosition}/transfer', [App\Http\Controllers\Inventory\LogisticUnitController::class, 'transferPosition'])->name('logistic-units.transfer-position');
         Route::put('logistic-units/{logisticUnit}', [App\Http\Controllers\Inventory\LogisticUnitController::class, 'update'])->name('logistic-units.update');
         Route::delete('logistic-units/{logisticUnit}', [App\Http\Controllers\Inventory\LogisticUnitController::class, 'destroy'])->name('logistic-units.destroy');

@@ -30,6 +30,7 @@ class StoreLogisticUnitRequest extends FormRequest
             'reference_id' => ['nullable', 'integer'],
             'received_at' => ['nullable', 'date'],
             'dispatch_guide' => ['nullable', 'string', 'max:100'],
+            'pallet_count' => ['nullable', 'integer', 'min:1', 'max:100'],
         ];
     }
 }
