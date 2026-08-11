@@ -1506,15 +1506,16 @@ export default function InventoryLogisticUnits({ units, materials = [], location
 
       <Dialog open={splitModal.open} onOpenChange={(val) => { if (!val) { setSplitModal({ open: false, unit: null }); splitForm.reset(); } }}>
         <DialogContent className="max-h-[92vh] overflow-hidden p-0 sm:max-w-lg">
-          <DialogHeader className="px-6 pt-6 pb-0">
+          <DialogHeader className="border-b px-6 py-5">
             <DialogTitle>Dividir LPN {splitModal.unit?.license_plate_number}</DialogTitle>
             <DialogDescription>
               El LPN registrado a nivel de camión se dividirá en pallets con el correlativo automático.
               La posición geoespacial será la misma para todos y podrás ajustarla luego en cada pallet.
             </DialogDescription>
           </DialogHeader>
-          <form onSubmit={submitSplit} className="space-y-4 overflow-y-auto px-6 py-5">
-            <div className="rounded-lg bg-slate-50 px-4 py-3 text-sm">
+          <form onSubmit={submitSplit} className="flex max-h-[calc(92vh-88px)] flex-col">
+            <div className="flex-1 space-y-4 overflow-y-auto px-6 py-5">
+              <div className="rounded-lg bg-slate-50 px-4 py-3 text-sm">
               <div className="flex justify-between">
                 <span className="text-slate-500">Cantidad total disponible</span>
                 <span className="font-bold">{Number(splitModal.unit?.available_quantity || 0).toLocaleString('es-CL')}</span>
@@ -1566,8 +1567,9 @@ export default function InventoryLogisticUnits({ units, materials = [], location
             </div>
 
             {splitForm.errors.logistic_unit && <p className="text-sm text-red-500">{splitForm.errors.logistic_unit}</p>}
+            </div>
 
-            <DialogFooter>
+            <DialogFooter className="border-t bg-white px-6 py-4">
               <Button type="button" variant="ghost" onClick={() => { setSplitModal({ open: false, unit: null }); splitForm.reset(); }}>Cancelar</Button>
               <Button type="submit" disabled={splitForm.processing || splitPreview.length === 0 || !splitSumMatches}>
                 {splitForm.processing ? 'Dividiendo...' : `Dividir en ${splitForm.data.pallet_count} pallets`}
