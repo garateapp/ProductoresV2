@@ -1505,7 +1505,7 @@ export default function InventoryLogisticUnits({ units, materials = [], location
       </Dialog>
 
       <Dialog open={splitModal.open} onOpenChange={(val) => { if (!val) { setSplitModal({ open: false, unit: null }); splitForm.reset(); } }}>
-        <DialogContent className="max-h-[78vh] overflow-hidden p-0 sm:max-w-lg">
+        <DialogContent className="max-h-[92vh] overflow-hidden p-0 sm:max-w-2xl">
           <DialogHeader className="border-b px-6 py-5">
             <DialogTitle>Dividir LPN {splitModal.unit?.license_plate_number}</DialogTitle>
             <DialogDescription>
@@ -1514,67 +1514,73 @@ export default function InventoryLogisticUnits({ units, materials = [], location
             </DialogDescription>
           </DialogHeader>
           <form onSubmit={submitSplit} className="flex max-h-[calc(92vh-88px)] flex-col">
-            <div className="flex-1 space-y-4 overflow-y-auto px-6 py-5">
-              <div className="rounded-lg bg-slate-50 px-4 py-3 text-sm">
-              <div className="flex justify-between">
-                <span className="text-slate-500">Cantidad total disponible</span>
-                <span className="font-bold">{Number(splitModal.unit?.available_quantity || 0).toLocaleString('es-CL')}</span>
-              </div>
-            </div>
-            <div className="space-y-2">
-              <Label>N° de pallets</Label>
-              <div className="flex items-end gap-2">
-                <Input
-                  type="number"
-                  min="2"
-                  max="100"
-                  step="1"
-                  className="flex-1"
-                  value={splitForm.data.pallet_count}
-                  onChange={(e) => splitForm.setData('pallet_count', e.target.value)}
-                />
-                <Button
-                  type="submit"
-                  disabled={splitForm.processing || splitPreview.length === 0 || !splitSumMatches}
-                >{splitForm.processing ? 'Dividiendo...' : `Dividir en ${splitForm.data.pallet_count} pallets`}
-                </Button>
-              </div>
-              {splitForm.errors.pallet_count && <p className="text-sm text-red-500">{splitForm.errors.pallet_count}</p>}
-            </div>
+            <div className="flex-1 overflow-y-auto px-6 py-5">
+              <div className="grid gap-4 sm:grid-cols-2">
+                <div className="space-y-4">
+                  <div className="rounded-lg bg-slate-50 px-4 py-3 text-sm">
+                    <div className="flex justify-between">
+                      <span className="text-slate-500">Cantidad total disponible</span>
+                      <span className="font-bold">{Number(splitModal.unit?.available_quantity || 0).toLocaleString('es-CL')}</span>
+                    </div>
+                  </div>
+                  <div className="space-y-2">
+                    <Label>N° de pallets</Label>
+                    <div className="flex items-end gap-2">
+                      <Input
+                        type="number"
+                        min="2"
+                        max="100"
+                        step="1"
+                        className="flex-1"
+                        value={splitForm.data.pallet_count}
+                        onChange={(e) => splitForm.setData('pallet_count', e.target.value)}
+                      />
+                      <Button
+                        type="submit"
+                        disabled={splitForm.processing || splitPreview.length === 0 || !splitSumMatches}
+                      >{splitForm.processing ? 'Dividiendo...' : `Dividir en ${splitForm.data.pallet_count} pallets`}
+                      </Button>
+                    </div>
+                    {splitForm.errors.pallet_count && <p className="text-sm text-red-500">{splitForm.errors.pallet_count}</p>}
+                  </div>
 
-            {splitPreview.length > 0 && (
-              <div className="max-h-[45vh] overflow-y-auto rounded-lg border bg-white p-3">
-                <h4 className="mb-2 text-xs font-semibold uppercase tracking-wider text-muted-foreground">Reparto resultante</h4>
-                <ul className="space-y-1">
-                  {splitPreview.map((quantity, index) => (
-                    <li key={index} className="flex justify-between text-sm">
-                      <span className="text-slate-500">Pallet {index + 1}</span>
-                      <span className="font-medium">{quantity.toLocaleString('es-CL', { maximumFractionDigits: 4 })}</span>
-                    </li>
-                  ))}
-                </ul>
-                <p className={`mt-2 text-xs ${splitSumMatches ? 'text-green-600' : 'text-red-600'}`}>
-                  {splitSumMatches ? 'La suma coincide con el total disponible.' : 'La suma no coincide con el total disponible.'}
-                </p>
-              </div>
-            )}
+                  <div className="grid grid-cols-3 gap-3">
+                    <div className="space-y-2">
+                      <Label>Prefijo</Label>
+                      <Input value={splitForm.data.spatial_prefix} onChange={(e) => splitForm.setData('spatial_prefix', e.target.value)} />
+                    </div>
+                    <div className="space-y-2">
+                      <Label>Columna</Label>
+                      <Input value={splitForm.data.spatial_column} onChange={(e) => splitForm.setData('spatial_column', e.target.value)} />
+                    </div>
+                    <div className="space-y-2">
+                      <Label>Fila</Label>
+                      <Input value={splitForm.data.spatial_row} onChange={(e) => splitForm.setData('spatial_row', e.target.value)} />
+                    </div>
+                  </div>
 
-            <div className="grid grid-cols-3 gap-3">
-              <div className="space-y-2">
-                <Label>Prefijo</Label>
-                <Input value={splitForm.data.spatial_prefix} onChange={(e) => splitForm.setData('spatial_prefix', e.target.value)} />
-              </div>
-              <div className="space-y-2">
-                <Label>Columna</Label>
-                <Input value={splitForm.data.spatial_column} onChange={(e) => splitForm.setData('spatial_column', e.target.value)} />
-              </div>
-              <div className="space-y-2">
-                <Label>Fila</Label>
-                <Input value={splitForm.data.spatial_row} onChange={(e) => splitForm.setData('spatial_row', e.target.value)} />
-              </div>
-            </div>
+                  {splitForm.errors.logistic_unit && <p className="text-sm text-red-500">{splitForm.errors.logistic_unit}</p>}
+                </div>
 
-            {splitForm.errors.logistic_unit && <p className="text-sm text-red-500">{splitForm.errors.logistic_unit}</p>}
+                <div>
+                  {splitPreview.length > 0 && (
+                    <div className="max-h-[55vh] overflow-y-auto rounded-lg border bg-white p-3">
+                      <h4 className="mb-2 text-xs font-semibold uppercase tracking-wider text-muted-foreground">Reparto resultante</h4>
+                      <ul className="space-y-1">
+                        {splitPreview.map((quantity, index) => (
+                          <li key={index} className="flex justify-between text-sm">
+                            <span className="text-slate-500">Pallet {index + 1}</span>
+                            <span className="font-medium">{quantity.toLocaleString('es-CL', { maximumFractionDigits: 4 })}</span>
+                          </li>
+                        ))}
+                      </ul>
+                      <p className={`mt-2 text-xs ${splitSumMatches ? 'text-green-600' : 'text-red-600'}`}>
+                        {splitSumMatches ? 'La suma coincide con el total disponible.' : 'La suma no coincide con el total disponible.'}
+                      </p>
+                    </div>
+                  )}
+                </div>
+              </div>
             </div>
           </form>
         </DialogContent>
