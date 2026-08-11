@@ -1536,8 +1536,7 @@ export default function InventoryLogisticUnits({ units, materials = [], location
                 <Button
                   type="submit"
                   disabled={splitForm.processing || splitPreview.length === 0 || !splitSumMatches}
-                >
-                  {splitForm.processing ? 'Dividiendo...' : `Dividir en ${splitForm.data.pallet_count} pallets`}
+                >{splitForm.processing ? 'Dividiendo...' : `Dividir en ${splitForm.data.pallet_count} pallets`}
                 </Button>
               </div>
               {splitForm.errors.pallet_count && <p className="text-sm text-red-500">{splitForm.errors.pallet_count}</p>}
