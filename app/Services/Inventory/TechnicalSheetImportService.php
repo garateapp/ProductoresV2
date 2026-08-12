@@ -37,6 +37,11 @@ class TechnicalSheetImportService
             $isSemielaborado = mb_strtolower(trim($header['es_semielaborado'] ?? '')) === 'si';
             $targetCode = trim($header['codigo_embalaje'] ?? '');
             $semielaboradoCode = trim($header['material_semielaborado'] ?? '');
+            $nombre = trim($header['nombre'] ?? '');
+
+            if ($nombre === '') {
+                $rowErrors[] = 'El nombre de la ficha es obligatorio.';
+            }
 
             if ($isSemielaborado) {
                 if ($semielaboradoCode === '') {
@@ -81,12 +86,14 @@ class TechnicalSheetImportService
 
             if (! empty($rowErrors)) {
                 $label = $targetCode ?: $semielaboradoCode;
-                $errors[] = "Fila {$rowIndex} ({$label}): " . implode(' | ', $rowErrors);
+                $errors[] = "Fila {$rowIndex} ({$label}): ".implode(' | ', $rowErrors);
+
                 continue;
             }
 
             try {
                 $sheetData = [
+                    'nombre' => $nombre,
                     'es_semielaborado' => $isSemielaborado,
                     'packaging_id' => $isSemielaborado ? null : $packagingMap[mb_strtolower($targetCode)]->id,
                     'material_id' => $isSemielaborado ? $materialMap[mb_strtolower($semielaboradoCode)]->id : null,
@@ -103,10 +110,10 @@ class TechnicalSheetImportService
                 $created++;
             } catch (ValidationException $e) {
                 $label = $targetCode ?: $semielaboradoCode;
-                $errors[] = "Fila {$rowIndex} ({$label}): " . implode(' | ', array_values($e->errors()));
+                $errors[] = "Fila {$rowIndex} ({$label}): ".implode(' | ', array_values($e->errors()));
             } catch (\Throwable $e) {
                 $label = $targetCode ?: $semielaboradoCode;
-                $errors[] = "Fila {$rowIndex} ({$label}): Error inesperado - " . $e->getMessage();
+                $errors[] = "Fila {$rowIndex} ({$label}): Error inesperado - ".$e->getMessage();
             }
         }
 
@@ -129,7 +136,7 @@ class TechnicalSheetImportService
         // Find header row by looking for 'CÓDIGO EMBALAJE'
         $headerRow = null;
         for ($r = 1; $r <= min($highestRow, 15); $r++) {
-            $cellValue = trim((string) $sheet->getCell('A' . $r)->getValue());
+            $cellValue = trim((string) $sheet->getCell('A'.$r)->getValue());
             if (mb_strtoupper($cellValue) === 'CÓDIGO EMBALAJE' || mb_strtoupper($cellValue) === 'CODIGO EMBALAJE') {
                 $headerRow = $r;
                 break;
@@ -140,19 +147,28 @@ class TechnicalSheetImportService
             throw ValidationException::withMessages(['file' => ['No se encontró la fila de encabezados en la hoja "Embalaje".']]);
         }
 
+        $hasNameColumn = str_contains(mb_strtoupper(trim((string) $sheet->getCell('B'.$headerRow)->getValue())), 'NOMBRE');
+
         for ($r = $headerRow + 1; $r <= $highestRow; $r++) {
-            $firstCell = trim((string) $sheet->getCell('A' . $r)->getValue());
-            if ($firstCell === '') {
+            $firstCell = trim((string) $sheet->getCell('A'.$r)->getValue());
+            $semielaboradoCell = (string) $sheet->getCell(($hasNameColumn ? 'C' : 'B').$r)->getValue();
+            $materialSemielaboradoCell = trim((string) $sheet->getCell(($hasNameColumn ? 'D' : 'C').$r)->getValue());
+
+            if ($firstCell === '' && $materialSemielaboradoCell === '') {
                 continue;
             }
+
             $rows->put($r, [
                 'codigo_embalaje' => $firstCell,
-                'es_semielaborado' => (string) $sheet->getCell('B' . $r)->getValue(),
-                'material_semielaborado' => (string) $sheet->getCell('C' . $r)->getValue(),
-                'fecha_vigencia_desde' => $this->extractDateValue($sheet->getCell('D' . $r)->getValue()),
-                'fecha_vigencia_hasta' => $this->extractDateValue($sheet->getCell('E' . $r)->getValue()),
-                'activo' => (string) $sheet->getCell('F' . $r)->getValue(),
-                'observacion' => (string) $sheet->getCell('G' . $r)->getValue(),
+                'nombre' => $hasNameColumn
+                    ? (string) $sheet->getCell('B'.$r)->getValue()
+                    : 'Ficha '.($firstCell ?: $materialSemielaboradoCell),
+                'es_semielaborado' => $semielaboradoCell,
+                'material_semielaborado' => $materialSemielaboradoCell,
+                'fecha_vigencia_desde' => $this->extractDateValue($sheet->getCell(($hasNameColumn ? 'E' : 'D').$r)->getValue()),
+                'fecha_vigencia_hasta' => $this->extractDateValue($sheet->getCell(($hasNameColumn ? 'F' : 'E').$r)->getValue()),
+                'activo' => (string) $sheet->getCell(($hasNameColumn ? 'G' : 'F').$r)->getValue(),
+                'observacion' => (string) $sheet->getCell(($hasNameColumn ? 'H' : 'G').$r)->getValue(),
             ]);
         }
 
@@ -172,7 +188,7 @@ class TechnicalSheetImportService
         // Find header row
         $headerRow = null;
         for ($r = 1; $r <= min($highestRow, 10); $r++) {
-            $cellValue = trim((string) $sheet->getCell('A' . $r)->getValue());
+            $cellValue = trim((string) $sheet->getCell('A'.$r)->getValue());
             if (str_contains(mb_strtoupper($cellValue), 'EMBALAJE') || str_contains(mb_strtoupper($cellValue), 'SEMIELABORADO')) {
                 $headerRow = $r;
                 break;
@@ -184,12 +200,12 @@ class TechnicalSheetImportService
         }
 
         for ($r = $headerRow + 1; $r <= $highestRow; $r++) {
-            $groupCode = trim((string) $sheet->getCell('A' . $r)->getValue());
+            $groupCode = trim((string) $sheet->getCell('A'.$r)->getValue());
             if ($groupCode === '') {
                 continue;
             }
 
-            $materialCode = trim((string) $sheet->getCell('B' . $r)->getValue());
+            $materialCode = trim((string) $sheet->getCell('B'.$r)->getValue());
             if ($materialCode === '') {
                 continue;
             }
@@ -198,9 +214,9 @@ class TechnicalSheetImportService
             $rows->push([
                 'group_key' => $key,
                 'material_codigo' => $materialCode,
-                'replacement_codigo' => trim((string) $sheet->getCell('C' . $r)->getValue()),
-                'cantidad_estandar' => (string) $sheet->getCell('D' . $r)->getValue(),
-                'calibre' => trim((string) $sheet->getCell('E' . $r)->getValue()),
+                'replacement_codigo' => trim((string) $sheet->getCell('C'.$r)->getValue()),
+                'cantidad_estandar' => (string) $sheet->getCell('D'.$r)->getValue(),
+                'calibre' => trim((string) $sheet->getCell('E'.$r)->getValue()),
             ]);
         }
 
@@ -215,6 +231,7 @@ class TechnicalSheetImportService
             $materialCode = mb_strtolower(trim($item['material_codigo']));
             if (! isset($materialMap[$materialCode])) {
                 $rowErrors[] = "{$type}: Material '{$item['material_codigo']}' no encontrado.";
+
                 continue;
             }
 
@@ -223,6 +240,7 @@ class TechnicalSheetImportService
                 $replacementCode = mb_strtolower(trim($item['replacement_codigo']));
                 if (! isset($materialMap[$replacementCode])) {
                     $rowErrors[] = "{$type}: Material reemplazo '{$item['replacement_codigo']}' no encontrado.";
+
                     continue;
                 }
                 $replacementId = $materialMap[$replacementCode]->id;
@@ -231,6 +249,7 @@ class TechnicalSheetImportService
             $cantidad = (float) ($item['cantidad_estandar'] ?? 0);
             if ($cantidad <= 0) {
                 $rowErrors[] = "{$type}: La cantidad estándar debe ser mayor a 0.";
+
                 continue;
             }
 

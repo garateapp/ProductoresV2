@@ -2,23 +2,23 @@
 
 namespace App\Exports;
 
-use Maatwebsite\Excel\Concerns\WithMultipleSheets;
 use Maatwebsite\Excel\Concerns\ShouldAutoSize;
-use Maatwebsite\Excel\Concerns\WithStyles;
+use Maatwebsite\Excel\Concerns\WithMultipleSheets;
 use Maatwebsite\Excel\Concerns\WithProperties;
-use PhpOffice\PhpSpreadsheet\Worksheet\Worksheet;
+use Maatwebsite\Excel\Concerns\WithStyles;
+use PhpOffice\PhpSpreadsheet\Style\Alignment;
 use PhpOffice\PhpSpreadsheet\Style\Border;
 use PhpOffice\PhpSpreadsheet\Style\Fill;
-use PhpOffice\PhpSpreadsheet\Style\Alignment;
+use PhpOffice\PhpSpreadsheet\Worksheet\Worksheet;
 
 class TechnicalSheetTemplateExport implements WithMultipleSheets, WithProperties
 {
     public function sheets(): array
     {
         return [
-            'Embalaje' => new EncabezadosSheet(),
-            'Material por Unidad de Caja' => new MaterialesUnidadSheet(),
-            'Material por Pallet' => new MaterialesPalletSheet(),
+            'Embalaje' => new EncabezadosSheet,
+            'Material por Unidad de Caja' => new MaterialesUnidadSheet,
+            'Material por Pallet' => new MaterialesPalletSheet,
         ];
     }
 
@@ -37,6 +37,7 @@ class EncabezadosSheet implements ShouldAutoSize, WithStyles
 {
     private array $headers = [
         'CÓDIGO EMBALAJE',
+        'NOMBRE FICHA',
         'ES SEMIELABORADO (SI/NO)',
         'MATERIAL SEMIELABORADO (código)',
         'FECHA VIGENCIA DESDE',
@@ -46,6 +47,7 @@ class EncabezadosSheet implements ShouldAutoSize, WithStyles
     ];
 
     private string $headerColor = '1F4E79';
+
     private string $exampleColor = 'FFF2CC';
 
     public function headers(): array
@@ -64,6 +66,7 @@ class EncabezadosSheet implements ShouldAutoSize, WithStyles
             '5. Luego complete las hojas "Material por Unidad de Caja" y "Material por Pallet" con los códigos de embalaje correspondientes.',
             '',
             'CÓDIGO EMBALAJE',
+            'NOMBRE FICHA',
             'ES SEMIELABORADO (SI/NO)',
             'MATERIAL SEMIELABORADO (código)',
             'FECHA VIGENCIA DESDE',
@@ -76,18 +79,18 @@ class EncabezadosSheet implements ShouldAutoSize, WithStyles
     public function styles(Worksheet $sheet): array
     {
         // Title row
-        $sheet->mergeCells('A1:G1');
+        $sheet->mergeCells('A1:H1');
         $sheet->setCellValue('A1', 'PLANTILLA DE CARGA MASIVA - FICHAS TÉCNICAS');
         $sheet->getStyle('A1')->applyFromArray([
             'font' => ['bold' => true, 'size' => 14, 'color' => ['argb' => 'FFFFFFFF']],
             'alignment' => ['horizontal' => Alignment::HORIZONTAL_CENTER],
-            'fill' => ['fillType' => Fill::FILL_SOLID, 'startColor' => ['argb' => 'FF' . $this->headerColor]],
+            'fill' => ['fillType' => Fill::FILL_SOLID, 'startColor' => ['argb' => 'FF'.$this->headerColor]],
         ]);
 
         // Instructions
         $instructions = [
             'A3' => '1. Complete los encabezados de cada ficha técnica en esta hoja.',
-            'A4' => '2. Use códigos de embalaje existentes en "CÓDIGO EMBALAJE" (o código de material si es semielaborado).',
+            'A4' => '2. Indique un nombre para cada ficha y use códigos de embalaje existentes (o código de material si es semielaborado).',
             'A5' => '3. Formato de fechas: YYYY-MM-DD (ej: 2026-05-01).',
             'A6' => '4. Luego complete las hojas "Material por Unidad de Caja" y "Material por Pallet".',
             'A7' => '5. Use los mismos códigos de embalaje/material en las 3 hojas para agrupar los registros.',
@@ -104,7 +107,7 @@ class EncabezadosSheet implements ShouldAutoSize, WithStyles
         $headerStyle = [
             'font' => ['bold' => true, 'size' => 11, 'color' => ['argb' => 'FFFFFFFF']],
             'alignment' => ['horizontal' => Alignment::HORIZONTAL_CENTER, 'wrapText' => true],
-            'fill' => ['fillType' => Fill::FILL_SOLID, 'startColor' => ['argb' => 'FF' . $this->headerColor]],
+            'fill' => ['fillType' => Fill::FILL_SOLID, 'startColor' => ['argb' => 'FF'.$this->headerColor]],
             'borders' => [
                 'allBorders' => ['borderStyle' => Border::BORDER_THIN, 'color' => ['argb' => 'FF000000']],
             ],
@@ -113,14 +116,14 @@ class EncabezadosSheet implements ShouldAutoSize, WithStyles
         $col = 'A';
         foreach ($this->headers as $index => $header) {
             $col = chr(ord('A') + $index);
-            $sheet->setCellValue($col . '9', $header);
-            $sheet->getStyle($col . '9')->applyFromArray($headerStyle);
+            $sheet->setCellValue($col.'9', $header);
+            $sheet->getStyle($col.'9')->applyFromArray($headerStyle);
         }
 
         // Example row (row 10)
         $exampleStyle = [
             'font' => ['size' => 10, 'italic' => true, 'color' => ['argb' => 'FF808080']],
-            'fill' => ['fillType' => Fill::FILL_SOLID, 'startColor' => ['argb' => 'FF' . $this->exampleColor]],
+            'fill' => ['fillType' => Fill::FILL_SOLID, 'startColor' => ['argb' => 'FF'.$this->exampleColor]],
             'borders' => [
                 'allBorders' => ['borderStyle' => Border::BORDER_THIN, 'color' => ['argb' => 'FF000000']],
             ],
@@ -128,12 +131,13 @@ class EncabezadosSheet implements ShouldAutoSize, WithStyles
 
         $exampleData = [
             'A10' => 'EMB-001',
-            'B10' => 'NO',
-            'C10' => '',
-            'D10' => '2026-05-01',
-            'E10' => '2026-12-31',
-            'F10' => 'SI',
-            'G10' => 'Ejemplo de observación',
+            'B10' => 'Ficha cerezas exportación',
+            'C10' => 'NO',
+            'D10' => '',
+            'E10' => '2026-05-01',
+            'F10' => '2026-12-31',
+            'G10' => 'SI',
+            'H10' => 'Ejemplo de observación',
         ];
 
         foreach ($exampleData as $cell => $value) {
@@ -141,31 +145,32 @@ class EncabezadosSheet implements ShouldAutoSize, WithStyles
             $sheet->getStyle($cell)->applyFromArray($exampleStyle);
         }
 
-        // Data validation for B column (es_semielaborado)
-        $validation = $sheet->getCell('B10')->getDataValidation();
+        // Data validation for C column (es_semielaborado)
+        $validation = $sheet->getCell('C10')->getDataValidation();
         $validation->setType(\PhpOffice\PhpSpreadsheet\Cell\DataValidation::TYPE_LIST);
         $validation->setAllowBlank(true);
         $validation->setShowDropDown(true);
         $validation->setFormula1('"SI,NO"');
 
-        // Data validation for F column (activo)
-        $validationF = $sheet->getCell('F10')->getDataValidation();
+        // Data validation for G column (activo)
+        $validationF = $sheet->getCell('G10')->getDataValidation();
         $validationF->setType(\PhpOffice\PhpSpreadsheet\Cell\DataValidation::TYPE_LIST);
         $validationF->setAllowBlank(true);
         $validationF->setShowDropDown(true);
         $validationF->setFormula1('"SI,NO"');
 
         // Date format for D and E columns
-        $sheet->getStyle('D10:E10')->getNumberFormat()->setFormatCode('YYYY-MM-DD');
+        $sheet->getStyle('E10:F10')->getNumberFormat()->setFormatCode('YYYY-MM-DD');
 
         // Column widths
         $sheet->getColumnDimension('A')->setWidth(22);
-        $sheet->getColumnDimension('B')->setWidth(22);
-        $sheet->getColumnDimension('C')->setWidth(28);
-        $sheet->getColumnDimension('D')->setWidth(22);
+        $sheet->getColumnDimension('B')->setWidth(30);
+        $sheet->getColumnDimension('C')->setWidth(22);
+        $sheet->getColumnDimension('D')->setWidth(28);
         $sheet->getColumnDimension('E')->setWidth(22);
-        $sheet->getColumnDimension('F')->setWidth(16);
-        $sheet->getColumnDimension('G')->setWidth(30);
+        $sheet->getColumnDimension('F')->setWidth(22);
+        $sheet->getColumnDimension('G')->setWidth(16);
+        $sheet->getColumnDimension('H')->setWidth(30);
 
         return [];
     }
@@ -201,7 +206,7 @@ class MaterialesUnidadSheet implements ShouldAutoSize, WithStyles
         $sheet->getStyle('A1')->applyFromArray([
             'font' => ['bold' => true, 'size' => 14, 'color' => ['argb' => 'FFFFFFFF']],
             'alignment' => ['horizontal' => Alignment::HORIZONTAL_CENTER],
-            'fill' => ['fillType' => Fill::FILL_SOLID, 'startColor' => ['argb' => 'FF' . $this->headerColor]],
+            'fill' => ['fillType' => Fill::FILL_SOLID, 'startColor' => ['argb' => 'FF'.$this->headerColor]],
         ]);
 
         $sheet->setCellValue('A3', 'Use los mismos códigos de la hoja "Embalaje" para agrupar los materiales por ficha técnica.');
@@ -211,7 +216,7 @@ class MaterialesUnidadSheet implements ShouldAutoSize, WithStyles
         $headerStyle = [
             'font' => ['bold' => true, 'size' => 11, 'color' => ['argb' => 'FFFFFFFF']],
             'alignment' => ['horizontal' => Alignment::HORIZONTAL_CENTER, 'wrapText' => true],
-            'fill' => ['fillType' => Fill::FILL_SOLID, 'startColor' => ['argb' => 'FF' . $this->headerColor]],
+            'fill' => ['fillType' => Fill::FILL_SOLID, 'startColor' => ['argb' => 'FF'.$this->headerColor]],
             'borders' => [
                 'allBorders' => ['borderStyle' => Border::BORDER_THIN, 'color' => ['argb' => 'FF000000']],
             ],
@@ -219,8 +224,8 @@ class MaterialesUnidadSheet implements ShouldAutoSize, WithStyles
 
         foreach ($this->headers as $index => $header) {
             $col = chr(ord('A') + $index);
-            $sheet->setCellValue($col . '5', $header);
-            $sheet->getStyle($col . '5')->applyFromArray($headerStyle);
+            $sheet->setCellValue($col.'5', $header);
+            $sheet->getStyle($col.'5')->applyFromArray($headerStyle);
         }
 
         // Example rows
@@ -285,7 +290,7 @@ class MaterialesPalletSheet implements ShouldAutoSize, WithStyles
         $sheet->getStyle('A1')->applyFromArray([
             'font' => ['bold' => true, 'size' => 14, 'color' => ['argb' => 'FFFFFFFF']],
             'alignment' => ['horizontal' => Alignment::HORIZONTAL_CENTER],
-            'fill' => ['fillType' => Fill::FILL_SOLID, 'startColor' => ['argb' => 'FF' . $this->headerColor]],
+            'fill' => ['fillType' => Fill::FILL_SOLID, 'startColor' => ['argb' => 'FF'.$this->headerColor]],
         ]);
 
         $sheet->setCellValue('A3', 'Use los mismos códigos de la hoja "Embalaje" para agrupar los materiales por ficha técnica.');
@@ -295,7 +300,7 @@ class MaterialesPalletSheet implements ShouldAutoSize, WithStyles
         $headerStyle = [
             'font' => ['bold' => true, 'size' => 11, 'color' => ['argb' => 'FFFFFFFF']],
             'alignment' => ['horizontal' => Alignment::HORIZONTAL_CENTER, 'wrapText' => true],
-            'fill' => ['fillType' => Fill::FILL_SOLID, 'startColor' => ['argb' => 'FF' . $this->headerColor]],
+            'fill' => ['fillType' => Fill::FILL_SOLID, 'startColor' => ['argb' => 'FF'.$this->headerColor]],
             'borders' => [
                 'allBorders' => ['borderStyle' => Border::BORDER_THIN, 'color' => ['argb' => 'FF000000']],
             ],
@@ -303,8 +308,8 @@ class MaterialesPalletSheet implements ShouldAutoSize, WithStyles
 
         foreach ($this->headers as $index => $header) {
             $col = chr(ord('A') + $index);
-            $sheet->setCellValue($col . '5', $header);
-            $sheet->getStyle($col . '5')->applyFromArray($headerStyle);
+            $sheet->setCellValue($col.'5', $header);
+            $sheet->getStyle($col.'5')->applyFromArray($headerStyle);
         }
 
         // Example rows

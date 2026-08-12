@@ -477,6 +477,7 @@ Route::get('logistic-units/print-lot/{lotCode}', [App\Http\Controllers\Inventory
 
         Route::get('technical-sheets', [App\Http\Controllers\Inventory\TechnicalSheetController::class, 'index'])->name('technical-sheets.index');
         Route::post('technical-sheets', [App\Http\Controllers\Inventory\TechnicalSheetController::class, 'store'])->name('technical-sheets.store');
+        Route::get('technical-sheets/images/{image}', [App\Http\Controllers\Inventory\TechnicalSheetController::class, 'showImage'])->name('technical-sheets.images.show');
         Route::patch('technical-sheets/{technicalSheet}', [App\Http\Controllers\Inventory\TechnicalSheetController::class, 'update'])->name('technical-sheets.update');
         Route::post('technical-sheets/sync-packagings', [App\Http\Controllers\Inventory\TechnicalSheetController::class, 'syncPackagings'])->name('technical-sheets.sync-packagings');
         Route::get('technical-sheets/template', [App\Http\Controllers\Inventory\TechnicalSheetController::class, 'downloadTemplate'])->name('technical-sheets.template');

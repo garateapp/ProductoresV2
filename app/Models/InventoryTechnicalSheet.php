@@ -12,6 +12,7 @@ class InventoryTechnicalSheet extends Model
         'packaging_id',
         'material_id',
         'es_semielaborado',
+        'nombre',
         'version',
         'fecha_vigencia_desde',
         'fecha_vigencia_hasta',
@@ -52,5 +53,10 @@ class InventoryTechnicalSheet extends Model
     public function palletItems(): HasMany
     {
         return $this->hasMany(InventoryTechnicalSheetPalletItem::class, 'technical_sheet_id');
+    }
+
+    public function images(): HasMany
+    {
+        return $this->hasMany(InventoryTechnicalSheetImage::class, 'technical_sheet_id')->orderBy('orden');
     }
 }
