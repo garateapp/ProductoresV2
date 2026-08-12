@@ -42,6 +42,7 @@ export default function InventoryLogisticUnits({ units, materials = [], location
   const [labelCopies, setLabelCopies] = useState(1)
   const [lotCopies, setLotCopies] = useState(2)
   const [printingLot, setPrintingLot] = useState(null)
+  const [lotModal, setLotModal] = useState({ open: false, unit: null, labels: [], loading: false })
   const [productionModal, setProductionModal] = useState({ open: false })
   const [showRequestDetail, setShowRequestDetail] = useState(false)
   const [productionLpnCode, setProductionLpnCode] = useState('')
@@ -713,26 +714,47 @@ export default function InventoryLogisticUnits({ units, materials = [], location
     })
   }
 
-  const printLot = async (unit) => {
-    if (!unit.lot_code || printingLot) {
+  const openLotModal = async (unit) => {
+    if (!unit.lot_code || lotModal.open) {
       return
     }
 
-    setPrintingLot(unit.lot_code)
-    let labels = []
+    setLotModal({ open: true, unit, labels: [], loading: true })
+    loadPrinters()
 
     try {
       const { data } = await axios.get(route('inventory.logistic-units.print-lot', unit.lot_code))
-      labels = (data.units || [])
+      const labels = (data.units || [])
         .map(buildLabelDataFromUnit)
         .filter((label) => label.lpn)
 
       if (!labels.length) {
+        setLotModal({ open: false, unit: null, labels: [], loading: false })
         toast.error(`El lote ${unit.lot_code} no tiene LPN activos para imprimir.`)
         return
       }
 
-      const copies = Math.max(1, parseInt(lotCopies, 10) || 1)
+      setLotModal({ open: true, unit, labels, loading: false })
+    } catch (err) {
+      console.error('Error cargando LPN del lote:', err)
+      setLotModal({ open: false, unit: null, labels: [], loading: false })
+      toast.error(err.message || 'No se pudieron cargar los LPN del lote.')
+    }
+  }
+
+  const getLotCopies = () => Math.max(1, parseInt(lotCopies, 10) || 1)
+
+  const printLotLabels = async () => {
+    const { labels, unit } = lotModal
+
+    if (!labels.length || !unit?.lot_code) {
+      return
+    }
+
+    setPrintingLot(unit.lot_code)
+
+    try {
+      const copies = getLotCopies()
       const zplAll = labels
         .flatMap((label) => Array(copies).fill(generateLabelZpl(label)))
         .join('\n')
@@ -745,13 +767,21 @@ export default function InventoryLogisticUnits({ units, materials = [], location
 
       toast.error(err.message || 'No se pudo imprimir el lote con QZ Tray.')
 
-      if (labels.length) {
-        const copies = Math.max(1, parseInt(lotCopies, 10) || 1)
-        openLotPrintPreview(labels.flatMap((label) => Array(copies).fill(label)))
-      }
+      previewLotLabels()
     } finally {
       setPrintingLot(null)
     }
+  }
+
+  const previewLotLabels = () => {
+    const { labels } = lotModal
+
+    if (!labels.length) {
+      return
+    }
+
+    const copies = getLotCopies()
+    openLotPrintPreview(labels.flatMap((label) => Array(copies).fill(label)))
   }
 
   const applyFilters = (event) => {
@@ -1272,7 +1302,7 @@ export default function InventoryLogisticUnits({ units, materials = [], location
                     <TableCell>{unit.status}</TableCell>
                     <TableCell className="text-right">
                       <div className="flex justify-end gap-2">
-                        <Button variant="outline" size="sm" disabled={!unit.lot_code || Boolean(printingLot)} onClick={(e) => { e.stopPropagation(); printLot(unit); }}>
+                        <Button variant="outline" size="sm" disabled={!unit.lot_code || Boolean(printingLot)} onClick={(e) => { e.stopPropagation(); openLotModal(unit); }}>
                           <Printer className="h-4 w-4 mr-1" /> {printingLot && printingLot === unit.lot_code ? 'Imprimiendo...' : (unit.lot_code || 'Sin lote')}
                         </Button>
                         <Button variant="outline" size="sm" onClick={(e) => { e.stopPropagation(); openLabelModal({ lpn: unit.license_plate_number, dispatch_guide: unit.dispatch_guide, material: unit.material, location: unit.location, spatialPosition: spatialPositionLabel(unit.spatial_prefix, unit.spatial_column, unit.spatial_row), lotCode: unit.lot_code, supplierLot: unit.supplier_lot, quantity: unit.available_quantity, unit: unit.unit }); }}>
@@ -1504,6 +1534,68 @@ export default function InventoryLogisticUnits({ units, materials = [], location
             <Button type="button" variant="ghost" onClick={() => setLabelModal({ ...labelModal, open: false })}>Cerrar</Button>
             <Button type="button" onClick={printCurrentLabel}>
               <Printer className="h-4 w-4 mr-1" /> Imprimir (ZPL/QZ Tray)
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      <Dialog open={lotModal.open} onOpenChange={(val) => { if (!val) { setLotModal({ open: false, unit: null, labels: [], loading: false }) } }}>
+        <DialogContent className="sm:max-w-lg">
+          <DialogHeader>
+            <DialogTitle>Imprimir lote {lotModal.unit?.lot_code || ''}</DialogTitle>
+            <DialogDescription>
+              {lotModal.loading
+                ? 'Cargando LPN activos del lote...'
+                : `${lotModal.labels.length} LPN activo(s) · ${lotModal.labels.length * getLotCopies()} etiqueta(s) en total`}
+            </DialogDescription>
+          </DialogHeader>
+
+          {!lotModal.loading && lotModal.labels.length > 0 && (
+            <div className="max-h-48 space-y-1 overflow-y-auto rounded-md border border-input p-2">
+              {lotModal.labels.map((label, idx) => (
+                <div key={idx} className="flex items-center justify-between gap-2 rounded px-2 py-1 text-sm hover:bg-muted/50">
+                  <span className="font-mono font-medium">{label.lpn}{label.dispatchGuide ? `-${label.dispatchGuide}` : ''}</span>
+                  <span className="truncate text-xs text-muted-foreground">
+                    {label.material ? `${label.material.codigo} · ${label.material.nombre}` : ''}
+                  </span>
+                </div>
+              ))}
+            </div>
+          )}
+
+          <div>
+            <Label>Impresora QZ Tray</Label>
+            <select
+              value={selectedPrinter}
+              onChange={(e) => handlePrinterChange(e.target.value)}
+              className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background file:border-0 file:bg-transparent file:text-sm file:font-medium placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50"
+            >
+              <option value="">-- Auto-detectar --</option>
+              {printers.map((printer) => (
+                <option key={printer} value={printer}>{printer}</option>
+              ))}
+            </select>
+          </div>
+
+          <div className="flex items-center gap-3">
+            <Label className="shrink-0">Copias por LPN</Label>
+            <Input
+              type="number"
+              min={1}
+              max={99}
+              value={lotCopies}
+              onChange={(e) => setLotCopies(Math.max(1, parseInt(e.target.value, 10) || 1))}
+              className="w-20 text-center"
+            />
+          </div>
+
+          <DialogFooter>
+            <Button type="button" variant="ghost" onClick={previewLotLabels} disabled={lotModal.loading || !lotModal.labels.length}>
+              <Eye className="h-4 w-4 mr-1" /> Vista previa
+            </Button>
+            <Button type="button" variant="ghost" onClick={() => setLotModal({ open: false, unit: null, labels: [], loading: false })}>Cerrar</Button>
+            <Button type="button" onClick={printLotLabels} disabled={lotModal.loading || !lotModal.labels.length}>
+              <Printer className="h-4 w-4 mr-1" /> Imprimir todo (ZPL/QZ Tray)
             </Button>
           </DialogFooter>
         </DialogContent>
