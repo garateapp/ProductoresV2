@@ -868,7 +868,7 @@ class ReportNotificationService
         if ($reportUrl) {
             $message .= " Puedes acceder al documento aqui: {$reportUrl}";
         } else {
-            $message .= ' Comunicate con Greenex para obtener el documento.';
+            $message .= ' Comunicate con Gárate Hermanos para obtener el documento.';
         }
 
         return $message;
@@ -998,7 +998,7 @@ class ReportNotificationService
         if ($reportUrl) {
             $message .= " Puedes acceder al documento aqui: {$reportUrl}";
         } else {
-            $message .= ' Comunicate con Greenex para obtener el documento.';
+            $message .= ' Comunicate con Gárate Hermanos para obtener el documento.';
         }
 
         return $message;

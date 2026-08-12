@@ -34,7 +34,7 @@
     </p>
     <p style="margin-top: 24px;">
         Saludos,<br>
-        Equipo Greenex
+        Equipo Gárate Hermanos
     </p>
 </body>
 </html>

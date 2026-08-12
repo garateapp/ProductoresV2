@@ -23,4 +23,4 @@
     <p>No pudimos generar un enlace de descarga automatico. El documento va adjunto en este correo.</p>
 @endif
 
-<p>Saludos cordiales,<br>Equipo Greenex</p>
+<p>Saludos cordiales,<br>Equipo Gárate Hermanos</p>

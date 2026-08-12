@@ -1280,7 +1280,7 @@
 
 
 
-    <img src="{{ asset('img/logogreenex.png') }}" class="header-logo">
+    <img src="{{ asset('img/logo_garate.png') }}" class="header-logo">
 
     @if($isCherriesSpecies)
         @if($recepcion->nota_calidad<4)

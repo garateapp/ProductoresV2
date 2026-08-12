@@ -306,7 +306,7 @@
 </head>
 <body>
     <div class="pdf-page">
-    <img src="{{ asset('img/logogreenex.png') }}" class="header-logo" alt="Greenex">
+    <img src="{{ asset('img/logo_garate.png') }}" class="header-logo" alt="Gárate Hermanos">
     <div class="title">Informe de Proceso  N° <strong>{{ $proceso->n_proceso }}</strong></div>
     <div class="subtitle">
         Generado: {{ $generatedAt }}

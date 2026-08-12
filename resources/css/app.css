@@ -13,10 +13,10 @@
     --popover: 0 0% 100%;
     --popover-foreground: 222.2 84% 4.9%;
 
-    --primary: 30 92% 57.1%; /* #f78e2c */
+    --primary: 0 84% 55%; /* #EE2C2E */
     --primary-foreground: 210 40% 98%;
 
-    --secondary: 85 70% 42.5%; /* #80b61f */
+    --secondary: 92 37% 58%; /* #90C95D */
     --secondary-foreground: 222.2 47.4% 11.2%;
 
     --muted: 210 40% 96.1%;
@@ -75,8 +75,8 @@
   }
 }
 :root {
-  --corp-green: #038c34;
-  --corp-orange: #fe790f;
+  --corp-green: #90C95D;
+  --corp-orange: #EE2C2E;
 }
 
 .kpi-card {
@@ -85,7 +85,7 @@
 }
 .kpi-green {
   border-left-color: var(--corp-green);
-  background-color: rgba(3, 140, 52, 0.06);
+  background-color: rgba(144, 201, 93, 0.06);
 }
 .kpi-orange {
   border-left-color: var(--corp-orange);

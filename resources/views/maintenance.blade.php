@@ -18,7 +18,7 @@
         <p>Volveremos a estar disponibles en breve. Gracias por tu paciencia.</p>
         <p>Para Consultas dirigirse a Carla Gonzalez al correo:carla.gonzalez@greenex.cl o al teléfono :+56932666877
         </p>
-        <p>Equipo Greenex</p>
+        <p>Equipo Gárate Hermanos</p>
     </div>
 </body>
 </html>

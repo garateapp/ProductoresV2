@@ -146,7 +146,7 @@ export default function Dashboard({
           <div className="mx-auto max-w-6xl overflow-hidden rounded-3xl bg-gradient-to-br from-emerald-600 via-emerald-500 to-emerald-400 shadow-xl">
             <div className="grid gap-10 bg-white/5 p-10 text-white lg:grid-cols-3 lg:p-12">
               <div className="lg:col-span-2 space-y-4">
-                <h3 className="text-3xl font-semibold tracking-tight">Bienvenido(a) a Greenex</h3>
+                <h3 className="text-3xl font-semibold tracking-tight">Bienvenido(a) a Gárate Hermanos</h3>
                 <p className="text-white/80 text-base leading-relaxed">
                   Explora los módulos desde el menú superior. Si eres productor, solicita tu acceso para ver tu panel con
                   recepciones, procesos y reportes en un solo lugar.

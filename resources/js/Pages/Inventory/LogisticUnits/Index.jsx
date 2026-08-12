@@ -592,14 +592,24 @@ export default function InventoryLogisticUnits({ units, materials = [], location
     throw new Error('No se encontró una impresora disponible para QZ Tray.')
   }
 
+  const withTimeout = (promise, ms, message) => {
+    promise.catch(() => {})
+    return Promise.race([
+      promise,
+      new Promise((_, reject) => {
+        setTimeout(() => reject(new Error(message)), ms)
+      }),
+    ])
+  }
+
   const printWithQz = async (zpl, copies = 1) => {
     if (!zpl || typeof zpl !== 'string') {
       throw new Error('El ZPL está vacío o es inválido.')
     }
 
-    await connectQz()
+    await withTimeout(connectQz(), 15000, 'Se agotó el tiempo esperando conexión con QZ Tray.')
 
-    const printer = await resolveQzPrinter()
+    const printer = await withTimeout(resolveQzPrinter(), 15000, 'Se agotó el tiempo buscando una impresora disponible.')
     const config = qz.configs.create(printer, {
       copies,
       encoding: 'UTF-8',
@@ -614,7 +624,7 @@ export default function InventoryLogisticUnits({ units, materials = [], location
       },
     ]
 
-    await qz.print(config, data)
+    await withTimeout(qz.print(config, data), 30000, 'Se agotó el tiempo enviando la etiqueta a la impresora.')
 
     return printer
   }
@@ -1263,7 +1273,7 @@ export default function InventoryLogisticUnits({ units, materials = [], location
                     <TableCell className="text-right">
                       <div className="flex justify-end gap-2">
                         <Button variant="outline" size="sm" disabled={!unit.lot_code || Boolean(printingLot)} onClick={(e) => { e.stopPropagation(); printLot(unit); }}>
-                          <Printer className="h-4 w-4 mr-1" /> {printingLot === unit.lot_code ? 'Imprimiendo...' : (unit.lot_code || 'Sin lote')}
+                          <Printer className="h-4 w-4 mr-1" /> {printingLot && printingLot === unit.lot_code ? 'Imprimiendo...' : (unit.lot_code || 'Sin lote')}
                         </Button>
                         <Button variant="outline" size="sm" onClick={(e) => { e.stopPropagation(); openLabelModal({ lpn: unit.license_plate_number, dispatch_guide: unit.dispatch_guide, material: unit.material, location: unit.location, spatialPosition: spatialPositionLabel(unit.spatial_prefix, unit.spatial_column, unit.spatial_row), lotCode: unit.lot_code, supplierLot: unit.supplier_lot, quantity: unit.available_quantity, unit: unit.unit }); }}>
                           <Printer className="h-4 w-4 mr-1" /> Etiqueta

@@ -53,7 +53,7 @@
 </head>
 <body>
     <div class="header" style="display:flex; align-items:center; justify-content:space-between; margin-bottom:24px;">
-        <img src="{{ asset('img/logogreenex.png') }}" alt="Greenex" style="height:60px;">
+        <img src="{{ asset('img/logo_garate.png') }}" alt="Gárate Hermanos" style="height:60px;">
         <div style="text-align:right;">
             <div style="font-size:12px; text-transform:uppercase; color:#6b7280;">N° Descarte</div>
             <div style="font-size:20px; font-weight:600; color:#111827;">#{{ $record->id }}</div>

@@ -127,7 +127,7 @@
 <body>
     <main class="page">
         <header class="header">
-            <img class="logo" src="{{ asset('img/logogreenex.png') }}" alt="Greenex">
+            <img class="logo" src="{{ asset('img/logo_garate.png') }}" alt="Gárate Hermanos">
             <div class="folio">
                 <div class="folio-label">Acta de entrega</div>
                 <div class="folio-value">{{ $delivery->codigo }}</div>

@@ -4,7 +4,7 @@ import { Head, Link, useForm } from '@inertiajs/react';
 import { Button } from '@/Components/ui/button';
 import { Input } from '@/Components/ui/input';
 import { Label } from '@/Components/ui/label';
-import { Card, CardContent, CardHeader, CardTitle } from '@/Components/ui/card';
+import { Lock, LogIn, User } from 'lucide-react';
 
 export default function Login({ status, canResetPassword }) {
     const { data, setData, post, processing, errors, reset } = useForm({
@@ -23,86 +23,105 @@ export default function Login({ status, canResetPassword }) {
 
     return (
         <GuestLayout>
-            <Head title="Log in" />
+            <Head title="Iniciar sesión" />
 
-            {status && (
-                <div className="mb-4 text-sm font-medium text-greenex-vibrant-green">
-                    {status}
+            <div className="rounded-2xl border border-white/70 bg-white/95 p-8 shadow-2xl shadow-greenex-dark-green/40 backdrop-blur-sm">
+                <div className="mb-6 text-center">
+                    <div className="mx-auto mb-4 inline-flex h-12 w-12 items-center justify-center rounded-xl bg-gradient-to-br from-greenex-dark-green to-greenex-vibrant-green shadow-md">
+                        <LogIn className="h-6 w-6 text-white" />
+                    </div>
+                    <h2 className="text-2xl font-bold tracking-tight text-gray-900">
+                        Portal de Producción
+                    </h2>
+                    <p className="mt-1 text-sm text-gray-500">
+                        Ingresa tus credenciales para acceder
+                    </p>
                 </div>
-            )}
 
-            <Card className="w-full max-w-md mx-auto mt-6 bg-opacity-90">
-                <CardHeader>
-                    <CardTitle className="text-2xl font-bold text-center">Portal Producción</CardTitle>
-                </CardHeader>
-                <CardContent>
-                    <form onSubmit={submit} className="space-y-4">
-                        <div>
-                            <Label htmlFor="user">Usuario</Label>
+                {status && (
+                    <div className="mb-4 rounded-lg bg-greenex-vibrant-green/15 px-3 py-2 text-sm font-medium text-greenex-dark-green">
+                        {status}
+                    </div>
+                )}
+
+                <form onSubmit={submit} className="space-y-5">
+                    <div>
+                        <Label htmlFor="user" className="text-sm font-medium text-gray-700">
+                            Usuario
+                        </Label>
+                        <div className="relative mt-1">
+                            <User className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-gray-400" />
                             <Input
                                 id="user"
                                 type="text"
                                 name="user"
                                 value={data.user}
-                                className="mt-1 block w-full"
+                                className="h-11 pl-10"
                                 autoComplete="username"
                                 autoFocus
                                 onChange={(e) => setData('user', e.target.value)}
                             />
-                            <InputError message={errors.user} className="mt-2" />
                         </div>
+                        <InputError message={errors.user} className="mt-2" />
+                    </div>
 
-                        <div>
-                            <Label htmlFor="password">Password</Label>
+                    <div>
+                        <Label htmlFor="password" className="text-sm font-medium text-gray-700">
+                            Password
+                        </Label>
+                        <div className="relative mt-1">
+                            <Lock className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-gray-400" />
                             <Input
                                 id="password"
                                 type="password"
                                 name="password"
                                 value={data.password}
-                                className="mt-1 block w-full"
+                                className="h-11 pl-10"
                                 autoComplete="current-password"
                                 onChange={(e) => setData('password', e.target.value)}
                             />
-                            <InputError message={errors.password} className="mt-2" />
                         </div>
+                        <InputError message={errors.password} className="mt-2" />
+                    </div>
 
-                        <div className="block">
-                            <label className="flex items-center">
-                                <input
-                                    type="checkbox"
-                                    name="remember"
-                                    checked={data.remember}
-                                    onChange={(e) =>
-                                        setData('remember', e.target.checked)
-                                    }
-                                    className="rounded border-gray-300 text-primary shadow-sm focus:ring-primary"
-                                />
-                                <span className="ms-2 text-sm text-gray-600">
-                                    Recordarme
-                                </span>
-                            </label>
-                        </div>
+                    <div className="flex items-center justify-between">
+                        <label className="flex cursor-pointer select-none items-center gap-2">
+                            <input
+                                type="checkbox"
+                                name="remember"
+                                checked={data.remember}
+                                onChange={(e) => setData('remember', e.target.checked)}
+                                className="h-4 w-4 rounded border-gray-300 text-greenex-orange focus:ring-greenex-orange"
+                            />
+                            <span className="text-sm text-gray-600">Recordarme</span>
+                        </label>
 
-                        <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+                        {canResetPassword && (
                             <Link
-                                href="/privacy"
-                                target="_blank"
-                                rel="noopener noreferrer"
-                                className="text-sm text-gray-600 underline hover:text-greenex-dark-green"
+                                href={route('password.request')}
+                                className="text-sm font-medium text-greenex-dark-green underline-offset-2 hover:text-greenex-orange hover:underline"
                             >
-                                Política de privacidad
+                                ¿Olvidaste tu contraseña?
                             </Link>
+                        )}
+                    </div>
 
-                            <div className="flex items-center justify-end">
+                    <Button className="w-full" disabled={processing}>
+                        {processing ? 'Ingresando...' : 'Ingresar'}
+                    </Button>
 
-                                <Button className="ms-4" disabled={processing}>
-                                    Ingresar
-                                </Button>
-                            </div>
-                        </div>
-                    </form>
-                </CardContent>
-            </Card>
+                    <div className="text-center">
+                        <Link
+                            href="/privacy"
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className="text-xs text-gray-400 underline hover:text-greenex-dark-green"
+                        >
+                            Política de privacidad
+                        </Link>
+                    </div>
+                </form>
+            </div>
         </GuestLayout>
     );
 }

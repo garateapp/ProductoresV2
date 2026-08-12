@@ -24,7 +24,7 @@
 <body>
     <div class="header">
         <div class="header-left">
-            <img src="{{ asset('img/logogreenex.png') }}" alt="Greenex" class="header-logo" />
+            <img src="{{ asset('img/logo_garate.png') }}" alt="Gárate Hermanos" class="header-logo" />
             <div>
                 <h1>Consolidado Producto Terminado</h1>
                 <div class="muted">Detalle comparativo por caja evaluada</div>

@@ -23,4 +23,4 @@
     <p>Adjuntamos el documento en este correo para tu referencia.</p>
 @endif
 
-<p>Saludos cordiales,<br>Equipo Greenex</p>
+<p>Saludos cordiales,<br>Equipo Gárate Hermanos</p>

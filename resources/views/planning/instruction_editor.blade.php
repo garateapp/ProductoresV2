@@ -59,7 +59,7 @@
     <div class="top">
         <div>
             <div class="brand">
-                <img class="logo" src="{{ asset('img/logogreenex.png') }}" alt="Greenex" />
+                <img class="logo" src="{{ asset('img/logo_garate.png') }}" alt="Gárate Hermanos" />
                 <div>
                     <h1 class="title">Editar instructivo · {{ $sheet['lineName'] ?? '-' }}</h1>
                     <div class="meta">

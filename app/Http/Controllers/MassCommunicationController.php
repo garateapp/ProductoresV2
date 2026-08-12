@@ -40,7 +40,7 @@ class MassCommunicationController extends Controller
 
         $service = null;
         $serviceName = 'Envío manual';
-        $mailServiceName = 'Greenex';
+        $mailServiceName = 'Gárate Hermanos';
         $logContextBase = [
             'service_id' => null,
             'service_name' => $serviceName,

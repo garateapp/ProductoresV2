@@ -71,6 +71,6 @@
         </tbody>
     </table>
 
-    <p>Saludos,<br>Portal Greenex</p>
+    <p>Saludos,<br>Portal Gárate Hermanos</p>
 </body>
 </html>

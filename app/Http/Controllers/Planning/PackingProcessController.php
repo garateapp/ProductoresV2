@@ -4436,7 +4436,7 @@ class PackingProcessController extends Controller
     private function getPlanningLogoDataUri(): ?string
     {
         try {
-            $logoPath = public_path('img/logogreenex.png');
+            $logoPath = public_path('img/logo_garate.png');
             if (! is_file($logoPath)) {
                 return null;
             }
@@ -4478,7 +4478,7 @@ class PackingProcessController extends Controller
         // Header con logo (evitar textos de plantilla tipo “instructivo-proceso.xlsx / Contenido / ...”).
         $logoDataUri = null;
         try {
-            $logoPath = public_path('img/logogreenex.png');
+            $logoPath = public_path('img/logo_garate.png');
             if (is_file($logoPath)) {
                 $bin = @file_get_contents($logoPath);
                 if (is_string($bin) && $bin !== '') {
@@ -4574,8 +4574,8 @@ class PackingProcessController extends Controller
         }
 
         $logoHtml = $logoDataUri
-            ? "<img src='".$this->escapeHtml($logoDataUri)."' alt='Greenex' />"
-            : "<div class='title'>GREENEX</div>";
+            ? "<img src='".$this->escapeHtml($logoDataUri)."' alt='Gárate Hermanos' />"
+            : "<div class='title'>GÁRATE HERMANOS</div>";
 
         return "<!doctype html><html><head><meta charset='utf-8'><meta name='viewport' content='width=device-width,initial-scale=1'>\n"
             ."<title>".$this->escapeHtml($title)."</title>\n\n"

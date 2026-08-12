@@ -45,7 +45,7 @@
 <div class="wrap">
     <div class="top">
         <div>
-            <img class="logo" src="{{ asset('img/logogreenex.png') }}" alt="Greenex" />
+            <img class="logo" src="{{ asset('img/logo_garate.png') }}" alt="Gárate Hermanos" />
             <h1 class="title">INSTRUCTIVO DE EMBALAJE</h1>
         </div>
         <div class="btns">

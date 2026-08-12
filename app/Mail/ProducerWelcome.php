@@ -22,7 +22,7 @@ class ProducerWelcome extends Mailable
     public function build(): self
     {
         return $this
-            ->subject('Bienvenido al Portal de Productores Greenex')
+            ->subject('Bienvenido al Portal de Productores Gárate Hermanos')
             ->view('emails.producers.welcome', [
                 'producer' => $this->producer,
                 'username' => $this->username,

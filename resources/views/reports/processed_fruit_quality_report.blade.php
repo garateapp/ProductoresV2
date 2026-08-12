@@ -28,7 +28,7 @@
 <body>
     <div class="header">
         <div class="header-left">
-            <img src="{{ asset('img/logogreenex.png') }}" alt="Greenex" class="header-logo" />
+            <img src="{{ asset('img/logo_garate.png') }}" alt="Gárate Hermanos" class="header-logo" />
             <h1>Informe de Producto Terminado</h1>
         </div>
         <div class="chip">Proceso #{{ $proceso->n_proceso }}</div>
