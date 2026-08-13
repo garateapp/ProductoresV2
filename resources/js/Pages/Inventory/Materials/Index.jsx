@@ -32,6 +32,8 @@ const emptyForm = {
 export default function InventoryMaterials({ materials, families = [], units = [], services = [], filters = {} }) {
   const { props } = usePage()
   const [editing, setEditing] = useState(null)
+  const [importFile, setImportFile] = useState(null)
+  const [importing, setImporting] = useState(false)
   const [filterData, setFilterData] = useState({
     q: filters.q || '',
     family_id: filters.family_id || '',
@@ -95,12 +97,37 @@ export default function InventoryMaterials({ materials, families = [], units = [
     router.post(route('inventory.materials.sync-central-stock'), {}, { preserveScroll: true })
   }
 
+  const importCsv = (event) => {
+    const file = event.target.files?.[0]
+    if (!file) return
+    setImportFile(file)
+    setImporting(true)
+    router.post(route('inventory.materials.import-csv'), { file }, {
+      forceFormData: true,
+      preserveScroll: true,
+      onFinish: () => {
+        setImporting(false)
+        setImportFile(null)
+        event.target.value = ''
+      },
+    })
+  }
+
   return (
     <div className="container mx-auto py-10 space-y-4">
       <Card>
         <CardHeader className="flex flex-row items-center justify-between">
           <CardTitle>Materiales</CardTitle>
-          <div className="flex gap-2">
+          <div className="flex flex-wrap items-center gap-2">
+            <Button asChild variant="outline">
+              <a href={route('inventory.materials.template')} download>Descargar plantilla</a>
+            </Button>
+            <label className="inline-flex cursor-pointer items-center">
+              <input type="file" accept=".csv,.txt" className="sr-only" onChange={importCsv} />
+              <span className="inline-flex items-center justify-center whitespace-nowrap rounded-md border border-input bg-background px-4 py-2 text-sm font-medium hover:bg-accent hover:text-accent-foreground">
+                {importing ? 'Importando...' : importFile ? `Importando ${importFile.name}...` : 'Importar CSV'}
+              </span>
+            </label>
             <Button type="button" variant="outline" onClick={syncSap}>Sincronizar SAP</Button>
             <Button type="button" variant="outline" onClick={syncCentralStock}>Cargar stock a Bodega Central</Button>
             <Button type="button" variant="outline" onClick={startCreate}>Nuevo</Button>

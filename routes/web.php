@@ -404,6 +404,7 @@ Route::middleware('auth')->group(function () {
         Route::patch('materials/{material}', [App\Http\Controllers\Inventory\MaterialController::class, 'update'])->name('materials.update');
         Route::post('materials/sync-sap', [App\Http\Controllers\Inventory\MaterialController::class, 'syncSap'])->name('materials.sync-sap');
         Route::post('materials/sync-central-stock', [App\Http\Controllers\Inventory\MaterialController::class, 'syncCentralStock'])->name('materials.sync-central-stock');
+        Route::get('materials/template', [App\Http\Controllers\Inventory\MaterialController::class, 'downloadTemplate'])->name('materials.template');
         Route::post('materials/import-csv', [App\Http\Controllers\Inventory\MaterialController::class, 'importCsv'])->name('materials.import-csv');
 
         Route::get('locations', [App\Http\Controllers\Inventory\LocationController::class, 'index'])->name('locations.index');

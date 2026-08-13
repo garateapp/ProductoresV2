@@ -15,6 +15,7 @@ use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Log;
 use Inertia\Inertia;
 use Inertia\Response;
+use Symfony\Component\HttpFoundation\StreamedResponse;
 use Throwable;
 
 class MaterialController extends Controller
@@ -151,6 +152,25 @@ class MaterialController extends Controller
         );
     }
 
+    public function downloadTemplate(Request $request): StreamedResponse
+    {
+        $this->authorizeInventory($request);
+
+        $header = ['codigo', 'nombre', 'unidad', 'tipo', 'servicio'];
+
+        return response()->streamDownload(function () use ($header) {
+            $handle = fopen('php://output', 'w');
+            if (! $handle) {
+                return;
+            }
+            fwrite($handle, "\xEF\xBB\xBF");
+            fputcsv($handle, $header, ';');
+            fclose($handle);
+        }, 'plantilla-materiales.csv', [
+            'Content-Type' => 'text/csv; charset=UTF-8',
+        ]);
+    }
+
     public function importCsv(Request $request): RedirectResponse
     {
         $this->authorizeInventory($request);
@@ -168,17 +188,16 @@ class MaterialController extends Controller
         $delimiter = strpos($firstLine, ';') !== false ? ';' : ',';
 
         $header = fgetcsv($handle, 0, $delimiter);
-        $header = array_map('trim', $header);
+        $header = array_map(fn ($column) => trim(ltrim((string) $column, "\xEF\xBB\xBF")), $header);
         Log::info('CSV Header', ['header' => $header]);
-        $expectedHeaders = ['codigo', 'nombre', 'unidad', 'tipo'];
-        $optionalHeaders = ['servicio'];
+        $expectedHeaders = ['codigo', 'nombre', 'unidad', 'tipo', 'servicio'];
 
         $headerLower = array_map('strtolower', $header);
 
         if (count(array_intersect($expectedHeaders, $headerLower)) < count($expectedHeaders)) {
             fclose($handle);
 
-            return back()->with('error', 'El archivo CSV debe contener las columnas: codigo, nombre, unidad, tipo');
+            return back()->with('error', 'El archivo CSV debe contener las columnas: codigo, nombre, unidad, tipo, servicio');
         }
 
         $codigoIdx = array_search('codigo', $headerLower);
