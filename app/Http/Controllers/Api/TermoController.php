@@ -22,7 +22,7 @@ class TermoController extends Controller
         try {
             $rows = DB::connection('sqlsrv')->select(
                 <<<SQL
-                SELECT n_exportadora as esportadora,
+                SELECT n_exportadora as exportadora,
                        folio as folio,
                        n_productor as productor,
                        n_especie as especie,
