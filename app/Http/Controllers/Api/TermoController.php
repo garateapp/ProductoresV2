@@ -17,7 +17,7 @@ class TermoController extends Controller
             'folio' => ['required', 'string'],
         ]);
 
-        $view = (string) config('termo.sqlsrv_view', 'V_PKG_Produccion_Salidas_XXX');
+        $view = (string) config('services.termo.sqlsrv_view', 'V_PKG_Produccion_Salidas_XXX');
 
         try {
             $rows = DB::connection('sqlsrv')->select(

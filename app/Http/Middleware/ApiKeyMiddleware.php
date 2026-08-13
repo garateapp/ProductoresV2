@@ -11,7 +11,7 @@ class ApiKeyMiddleware
 {
     public function handle(Request $request, Closure $next): Response
     {
-        $expected = trim((string) config('termo.api_key'));
+        $expected = trim((string) config('services.termo.api_key'));
         $token = $request->bearerToken();
 
         $unauthorized = $expected === ''
