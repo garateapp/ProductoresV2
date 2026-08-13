@@ -226,7 +226,7 @@ export const generateLogisticUnitLabelZPL = (label) => {
   // Encabezado derecho
   zpl += `^FO700,30^A0R,26,26^FD${enc(label.center || 'CENTRO DE ARMADO')}^FS`
   zpl += '^FO740,355^A0R,26,26^FDTARJA PRODUCTO SEMI-ELABORADO^FS'
-  zpl += '^FO740,30^A0R,22,22^FDNOVAFRESH^FS'
+  zpl += '^FO740,30^A0R,22,22^FDGÁRATE HERMANOS^FS'
 
   // Fecha y hora
   zpl += '^FO700,400^A0R,26,26^FDFECHA^FS'
@@ -285,12 +285,16 @@ export const generateMaterialLabelZPL = (label) => {
     '^XA',
     '^CI28',
     '^FWN',
-    '^LH0,0^PR4^MD20',
+    '^LH0,0',
+    '^PR4',
+    '^MD20',
+    '^PW799',
+    '^LL1199',
     '^FO16,16^GB610,1167,6^FS',
     `^FO26,78^A0R,46,46^FD${enc(label.format || label.spatialPosition || '-')}^FS`,
     `^FO300,488^BQR,2,13^FDQA,${enc(lpnDisplay)}^FS`,
     `^FO700,30^A0R,26,26^FDBODEGA CENTRAL^FS`,
-    '^FO740,30^A0R,28,28^FDNOVAFRESH^FS',
+    '^FO740,30^A0R,28,28^FDGÁRATE HERMANOS^FS',
     `^FO26,820^A0R,38,38^FD${enc(label.date || '-')}^FS`,
     `^FO26,1010^A0R,38,38^FD${enc(label.time || '-')}^FS`,
     `^FO85,400^A0R,38,38^FDCantidad:^FS`,

@@ -635,9 +635,7 @@ export default function InventoryLogisticUnits({ units, materials = [], location
       return
     }
 
-    const zpl = labelModal.labelType === 'semielaborado'
-      ? generateLogisticUnitLabelZPL(labelModal)
-      : generateMaterialLabelZPL(labelModal)
+    const zpl = generateLabelZpl(labelModal)
     const copies = labelCopies
 
     try {
@@ -1556,7 +1554,7 @@ export default function InventoryLogisticUnits({ units, materials = [], location
                 <div key={idx} className="flex items-center justify-between gap-2 rounded px-2 py-1 text-sm hover:bg-muted/50">
                   <span className="font-mono font-medium">{label.lpn}{label.dispatchGuide ? `-${label.dispatchGuide}` : ''}</span>
                   <span className="truncate text-xs text-muted-foreground">
-                    {label.material ? `${label.material.codigo} · ${label.material.nombre}` : ''}
+                    {label.productDescription || ''}
                   </span>
                 </div>
               ))}
