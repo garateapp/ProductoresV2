@@ -1,6 +1,7 @@
 <?php
 
 use App\Http\Controllers\AdminDashboardController;
+use App\Http\Controllers\Api\TermoController;
 use App\Http\Controllers\CommercialDiscardController;
 use App\Http\Controllers\ContractProducerFlowController;
 use App\Http\Controllers\CuadraturaController;
@@ -24,6 +25,7 @@ Route::get('/', function () {
 });
 
 Route::view('/privacy', 'privacy')->name('privacy');
+Route::get('/termo', [TermoController::class, 'index'])->middleware('api.key');
 Route::get('control-calidad/exportable-percentages', [App\Http\Controllers\ControlCalidadController::class, 'exportablePercentages'])->name('control-calidad.exportable-percentages');
 Route::get('/dashboard', function () {
     $user = auth()->user();

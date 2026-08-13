@@ -48,6 +48,11 @@ return [
         'stream_host' => env('ASSEMBLYAI_STREAM_HOST', 'streaming.assemblyai.com'),
     ],
 
+    'termo' => [
+        'api_key' => env('TERMO_API_KEY'),
+        'sqlsrv_view' => env('TERMO_SQLSRV_SALIDAS_VIEW', 'V_PKG_Produccion_Salidas_XXX'),
+    ],
+
     'sap_service_layer' => [
         'enabled' => filter_var(env('SAP_SL_ENABLED', false), FILTER_VALIDATE_BOOLEAN),
         'base_url' => env('SAP_SL_BASE_URL', 'https://188.34.132.98:50005/b1s/v1'),
