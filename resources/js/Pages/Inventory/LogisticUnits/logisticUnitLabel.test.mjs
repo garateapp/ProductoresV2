@@ -38,7 +38,7 @@ test('builds a 100 by 150 mm label that fills the portrait media without browser
   assert.doesNotMatch(html, /grid-template-columns:\s*7mm 58mm 30mm 36mm 13mm;/)
 })
 
-test('builds ZPL with 2 mm side margins, 3 mm vertical margins, and content extending near the bottom', () => {
+test('builds the 100 by 150 mm tarja ZPL with the full product description', () => {
   const label = createLogisticUnitLabelData({
     lpn: '249',
     materialCode: 'IN00200500237',
@@ -50,11 +50,30 @@ test('builds ZPL with 2 mm side margins, 3 mm vertical margins, and content exte
 
   const zpl = generateLogisticUnitLabelZPL(label)
 
-  assert.match(zpl, /\^PW1181/)
-  assert.match(zpl, /\^LL1772/)
-  assert.match(zpl, /\^FO24,35\^GB1133,1702,2\^FS/)
-  assert.match(zpl, /\^FO\d+,12\d{2}\^A0N,16,16\^FDFORMATO:/)
-  assert.doesNotMatch(zpl, /\^FO24,24\^GB1133,1724,1133\^FS/)
+  assert.match(zpl, /\^PW799/)
+  assert.match(zpl, /\^LL1199/)
+  assert.match(zpl, /\^FO16,16\^GB610,1167,6\^FS/)
+  assert.match(zpl, /\^FO635,988\^BQR,2,7\^FDQA,249\^FS/)
+  assert.match(zpl, /\^FO740,30\^A0R,28,28\^FDG[áa]rate Hermanos\^FS/)
+  assert.match(zpl, /\^TBR,1100,110\^FO335,40\^A0R,\d+,\d+\^FDIN00200500237 · CAJA CE 500X300X120 MASTER GARCES\^FS/)
+})
+
+test('always prints the product description, shrinking the font to fit the 150 mm label', () => {
+  const label = createLogisticUnitLabelData({
+    lpn: '249',
+    materialCode: 'IN00200500237',
+    materialName: 'CAJA CE 500X300X120 MASTER GARCES XTL EXTRA LARGA PARA ENSAYO DE LABORATORIO',
+    lotCode: 'L101',
+    quantity: 128,
+    unit: 'UN',
+  }, { now: fixedDate })
+
+  const zpl = generateLogisticUnitLabelZPL(label)
+
+  assert.match(zpl, /\^FO335,40\^A0R,(\d+),\1\^FDIN00200500237 · CAJA CE 500X300X120 MASTER GARCES XTL EXTRA LARGA PARA ENSAYO DE LABORATORIO\^FS/)
+  const fontMatch = zpl.match(/\^FO335,40\^A0R,(\d+),\1\^FD/)
+  assert.ok(fontMatch)
+  assert.ok(Number(fontMatch[1]) < 90)
 })
 
 test('renders semielaborado fields and escapes dynamic text', () => {

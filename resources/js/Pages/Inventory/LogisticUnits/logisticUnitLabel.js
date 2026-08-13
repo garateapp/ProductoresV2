@@ -145,141 +145,10 @@ const generateQrZpl = (data, x, y, moduleWidth = 6) => {
 
 export const generateLogisticUnitLabelZPL = (label) => {
   const enc = encodeZplText
-  const lpnDisplay = label.dispatchGuide ? `${label.lpn}-${label.dispatchGuide}` : label.lpn
-
-  const rows = [
-    {
-      number: 'AI',
-      lpn: label.lpn || '',
-      description: label.productDescription || '',
-      quantity: label.quantity || '',
-      lot: label.lotCode || label.lot || '',
-    },
-    {
-      number: '2',
-      lpn: label.lpn2 || '',
-      description: label.product2Desc || '',
-      quantity: label.quantity2 || '',
-      lot: label.lotCode2 || '',
-    },
-    {
-      number: '3',
-      lpn: label.lpn3 || '',
-      description: label.product3Desc || '',
-      quantity: label.quantity3 || '',
-      lot: label.lotCode3 || '',
-    },
-    {
-      number: '4',
-      lpn: label.lpn4 || '',
-      description: label.product4Desc || '',
-      quantity: label.quantity4 || '',
-      lot: label.lotCode4 || '',
-    },
-    {
-      number: '5',
-      lpn: label.lpn5 || '',
-      description: label.product5Desc || '',
-      quantity: label.quantity5 || '',
-      lot: label.lotCode5 || '',
-    },
-    {
-      number: '6',
-      lpn: label.lpn6 || '',
-      description: label.product6Desc || '',
-      quantity: label.quantity6 || '',
-      lot: label.lotCode6 || '',
-    },
-  ]
-
-  const rowY = [540, 480, 420, 360, 300, 240]
-
-  let zpl = ''
-
-  zpl += '^XA'
-  zpl += '^CI28'
-  zpl += '^FWN'
-  zpl += '^LH0,0'
-  zpl += '^PR4'
-  zpl += '^MD20'
-
-  // Tamaño físico 100 x 150 mm en 203 dpi
-  // 100mm = aprox 799 dots
-  // 150mm = aprox 1199 dots
-  zpl += '^PW799'
-  zpl += '^LL1199'
-
-  // Marco exterior
-  zpl += '^FO16,16^GB767,1167,6^FS'
-
-  // Lado izquierdo
-  zpl += `^FO88,103^A0R,46,46^FD${enc(label.marcaLinea || 'CRYSTAL')}^FS`
-  zpl += `^FO26,78^A0R,32,32^FD${enc(label.format || 'BO · Col 01 · Fila 01')}^FS`
-
-  // QR
-  zpl += `^FO40,488^BQR,2,8^FDQA,${enc(lpnDisplay || label.palletNumber || '')}^FS`
-
-  // Número pallet
-  zpl += '^FO100,1000^A0R,25,25^FDN° PALLET^FS'
-  zpl += `^FO46,950^A0R,25,25^FD${enc(label.palletNumber || lpnDisplay || '-')}^FS`
-
-  // Encabezado derecho
-  zpl += `^FO700,30^A0R,26,26^FD${enc(label.center || 'CENTRO DE ARMADO')}^FS`
-  zpl += '^FO740,355^A0R,26,26^FDTARJA PRODUCTO SEMI-ELABORADO^FS'
-  zpl += '^FO740,30^A0R,22,22^FDGÁRATE HERMANOS^FS'
-
-  // Fecha y hora
-  zpl += '^FO700,400^A0R,26,26^FDFECHA^FS'
-  zpl += `^FO700,490^A0R,26,26^FD${enc(label.date || '-')}^FS`
-  zpl += `^FO700,620^A0R,26,26^FD${enc(label.time || '-')}^FS`
-
-  // Tabla
-  zpl += '^FO230,38^GB407,1125,3^FS'
-
-  // Líneas verticales visuales de la tabla horizontal rotada
-  zpl += '^FO230,100^GB407,2,2^FS'
-  zpl += '^FO230,310^GB407,2,2^FS'
-  zpl += '^FO230,800^GB407,2,2^FS'
-  zpl += '^FO230,939^GB407,2,2^FS'
-
-  // Líneas de filas
-  zpl += '^FO280,38^GB2,1125,2^FS'
-  zpl += '^FO340,38^GB2,1125,2^FS'
-  zpl += '^FO400,38^GB2,1125,2^FS'
-  zpl += '^FO460,38^GB2,1125,2^FS'
-  zpl += '^FO520,38^GB2,1125,2^FS'
-  zpl += '^FO580,38^GB2,1125,2^FS'
-
-  // Cabeceras
-  zpl += '^FO590,70^A0R,20,20^FDN°^FS'
-  zpl += '^FO590,150^A0R,20,20^FDLPN^FS'
-  zpl += '^FO590,400^A0R,20,20^FDDESCRIPCION^FS'
-  zpl += '^FO590,820^A0R,20,20^FDCANTIDAD^FS'
-  zpl += '^FO590,1020^A0R,20,20^FDLOTE^FS'
-
-  // Filas dinámicas
-  rows.forEach((row, index) => {
-    const y = rowY[index]
-
-    if (!row.description && !row.lpn && !row.quantity && !row.lot) {
-      return
-    }
-
-    zpl += `^FO${y},70^A0R,22,22^FD${enc(row.number)}^FS`
-    zpl += `^FO${y},120^A0R,22,22^FD${enc(String(row.lpn).substring(0, 18))}^FS`
-    zpl += `^FO${y},320^A0R,22,22^FD${enc(String(row.description).substring(0, 34))}^FS`
-    zpl += `^FO${y},850^A0R,22,22^FD${enc(String(row.quantity).substring(0, 8))}^FS`
-    zpl += `^FO${y},950^A0R,22,22^FD${enc(String(row.lot).substring(0, 18))}^FS`
-  })
-
-  zpl += '^XZ'
-
-  return zpl
-}
-
-export const generateMaterialLabelZPL = (label) => {
-  const enc = encodeZplText
   const lpnDisplay = label.dispatchGuide ? `${label.lpn}-${label.dispatchGuide}` : (label.lpn || '-')
+
+  const description = cleanText(label.productDescription, '-')
+  const descFont = Math.min(90, Math.max(18, Math.floor((1199 - 40) / Math.max(1, description.length))))
 
   return [
     '^XA',
@@ -291,17 +160,46 @@ export const generateMaterialLabelZPL = (label) => {
     '^PW799',
     '^LL1199',
     '^FO16,16^GB610,1167,6^FS',
-    `^FO26,78^A0R,46,46^FD${enc(label.format || label.spatialPosition || '-')}^FS`,
-    `^FO300,488^BQR,2,13^FDQA,${enc(lpnDisplay)}^FS`,
-    `^FO700,30^A0R,26,26^FDBODEGA CENTRAL^FS`,
-    '^FO740,30^A0R,28,28^FDGÁRATE HERMANOS^FS',
+    `^FO630,988^BQR,2,4^FDQA,${enc(lpnDisplay)}^FS`,
+    `^FO660,30^A0R,26,26^FD${enc(label.center || 'CENTRO DE ARMADO')}^FS`,
+    `^FO700,30^A0R,28,28^FDGárate Hermanos^FS`,
     `^FO26,820^A0R,38,38^FD${enc(label.date || '-')}^FS`,
-    `^FO26,1010^A0R,38,38^FD${enc(label.time || '-')}^FS`,
-    `^FO85,400^A0R,38,38^FDCantidad:^FS`,
-    `^FO85,16^A0R,38,38^FB1167,1,,C^FD${enc(label.quantity || '0')}^FS`,
-    `^FO640,16^A0R,38,38^FB1167,1,,C^FD${enc(label.productDescription || '-')}^FS`,
-    `^FO220,16^A0R,34,34^FB1167,1,,C^FD${enc(lpnDisplay)}^FS`,
-    `^FO160,16^A0R,34,34^FB1167,1,,C^FD${enc(label.lot || label.lotCode || '-')}^FS`,
+    '^FO185,40^A0R,68,68^FDCant:^FS',
+    `^FO185,200^A0R,90,90^FD${enc(label.quantity || '0')}^FS`,
+    `^FO335,40^A0R,70,70^FB900,3,0,L,0^FD${enc(label.materialCode || '-')}^FS`,
+    `^FO265,40^A0R,70,70^FB900,3,0,L,0^FD${enc(label.materialName || '-')}^FS`,
+    `^FO115,40^A0R,64,64^FD${enc(lpnDisplay)}^FS`,
+    `^FO26,40^A0R,48,48^FD${enc(label.lot || label.lotCode || '-')}^FS`,
+    '^XZ',
+  ].join('')
+}
+
+export const generateMaterialLabelZPL = (label) => {
+  const enc = encodeZplText
+  const lpnDisplay = label.dispatchGuide ? `${label.lpn}-${label.dispatchGuide}` : (label.lpn || '-')
+    const description = cleanText(label.productDescription, '-')
+  const descFont = Math.min(90, Math.max(18, Math.floor((1199 - 40) / Math.max(1, description.length))))
+
+  return [
+    '^XA',
+    '^CI28',
+    '^FWN',
+    '^LH0,0',
+    '^PR4',
+    '^MD20',
+    '^PW799',
+    '^LL1199',
+    '^FO16,16^GB610,1167,6^FS',
+    `^FO630,988^BQR,2,4^FDQA,${enc(lpnDisplay)}^FS`,
+    `^FO660,30^A0R,26,26^FD${enc(label.center || 'CENTRO DE ARMADO')}^FS`,
+    `^FO700,30^A0R,28,28^FDGárate Hermanos^FS`,
+    `^FO26,820^A0R,38,38^FD${enc(label.date || '-')}^FS`,
+    '^FO185,40^A0R,68,68^FDCant:^FS',
+    `^FO185,200^A0R,90,90^FD${enc(label.quantity || '0')}^FS`,
+    `^FO335,40^A0R,70,70^FB900,3,0,C,0^FD${enc(label.materialCode || '-')}^FS`,
+    `^FO265,40^A0R,70,70^FB900,3,0,C,0^FD${enc(label.materialName || '-')}^FS`,
+    `^FO115,40^A0R,64,64^FD${enc(lpnDisplay)}^FS`,
+    `^FO26,40^A0R,48,48^FD${enc(label.lot || label.lotCode || '-')}^FS`,
     '^XZ',
   ].join('')
 }
