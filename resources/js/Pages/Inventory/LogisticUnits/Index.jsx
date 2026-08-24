@@ -41,6 +41,7 @@ export default function InventoryLogisticUnits({ units, materials = [], location
   const [labelModal, setLabelModal] = useState({ open: false, ...createLogisticUnitLabelData() })
   const [labelCopies, setLabelCopies] = useState(1)
   const [lotCopies, setLotCopies] = useState(2)
+  const [lotStartFrom, setLotStartFrom] = useState('')
   const [printingLot, setPrintingLot] = useState(null)
   const [lotModal, setLotModal] = useState({ open: false, unit: null, labels: [], loading: false })
   const [productionModal, setProductionModal] = useState({ open: false })
@@ -742,8 +743,16 @@ export default function InventoryLogisticUnits({ units, materials = [], location
 
   const getLotCopies = () => Math.max(1, parseInt(lotCopies, 10) || 1)
 
+  const getFilteredLotLabels = () => {
+    const { labels } = lotModal
+    if (!lotStartFrom.trim()) return labels
+    const from = lotStartFrom.trim().toUpperCase()
+    return labels.filter((label) => (label.lpn || '').toUpperCase() >= from)
+  }
+
   const printLotLabels = async () => {
-    const { labels, unit } = lotModal
+    const { unit } = lotModal
+    const labels = getFilteredLotLabels()
 
     if (!labels.length || !unit?.lot_code) {
       return
@@ -772,7 +781,7 @@ export default function InventoryLogisticUnits({ units, materials = [], location
   }
 
   const previewLotLabels = () => {
-    const { labels } = lotModal
+    const labels = getFilteredLotLabels()
 
     if (!labels.length) {
       return
@@ -1537,27 +1546,33 @@ export default function InventoryLogisticUnits({ units, materials = [], location
         </DialogContent>
       </Dialog>
 
-      <Dialog open={lotModal.open} onOpenChange={(val) => { if (!val) { setLotModal({ open: false, unit: null, labels: [], loading: false }) } }}>
+      <Dialog open={lotModal.open} onOpenChange={(val) => { if (!val) { setLotModal({ open: false, unit: null, labels: [], loading: false }); setLotStartFrom('') } }}>
         <DialogContent className="sm:max-w-lg">
           <DialogHeader>
             <DialogTitle>Imprimir lote {lotModal.unit?.lot_code || ''}</DialogTitle>
             <DialogDescription>
               {lotModal.loading
                 ? 'Cargando LPN activos del lote...'
-                : `${lotModal.labels.length} LPN activo(s) · ${lotModal.labels.length * getLotCopies()} etiqueta(s) en total`}
+                : lotStartFrom.trim()
+                  ? `${getFilteredLotLabels().length} de ${lotModal.labels.length} LPN · ${getFilteredLotLabels().length * getLotCopies()} etiqueta(s) a imprimir`
+                  : `${lotModal.labels.length} LPN activo(s) · ${lotModal.labels.length * getLotCopies()} etiqueta(s) en total`}
             </DialogDescription>
           </DialogHeader>
 
           {!lotModal.loading && lotModal.labels.length > 0 && (
             <div className="max-h-48 space-y-1 overflow-y-auto rounded-md border border-input p-2">
-              {lotModal.labels.map((label, idx) => (
-                <div key={idx} className="flex items-center justify-between gap-2 rounded px-2 py-1 text-sm hover:bg-muted/50">
-                  <span className="font-mono font-medium">{label.lpn}{label.dispatchGuide ? `-${label.dispatchGuide}` : ''}</span>
-                  <span className="truncate text-xs text-muted-foreground">
-                    {label.productDescription || ''}
-                  </span>
-                </div>
-              ))}
+              {lotModal.labels.map((label, idx) => {
+                const filtered = getFilteredLotLabels()
+                const isSelected = filtered.includes(label)
+                return (
+                  <div key={idx} className={`flex items-center justify-between gap-2 rounded px-2 py-1 text-sm ${isSelected ? 'bg-muted/50' : 'opacity-40'}`}>
+                    <span className="font-mono font-medium">{label.lpn}{label.dispatchGuide ? `-${label.dispatchGuide}` : ''}</span>
+                    <span className="truncate text-xs text-muted-foreground">
+                      {label.productDescription || ''}
+                    </span>
+                  </div>
+                )
+              })}
             </div>
           )}
 
@@ -1587,13 +1602,26 @@ export default function InventoryLogisticUnits({ units, materials = [], location
             />
           </div>
 
+          <div>
+            <Label htmlFor="lot-start-from">Imprimir desde (correlativo)</Label>
+            <Input
+              id="lot-start-from"
+              placeholder="Ej: LPN-UBI-001"
+              value={lotStartFrom}
+              onChange={(e) => setLotStartFrom(e.target.value)}
+            />
+            <p className="text-xs text-muted-foreground mt-1">
+              Dejar vacío para imprimir todos. Si se interrumpe, ingresa el correlativo desde el cual continuar.
+            </p>
+          </div>
+
           <DialogFooter>
-            <Button type="button" variant="ghost" onClick={previewLotLabels} disabled={lotModal.loading || !lotModal.labels.length}>
+            <Button type="button" variant="ghost" onClick={previewLotLabels} disabled={lotModal.loading || !getFilteredLotLabels().length}>
               <Eye className="h-4 w-4 mr-1" /> Vista previa
             </Button>
-            <Button type="button" variant="ghost" onClick={() => setLotModal({ open: false, unit: null, labels: [], loading: false })}>Cerrar</Button>
-            <Button type="button" onClick={printLotLabels} disabled={lotModal.loading || !lotModal.labels.length}>
-              <Printer className="h-4 w-4 mr-1" /> Imprimir todo (ZPL/QZ Tray)
+            <Button type="button" variant="ghost" onClick={() => { setLotModal({ open: false, unit: null, labels: [], loading: false }); setLotStartFrom('') }}>Cerrar</Button>
+            <Button type="button" onClick={printLotLabels} disabled={lotModal.loading || !getFilteredLotLabels().length}>
+              <Printer className="h-4 w-4 mr-1" /> Imprimir (ZPL/QZ Tray)
             </Button>
           </DialogFooter>
         </DialogContent>
