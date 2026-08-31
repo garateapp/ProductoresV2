@@ -102,8 +102,15 @@ export default function MatrizTunel({ tuneles, tunel, parametros, cargaActiva, f
     calibre: '',
   })
 
-  const iniciarForm = useForm({})
-  const inversionForm = useForm({ fecha_hora_inversion: '' })
+  const iniciarForm = useForm({
+    temperatura_ambiente_inicio: '',
+    temperaturas_folios: {},
+  })
+  const inversionForm = useForm({
+    fecha_hora_inversion: '',
+    temperatura_ambiente_inversion: '',
+    temperaturas_folios: {},
+  })
   const quitarForm = useForm({})
 
   const handleTunelChange = (value) => {
@@ -257,13 +264,42 @@ export default function MatrizTunel({ tuneles, tunel, parametros, cargaActiva, f
   }
 
   const openIniciarDialog = () => {
-    iniciarForm.reset()
+    iniciarForm.setData({
+      temperatura_ambiente_inicio: cargaActiva?.temperatura_ambiente_inicio || '',
+      temperaturas_folios: Object.fromEntries(folios.map((folio) => [folio.id, {
+        temperatura_inicio: folio.temperatura_inicio || '',
+      }])),
+    })
     setDialog('iniciar')
   }
 
   const openInversionDialog = () => {
-    inversionForm.setData('fecha_hora_inversion', ahoraLocal())
+    inversionForm.setData({
+      fecha_hora_inversion: ahoraLocal(),
+      temperatura_ambiente_inversion: cargaActiva?.temperatura_ambiente_inversion || '',
+      temperaturas_folios: Object.fromEntries(folios.map((folio) => [folio.id, {
+        temperatura_inversion_interior: folio.temperatura_inversion_interior || '',
+        temperatura_inversion_exterior: folio.temperatura_inversion_exterior || '',
+      }])),
+    })
     setDialog('inversion')
+  }
+
+  const setTemperaturaInicioFolio = (folioId, value) => {
+    iniciarForm.setData('temperaturas_folios', {
+      ...iniciarForm.data.temperaturas_folios,
+      [folioId]: { temperatura_inicio: value },
+    })
+  }
+
+  const setTemperaturaInversionFolio = (folioId, campo, value) => {
+    inversionForm.setData('temperaturas_folios', {
+      ...inversionForm.data.temperaturas_folios,
+      [folioId]: {
+        ...(inversionForm.data.temperaturas_folios[folioId] || {}),
+        [campo]: value,
+      },
+    })
   }
 
   const openSalidaDialog = () => {
@@ -1098,6 +1134,36 @@ export default function MatrizTunel({ tuneles, tunel, parametros, cargaActiva, f
               Se registrará con la fecha y hora establecida al crear el proceso.
             </DialogDescription>
           </DialogHeader>
+          <div className="space-y-4">
+            <div>
+              <Label>Temperatura ambiente al inicio (°C)</Label>
+              <Input
+                type="number"
+                step="0.01"
+                value={iniciarForm.data.temperatura_ambiente_inicio}
+                onChange={(e) => iniciarForm.setData('temperatura_ambiente_inicio', e.target.value)}
+              />
+              {iniciarForm.errors.temperatura_ambiente_inicio && (
+                <p className="mt-1 text-xs text-red-500">{iniciarForm.errors.temperatura_ambiente_inicio}</p>
+              )}
+            </div>
+            <div className="max-h-64 space-y-2 overflow-y-auto">
+              {folios.map((folio) => (
+                <div key={folio.id} className="grid grid-cols-2 items-end gap-3 rounded-md border p-3">
+                  <div className="font-mono text-sm font-semibold">{folio.folio}</div>
+                  <div>
+                    <Label className="text-xs">T° inicio fruta (°C)</Label>
+                    <Input
+                      type="number"
+                      step="0.01"
+                      value={iniciarForm.data.temperaturas_folios[folio.id]?.temperatura_inicio || ''}
+                      onChange={(e) => setTemperaturaInicioFolio(folio.id, e.target.value)}
+                    />
+                  </div>
+                </div>
+              ))}
+            </div>
+          </div>
           <DialogFooter>
             <Button type="button" variant="secondary" onClick={() => setDialog(null)}>
               Cancelar
@@ -1131,6 +1197,42 @@ export default function MatrizTunel({ tuneles, tunel, parametros, cargaActiva, f
                 <p className="text-red-500 text-xs mt-1">{inversionForm.errors.fecha_hora_inversion}</p>
               )}
               {inversionForm.errors.estado && <p className="text-red-500 text-xs mt-1">{inversionForm.errors.estado}</p>}
+            </div>
+            <div>
+              <Label>Temperatura ambiente en la inversión (°C)</Label>
+              <Input
+                type="number"
+                step="0.01"
+                value={inversionForm.data.temperatura_ambiente_inversion}
+                onChange={(e) => inversionForm.setData('temperatura_ambiente_inversion', e.target.value)}
+              />
+            </div>
+            <div className="max-h-64 space-y-2 overflow-y-auto">
+              {folios.map((folio) => (
+                <div key={folio.id} className="rounded-md border p-3">
+                  <div className="mb-2 font-mono text-sm font-semibold">{folio.folio}</div>
+                  <div className="grid grid-cols-2 gap-3">
+                    <div>
+                      <Label className="text-xs">T° interior (°C)</Label>
+                      <Input
+                        type="number"
+                        step="0.01"
+                        value={inversionForm.data.temperaturas_folios[folio.id]?.temperatura_inversion_interior || ''}
+                        onChange={(e) => setTemperaturaInversionFolio(folio.id, 'temperatura_inversion_interior', e.target.value)}
+                      />
+                    </div>
+                    <div>
+                      <Label className="text-xs">T° exterior (°C)</Label>
+                      <Input
+                        type="number"
+                        step="0.01"
+                        value={inversionForm.data.temperaturas_folios[folio.id]?.temperatura_inversion_exterior || ''}
+                        onChange={(e) => setTemperaturaInversionFolio(folio.id, 'temperatura_inversion_exterior', e.target.value)}
+                      />
+                    </div>
+                  </div>
+                </div>
+              ))}
             </div>
             <DialogFooter>
               <Button type="button" variant="secondary" onClick={() => setDialog(null)}>

@@ -195,9 +195,9 @@ class LoadService
         });
     }
 
-    public function iniciar(int $loadId, User $usuario): PreCoolingLoad
+    public function iniciar(int $loadId, ?float $temperaturaAmbienteInicio, array $temperaturasFolios, User $usuario): PreCoolingLoad
     {
-        return DB::transaction(function () use ($loadId, $usuario) {
+        return DB::transaction(function () use ($loadId, $temperaturaAmbienteInicio, $temperaturasFolios, $usuario) {
             $load = PreCoolingLoad::query()->lockForUpdate()->findOrFail($loadId);
 
             if ($load->estado !== 'ingresado') {
@@ -213,7 +213,10 @@ class LoadService
             $load->update([
                 'estado' => 'iniciado',
                 'usuario_inicio_id' => $usuario->id,
+                'temperatura_ambiente_inicio' => $temperaturaAmbienteInicio,
             ]);
+
+            $this->actualizarTemperaturasFolios($load, $temperaturasFolios, ['temperatura_inicio']);
 
             $this->audit->log($usuario, 'iniciar_load', $load->id, null, ['load' => $antes], ['load' => $load->toArray()]);
 
@@ -221,9 +224,9 @@ class LoadService
         });
     }
 
-    public function registrarInversion(int $loadId, string $fechaHoraInversion, User $usuario): PreCoolingLoad
+    public function registrarInversion(int $loadId, string $fechaHoraInversion, ?float $temperaturaAmbienteInversion, array $temperaturasFolios, User $usuario): PreCoolingLoad
     {
-        return DB::transaction(function () use ($loadId, $fechaHoraInversion, $usuario) {
+        return DB::transaction(function () use ($loadId, $fechaHoraInversion, $temperaturaAmbienteInversion, $temperaturasFolios, $usuario) {
             $load = PreCoolingLoad::query()->lockForUpdate()->findOrFail($loadId);
 
             if ($load->estado !== 'iniciado') {
@@ -235,6 +238,12 @@ class LoadService
             $load->update([
                 'fecha_hora_inversion' => $fechaHoraInversion,
                 'usuario_inversion_id' => $usuario->id,
+                'temperatura_ambiente_inversion' => $temperaturaAmbienteInversion,
+            ]);
+
+            $this->actualizarTemperaturasFolios($load, $temperaturasFolios, [
+                'temperatura_inversion_interior',
+                'temperatura_inversion_exterior',
             ]);
 
             $this->audit->log($usuario, 'registrar_inversion', $load->id, null, ['load' => $antes], ['load' => $load->toArray()]);
@@ -243,9 +252,9 @@ class LoadService
         });
     }
 
-    public function salir(int $loadId, ?string $fechaHoraFin, int $camaraId, array $ubicaciones, User $usuario): PreCoolingLoad
+    public function salir(int $loadId, ?string $fechaHoraFin, int $camaraId, array $ubicaciones, ?float $temperaturaAmbienteFinal, array $temperaturasFolios, User $usuario): PreCoolingLoad
     {
-        return DB::transaction(function () use ($loadId, $fechaHoraFin, $camaraId, $ubicaciones, $usuario) {
+        return DB::transaction(function () use ($loadId, $fechaHoraFin, $camaraId, $ubicaciones, $temperaturaAmbienteFinal, $temperaturasFolios, $usuario) {
             $load = PreCoolingLoad::query()->lockForUpdate()->findOrFail($loadId);
 
             if ($load->estado !== 'iniciado') {
@@ -313,13 +322,37 @@ class LoadService
             $load->update([
                 'estado' => 'salido',
                 'fecha_hora_fin' => $fechaHoraFin,
+                'temperatura_ambiente_final' => $temperaturaAmbienteFinal,
                 'usuario_fin_id' => $usuario->id,
+            ]);
+
+            $this->actualizarTemperaturasFolios($load, $temperaturasFolios, [
+                'temperatura_final_interna',
+                'temperatura_final_externa',
             ]);
 
             $this->audit->log($usuario, 'salir_load', $load->id, null, ['load' => $antes], ['load' => $load->toArray()]);
 
             return $load;
         });
+    }
+
+    protected function actualizarTemperaturasFolios(PreCoolingLoad $load, array $temperaturasFolios, array $campos): void
+    {
+        $folios = $load->folios()->lockForUpdate()->get();
+
+        foreach ($folios as $folio) {
+            $valores = $temperaturasFolios[$folio->id] ?? [];
+            $actualizacion = [];
+
+            foreach ($campos as $campo) {
+                $actualizacion[$campo] = array_key_exists($campo, $valores) && $valores[$campo] !== ''
+                    ? $valores[$campo]
+                    : null;
+            }
+
+            $folio->update($actualizacion);
+        }
     }
 
     protected function validarSlotCamara(PreCoolingCamara $camara, string $banda, string $fila, string $columna, string $altura, string $nivel): void

@@ -38,6 +38,11 @@ export default function SalidaDialog({ load, camaras, onClose }) {
   const form = useForm({
     camara_id: '',
     fecha_hora_fin: ahoraLocal(),
+    temperatura_ambiente_final: load.temperatura_ambiente_final || '',
+    temperaturas_folios: Object.fromEntries(load.folios.map((folio) => [folio.id, {
+      temperatura_final_interna: folio.temperatura_final_interna || '',
+      temperatura_final_externa: folio.temperatura_final_externa || '',
+    }])),
     ubicaciones: {},
   })
 
@@ -53,6 +58,16 @@ export default function SalidaDialog({ load, camaras, onClose }) {
       ...(form.data.ubicaciones[folioId] || {}),
       [dimension]: value,
       ...(dimension === 'banda' ? { fila: '' } : {}),
+    })
+  }
+
+  const setTemperaturaFolio = (folioId, campo, value) => {
+    form.setData('temperaturas_folios', {
+      ...form.data.temperaturas_folios,
+      [folioId]: {
+        ...(form.data.temperaturas_folios[folioId] || {}),
+        [campo]: value,
+      },
     })
   }
 
@@ -112,6 +127,19 @@ export default function SalidaDialog({ load, camaras, onClose }) {
             </div>
           </div>
 
+          <div>
+            <Label className="mb-1 block">Temperatura ambiente al finalizar (°C)</Label>
+            <Input
+              type="number"
+              step="0.01"
+              value={form.data.temperatura_ambiente_final}
+              onChange={(e) => form.setData('temperatura_ambiente_final', e.target.value)}
+            />
+            {form.errors.temperatura_ambiente_final && (
+              <p className="mt-1 text-xs text-red-500">{form.errors.temperatura_ambiente_final}</p>
+            )}
+          </div>
+
           {form.errors.estado && <p className="text-red-500 text-xs">{form.errors.estado}</p>}
           {form.errors.folio && <p className="text-red-500 text-xs">{form.errors.folio}</p>}
           {form.errors.ubicaciones && <p className="text-red-500 text-xs">{form.errors.ubicaciones}</p>}
@@ -144,6 +172,26 @@ export default function SalidaDialog({ load, camaras, onClose }) {
                           </Select>
                         </div>
                       ))}
+                    </div>
+                    <div className="mt-3 grid grid-cols-2 gap-2 border-t pt-3">
+                      <div>
+                        <Label className="text-xs">T° final interna (°C)</Label>
+                        <Input
+                          type="number"
+                          step="0.01"
+                          value={form.data.temperaturas_folios[f.id]?.temperatura_final_interna || ''}
+                          onChange={(e) => setTemperaturaFolio(f.id, 'temperatura_final_interna', e.target.value)}
+                        />
+                      </div>
+                      <div>
+                        <Label className="text-xs">T° final externa (°C)</Label>
+                        <Input
+                          type="number"
+                          step="0.01"
+                          value={form.data.temperaturas_folios[f.id]?.temperatura_final_externa || ''}
+                          onChange={(e) => setTemperaturaFolio(f.id, 'temperatura_final_externa', e.target.value)}
+                        />
+                      </div>
                     </div>
                     {form.errors[`ubicaciones.${f.id}`] && (
                       <p className="text-red-500 text-xs mt-1">{form.errors[`ubicaciones.${f.id}`]}</p>

@@ -27,6 +27,9 @@ class PreCoolingLoad extends Model
         'usuario_fin_id',
         'observaciones',
         'temperatura_objetivo',
+        'temperatura_ambiente_inicio',
+        'temperatura_ambiente_inversion',
+        'temperatura_ambiente_final',
         'atributos',
     ];
 
@@ -38,6 +41,9 @@ class PreCoolingLoad extends Model
         'fecha_hora_termino' => 'datetime',
         'fecha_hora_descarga' => 'datetime',
         'temperatura_objetivo' => 'decimal:2',
+        'temperatura_ambiente_inicio' => 'decimal:2',
+        'temperatura_ambiente_inversion' => 'decimal:2',
+        'temperatura_ambiente_final' => 'decimal:2',
         'atributos' => 'array',
     ];
 
@@ -80,4 +86,5 @@ class PreCoolingLoad extends Model
     {
         return $this->belongsTo(User::class, 'usuario_fin_id');
     }
+
 }

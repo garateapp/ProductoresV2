@@ -59,6 +59,10 @@ return [
         ],
     ],
 
+    'precooling' => [
+        'api_key' => env('PRECOOLING_API_KEY', env('TERMO_API_KEY')),
+    ],
+
     'sap_service_layer' => [
         'enabled' => filter_var(env('SAP_SL_ENABLED', false), FILTER_VALIDATE_BOOLEAN),
         'base_url' => env('SAP_SL_BASE_URL', 'https://188.34.132.98:50005/b1s/v1'),

@@ -17,6 +17,7 @@ class DatabaseSeeder extends Seeder
         $this->call([
             InventoryModulePermissionsSeeder::class,
             IntegrationModulePermissionsSeeder::class,
+            PreCoolingModulePermissionsSeeder::class,
         ]);
 
         // User::factory(10)->create();

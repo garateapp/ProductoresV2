@@ -27,6 +27,11 @@ class PreCoolingLoadFolio extends Model
         'cajas',
         'pallets',
         'temperatura_inicial',
+        'temperatura_inicio',
+        'temperatura_inversion_interior',
+        'temperatura_inversion_exterior',
+        'temperatura_final_interna',
+        'temperatura_final_externa',
         'metadata',
     ];
 
@@ -34,6 +39,11 @@ class PreCoolingLoadFolio extends Model
         'cajas' => 'integer',
         'pallets' => 'integer',
         'temperatura_inicial' => 'decimal:2',
+        'temperatura_inicio' => 'decimal:2',
+        'temperatura_inversion_interior' => 'decimal:2',
+        'temperatura_inversion_exterior' => 'decimal:2',
+        'temperatura_final_interna' => 'decimal:2',
+        'temperatura_final_externa' => 'decimal:2',
         'metadata' => 'array',
     ];
 
@@ -45,5 +55,18 @@ class PreCoolingLoadFolio extends Model
     public function tipoProceso(): BelongsTo
     {
         return $this->belongsTo(PreCoolingTipoProceso::class, 'tipo_proceso_id');
+    }
+
+    public function getTemperatureByTypeAttribute(): ?array
+    {
+        $valores = array_filter([
+            'T° Inicio' => $this->temperatura_inicio !== null ? (float) $this->temperatura_inicio : null,
+            'T° Inversión Interior' => $this->temperatura_inversion_interior !== null ? (float) $this->temperatura_inversion_interior : null,
+            'T° Inversión Exterior' => $this->temperatura_inversion_exterior !== null ? (float) $this->temperatura_inversion_exterior : null,
+            'T° Final Interna' => $this->temperatura_final_interna !== null ? (float) $this->temperatura_final_interna : null,
+            'T° Final Externa' => $this->temperatura_final_externa !== null ? (float) $this->temperatura_final_externa : null,
+        ], fn ($value) => $value !== null);
+
+        return $valores === [] ? null : $valores;
     }
 }

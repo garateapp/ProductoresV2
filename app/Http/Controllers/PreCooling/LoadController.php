@@ -147,7 +147,18 @@ class LoadController extends Controller
     {
         $this->authorizePreCoolingPermission($request, 'prefrio.loads.manage');
 
-        $this->loadService->iniciar($load->id, $request->user());
+        $data = $request->validate([
+            'temperatura_ambiente_inicio' => 'nullable|numeric|between:-50,100',
+            'temperaturas_folios' => 'nullable|array',
+            'temperaturas_folios.*.temperatura_inicio' => 'nullable|numeric|between:-50,100',
+        ]);
+
+        $this->loadService->iniciar(
+            $load->id,
+            $data['temperatura_ambiente_inicio'] ?? null,
+            $data['temperaturas_folios'] ?? [],
+            $request->user(),
+        );
 
         return back()->with('success', 'Pre-enfriado iniciado.');
     }
@@ -158,9 +169,19 @@ class LoadController extends Controller
 
         $data = $request->validate([
             'fecha_hora_inversion' => 'required|date',
+            'temperatura_ambiente_inversion' => 'nullable|numeric|between:-50,100',
+            'temperaturas_folios' => 'nullable|array',
+            'temperaturas_folios.*.temperatura_inversion_interior' => 'nullable|numeric|between:-50,100',
+            'temperaturas_folios.*.temperatura_inversion_exterior' => 'nullable|numeric|between:-50,100',
         ]);
 
-        $this->loadService->registrarInversion($load->id, $data['fecha_hora_inversion'], $request->user());
+        $this->loadService->registrarInversion(
+            $load->id,
+            $data['fecha_hora_inversion'],
+            $data['temperatura_ambiente_inversion'] ?? null,
+            $data['temperaturas_folios'] ?? [],
+            $request->user(),
+        );
 
         return back()->with('success', 'Inversión del flujo registrada.');
     }
@@ -178,6 +199,10 @@ class LoadController extends Controller
             'ubicaciones.*.columna' => 'required|string|max:50',
             'ubicaciones.*.altura' => 'required|string|max:50',
             'ubicaciones.*.nivel' => 'required|string|max:50',
+            'temperatura_ambiente_final' => 'nullable|numeric|between:-50,100',
+            'temperaturas_folios' => 'nullable|array',
+            'temperaturas_folios.*.temperatura_final_interna' => 'nullable|numeric|between:-50,100',
+            'temperaturas_folios.*.temperatura_final_externa' => 'nullable|numeric|between:-50,100',
         ]);
 
         $this->loadService->salir(
@@ -185,6 +210,8 @@ class LoadController extends Controller
             $data['fecha_hora_fin'] ?? null,
             (int) $data['camara_id'],
             $data['ubicaciones'],
+            $data['temperatura_ambiente_final'] ?? null,
+            $data['temperaturas_folios'] ?? [],
             $request->user(),
         );
 
