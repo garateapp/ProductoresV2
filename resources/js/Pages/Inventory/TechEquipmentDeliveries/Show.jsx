@@ -50,7 +50,7 @@ export default function TechEquipmentDeliveryShow({ act }) {
     }
     setSignatureError('')
     clearErrors()
-    post(route('inventory.tech-equipment-deliveries.return', act.id), {
+    post(route('inventory.tech-equipment-deliveries.return', { deliveryAct: act.id }), {
       preserveScroll: true,
       onSuccess: () => setReturnOpen(false),
     })
@@ -68,7 +68,7 @@ export default function TechEquipmentDeliveryShow({ act }) {
                 Volver
               </Button>
             </Link>
-            <a href={route('inventory.tech-equipment-deliveries.pdf', act.id)} target="_blank" rel="noopener noreferrer">
+            <a href={route('inventory.tech-equipment-deliveries.pdf', { deliveryAct: act.id })} target="_blank" rel="noopener noreferrer">
               <Button type="button">
                 <Download className="w-4 h-4 mr-2" />
                 Ver PDF

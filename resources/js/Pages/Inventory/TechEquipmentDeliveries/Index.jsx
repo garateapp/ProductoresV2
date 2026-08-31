@@ -83,12 +83,12 @@ export default function TechEquipmentDeliveriesIndex({ acts }) {
                       </TableCell>
                       <TableCell className="text-right">
                         <div className="flex justify-end gap-1">
-                          <Link href={route('inventory.tech-equipment-deliveries.show', act.id)}>
+                          <Link href={route('inventory.tech-equipment-deliveries.show', { deliveryAct: act.id })}>
                             <Button variant="ghost" size="sm" title="Ver acta">
                               <Eye className="w-4 h-4" />
                             </Button>
                           </Link>
-                          <a href={route('inventory.tech-equipment-deliveries.pdf', act.id)} target="_blank" rel="noopener noreferrer">
+                          <a href={route('inventory.tech-equipment-deliveries.pdf', { deliveryAct: act.id })} target="_blank" rel="noopener noreferrer">
                             <Button variant="ghost" size="sm" title="Ver PDF">
                               <FileText className="w-4 h-4" />
                             </Button>
