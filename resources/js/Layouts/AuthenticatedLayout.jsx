@@ -23,6 +23,7 @@ import ContratosMenu from './Dropdowns/ContratosMenu.jsx';
 import EstimacionesMenu from './Dropdowns/EstimacionesMenu.jsx';
 import PlanningMenu from './Dropdowns/PlanningMenu.jsx';
 import InventoryMenu from './Dropdowns/InventoryMenu.jsx';
+import PreCoolingMenu from './Dropdowns/PreCoolingMenu.jsx';
 import IntegrationsMenu from './Dropdowns/IntegrationsMenu.jsx';
 
 const navLinkClasses =
@@ -139,6 +140,7 @@ export default function AuthenticatedLayout({ header, children }) {
 
                                         {hasAnyRole(['Administrador',  'Gerencia']) && <PlanningMenu />}
                                         {hasAnyRole(['Administrador', 'Calidad', 'Gerencia', 'Inventario']) && <InventoryMenu />}
+                                        {hasAnyRole(['Administrador', 'Admin', 'Gerencia', 'Gerencia Planta', 'Calidad', 'Planificador', 'Inventario']) && <PreCoolingMenu />}
                                         {hasRole('Administrador') && <IntegrationsMenu />}
 
                                         {/* Submenús extraídos */}
@@ -271,6 +273,14 @@ export default function AuthenticatedLayout({ header, children }) {
                                             onClick={() => setShowingNavigationDropdown(false)}
                                         >
                                             Inventario
+                                        </ResponsiveNavLink>
+                                        <ResponsiveNavLink
+                                            {...mobileNavLinkProps}
+                                            href={route('prefrio.tuneles.index')}
+                                            active={route().current('prefrio.*')}
+                                            onClick={() => setShowingNavigationDropdown(false)}
+                                        >
+                                            Prefrío
                                         </ResponsiveNavLink>
                                     </>
                                 )}

@@ -472,6 +472,15 @@ Route::get('logistic-units/print-lot/{lotCode}', [App\Http\Controllers\Inventory
         Route::resource('person-deliveries', App\Http\Controllers\Inventory\PersonDeliveryController::class)->only(['index', 'create', 'store', 'show'])->names('person-deliveries');
         Route::post('personal', [App\Http\Controllers\Inventory\PersonalController::class, 'store'])->name('personal.store');
 
+        // Equipos tecnológicos y actas de entrega
+        Route::get('tech-equipment', [App\Http\Controllers\Inventory\TechEquipmentController::class, 'index'])->name('tech-equipment.index');
+        Route::post('tech-equipment', [App\Http\Controllers\Inventory\TechEquipmentController::class, 'store'])->name('tech-equipment.store');
+        Route::patch('tech-equipment/{techEquipment}', [App\Http\Controllers\Inventory\TechEquipmentController::class, 'update'])->name('tech-equipment.update');
+        Route::get('tech-equipment-deliveries/history', [App\Http\Controllers\Inventory\TechEquipmentDeliveryActController::class, 'history'])->name('tech-equipment-deliveries.history');
+        Route::get('tech-equipment-deliveries/{deliveryAct}/pdf', [App\Http\Controllers\Inventory\TechEquipmentDeliveryActController::class, 'pdf'])->name('tech-equipment-deliveries.pdf');
+        Route::post('tech-equipment-deliveries/{deliveryAct}/return', [App\Http\Controllers\Inventory\TechEquipmentDeliveryActController::class, 'returnAct'])->name('tech-equipment-deliveries.return');
+        Route::resource('tech-equipment-deliveries', App\Http\Controllers\Inventory\TechEquipmentDeliveryActController::class)->only(['index', 'create', 'store', 'show'])->names('tech-equipment-deliveries');
+
         Route::get('locations/{location}/users', [App\Http\Controllers\Inventory\MaterialRequestController::class, 'showUsers'])->name('locations.users');
         Route::post('locations/{location}/users', [App\Http\Controllers\Inventory\MaterialRequestController::class, 'syncUsers'])->name('locations.users.sync');
 
@@ -489,6 +498,55 @@ Route::get('logistic-units/print-lot/{lotCode}', [App\Http\Controllers\Inventory
         Route::get('productions', [App\Http\Controllers\Inventory\ProductionController::class, 'index'])->name('productions.index');
         Route::post('productions', [App\Http\Controllers\Inventory\ProductionController::class, 'store'])->name('productions.store');
         Route::post('productions/preview', [App\Http\Controllers\Inventory\ProductionController::class, 'preview'])->name('productions.preview');
+
+        Route::get('auto-consumption-folios', [App\Http\Controllers\Inventory\AutoConsumptionFolioController::class, 'index'])->name('auto-consumption-folios.index');
+        Route::post('auto-consumption-folios/{folio}/retry', [App\Http\Controllers\Inventory\AutoConsumptionFolioController::class, 'retry'])->name('auto-consumption-folios.retry');
+
+        Route::get('consumption-origins', [App\Http\Controllers\Inventory\ConsumptionOriginController::class, 'index'])->name('consumption-origins.index');
+        Route::post('consumption-origins', [App\Http\Controllers\Inventory\ConsumptionOriginController::class, 'store'])->name('consumption-origins.store');
+        Route::patch('consumption-origins/{origin}', [App\Http\Controllers\Inventory\ConsumptionOriginController::class, 'update'])->name('consumption-origins.update');
+        Route::delete('consumption-origins/{origin}', [App\Http\Controllers\Inventory\ConsumptionOriginController::class, 'destroy'])->name('consumption-origins.destroy');
+
+        Route::get('consumption-reports', [App\Http\Controllers\Inventory\ConsumptionReportController::class, 'index'])->name('consumption-reports.index');
+        Route::get('consumption-reports/export-csv', [App\Http\Controllers\Inventory\ConsumptionReportController::class, 'exportCsv'])->name('consumption-reports.export-csv');
+        Route::get('consumption-reports/export-pdf', [App\Http\Controllers\Inventory\ConsumptionReportController::class, 'exportPdf'])->name('consumption-reports.export-pdf');
+    });
+
+    // Prefrío (Pre-Cooling)
+    Route::prefix('prefrio')->name('prefrio.')->group(function () {
+        Route::get('tipos-procesos', [App\Http\Controllers\PreCooling\TipoProcesoController::class, 'index'])->name('tipos-procesos.index');
+        Route::post('tipos-procesos', [App\Http\Controllers\PreCooling\TipoProcesoController::class, 'store'])->name('tipos-procesos.store');
+        Route::patch('tipos-procesos/{tipoProceso}', [App\Http\Controllers\PreCooling\TipoProcesoController::class, 'update'])->name('tipos-procesos.update');
+
+        Route::get('tuneles', [App\Http\Controllers\PreCooling\TunelController::class, 'index'])->name('tuneles.index');
+        Route::post('tuneles', [App\Http\Controllers\PreCooling\TunelController::class, 'store'])->name('tuneles.store');
+        Route::patch('tuneles/{tunel}', [App\Http\Controllers\PreCooling\TunelController::class, 'update'])->name('tuneles.update');
+
+        Route::get('camaras', [App\Http\Controllers\PreCooling\CamaraController::class, 'index'])->name('camaras.index');
+        Route::post('camaras', [App\Http\Controllers\PreCooling\CamaraController::class, 'store'])->name('camaras.store');
+        Route::patch('camaras/{camara}', [App\Http\Controllers\PreCooling\CamaraController::class, 'update'])->name('camaras.update');
+
+        Route::get('atributos', [App\Http\Controllers\PreCooling\AtributoController::class, 'index'])->name('atributos.index');
+        Route::post('atributos', [App\Http\Controllers\PreCooling\AtributoController::class, 'store'])->name('atributos.store');
+        Route::patch('atributos/{atributo}', [App\Http\Controllers\PreCooling\AtributoController::class, 'update'])->name('atributos.update');
+
+        Route::get('matriz-tunel', [App\Http\Controllers\PreCooling\MatrizController::class, 'tunel'])->name('matriz.tunel');
+        Route::get('matriz-camara', [App\Http\Controllers\PreCooling\MatrizController::class, 'camara'])->name('matriz.camara');
+
+        Route::get('loads', [App\Http\Controllers\PreCooling\LoadsController::class, 'index'])->name('loads.index');
+        Route::post('loads', [App\Http\Controllers\PreCooling\LoadController::class, 'store'])->name('loads.store');
+        Route::patch('loads/{load}', [App\Http\Controllers\PreCooling\LoadController::class, 'update'])->name('loads.update');
+        Route::post('loads/{load}/folios', [App\Http\Controllers\PreCooling\LoadController::class, 'storeFolio'])->name('loads.folios.store');
+        Route::delete('loads/{load}/folios/{folio}', [App\Http\Controllers\PreCooling\LoadController::class, 'destroyFolio'])->name('loads.folios.destroy');
+        Route::post('loads/{load}/iniciar', [App\Http\Controllers\PreCooling\LoadController::class, 'iniciar'])->name('loads.iniciar');
+        Route::post('loads/{load}/registrar-inversion', [App\Http\Controllers\PreCooling\LoadController::class, 'registrarInversion'])->name('loads.registrar-inversion');
+        Route::post('loads/{load}/salir', [App\Http\Controllers\PreCooling\LoadController::class, 'salir'])->name('loads.salir');
+        Route::post('folios/lookup', [App\Http\Controllers\PreCooling\LoadController::class, 'lookupFolio'])->name('folios.lookup');
+
+        Route::get('dashboard', [App\Http\Controllers\PreCooling\DashboardController::class, 'index'])->name('dashboard.index');
+        Route::get('planta', App\Http\Controllers\PreCooling\PlantaController::class)->name('planta');
+        Route::get('reportes', [App\Http\Controllers\PreCooling\ReporteController::class, 'index'])->name('reportes.index');
+        Route::get('reportes/exportar/{tipo}', [App\Http\Controllers\PreCooling\ReporteController::class, 'exportar'])->name('reportes.exportar');
     });
 
 

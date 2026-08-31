@@ -26,13 +26,19 @@ export default function InventoryMenu() {
         <DropdownMenuItem asChild><Link href={route('inventory.traceability-report.index')} className="w-full">Reporte de Trazabilidad</Link></DropdownMenuItem>
         <DropdownMenuItem asChild><Link href={route('inventory.planning-simulator.index')} className="w-full">Simulador de planificación</Link></DropdownMenuItem>
         <DropdownMenuItem asChild><Link href={route('inventory.person-deliveries.index')} className="w-full">Entrega a Personas</Link></DropdownMenuItem>
+        <DropdownMenuItem asChild><Link href={route('inventory.tech-equipment-deliveries.index')} className="w-full">Equipos tecnológicos · Actas de entrega</Link></DropdownMenuItem>
+        <DropdownMenuItem asChild><Link href={route('inventory.tech-equipment-deliveries.history')} className="w-full">Equipos · Historial</Link></DropdownMenuItem>
         <DropdownMenuItem asChild><Link href={route('inventory.guide')} className="w-full">Instructivo de uso</Link></DropdownMenuItem>
         <DropdownMenuItem asChild><Link href={route('inventory.productions.index')} className="w-full">Producción</Link></DropdownMenuItem>
+        <DropdownMenuItem asChild><Link href={route('inventory.auto-consumption-folios.index')} className="w-full">Consumo Automático</Link></DropdownMenuItem>
+        <DropdownMenuItem asChild><Link href={route('inventory.consumption-reports.index')} className="w-full">Consumo por servicio</Link></DropdownMenuItem>
 
         <DropdownMenuSeparator />
         <DropdownMenuItem asChild><Link href={route('inventory.materials.index')} className="w-full">Materiales</Link></DropdownMenuItem>
         <DropdownMenuItem asChild><Link href={route('inventory.packagings.index')} className="w-full">Embalajes</Link></DropdownMenuItem>
         <DropdownMenuItem asChild><Link href={route('inventory.locations.index')} className="w-full">Ubicaciones</Link></DropdownMenuItem>
+        <DropdownMenuItem asChild><Link href={route('inventory.consumption-origins.index')} className="w-full">Orígenes de consumo</Link></DropdownMenuItem>
+        <DropdownMenuItem asChild><Link href={route('inventory.tech-equipment.index')} className="w-full">Equipos tecnológicos (mantenedor)</Link></DropdownMenuItem>
         <DropdownMenuItem asChild><Link href={route('inventory.technical-sheets.index')} className="w-full">Fichas técnicas</Link></DropdownMenuItem>
         <DropdownMenuItem asChild><Link href={route('inventory.waste-types.index')} className="w-full">Tipos de Merma</Link></DropdownMenuItem>
       </DropdownMenuContent>

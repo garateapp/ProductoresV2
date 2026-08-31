@@ -47,6 +47,7 @@ class InventoryTransactionService
             $ledgerEvents = [];
             $createdWasteRecords = [];
             $metadata = (array) $movement->metadata;
+            $allowNegativeStock = (bool) Arr::get($metadata, 'allow_negative_stock', false);
             $positionPairsToSync = [];
 
             foreach ($movement->details as $detail) {
@@ -91,6 +92,7 @@ class InventoryTransactionService
                         (int) $event->location_id,
                         (float) $event->signed_quantity,
                         $event->id,
+                        $allowNegativeStock,
                     );
                 }
             }

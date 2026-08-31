@@ -12,7 +12,7 @@ use Illuminate\Validation\ValidationException;
 
 class StockProjectionService
 {
-    public function applyDelta(int $materialId, int $locationId, float $delta, ?int $ledgerEventId = null): InventoryStockLocation
+    public function applyDelta(int $materialId, int $locationId, float $delta, ?int $ledgerEventId = null, bool $allowNegativeStock = false): InventoryStockLocation
     {
         $location = InventoryLocation::query()->findOrFail($locationId);
         $stock = InventoryStockLocation::query()
@@ -31,7 +31,7 @@ class StockProjectionService
 
         $nextStock = (float) $stock->stock_actual + $delta;
 
-        if (! $location->permite_stock_negativo && $nextStock < 0) {
+        if (! $location->permite_stock_negativo && ! $allowNegativeStock && $nextStock < 0) {
             throw ValidationException::withMessages([
                 'stock' => "Stock insuficiente en {$location->nombre}. Disponible: {$stock->stock_actual}. Delta: {$delta}.",
             ]);

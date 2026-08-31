@@ -51,6 +51,12 @@ return [
     'termo' => [
         'api_key' => env('TERMO_API_KEY'),
         'sqlsrv_view' => env('TERMO_SQLSRV_SALIDAS_VIEW', 'V_PKG_Produccion_Salidas_XXX'),
+        'auto_consumption' => [
+            'enabled' => filter_var(env('AUTO_CONSUMPTION_ENABLED', true), FILTER_VALIDATE_BOOLEAN),
+            'conexion' => env('AUTO_CONSUMPTION_CONNECTION', 'sqlsrv'),
+            'batch_size' => (int) env('AUTO_CONSUMPTION_BATCH_SIZE', 200),
+            'system_user_email' => env('AUTO_CONSUMPTION_SYSTEM_USER_EMAIL', 'sistema.auto@appgreenex.test'),
+        ],
     ],
 
     'sap_service_layer' => [

@@ -45,3 +45,14 @@ Schedule::command('tinker --execute="Artisan::call(\'reports:reception-daily-sum
 Schedule::command('tinker --execute="Artisan::call(\'reports:reception-daily-summary\')"')
     ->dailyAt('15:00')
     ->description('Envia resumen de recepciones enviadas (15:00).');
+
+Schedule::command('sync:produccion-garces')
+    ->everyFiveMinutes()
+    ->withoutOverlapping()
+    ->description('Envia produccion nueva a Garces Fruits cada 5 minutos');
+
+Schedule::command('inventory:auto-consume')
+    ->everyFiveMinutes()
+    ->withoutOverlapping()
+    ->when(fn () => filter_var(config('services.termo.auto_consumption.enabled', true), FILTER_VALIDATE_BOOLEAN))
+    ->description('Consume materiales desde V_PKG_Produccion_Salidas cada 5 minutos');
