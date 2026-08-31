@@ -25,6 +25,12 @@ const formatDate = (value) => value
 
 const condicionLabel = (value) => (value === 'nuevo' ? 'Nuevo' : 'Usado')
 
+const formatFecha = (value) => {
+  if (!value) return '-'
+  const parsed = new Date(String(value).length === 10 ? `${value}T00:00:00` : value)
+  return isNaN(parsed) ? value : parsed.toLocaleDateString('es-CL')
+}
+
 export default function TechEquipmentDeliveryShow({ act }) {
   const [returnOpen, setReturnOpen] = useState(false)
   const [signatureError, setSignatureError] = useState('')
@@ -126,7 +132,7 @@ export default function TechEquipmentDeliveryShow({ act }) {
                         <TableRow key={item.id}>
                           <TableCell className="font-medium">{item.equipment?.marca || '-'}</TableCell>
                           <TableCell className="font-mono">{item.equipment?.numero_serie || '-'}</TableCell>
-                          <TableCell>{item.equipment?.fecha || '-'}</TableCell>
+                          <TableCell>{formatFecha(item.equipment?.fecha)}</TableCell>
                           <TableCell>{item.equipment?.descripcion || '-'}</TableCell>
                         </TableRow>
                       ))}

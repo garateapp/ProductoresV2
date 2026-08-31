@@ -9,6 +9,12 @@ const formatDate = (value) => value
   ? new Date(value).toLocaleString('es-CL', { dateStyle: 'medium', timeStyle: 'short' })
   : '-'
 
+const formatFecha = (value) => {
+  if (!value) return '-'
+  const parsed = new Date(String(value).length === 10 ? `${value}T00:00:00` : value)
+  return isNaN(parsed) ? value : parsed.toLocaleDateString('es-CL')
+}
+
 export default function TechEquipmentHistory({ equipment }) {
   return (
     <AuthenticatedLayout
@@ -42,7 +48,7 @@ export default function TechEquipmentHistory({ equipment }) {
                     </CardTitle>
                     <p className="mt-1 text-sm text-slate-500">
                       <span className="font-mono">{item.numero_serie}</span>
-                      {item.fecha ? ` · ${new Date(item.fecha + 'T00:00:00').toLocaleDateString('es-CL')}` : ''}
+                      {item.fecha ? ` · ${formatFecha(item.fecha)}` : ''}
                     </p>
                     {item.descripcion && <p className="mt-1 text-sm text-slate-600">{item.descripcion}</p>}
                   </div>

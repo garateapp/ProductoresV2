@@ -27,6 +27,12 @@ const emptyForm = {
   activo: true,
 }
 
+const formatFecha = (value) => {
+  if (!value) return '-'
+  const parsed = new Date(String(value).length === 10 ? `${value}T00:00:00` : value)
+  return isNaN(parsed) ? value : parsed.toLocaleDateString('es-CL')
+}
+
 export default function TechEquipmentIndex({ equipment }) {
   const [editing, setEditing] = useState(null)
   const [modalOpen, setModalOpen] = useState(false)
@@ -114,7 +120,7 @@ export default function TechEquipmentIndex({ equipment }) {
                   {equipment.data.map((item) => (
                     <TableRow key={item.id}>
                       <TableCell className="font-medium">{item.marca}</TableCell>
-                      <TableCell>{item.fecha ? new Date(item.fecha + 'T00:00:00').toLocaleDateString('es-CL') : '-'}</TableCell>
+                      <TableCell>{formatFecha(item.fecha)}</TableCell>
                       <TableCell className="font-mono">{item.numero_serie}</TableCell>
                       <TableCell className="max-w-sm">
                         <p className="truncate" title={item.descripcion}>{item.descripcion || '-'}</p>

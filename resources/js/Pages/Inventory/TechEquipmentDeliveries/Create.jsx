@@ -16,6 +16,12 @@ const conditionOptions = [
   { value: 'usado', label: 'Usado' },
 ]
 
+const formatFecha = (value) => {
+  if (!value) return '-'
+  const parsed = new Date(String(value).length === 10 ? `${value}T00:00:00` : value)
+  return isNaN(parsed) ? value : parsed.toLocaleDateString('es-CL')
+}
+
 export default function CreateTechEquipmentDelivery({ equipment = [] }) {
   const [signatureError, setSignatureError] = useState('')
   const { data, setData, post, processing, errors, clearErrors } = useForm({
@@ -36,18 +42,19 @@ export default function CreateTechEquipmentDelivery({ equipment = [] }) {
   }))
 
   const toggleEquipment = (id) => {
+    const key = String(id)
     const current = [...data.equipment_ids]
-    const index = current.indexOf(id)
+    const index = current.indexOf(key)
     if (index >= 0) {
       current.splice(index, 1)
     } else {
-      current.push(id)
+      current.push(key)
     }
     setData('equipment_ids', current)
     clearErrors('equipment_ids')
   }
 
-  const selectedItems = equipment.filter((item) => data.equipment_ids.includes(item.id))
+  const selectedItems = equipment.filter((item) => data.equipment_ids.includes(String(item.id)))
 
   const submit = (event) => {
     event.preventDefault()
@@ -212,7 +219,7 @@ export default function CreateTechEquipmentDelivery({ equipment = [] }) {
                       <TableRow key={item.id}>
                         <TableCell className="font-medium">{item.marca}</TableCell>
                         <TableCell className="font-mono">{item.numero_serie}</TableCell>
-                        <TableCell>{item.fecha ? new Date(item.fecha + 'T00:00:00').toLocaleDateString('es-CL') : '-'}</TableCell>
+                        <TableCell>{formatFecha(item.fecha)}</TableCell>
                         <TableCell className="max-w-md">
                           <p className="truncate" title={item.descripcion}>{item.descripcion || '-'}</p>
                         </TableCell>

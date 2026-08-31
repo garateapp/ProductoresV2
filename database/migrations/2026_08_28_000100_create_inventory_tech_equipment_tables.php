@@ -30,11 +30,11 @@ return new class extends Migration
             $table->string('cargo', 150)->nullable();
             $table->string('condicion', 20);
             $table->dateTime('delivered_at');
-            $table->string('signature_data_url');
+            $table->longText('signature_data_url');
             $table->text('observations')->nullable();
             $table->dateTime('returned_at')->nullable();
             $table->text('return_observations')->nullable();
-            $table->string('return_signature_data_url')->nullable();
+            $table->longText('return_signature_data_url')->nullable();
             $table->timestamps();
 
             $table->index(['delivered_at', 'created_by'], 'idx_inv_tech_delivery_act_date_user');
@@ -42,9 +42,17 @@ return new class extends Migration
 
         Schema::create('inventory_tech_equipment_delivery_act_items', function (Blueprint $table) {
             $table->id();
-            $table->foreignId('delivery_act_id')->constrained('inventory_tech_equipment_delivery_acts')->cascadeOnDelete();
-            $table->foreignId('equipment_id')->constrained('inventory_tech_equipment');
+            $table->unsignedBigInteger('delivery_act_id');
+            $table->unsignedBigInteger('equipment_id');
             $table->timestamps();
+
+            $table->foreign('delivery_act_id', 'fk_inv_tech_item_act')
+                ->references('id')
+                ->on('inventory_tech_equipment_delivery_acts')
+                ->cascadeOnDelete();
+            $table->foreign('equipment_id', 'fk_inv_tech_item_equipment')
+                ->references('id')
+                ->on('inventory_tech_equipment');
 
             $table->index(['equipment_id', 'delivery_act_id'], 'idx_inv_tech_delivery_item_equipment');
         });
