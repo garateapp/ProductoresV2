@@ -479,7 +479,8 @@ Route::get('logistic-units/print-lot/{lotCode}', [App\Http\Controllers\Inventory
         Route::get('tech-equipment-deliveries/history', [App\Http\Controllers\Inventory\TechEquipmentDeliveryActController::class, 'history'])->name('tech-equipment-deliveries.history');
         Route::get('tech-equipment-deliveries/{deliveryAct}/pdf', [App\Http\Controllers\Inventory\TechEquipmentDeliveryActController::class, 'pdf'])->name('tech-equipment-deliveries.pdf');
         Route::post('tech-equipment-deliveries/{deliveryAct}/return', [App\Http\Controllers\Inventory\TechEquipmentDeliveryActController::class, 'returnAct'])->name('tech-equipment-deliveries.return');
-        Route::resource('tech-equipment-deliveries', App\Http\Controllers\Inventory\TechEquipmentDeliveryActController::class)->only(['index', 'create', 'store', 'show'])->names('tech-equipment-deliveries');
+        Route::resource('tech-equipment-deliveries', App\Http\Controllers\Inventory\TechEquipmentDeliveryActController::class)->only(['index', 'create', 'store'])->names('tech-equipment-deliveries');
+        Route::get('tech-equipment-deliveries/{deliveryAct}', [App\Http\Controllers\Inventory\TechEquipmentDeliveryActController::class, 'show'])->name('tech-equipment-deliveries.show');
 
         Route::get('locations/{location}/users', [App\Http\Controllers\Inventory\MaterialRequestController::class, 'showUsers'])->name('locations.users');
         Route::post('locations/{location}/users', [App\Http\Controllers\Inventory\MaterialRequestController::class, 'syncUsers'])->name('locations.users.sync');

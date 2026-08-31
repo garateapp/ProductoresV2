@@ -31,7 +31,9 @@ const formatFecha = (value) => {
   return isNaN(parsed) ? value : parsed.toLocaleDateString('es-CL')
 }
 
-export default function TechEquipmentDeliveryShow({ act }) {
+export default function TechEquipmentDeliveryShow({ act: rawAct }) {
+  const act = rawAct || {}
+  const items = Array.isArray(act.items) ? act.items : []
   const [returnOpen, setReturnOpen] = useState(false)
   const [signatureError, setSignatureError] = useState('')
   const { data, setData, post, processing, errors, clearErrors } = useForm({
@@ -41,6 +43,7 @@ export default function TechEquipmentDeliveryShow({ act }) {
   })
 
   const isReturned = Boolean(act.returned_at)
+  const actId = act && Number.isFinite(Number(act.id)) ? Number(act.id) : null
 
   const submitReturn = (event) => {
     event.preventDefault()
@@ -50,7 +53,7 @@ export default function TechEquipmentDeliveryShow({ act }) {
     }
     setSignatureError('')
     clearErrors()
-    post(route('inventory.tech-equipment-deliveries.return', { deliveryAct: act.id }), {
+    post(route('inventory.tech-equipment-deliveries.return', actId), {
       preserveScroll: true,
       onSuccess: () => setReturnOpen(false),
     })
@@ -68,13 +71,15 @@ export default function TechEquipmentDeliveryShow({ act }) {
                 Volver
               </Button>
             </Link>
-            <a href={route('inventory.tech-equipment-deliveries.pdf', { deliveryAct: act.id })} target="_blank" rel="noopener noreferrer">
-              <Button type="button">
-                <Download className="w-4 h-4 mr-2" />
-                Ver PDF
-              </Button>
-            </a>
-            {!isReturned && (
+            {actId !== null && (
+              <a href={route('inventory.tech-equipment-deliveries.pdf', actId)} target="_blank" rel="noopener noreferrer">
+                <Button type="button">
+                  <Download className="w-4 h-4 mr-2" />
+                  Ver PDF
+                </Button>
+              </a>
+            )}
+            {!isReturned && actId !== null && (
               <Button type="button" onClick={() => setReturnOpen(true)}>
                 <RotateCcw className="w-4 h-4 mr-2" />
                 Registrar devolución
@@ -128,7 +133,7 @@ export default function TechEquipmentDeliveryShow({ act }) {
                       </TableRow>
                     </TableHeader>
                     <TableBody>
-                      {act.items.map((item) => (
+                      {items.map((item) => (
                         <TableRow key={item.id}>
                           <TableCell className="font-medium">{item.equipment?.marca || '-'}</TableCell>
                           <TableCell className="font-mono">{item.equipment?.numero_serie || '-'}</TableCell>
