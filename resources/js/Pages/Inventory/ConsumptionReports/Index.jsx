@@ -16,6 +16,7 @@ const tipoOptions = [
   { value: '', label: 'Todos los tipos' },
   { value: 'normal', label: 'Consumo normal' },
   { value: 'temporal', label: 'Consumo temporal' },
+  { value: 'manual', label: 'Consumo manual' },
   { value: 'merma', label: 'Merma' },
 ]
 
@@ -24,6 +25,7 @@ const categoriaVariant = (categoria) =>
     normal: 'default',
     temporal: 'outline',
     merma: 'secondary',
+    manual: 'destructive',
   })[categoria] || 'default'
 
 const categoriaClass = (categoria) =>
@@ -31,6 +33,7 @@ const categoriaClass = (categoria) =>
     normal: '',
     temporal: 'text-violet-600 border-violet-200',
     merma: 'text-orange-600 border-orange-200',
+    manual: 'text-rose-600 border-rose-200',
   })[categoria] || ''
 
 export default function ConsumptionReportIndex({
@@ -97,7 +100,7 @@ export default function ConsumptionReportIndex({
             <div>
               <CardTitle>Consumo de materiales por servicio</CardTitle>
               <p className="mt-1 text-sm text-slate-600">
-                Consumo normal y temporal de folios de producción, más mermas. Consumo normal + temporal = consumo real.
+                Consumo normal, temporal y manual de folios de producción, más mermas. Consumo normal + temporal + manual = consumo real.
               </p>
             </div>
             <div className="flex gap-2">
@@ -175,9 +178,10 @@ export default function ConsumptionReportIndex({
             </div>
           </form>
 
-          <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-5">
+          <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-6">
             <SummaryBox label="Consumo normal" value={number(totals.consumo_normal)} tone="default" />
             <SummaryBox label="Consumo temporal" value={number(totals.consumo_temporal)} tone="temporal" />
+            <SummaryBox label="Consumo manual" value={number(totals.consumo_manual)} tone="manual" />
             <SummaryBox label="Total consumo" value={number(totals.consumo_total)} tone="default" />
             <SummaryBox label="Mermas" value={number(totals.merma)} tone="merma" />
             <SummaryBox label="Gran total" value={number(totals.gran_total)} tone="default" />
@@ -191,6 +195,7 @@ export default function ConsumptionReportIndex({
                   <TableHead className="text-right">Materiales</TableHead>
                   <TableHead className="text-right">Consumo normal</TableHead>
                   <TableHead className="text-right">Consumo temporal</TableHead>
+                  <TableHead className="text-right">Consumo manual</TableHead>
                   <TableHead className="text-right">Total consumo</TableHead>
                   <TableHead className="text-right">Mermas</TableHead>
                   <TableHead className="text-right">Total</TableHead>
@@ -203,12 +208,13 @@ export default function ConsumptionReportIndex({
                     <TableCell className="text-right">{row.materiales}</TableCell>
                     <TableCell className="text-right">{number(row.normal)}</TableCell>
                     <TableCell className="text-right">{number(row.temporal)}</TableCell>
+                    <TableCell className="text-right">{number(row.manual)}</TableCell>
                     <TableCell className="text-right font-semibold">{number(row.consumo_total)}</TableCell>
                     <TableCell className="text-right">{number(row.merma)}</TableCell>
                     <TableCell className="text-right">{number(row.gran_total)}</TableCell>
                   </TableRow>
                 ))}
-                {!byService.length ? <EmptyRow colSpan={7} /> : null}
+                {!byService.length ? <EmptyRow colSpan={8} /> : null}
               </TableBody>
             </Table>
           </Section>
@@ -222,6 +228,7 @@ export default function ConsumptionReportIndex({
                   <TableHead>Código</TableHead>
                   <TableHead className="text-right">Consumo normal</TableHead>
                   <TableHead className="text-right">Consumo temporal</TableHead>
+                  <TableHead className="text-right">Consumo manual</TableHead>
                   <TableHead className="text-right">Total consumo</TableHead>
                   <TableHead className="text-right">Mermas</TableHead>
                   <TableHead className="text-right">Total</TableHead>
@@ -235,12 +242,13 @@ export default function ConsumptionReportIndex({
                     <TableCell className="font-mono text-xs text-slate-500">{row.material_codigo}</TableCell>
                     <TableCell className="text-right">{number(row.normal)}</TableCell>
                     <TableCell className="text-right">{number(row.temporal)}</TableCell>
+                    <TableCell className="text-right">{number(row.manual)}</TableCell>
                     <TableCell className="text-right font-semibold">{number(row.consumo_total)}</TableCell>
                     <TableCell className="text-right">{number(row.merma)}</TableCell>
                     <TableCell className="text-right">{number(row.gran_total)}</TableCell>
                   </TableRow>
                 ))}
-                {!byMaterial.length ? <EmptyRow colSpan={8} /> : null}
+                {!byMaterial.length ? <EmptyRow colSpan={9} /> : null}
               </TableBody>
             </Table>
           </Section>
@@ -252,6 +260,7 @@ export default function ConsumptionReportIndex({
                   <TableHead>Fecha</TableHead>
                   <TableHead className="text-right">Consumo normal</TableHead>
                   <TableHead className="text-right">Consumo temporal</TableHead>
+                  <TableHead className="text-right">Consumo manual</TableHead>
                   <TableHead className="text-right">Total consumo</TableHead>
                   <TableHead className="text-right">Mermas</TableHead>
                   <TableHead className="text-right">Total</TableHead>
@@ -263,12 +272,13 @@ export default function ConsumptionReportIndex({
                     <TableCell className="font-medium">{row.fecha}</TableCell>
                     <TableCell className="text-right">{number(row.normal)}</TableCell>
                     <TableCell className="text-right">{number(row.temporal)}</TableCell>
+                    <TableCell className="text-right">{number(row.manual)}</TableCell>
                     <TableCell className="text-right font-semibold">{number(row.consumo_total)}</TableCell>
                     <TableCell className="text-right">{number(row.merma)}</TableCell>
                     <TableCell className="text-right">{number(row.gran_total)}</TableCell>
                   </TableRow>
                 ))}
-                {!byDate.length ? <EmptyRow colSpan={6} /> : null}
+                {!byDate.length ? <EmptyRow colSpan={7} /> : null}
               </TableBody>
             </Table>
           </Section>
@@ -325,6 +335,7 @@ function SummaryBox({ label, value, tone }) {
     default: 'text-slate-900',
     temporal: 'text-violet-700',
     merma: 'text-orange-700',
+    manual: 'text-rose-700',
   }[tone] || 'text-slate-900'
 
   return (

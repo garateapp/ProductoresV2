@@ -67,6 +67,11 @@ class PreCoolingLoad extends Model
         return $this->hasMany(PreCoolingLoadFolio::class, 'load_id');
     }
 
+    public function foliosPendientes(): HasMany
+    {
+        return $this->folios()->whereNull('fecha_hora_salida');
+    }
+
     public function usuarioIngreso(): BelongsTo
     {
         return $this->belongsTo(User::class, 'usuario_ingreso_id');

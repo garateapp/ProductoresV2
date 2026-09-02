@@ -54,11 +54,17 @@ class MatrizController extends Controller
                     'fecha_hora_termino' => $carga->fecha_hora_termino?->format('Y-m-d\TH:i'),
                     'fecha_hora_descarga' => $carga->fecha_hora_descarga?->format('Y-m-d\TH:i'),
                     'temperatura_objetivo' => $carga->temperatura_objetivo,
+                    'temperatura_ambiente_inicio' => $carga->temperatura_ambiente_inicio,
+                    'temperatura_ambiente_inversion' => $carga->temperatura_ambiente_inversion,
+                    'temperatura_ambiente_final' => $carga->temperatura_ambiente_final,
+                    'folios_total' => $carga->folios->count(),
+                    'folios_salidos' => $carga->folios->whereNotNull('fecha_hora_salida')->count(),
+                    'folios_pendientes' => $carga->folios->whereNull('fecha_hora_salida')->count(),
                     'observaciones' => $carga->observaciones,
                     'atributos' => $carga->atributos,
                 ];
 
-                $folios = $carga->folios->map(fn ($folio) => [
+                $folios = $carga->folios->whereNull('fecha_hora_salida')->map(fn ($folio) => [
                     'id' => $folio->id,
                     'folio' => $folio->folio,
                     'banda' => $folio->banda,
@@ -72,6 +78,11 @@ class MatrizController extends Controller
                     'cajas' => $folio->cajas,
                     'pallets' => $folio->pallets,
                     'temperatura_inicial' => $folio->temperatura_inicial,
+                    'temperatura_inicio' => $folio->temperatura_inicio,
+                    'temperatura_inversion_interior' => $folio->temperatura_inversion_interior,
+                    'temperatura_inversion_exterior' => $folio->temperatura_inversion_exterior,
+                    'temperatura_final_interna' => $folio->temperatura_final_interna,
+                    'temperatura_final_externa' => $folio->temperatura_final_externa,
                     'atributos' => $folio->atributos,
                 ])->values();
             }
@@ -120,7 +131,7 @@ class MatrizController extends Controller
             $camara->load('parametros');
             $parametros = $camara->parametrosPorDimension();
 
-            $saldos = PreCoolingSaldo::with('tipoProceso')
+            $saldos = PreCoolingSaldo::with(['tipoProceso', 'loadFolio.carga.tunel'])
                 ->where('camara_id', $camara->id)
                 ->orderBy('banda')
                 ->orderBy('fila')
@@ -137,11 +148,22 @@ class MatrizController extends Controller
                     'nivel' => $saldo->nivel,
                     'folio' => $saldo->folio,
                     'tipo_proceso' => $saldo->tipoProceso?->codigo,
+                    'tipo_proceso_nombre' => $saldo->tipoProceso?->nombre,
                     'cajas' => $saldo->cajas,
                     'pallets' => $saldo->pallets,
                     'especie' => $saldo->especie,
                     'variedad' => $saldo->variedad,
                     'productor' => $saldo->productor,
+                    'exportadora' => $saldo->loadFolio?->exportadora,
+                    'embalaje' => $saldo->loadFolio?->embalaje,
+                    'categoria' => $saldo->loadFolio?->categoria,
+                    'calibre' => $saldo->loadFolio?->calibre,
+                    'proceso_numero' => $saldo->loadFolio?->carga?->numero,
+                    'tunel' => $saldo->loadFolio?->carga?->tunel?->codigo,
+                    'fecha_hora_salida' => $saldo->loadFolio?->fecha_hora_salida?->format('Y-m-d H:i'),
+                    'temperaturas' => $saldo->loadFolio?->temperature_by_type,
+                    'temperatura_ambiente_tunel_salida' => $saldo->loadFolio?->temperatura_ambiente_tunel_salida,
+                    'temperatura_ambiente_camara_salida' => $saldo->loadFolio?->temperatura_ambiente_camara_salida,
                 ])->values();
         }
 
@@ -150,6 +172,10 @@ class MatrizController extends Controller
             'camara' => $camara,
             'parametros' => $parametros,
             'saldos' => $saldos,
+            'tiposProcesos' => PreCoolingTipoProceso::query()
+                ->where('activo', true)
+                ->orderBy('codigo')
+                ->get(['id', 'codigo', 'nombre']),
         ]);
     }
 }

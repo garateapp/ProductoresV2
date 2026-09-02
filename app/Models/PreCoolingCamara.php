@@ -30,6 +30,11 @@ class PreCoolingCamara extends Model
         return $this->hasMany(PreCoolingCamaraParametro::class, 'camara_id');
     }
 
+    public function saldos(): HasMany
+    {
+        return $this->hasMany(PreCoolingSaldo::class, 'camara_id');
+    }
+
     public function parametrosPorDimension(): array
     {
         return $this->parametros

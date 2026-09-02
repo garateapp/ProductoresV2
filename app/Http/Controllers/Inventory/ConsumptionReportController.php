@@ -54,7 +54,7 @@ class ConsumptionReportController extends Controller
         return response()->streamDownload(function () use ($summary): void {
             $output = fopen('php://output', 'w');
             fputs($output, "\xEF\xBB\xBF");
-            fputcsv($output, ['Servicio', 'Material', 'Código', 'Consumo normal', 'Consumo temporal', 'Total consumo', 'Merma', 'Total']);
+            fputcsv($output, ['Servicio', 'Material', 'Código', 'Consumo normal', 'Consumo temporal', 'Consumo manual', 'Total consumo', 'Merma', 'Total']);
             foreach ($summary['byMaterial'] as $row) {
                 fputcsv($output, [
                     $row['service_name'],
@@ -62,6 +62,7 @@ class ConsumptionReportController extends Controller
                     $row['material_codigo'],
                     $row['normal'],
                     $row['temporal'],
+                    $row['manual'],
                     $row['consumo_total'],
                     $row['merma'],
                     $row['gran_total'],

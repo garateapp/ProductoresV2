@@ -11,6 +11,7 @@ class PreCoolingSaldo extends Model
 
     protected $fillable = [
         'camara_id',
+        'load_folio_id',
         'banda',
         'fila',
         'columna',
@@ -34,6 +35,11 @@ class PreCoolingSaldo extends Model
     public function camara(): BelongsTo
     {
         return $this->belongsTo(PreCoolingCamara::class, 'camara_id');
+    }
+
+    public function loadFolio(): BelongsTo
+    {
+        return $this->belongsTo(PreCoolingLoadFolio::class, 'load_folio_id');
     }
 
     public function tipoProceso(): BelongsTo

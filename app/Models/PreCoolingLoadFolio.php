@@ -11,6 +11,7 @@ class PreCoolingLoadFolio extends Model
 
     protected $fillable = [
         'load_id',
+        'camara_destino_id',
         'tipo_proceso_id',
         'folio',
         'banda',
@@ -32,6 +33,10 @@ class PreCoolingLoadFolio extends Model
         'temperatura_inversion_exterior',
         'temperatura_final_interna',
         'temperatura_final_externa',
+        'fecha_hora_salida',
+        'temperatura_ambiente_tunel_salida',
+        'temperatura_ambiente_camara_salida',
+        'usuario_salida_id',
         'metadata',
     ];
 
@@ -44,6 +49,9 @@ class PreCoolingLoadFolio extends Model
         'temperatura_inversion_exterior' => 'decimal:2',
         'temperatura_final_interna' => 'decimal:2',
         'temperatura_final_externa' => 'decimal:2',
+        'fecha_hora_salida' => 'datetime',
+        'temperatura_ambiente_tunel_salida' => 'decimal:2',
+        'temperatura_ambiente_camara_salida' => 'decimal:2',
         'metadata' => 'array',
     ];
 
@@ -55,6 +63,16 @@ class PreCoolingLoadFolio extends Model
     public function tipoProceso(): BelongsTo
     {
         return $this->belongsTo(PreCoolingTipoProceso::class, 'tipo_proceso_id');
+    }
+
+    public function camaraDestino(): BelongsTo
+    {
+        return $this->belongsTo(PreCoolingCamara::class, 'camara_destino_id');
+    }
+
+    public function usuarioSalida(): BelongsTo
+    {
+        return $this->belongsTo(User::class, 'usuario_salida_id');
     }
 
     public function getTemperatureByTypeAttribute(): ?array

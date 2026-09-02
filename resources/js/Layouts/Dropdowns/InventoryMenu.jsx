@@ -31,6 +31,7 @@ export default function InventoryMenu() {
         <DropdownMenuItem asChild><Link href={route('inventory.guide')} className="w-full">Instructivo de uso</Link></DropdownMenuItem>
         <DropdownMenuItem asChild><Link href={route('inventory.productions.index')} className="w-full">Producción</Link></DropdownMenuItem>
         <DropdownMenuItem asChild><Link href={route('inventory.auto-consumption-folios.index')} className="w-full">Consumo Automático</Link></DropdownMenuItem>
+        <DropdownMenuItem asChild><Link href={route('inventory.manual-consumptions.index')} className="w-full">Consumo Manual</Link></DropdownMenuItem>
         <DropdownMenuItem asChild><Link href={route('inventory.consumption-reports.index')} className="w-full">Consumo por servicio</Link></DropdownMenuItem>
 
         <DropdownMenuSeparator />

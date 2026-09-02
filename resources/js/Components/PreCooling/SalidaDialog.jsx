@@ -38,7 +38,9 @@ export default function SalidaDialog({ load, camaras, onClose }) {
   const form = useForm({
     camara_id: '',
     fecha_hora_fin: ahoraLocal(),
-    temperatura_ambiente_final: load.temperatura_ambiente_final || '',
+    temperatura_ambiente_tunel_salida: '',
+    temperatura_ambiente_camara_salida: '',
+    folios_seleccionados: Object.fromEntries(load.folios.map((folio) => [folio.id, true])),
     temperaturas_folios: Object.fromEntries(load.folios.map((folio) => [folio.id, {
       temperatura_final_interna: folio.temperatura_final_interna || '',
       temperatura_final_externa: folio.temperatura_final_externa || '',
@@ -50,7 +52,14 @@ export default function SalidaDialog({ load, camaras, onClose }) {
   const parametros = camara?.parametros || { banda: [], fila: [], columna: [], altura: [], nivel: [] }
 
   const handleCamaraChange = (value) => {
-    form.setData({ camara_id: value, ubicaciones: {} })
+    form.setData({ ...form.data, camara_id: value, ubicaciones: {} })
+  }
+
+  const toggleFolio = (folioId, checked) => {
+    form.setData('folios_seleccionados', {
+      ...form.data.folios_seleccionados,
+      [folioId]: checked,
+    })
   }
 
   const setUbicacion = (folioId, dimension, value) => {
@@ -78,13 +87,22 @@ export default function SalidaDialog({ load, camaras, onClose }) {
 
   const submit = (e) => {
     e.preventDefault()
+    const seleccionados = load.folios.filter((folio) => form.data.folios_seleccionados[folio.id])
+
+    form.transform((data) => ({
+      ...data,
+      ubicaciones: Object.fromEntries(seleccionados.map((folio) => [folio.id, data.ubicaciones[folio.id] || {}])),
+      temperaturas_folios: Object.fromEntries(seleccionados.map((folio) => [folio.id, data.temperaturas_folios[folio.id] || {}])),
+    }))
     form.post(route('prefrio.loads.salir', load.id), {
       onSuccess: () => {
-        toast.success('Carga marcada como salida del túnel')
+        toast.success('Salida parcial registrada')
         onClose()
       },
     })
   }
+
+  const cantidadSeleccionada = load.folios.filter((folio) => form.data.folios_seleccionados[folio.id]).length
 
   return (
     <Dialog open onOpenChange={(open) => !open && onClose()}>
@@ -92,7 +110,7 @@ export default function SalidaDialog({ load, camaras, onClose }) {
         <DialogHeader>
           <DialogTitle>Salida del túnel · {load.tipo_proceso}</DialogTitle>
           <DialogDescription>
-            Asigne a cada folio su ubicación en la cámara de destino. La salida aplica a toda la carga del túnel. Esta acción es irreversible.
+            Seleccione los folios que saldrán ahora y asigne su ubicación en la cámara. El proceso seguirá abierto mientras queden folios en el túnel.
           </DialogDescription>
         </DialogHeader>
         <form onSubmit={submit} className="space-y-4">
@@ -127,33 +145,61 @@ export default function SalidaDialog({ load, camaras, onClose }) {
             </div>
           </div>
 
-          <div>
-            <Label className="mb-1 block">Temperatura ambiente al finalizar (°C)</Label>
-            <Input
-              type="number"
-              step="0.01"
-              value={form.data.temperatura_ambiente_final}
-              onChange={(e) => form.setData('temperatura_ambiente_final', e.target.value)}
-            />
-            {form.errors.temperatura_ambiente_final && (
-              <p className="mt-1 text-xs text-red-500">{form.errors.temperatura_ambiente_final}</p>
-            )}
+          <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+            <div>
+              <Label className="mb-1 block">Temperatura ambiente del túnel (°C)</Label>
+              <Input
+                type="number"
+                step="0.01"
+                value={form.data.temperatura_ambiente_tunel_salida}
+                onChange={(e) => form.setData('temperatura_ambiente_tunel_salida', e.target.value)}
+              />
+              {form.errors.temperatura_ambiente_tunel_salida && (
+                <p className="mt-1 text-xs text-red-500">{form.errors.temperatura_ambiente_tunel_salida}</p>
+              )}
+            </div>
+            <div>
+              <Label className="mb-1 block">Temperatura ambiente de la cámara (°C)</Label>
+              <Input
+                type="number"
+                step="0.01"
+                value={form.data.temperatura_ambiente_camara_salida}
+                onChange={(e) => form.setData('temperatura_ambiente_camara_salida', e.target.value)}
+              />
+              {form.errors.temperatura_ambiente_camara_salida && (
+                <p className="mt-1 text-xs text-red-500">{form.errors.temperatura_ambiente_camara_salida}</p>
+              )}
+            </div>
           </div>
 
           {form.errors.estado && <p className="text-red-500 text-xs">{form.errors.estado}</p>}
           {form.errors.folio && <p className="text-red-500 text-xs">{form.errors.folio}</p>}
           {form.errors.ubicaciones && <p className="text-red-500 text-xs">{form.errors.ubicaciones}</p>}
+          {form.errors.folios && <p className="text-red-500 text-xs">{form.errors.folios}</p>}
 
           {camara ? (
             <div className="space-y-2 max-h-72 overflow-y-auto pr-1">
               {load.folios.map((f) => {
                 const ubic = form.data.ubicaciones[f.id] || {}
+                const seleccionado = Boolean(form.data.folios_seleccionados[f.id])
                 return (
                   <div key={f.id} className="rounded-md border p-3">
                     <div className="flex items-center justify-between mb-2">
-                      <span className="font-mono text-sm font-semibold">{f.folio}</span>
-                      <Badge variant="secondary">Nivel {f.nivel}</Badge>
+                      <label className="flex cursor-pointer items-center gap-2">
+                        <input
+                          type="checkbox"
+                          checked={seleccionado}
+                          onChange={(e) => toggleFolio(f.id, e.target.checked)}
+                          className="h-4 w-4 rounded border-gray-300"
+                        />
+                        <span className="font-mono text-sm font-semibold">{f.folio}</span>
+                      </label>
+                      <Badge variant={seleccionado ? 'default' : 'secondary'}>
+                        {seleccionado ? 'Sale ahora' : 'Permanece'}
+                      </Badge>
                     </div>
+                    {seleccionado && (
+                      <>
                     <div className="grid grid-cols-2 sm:grid-cols-5 gap-2">
                       {DIMENSIONES.map((dim) => (
                         <div key={dim}>
@@ -182,6 +228,11 @@ export default function SalidaDialog({ load, camaras, onClose }) {
                           value={form.data.temperaturas_folios[f.id]?.temperatura_final_interna || ''}
                           onChange={(e) => setTemperaturaFolio(f.id, 'temperatura_final_interna', e.target.value)}
                         />
+                        {form.errors[`temperaturas_folios.${f.id}.temperatura_final_interna`] && (
+                          <p className="mt-1 text-xs text-red-500">
+                            {form.errors[`temperaturas_folios.${f.id}.temperatura_final_interna`]}
+                          </p>
+                        )}
                       </div>
                       <div>
                         <Label className="text-xs">T° final externa (°C)</Label>
@@ -191,10 +242,17 @@ export default function SalidaDialog({ load, camaras, onClose }) {
                           value={form.data.temperaturas_folios[f.id]?.temperatura_final_externa || ''}
                           onChange={(e) => setTemperaturaFolio(f.id, 'temperatura_final_externa', e.target.value)}
                         />
+                        {form.errors[`temperaturas_folios.${f.id}.temperatura_final_externa`] && (
+                          <p className="mt-1 text-xs text-red-500">
+                            {form.errors[`temperaturas_folios.${f.id}.temperatura_final_externa`]}
+                          </p>
+                        )}
                       </div>
                     </div>
                     {form.errors[`ubicaciones.${f.id}`] && (
                       <p className="text-red-500 text-xs mt-1">{form.errors[`ubicaciones.${f.id}`]}</p>
+                    )}
+                      </>
                     )}
                   </div>
                 )
@@ -208,8 +266,8 @@ export default function SalidaDialog({ load, camaras, onClose }) {
             <Button type="button" variant="secondary" onClick={onClose}>
               Cancelar
             </Button>
-            <Button type="submit" disabled={form.processing || !camara}>
-              Confirmar salida
+            <Button type="submit" disabled={form.processing || !camara || cantidadSeleccionada === 0}>
+              Registrar salida ({cantidadSeleccionada})
             </Button>
           </DialogFooter>
         </form>

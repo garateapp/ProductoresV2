@@ -1136,7 +1136,7 @@ export default function MatrizTunel({ tuneles, tunel, parametros, cargaActiva, f
           </DialogHeader>
           <div className="space-y-4">
             <div>
-              <Label>Temperatura ambiente al inicio (°C)</Label>
+              <Label>Temperatura ambiente del túnel al inicio (°C)</Label>
               <Input
                 type="number"
                 step="0.01"
@@ -1159,6 +1159,11 @@ export default function MatrizTunel({ tuneles, tunel, parametros, cargaActiva, f
                       value={iniciarForm.data.temperaturas_folios[folio.id]?.temperatura_inicio || ''}
                       onChange={(e) => setTemperaturaInicioFolio(folio.id, e.target.value)}
                     />
+                    {iniciarForm.errors[`temperaturas_folios.${folio.id}.temperatura_inicio`] && (
+                      <p className="mt-1 text-xs text-red-500">
+                        {iniciarForm.errors[`temperaturas_folios.${folio.id}.temperatura_inicio`]}
+                      </p>
+                    )}
                   </div>
                 </div>
               ))}
@@ -1199,13 +1204,16 @@ export default function MatrizTunel({ tuneles, tunel, parametros, cargaActiva, f
               {inversionForm.errors.estado && <p className="text-red-500 text-xs mt-1">{inversionForm.errors.estado}</p>}
             </div>
             <div>
-              <Label>Temperatura ambiente en la inversión (°C)</Label>
+              <Label>Temperatura ambiente del túnel en la inversión (°C)</Label>
               <Input
                 type="number"
                 step="0.01"
                 value={inversionForm.data.temperatura_ambiente_inversion}
                 onChange={(e) => inversionForm.setData('temperatura_ambiente_inversion', e.target.value)}
               />
+              {inversionForm.errors.temperatura_ambiente_inversion && (
+                <p className="mt-1 text-xs text-red-500">{inversionForm.errors.temperatura_ambiente_inversion}</p>
+              )}
             </div>
             <div className="max-h-64 space-y-2 overflow-y-auto">
               {folios.map((folio) => (
@@ -1220,6 +1228,11 @@ export default function MatrizTunel({ tuneles, tunel, parametros, cargaActiva, f
                         value={inversionForm.data.temperaturas_folios[folio.id]?.temperatura_inversion_interior || ''}
                         onChange={(e) => setTemperaturaInversionFolio(folio.id, 'temperatura_inversion_interior', e.target.value)}
                       />
+                      {inversionForm.errors[`temperaturas_folios.${folio.id}.temperatura_inversion_interior`] && (
+                        <p className="mt-1 text-xs text-red-500">
+                          {inversionForm.errors[`temperaturas_folios.${folio.id}.temperatura_inversion_interior`]}
+                        </p>
+                      )}
                     </div>
                     <div>
                       <Label className="text-xs">T° exterior (°C)</Label>
@@ -1229,6 +1242,11 @@ export default function MatrizTunel({ tuneles, tunel, parametros, cargaActiva, f
                         value={inversionForm.data.temperaturas_folios[folio.id]?.temperatura_inversion_exterior || ''}
                         onChange={(e) => setTemperaturaInversionFolio(folio.id, 'temperatura_inversion_exterior', e.target.value)}
                       />
+                      {inversionForm.errors[`temperaturas_folios.${folio.id}.temperatura_inversion_exterior`] && (
+                        <p className="mt-1 text-xs text-red-500">
+                          {inversionForm.errors[`temperaturas_folios.${folio.id}.temperatura_inversion_exterior`]}
+                        </p>
+                      )}
                     </div>
                   </div>
                 </div>

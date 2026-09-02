@@ -191,7 +191,7 @@ class LoadController extends Controller
         $this->authorizePreCoolingPermission($request, 'prefrio.loads.manage');
 
         $data = $request->validate([
-            'fecha_hora_fin' => 'nullable|date',
+            'fecha_hora_fin' => 'required|date',
             'camara_id' => 'required|integer|exists:pre_cooling_camaras,id',
             'ubicaciones' => 'required|array|min:1',
             'ubicaciones.*.banda' => 'required|string|max:50',
@@ -199,7 +199,8 @@ class LoadController extends Controller
             'ubicaciones.*.columna' => 'required|string|max:50',
             'ubicaciones.*.altura' => 'required|string|max:50',
             'ubicaciones.*.nivel' => 'required|string|max:50',
-            'temperatura_ambiente_final' => 'nullable|numeric|between:-50,100',
+            'temperatura_ambiente_tunel_salida' => 'nullable|numeric|between:-50,100',
+            'temperatura_ambiente_camara_salida' => 'nullable|numeric|between:-50,100',
             'temperaturas_folios' => 'nullable|array',
             'temperaturas_folios.*.temperatura_final_interna' => 'nullable|numeric|between:-50,100',
             'temperaturas_folios.*.temperatura_final_externa' => 'nullable|numeric|between:-50,100',
@@ -207,14 +208,15 @@ class LoadController extends Controller
 
         $this->loadService->salir(
             $load->id,
-            $data['fecha_hora_fin'] ?? null,
+            $data['fecha_hora_fin'],
             (int) $data['camara_id'],
             $data['ubicaciones'],
-            $data['temperatura_ambiente_final'] ?? null,
+            $data['temperatura_ambiente_tunel_salida'] ?? null,
+            $data['temperatura_ambiente_camara_salida'] ?? null,
             $data['temperaturas_folios'] ?? [],
             $request->user(),
         );
 
-        return back()->with('success', 'Carga marcada como salida del túnel.');
+        return back()->with('success', 'Salida de folios registrada correctamente.');
     }
 }

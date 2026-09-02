@@ -2,6 +2,7 @@
 
 namespace App\Services\Inventory;
 
+use App\Models\InventoryManualConsumption;
 use Illuminate\Support\Facades\DB;
 
 class ConsumptionReportService
@@ -68,6 +69,7 @@ class ConsumptionReportService
             ->join('inventory_materials as mat', 'mat.id', '=', 'd.material_id')
             ->leftJoin('services as s', 's.id', '=', 'mat.service_id')
             ->leftJoin('inventory_auto_consumption_folios as f', 'f.movement_id', '=', 'm.id')
+            ->leftJoin('inventory_manual_consumptions as mc', 'mc.movement_id', '=', 'm.id')
             ->whereIn('m.estado', ['aplicado', 'confirmado'])
             ->where('d.cantidad', '>', 0);
 
@@ -91,15 +93,23 @@ class ConsumptionReportService
             $query->where('m.origin_location_id', (int) $filters['origin_location_id']);
         }
 
-        // El consumo solo proviene de folios de auto consumo; las mermas se incluyen siempre que se pidan.
+        // El consumo proviene de folios de auto consumo o de acciones manuales (reembalaje/reproceso/completar saldos).
+        // Las mermas se incluyen siempre que se pidan.
+        $isConsumo = function ($q): void {
+            $q->where('t.codigo', 'CONSUMO')
+                ->where(function ($inner): void {
+                    $inner->whereNotNull('f.id')
+                        ->orWhereNotNull('mc.id');
+                });
+        };
+
         if ($filters['incluir_mermas']) {
-            $query->where(function ($inner): void {
-                $inner->where(function ($sub): void {
-                    $sub->where('t.codigo', 'CONSUMO')->whereNotNull('f.id');
-                })->orWhere('t.codigo', 'MERMA');
+            $query->where(function ($inner) use ($isConsumo): void {
+                $inner->where($isConsumo)
+                    ->orWhere('t.codigo', 'MERMA');
             });
         } else {
-            $query->where('t.codigo', 'CONSUMO')->whereNotNull('f.id');
+            $query->where($isConsumo);
         }
 
         if ($filters['tipo_folio'] === 'temporal') {
@@ -109,6 +119,8 @@ class ConsumptionReportService
             $query->where('t.codigo', 'CONSUMO')
                 ->whereNotNull('f.id')
                 ->where(DB::raw('UPPER(f.folio)'), 'not like', '%T');
+        } elseif ($filters['tipo_folio'] === 'manual') {
+            $query->where('t.codigo', 'CONSUMO')->whereNotNull('mc.id');
         } elseif ($filters['tipo_folio'] === 'merma') {
             $query->where('t.codigo', 'MERMA');
         }
@@ -139,8 +151,9 @@ class ConsumptionReportService
                 'mat.codigo as material_codigo',
                 'mat.nombre as material_nombre',
                 DB::raw("SUM(CASE WHEN t.codigo = 'MERMA' THEN d.cantidad ELSE 0 END) as merma"),
-                DB::raw("SUM(CASE WHEN t.codigo = 'CONSUMO' AND (f.id IS NULL OR UPPER(f.folio) NOT LIKE '%T') THEN d.cantidad ELSE 0 END) as normal"),
+                DB::raw("SUM(CASE WHEN t.codigo = 'CONSUMO' AND (f.id IS NULL OR UPPER(f.folio) NOT LIKE '%T') AND mc.id IS NULL THEN d.cantidad ELSE 0 END) as normal"),
                 DB::raw("SUM(CASE WHEN t.codigo = 'CONSUMO' AND UPPER(f.folio) LIKE '%T' THEN d.cantidad ELSE 0 END) as temporal"),
+                DB::raw("SUM(CASE WHEN t.codigo = 'CONSUMO' AND mc.id IS NOT NULL THEN d.cantidad ELSE 0 END) as manual"),
             ])
             ->groupBy('mat.service_id', 's.name', 'd.material_id', 'mat.codigo', 'mat.nombre')
             ->orderBy('service_name')
@@ -151,6 +164,7 @@ class ConsumptionReportService
             $normal = round((float) $row->normal, 4);
             $temporal = round((float) $row->temporal, 4);
             $merma = round((float) $row->merma, 4);
+            $manual = round((float) $row->manual, 4);
 
             return [
                 'service_id' => $row->service_id !== null ? (int) $row->service_id : null,
@@ -160,9 +174,10 @@ class ConsumptionReportService
                 'material_nombre' => (string) $row->material_nombre,
                 'normal' => $normal,
                 'temporal' => $temporal,
+                'manual' => $manual,
                 'merma' => $merma,
                 'consumo_total' => round($normal + $temporal, 4),
-                'gran_total' => round($normal + $temporal + $merma, 4),
+                'gran_total' => round($normal + $temporal + $manual + $merma, 4),
             ];
         })->all());
     }
@@ -179,6 +194,7 @@ class ConsumptionReportService
                 $normal = round((float) $items->sum('normal'), 4);
                 $temporal = round((float) $items->sum('temporal'), 4);
                 $merma = round((float) $items->sum('merma'), 4);
+                $manual = round((float) $items->sum('manual'), 4);
 
                 return [
                     'service_id' => $items->first()['service_id'],
@@ -186,9 +202,10 @@ class ConsumptionReportService
                     'materiales' => $items->count(),
                     'normal' => $normal,
                     'temporal' => $temporal,
+                    'manual' => $manual,
                     'merma' => $merma,
                     'consumo_total' => round($normal + $temporal, 4),
-                    'gran_total' => round($normal + $temporal + $merma, 4),
+                    'gran_total' => round($normal + $temporal + $manual + $merma, 4),
                 ];
             })
             ->sortBy('service_name')
@@ -205,13 +222,15 @@ class ConsumptionReportService
         $normal = round((float) array_sum(array_column($rows, 'normal')), 4);
         $temporal = round((float) array_sum(array_column($rows, 'temporal')), 4);
         $merma = round((float) array_sum(array_column($rows, 'merma')), 4);
+        $manual = round((float) array_sum(array_column($rows, 'manual')), 4);
 
         return [
             'consumo_normal' => $normal,
             'consumo_temporal' => $temporal,
-            'consumo_total' => round($normal + $temporal, 4),
+            'consumo_manual' => $manual,
+            'consumo_total' => round($normal + $temporal + $manual, 4),
             'merma' => $merma,
-            'gran_total' => round($normal + $temporal + $merma, 4),
+            'gran_total' => round($normal + $temporal + $manual + $merma, 4),
         ];
     }
 
@@ -225,8 +244,9 @@ class ConsumptionReportService
             ->select([
                 DB::raw('DATE(m.fecha_movimiento) as fecha'),
                 DB::raw("SUM(CASE WHEN t.codigo = 'MERMA' THEN d.cantidad ELSE 0 END) as merma"),
-                DB::raw("SUM(CASE WHEN t.codigo = 'CONSUMO' AND (f.id IS NULL OR UPPER(f.folio) NOT LIKE '%T') THEN d.cantidad ELSE 0 END) as normal"),
+                DB::raw("SUM(CASE WHEN t.codigo = 'CONSUMO' AND (f.id IS NULL OR UPPER(f.folio) NOT LIKE '%T') AND mc.id IS NULL THEN d.cantidad ELSE 0 END) as normal"),
                 DB::raw("SUM(CASE WHEN t.codigo = 'CONSUMO' AND UPPER(f.folio) LIKE '%T' THEN d.cantidad ELSE 0 END) as temporal"),
+                DB::raw("SUM(CASE WHEN t.codigo = 'CONSUMO' AND mc.id IS NOT NULL THEN d.cantidad ELSE 0 END) as manual"),
             ])
             ->groupBy(DB::raw('DATE(m.fecha_movimiento)'))
             ->orderBy(DB::raw('DATE(m.fecha_movimiento)'))
@@ -236,14 +256,16 @@ class ConsumptionReportService
             $normal = round((float) $row->normal, 4);
             $temporal = round((float) $row->temporal, 4);
             $merma = round((float) $row->merma, 4);
+            $manual = round((float) $row->manual, 4);
 
             return [
                 'fecha' => (string) $row->fecha,
                 'normal' => $normal,
                 'temporal' => $temporal,
+                'manual' => $manual,
                 'merma' => $merma,
-                'consumo_total' => round($normal + $temporal, 4),
-                'gran_total' => round($normal + $temporal + $merma, 4),
+                'consumo_total' => round($normal + $temporal + $manual, 4),
+                'gran_total' => round($normal + $temporal + $manual + $merma, 4),
             ];
         })->all());
     }
@@ -267,12 +289,15 @@ class ConsumptionReportService
                 'f.folio as folio_produccion',
                 'f.cantidad as folio_cantidad',
                 'f.es_temporal',
+                'mc.id as mc_id',
+                'mc.tipo_accion as mc_tipo_accion',
                 'ol.nombre as origin_nombre',
                 DB::raw('SUM(d.cantidad) as cantidad'),
             ])
             ->groupBy(
                 'm.id', 'm.folio', 'm.estado', 'm.observacion', 'm.fecha_movimiento',
-                't.codigo', 't.nombre', 'f.folio', 'f.cantidad', 'f.es_temporal', 'ol.nombre'
+                't.codigo', 't.nombre', 'f.folio', 'f.cantidad', 'f.es_temporal',
+                'mc.id', 'mc.tipo_accion', 'ol.nombre'
             )
             ->orderByDesc('m.fecha_movimiento')
             ->orderByDesc('m.id')
@@ -282,6 +307,8 @@ class ConsumptionReportService
         return array_values($rows->map(function ($row): array {
             if ($row->tipo_codigo === 'MERMA') {
                 $categoria = 'merma';
+            } elseif ($row->mc_id !== null) {
+                $categoria = 'manual';
             } elseif ((bool) $row->es_temporal) {
                 $categoria = 'temporal';
             } else {
@@ -297,6 +324,7 @@ class ConsumptionReportService
                 'categoria_label' => match ($categoria) {
                     'merma' => 'Merma',
                     'temporal' => 'Temporal',
+                    'manual' => 'Manual ('.($row->mc_tipo_accion ? InventoryManualConsumption::accionLabel((string) $row->mc_tipo_accion) : 'Acción').')',
                     default => 'Normal',
                 },
                 'fecha' => substr((string) $row->fecha_movimiento, 0, 10),

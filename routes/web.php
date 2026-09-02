@@ -511,6 +511,12 @@ Route::get('logistic-units/print-lot/{lotCode}', [App\Http\Controllers\Inventory
         Route::get('consumption-reports', [App\Http\Controllers\Inventory\ConsumptionReportController::class, 'index'])->name('consumption-reports.index');
         Route::get('consumption-reports/export-csv', [App\Http\Controllers\Inventory\ConsumptionReportController::class, 'exportCsv'])->name('consumption-reports.export-csv');
         Route::get('consumption-reports/export-pdf', [App\Http\Controllers\Inventory\ConsumptionReportController::class, 'exportPdf'])->name('consumption-reports.export-pdf');
+
+        Route::get('manual-consumptions', [App\Http\Controllers\Inventory\ManualConsumptionController::class, 'index'])->name('manual-consumptions.index');
+        Route::post('manual-consumptions', [App\Http\Controllers\Inventory\ManualConsumptionController::class, 'store'])->name('manual-consumptions.store');
+        Route::post('manual-consumptions/{consumption}/retry', [App\Http\Controllers\Inventory\ManualConsumptionController::class, 'retry'])->name('manual-consumptions.retry');
+
+        Route::get('inventory-guide', [App\Http\Controllers\Inventory\InventoryGuideController::class, 'pdf'])->name('inventory-guide.pdf');
     });
 
     // Prefrío (Pre-Cooling)
@@ -533,6 +539,9 @@ Route::get('logistic-units/print-lot/{lotCode}', [App\Http\Controllers\Inventory
 
         Route::get('matriz-tunel', [App\Http\Controllers\PreCooling\MatrizController::class, 'tunel'])->name('matriz.tunel');
         Route::get('matriz-camara', [App\Http\Controllers\PreCooling\MatrizController::class, 'camara'])->name('matriz.camara');
+        Route::post('saldos', [App\Http\Controllers\PreCooling\SaldoController::class, 'store'])->name('saldos.store');
+        Route::patch('saldos/{saldo}/ubicacion', [App\Http\Controllers\PreCooling\SaldoController::class, 'update'])->name('saldos.update');
+        Route::delete('saldos/{saldo}', [App\Http\Controllers\PreCooling\SaldoController::class, 'destroy'])->name('saldos.destroy');
 
         Route::get('loads', [App\Http\Controllers\PreCooling\LoadsController::class, 'index'])->name('loads.index');
         Route::post('loads', [App\Http\Controllers\PreCooling\LoadController::class, 'store'])->name('loads.store');

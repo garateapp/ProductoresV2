@@ -141,6 +141,7 @@ class LoadService
                     $q->whereIn('estado', ['ingresado', 'iniciado']);
                 })
                 ->where('folio', $folio)
+                ->whereNull('fecha_hora_salida')
                 ->first();
 
             if ($existenteEnOtroProceso) {
@@ -252,18 +253,37 @@ class LoadService
         });
     }
 
-    public function salir(int $loadId, ?string $fechaHoraFin, int $camaraId, array $ubicaciones, ?float $temperaturaAmbienteFinal, array $temperaturasFolios, User $usuario): PreCoolingLoad
+    public function salir(
+        int $loadId,
+        ?string $fechaHoraFin,
+        int $camaraId,
+        array $ubicaciones,
+        ?float $temperaturaAmbienteTunel,
+        ?float $temperaturaAmbienteCamara,
+        array $temperaturasFolios,
+        User $usuario,
+    ): PreCoolingLoad
     {
-        return DB::transaction(function () use ($loadId, $fechaHoraFin, $camaraId, $ubicaciones, $temperaturaAmbienteFinal, $temperaturasFolios, $usuario) {
+        return DB::transaction(function () use ($loadId, $fechaHoraFin, $camaraId, $ubicaciones, $temperaturaAmbienteTunel, $temperaturaAmbienteCamara, $temperaturasFolios, $usuario) {
             $load = PreCoolingLoad::query()->lockForUpdate()->findOrFail($loadId);
 
             if ($load->estado !== 'iniciado') {
                 throw ValidationException::withMessages(['estado' => 'Solo las cargas INICIADAS pueden salir del túnel.']);
             }
 
-            $folios = $load->folios()->lockForUpdate()->get();
-            if ($folios->isEmpty()) {
-                throw ValidationException::withMessages(['folio' => 'La carga no tiene folios registrados.']);
+            $folioIds = array_values(array_unique(array_map('intval', array_keys($ubicaciones))));
+            if ($folioIds === []) {
+                throw ValidationException::withMessages(['folios' => 'Debe seleccionar al menos un folio para la salida.']);
+            }
+
+            $folios = $load->folios()
+                ->whereNull('fecha_hora_salida')
+                ->whereIn('id', $folioIds)
+                ->lockForUpdate()
+                ->get();
+
+            if ($folios->count() !== count($folioIds)) {
+                throw ValidationException::withMessages(['folios' => 'Uno o más folios no pertenecen al proceso o ya registraron su salida.']);
             }
 
             $camara = PreCoolingCamara::query()->lockForUpdate()->findOrFail($camaraId);
@@ -273,16 +293,14 @@ class LoadService
             }
 
             foreach ($folios as $folio) {
-                if (! isset($ubicaciones[$folio->id])) {
-                    throw ValidationException::withMessages(["ubicaciones.{$folio->id}" => "Debe indicar la ubicación del folio {$folio->folio}."]);
-                }
                 $ubic = $ubicaciones[$folio->id];
                 $this->validarSlotCamara($camara, $ubic['banda'], $ubic['fila'], $ubic['columna'], $ubic['altura'], $ubic['nivel']);
             }
 
             $ubicacionesUsadas = [];
             foreach ($folios as $folio) {
-                $key = implode('|', $ubicaciones[$folio->id]);
+                $ubic = $ubicaciones[$folio->id];
+                $key = implode('|', [$ubic['banda'], $ubic['fila'], $ubic['columna'], $ubic['altura'], $ubic['nivel']]);
                 if (isset($ubicacionesUsadas[$key])) {
                     throw ValidationException::withMessages(["ubicaciones.{$folio->id}" => 'Dos folios de la carga no pueden compartir la misma ubicación en la cámara.']);
                 }
@@ -294,6 +312,7 @@ class LoadService
 
                 try {
                     PreCoolingSaldo::create([
+                        'load_folio_id' => $folio->id,
                         'camara_id' => $camaraId,
                         'banda' => $ubic['banda'],
                         'fila' => $ubic['fila'],
@@ -315,31 +334,51 @@ class LoadService
                     }
                     throw $e;
                 }
+
+                $temperaturas = $temperaturasFolios[$folio->id] ?? [];
+                $folio->update([
+                    'camara_destino_id' => $camaraId,
+                    'fecha_hora_salida' => $fechaHoraFin,
+                    'temperatura_ambiente_tunel_salida' => $temperaturaAmbienteTunel,
+                    'temperatura_ambiente_camara_salida' => $temperaturaAmbienteCamara,
+                    'temperatura_final_interna' => $temperaturas['temperatura_final_interna'] ?? null,
+                    'temperatura_final_externa' => $temperaturas['temperatura_final_externa'] ?? null,
+                    'usuario_salida_id' => $usuario->id,
+                ]);
             }
 
             $antes = $load->toArray();
+            $pendientes = $load->folios()->whereNull('fecha_hora_salida')->count();
 
-            $load->update([
-                'estado' => 'salido',
-                'fecha_hora_fin' => $fechaHoraFin,
-                'temperatura_ambiente_final' => $temperaturaAmbienteFinal,
-                'usuario_fin_id' => $usuario->id,
-            ]);
+            if ($pendientes === 0) {
+                $load->update([
+                    'estado' => 'salido',
+                    'fecha_hora_fin' => $fechaHoraFin,
+                    'temperatura_ambiente_final' => $temperaturaAmbienteTunel,
+                    'usuario_fin_id' => $usuario->id,
+                ]);
+            }
 
-            $this->actualizarTemperaturasFolios($load, $temperaturasFolios, [
-                'temperatura_final_interna',
-                'temperatura_final_externa',
-            ]);
+            $this->audit->log(
+                $usuario,
+                $pendientes === 0 ? 'salir_load' : 'salida_parcial_load',
+                $load->id,
+                null,
+                ['load' => $antes],
+                [
+                    'load' => $load->toArray(),
+                    'folios_salida' => $folios->pluck('folio')->all(),
+                    'folios_pendientes' => $pendientes,
+                ],
+            );
 
-            $this->audit->log($usuario, 'salir_load', $load->id, null, ['load' => $antes], ['load' => $load->toArray()]);
-
-            return $load;
+            return $load->refresh();
         });
     }
 
     protected function actualizarTemperaturasFolios(PreCoolingLoad $load, array $temperaturasFolios, array $campos): void
     {
-        $folios = $load->folios()->lockForUpdate()->get();
+        $folios = $load->folios()->whereNull('fecha_hora_salida')->lockForUpdate()->get();
 
         foreach ($folios as $folio) {
             $valores = $temperaturasFolios[$folio->id] ?? [];
