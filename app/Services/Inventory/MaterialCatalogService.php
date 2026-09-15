@@ -19,6 +19,8 @@ class MaterialCatalogService
 
     private const LAST_SYNC_DATE_KEY = 'materials.last_sync_date';
 
+
+
     private const SYNCED_GROUP_CODES_KEY = 'materials.synced_group_codes';
 
     private const PREVIOUS_SAP_GROUP_CODES = [127, 139, 312, 142, 150, 140, 444, 405, 124, 141, 129, 102, 130, 311, 313, 327, 329, 331, 332,386, 400, 401, 403,413, 421, 438, 458, 459];
