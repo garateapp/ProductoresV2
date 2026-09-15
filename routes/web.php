@@ -566,6 +566,30 @@ Route::get('logistic-units/print-lot/{lotCode}', [App\Http\Controllers\Inventory
 
 
 
+    // Detenciones de Máquinas
+    Route::prefix('detenciones')->name('detenciones.')->group(function () {
+        Route::get('dashboard', [App\Http\Controllers\Detenciones\DashboardController::class, 'index'])->name('dashboard.index');
+
+        Route::get('registros', [App\Http\Controllers\Detenciones\RegistroController::class, 'index'])->name('registros.index');
+        Route::post('turnos', [App\Http\Controllers\Detenciones\RegistroController::class, 'storeTurno'])->name('turnos.store');
+        Route::patch('turnos/{turno}', [App\Http\Controllers\Detenciones\RegistroController::class, 'closeTurno'])->name('turnos.close');
+        Route::post('turnos/{turno}/detenciones', [App\Http\Controllers\Detenciones\RegistroController::class, 'storeDetencion'])->name('turnos.detenciones.store');
+        Route::patch('detenciones/{detencion}', [App\Http\Controllers\Detenciones\RegistroController::class, 'updateDetencion'])->name('detenciones.update');
+        Route::delete('detenciones/{detencion}', [App\Http\Controllers\Detenciones\RegistroController::class, 'destroyDetencion'])->name('detenciones.destroy');
+
+        Route::get('maquinas', [App\Http\Controllers\Detenciones\MaquinaController::class, 'index'])->name('maquinas.index');
+        Route::post('maquinas', [App\Http\Controllers\Detenciones\MaquinaController::class, 'store'])->name('maquinas.store');
+        Route::patch('maquinas/{maquina}', [App\Http\Controllers\Detenciones\MaquinaController::class, 'update'])->name('maquinas.update');
+
+        Route::get('motivos', [App\Http\Controllers\Detenciones\MotivoController::class, 'index'])->name('motivos.index');
+        Route::post('motivos/tipos', [App\Http\Controllers\Detenciones\MotivoController::class, 'storeTipo'])->name('motivos.tipos.store');
+        Route::patch('motivos/tipos/{tipo}', [App\Http\Controllers\Detenciones\MotivoController::class, 'updateTipo'])->name('motivos.tipos.update');
+        Route::post('motivos/tipos/{tipo}/causas', [App\Http\Controllers\Detenciones\MotivoController::class, 'storeCausa'])->name('motivos.tipos.causas.store');
+        Route::patch('motivos/causas/{causa}', [App\Http\Controllers\Detenciones\MotivoController::class, 'updateCausa'])->name('motivos.causas.update');
+    });
+
+
+
     // Integrations Module
     require __DIR__.'/integrations.php';
 });

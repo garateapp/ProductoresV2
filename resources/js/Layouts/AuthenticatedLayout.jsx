@@ -24,6 +24,7 @@ import EstimacionesMenu from './Dropdowns/EstimacionesMenu.jsx';
 import PlanningMenu from './Dropdowns/PlanningMenu.jsx';
 import InventoryMenu from './Dropdowns/InventoryMenu.jsx';
 import PreCoolingMenu from './Dropdowns/PreCoolingMenu.jsx';
+import DetencionesMenu from './Dropdowns/DetencionesMenu.jsx';
 import IntegrationsMenu from './Dropdowns/IntegrationsMenu.jsx';
 
 const navLinkClasses =
@@ -141,6 +142,7 @@ export default function AuthenticatedLayout({ header, children }) {
                                         {hasAnyRole(['Administrador',  'Gerencia']) && <PlanningMenu />}
                                         {hasAnyRole(['Administrador', 'Calidad', 'Gerencia', 'Inventario']) && <InventoryMenu />}
                                         {hasAnyRole(['Administrador', 'Admin', 'Gerencia', 'Gerencia Planta', 'Calidad', 'Planificador', 'Inventario']) && <PreCoolingMenu />}
+                                        {hasAnyRole(['Administrador', 'Admin', 'Gerencia', 'Gerencia Planta', 'Calidad', 'Planificador', 'Inventario', 'Supervisor de Producción', 'Operador de Producción', 'Auditor / Control de Gestión']) && <DetencionesMenu />}
                                         {hasRole('Administrador') && <IntegrationsMenu />}
 
                                         {/* Submenús extraídos */}
@@ -281,6 +283,14 @@ export default function AuthenticatedLayout({ header, children }) {
                                             onClick={() => setShowingNavigationDropdown(false)}
                                         >
                                             Prefrío
+                                        </ResponsiveNavLink>
+                                        <ResponsiveNavLink
+                                            {...mobileNavLinkProps}
+                                            href={route('detenciones.registros.index')}
+                                            active={route().current('detenciones.*')}
+                                            onClick={() => setShowingNavigationDropdown(false)}
+                                        >
+                                            Detenciones de Máquinas
                                         </ResponsiveNavLink>
                                     </>
                                 )}

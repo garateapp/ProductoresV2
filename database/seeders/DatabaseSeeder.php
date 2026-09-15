@@ -18,6 +18,7 @@ class DatabaseSeeder extends Seeder
             InventoryModulePermissionsSeeder::class,
             IntegrationModulePermissionsSeeder::class,
             PreCoolingModulePermissionsSeeder::class,
+            DetencionesModulePermissionsSeeder::class,
         ]);
 
         // User::factory(10)->create();
