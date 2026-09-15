@@ -6,6 +6,7 @@ use App\Models\InventoryLogisticUnit;
 use App\Models\InventoryMovement;
 use App\Models\InventoryMovementAllocation;
 use App\Models\InventoryMovementDetail;
+use App\Models\InventoryMovementType;
 use App\Models\InventoryStockPosition;
 use App\Models\InventoryTransferUnit;
 use App\Notifications\InventoryTransferReturnPendingNotification;
@@ -30,7 +31,7 @@ class InventoryTransactionService
         return DB::transaction(function () use ($movement, $userId, $context): InventoryMovement {
             /** @var InventoryMovement $movement */
             $movement = InventoryMovement::query()
-                ->with(['type', 'details.material', 'origin', 'destination.assignedUsers', 'creator', 'transferUnits.logisticUnit'])
+                ->with(['type', 'details.material', 'origin', 'destination.assignedUsers', 'creator', 'transferUnits.logisticUnit', 'materialRequest'])
                 ->lockForUpdate()
                 ->findOrFail($movement->id);
 
@@ -39,6 +40,8 @@ class InventoryTransactionService
                     'movement' => 'Solo se pueden aplicar movimientos en borrador.',
                 ]);
             }
+
+            $this->validateMaterialRequestBalance($movement);
 
             if ($this->usesTransferUnits($movement)) {
                 return $this->applyTransferDispatch($movement, $userId);
@@ -126,6 +129,68 @@ class InventoryTransactionService
                 'wasteRecords',
             ]);
         });
+    }
+
+    public function dispatchedQuantityPerMaterial(int $materialRequestId): array
+    {
+        $movementTypeIds = InventoryMovementType::query()
+            ->whereIn('codigo', ['TRANSFERENCIA', 'DEVOLUCION'])
+            ->pluck('id')
+            ->all();
+
+        return DB::table('inventory_movement_details as d')
+            ->join('inventory_movements as m', 'm.id', '=', 'd.movement_id')
+            ->where('m.material_request_id', $materialRequestId)
+            ->whereIn('m.estado', ['aplicado', 'confirmado'])
+            ->whereIn('m.movement_type_id', $movementTypeIds)
+            ->where('d.cantidad', '>', 0)
+            ->groupBy('d.material_id')
+            ->selectRaw('d.material_id, SUM(d.cantidad) as total')
+            ->pluck('total', 'material_id')
+            ->mapWithKeys(fn ($value, $materialId) => [(int) $materialId => (float) $value])
+            ->all();
+    }
+
+    private function validateMaterialRequestBalance(InventoryMovement $movement): void
+    {
+        if (! in_array($movement->type?->codigo, ['TRANSFERENCIA', 'DEVOLUCION'], true)) {
+            return;
+        }
+
+        if (! $movement->material_request_id) {
+            return;
+        }
+
+        $requested = DB::table('inventory_material_request_items')
+            ->where('material_request_id', $movement->material_request_id)
+            ->get(['material_id', 'cantidad_solicitada'])
+            ->mapWithKeys(fn ($item) => [(int) $item->material_id => (float) $item->cantidad_solicitada])
+            ->all();
+
+        if (empty($requested)) {
+            return;
+        }
+
+        $alreadyDispatched = $this->dispatchedQuantityPerMaterial((int) $movement->material_request_id);
+        $requestCodigo = (string) ($movement->materialRequest?->codigo ?? 'la solicitud');
+
+        foreach ($movement->details as $detail) {
+            $materialId = (int) $detail->material_id;
+            $solicitado = (float) ($requested[$materialId] ?? 0);
+
+            if ($solicitado <= 0) {
+                continue;
+            }
+
+            $cantidad = (float) $detail->cantidad;
+            $yaDespachado = (float) ($alreadyDispatched[$materialId] ?? 0);
+
+            if ($yaDespachado + $cantidad > $solicitado + 1e-6) {
+                throw ValidationException::withMessages([
+                    'details' => "No puedes trasladar más de {$solicitado} unidades de este material para {$requestCodigo}. Ya se han trasladado {$yaDespachado}.",
+                ]);
+            }
+        }
     }
 
     public function confirmTransferReceipt(InventoryMovement $movement, int $userId, array $transferUnitIds = []): InventoryMovement
@@ -912,6 +977,7 @@ class InventoryTransactionService
 
         $detailByMaterial = $movement->details->keyBy('material_id');
         $ledgerEvents = [];
+        $syncPairs = [];
 
         foreach ($selectedUnits as $selectedUnit) {
             $transferUnit = InventoryTransferUnit::query()->lockForUpdate()->findOrFail($selectedUnit->id);
@@ -935,6 +1001,15 @@ class InventoryTransactionService
 
             $this->receiveTransferUnit($transferUnit, $logisticUnit, $userId, $movement->id);
 
+            $syncPairs[] = [
+                'material_id' => (int) $transferUnit->material_id,
+                'location_id' => (int) $transferUnit->origin_location_id,
+            ];
+            $syncPairs[] = [
+                'material_id' => (int) $transferUnit->material_id,
+                'location_id' => (int) $transferUnit->destination_location_id,
+            ];
+
             $transferUnit->forceFill([
                 'status' => 'received',
                 'received_by' => $userId,
@@ -953,7 +1028,7 @@ class InventoryTransactionService
             ])->save();
         }
 
-        return $this->finalizeTransferUnitMutation($movement, $userId, $ledgerEvents);
+        return $this->finalizeTransferUnitMutation($movement, $userId, $ledgerEvents, $syncPairs);
     }
 
     private function confirmTransferReturn(InventoryMovement $movement, int $userId, $selectedUnits): InventoryMovement
@@ -967,6 +1042,7 @@ class InventoryTransactionService
 
         $detailByMaterial = $movement->details->keyBy('material_id');
         $ledgerEvents = [];
+        $syncPairs = [];
 
         foreach ($selectedUnits as $selectedUnit) {
             $transferUnit = InventoryTransferUnit::query()->lockForUpdate()->findOrFail($selectedUnit->id);
@@ -990,6 +1066,15 @@ class InventoryTransactionService
 
             $this->returnTransferUnitToOrigin($transferUnit, $logisticUnit, $userId, $movement->id);
 
+            $syncPairs[] = [
+                'material_id' => (int) $transferUnit->material_id,
+                'location_id' => (int) $transferUnit->origin_location_id,
+            ];
+            $syncPairs[] = [
+                'material_id' => (int) $transferUnit->material_id,
+                'location_id' => (int) $transferUnit->destination_location_id,
+            ];
+
             $transferUnit->forceFill([
                 'status' => 'returned',
                 'returned_by' => $userId,
@@ -1008,10 +1093,10 @@ class InventoryTransactionService
             ])->save();
         }
 
-        return $this->finalizeTransferUnitMutation($movement, $userId, $ledgerEvents);
+        return $this->finalizeTransferUnitMutation($movement, $userId, $ledgerEvents, $syncPairs);
     }
 
-    private function finalizeTransferUnitMutation(InventoryMovement $movement, int $userId, array $ledgerEvents): InventoryMovement
+    private function finalizeTransferUnitMutation(InventoryMovement $movement, int $userId, array $ledgerEvents, array $syncPairs = []): InventoryMovement
     {
         $createdEvents = $this->ledgerService->appendMany($ledgerEvents);
         $firstEvent = ! empty($createdEvents) ? $createdEvents[0] : null;
@@ -1027,6 +1112,8 @@ class InventoryTransactionService
                 );
             }
         }
+
+        $this->syncTransferUnitMutationPairs($syncPairs);
 
         $movement->refresh();
         $movement->load(['transferUnits']);
@@ -1059,6 +1146,29 @@ class InventoryTransactionService
             'details.material',
             'transferUnits.logisticUnit',
         ]);
+    }
+
+    private function syncTransferUnitMutationPairs(array $syncPairs): void
+    {
+        if (! $this->positionsTableExists()) {
+            return;
+        }
+
+        $uniquePairs = [];
+        foreach ($syncPairs as $pair) {
+            $key = (int) $pair['material_id'].'-'.(int) $pair['location_id'];
+            $uniquePairs[$key] = [
+                'material_id' => (int) $pair['material_id'],
+                'location_id' => (int) $pair['location_id'],
+            ];
+        }
+
+        foreach ($uniquePairs as $pair) {
+            $this->stockProjectionService->syncMaterialLocationFromPositions(
+                $pair['material_id'],
+                $pair['location_id'],
+            );
+        }
     }
 
     private function snapshotTransferUnitPositions(InventoryLogisticUnit $logisticUnit, int $originLocationId, ?InventoryTransferUnit $transferUnit = null): array

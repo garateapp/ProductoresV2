@@ -6,6 +6,7 @@ use App\Models\InventoryLedgerEvent;
 use App\Models\InventoryLocation;
 use App\Models\InventoryStockPosition;
 use App\Models\InventoryStockLocation;
+use App\Models\InventoryTransferUnit;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Schema;
 use Illuminate\Validation\ValidationException;
@@ -86,17 +87,12 @@ class StockProjectionService
 
     public function syncMaterialLocationFromPositions(int $materialId, int $locationId): InventoryStockLocation
     {
-        $total = $this->positionsTableExists()
-            ? (float) InventoryStockPosition::query()
-                ->where('material_id', $materialId)
-                ->where('location_id', $locationId)
-                ->sum('quantity')
-            : 0.0;
+        $total = $this->inTransitAdjustedPositionTotal($materialId, $locationId);
 
         return InventoryStockLocation::query()->updateOrCreate(
             ['material_id' => $materialId, 'location_id' => $locationId],
             [
-                'stock_actual' => round($total, 4),
+                'stock_actual' => round(max($total, 0), 4),
                 'last_rebuilt_at' => now(),
             ]
         );
@@ -114,9 +110,19 @@ class StockProjectionService
                 ->groupBy('material_id', 'location_id')
                 ->get();
 
+            $inTransit = InventoryTransferUnit::query()
+                ->selectRaw('material_id, origin_location_id, SUM(quantity) as total')
+                ->where('status', 'in_transit')
+                ->groupBy('material_id', 'origin_location_id')
+                ->get()
+                ->keyBy(fn ($row) => (int) $row->material_id.'-'.(int) $row->origin_location_id);
+
             $activePairs = [];
 
             foreach ($totals as $row) {
+                $key = (int) $row->material_id.'-'.(int) $row->location_id;
+                $inTransitTotal = (float) ($inTransit->get($key)?->total ?? 0);
+
                 $activePairs[] = [
                     'material_id' => (int) $row->material_id,
                     'location_id' => (int) $row->location_id,
@@ -128,7 +134,7 @@ class StockProjectionService
                         'location_id' => $row->location_id,
                     ],
                     [
-                        'stock_actual' => round((float) $row->total, 4),
+                        'stock_actual' => round(max((float) $row->total - $inTransitTotal, 0), 4),
                         'last_rebuilt_at' => now(),
                     ]
                 );
@@ -150,6 +156,24 @@ class StockProjectionService
                 }
             }
         });
+    }
+
+    private function inTransitAdjustedPositionTotal(int $materialId, int $locationId): float
+    {
+        $total = $this->positionsTableExists()
+            ? (float) InventoryStockPosition::query()
+                ->where('material_id', $materialId)
+                ->where('location_id', $locationId)
+                ->sum('quantity')
+            : 0.0;
+
+        $inTransit = (float) InventoryTransferUnit::query()
+            ->where('material_id', $materialId)
+            ->where('origin_location_id', $locationId)
+            ->where('status', 'in_transit')
+            ->sum('quantity');
+
+        return round($total - $inTransit, 4);
     }
 
     private function positionsTableExists(): bool

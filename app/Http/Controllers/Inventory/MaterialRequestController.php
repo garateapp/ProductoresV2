@@ -14,6 +14,7 @@ use App\Models\User;
 use App\Notifications\MaterialRequestCreatedNotification;
 use App\Services\Inventory\LedgerService;
 use App\Services\Inventory\MovementService;
+use App\Services\Inventory\InventoryTransactionService;
 use App\Services\Inventory\StockService;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
@@ -279,20 +280,27 @@ class MaterialRequestController extends Controller
         return back()->with('success', 'Cantidad actualizada correctamente.');
     }
 
-    public function generateTransfer(InventoryMaterialRequest $materialRequest, Request $request, MovementService $movementService, StockService $stockService)
+    public function generateTransfer(InventoryMaterialRequest $materialRequest, Request $request, MovementService $movementService, StockService $stockService, InventoryTransactionService $inventoryTransactionService)
     {
         if ($materialRequest->estado !== 'aprobado') {
             return back()->with('error', 'Solo se pueden generar traslados para solicitudes aprobadas.');
         }
 
-        return DB::transaction(function () use ($materialRequest, $movementService, $stockService) {
+        return DB::transaction(function () use ($materialRequest, $movementService, $stockService, $inventoryTransactionService) {
             $materialRequest->load(['items.material', 'originLocation', 'destinationLocation']);
+
+            $alreadyDispatched = $inventoryTransactionService->dispatchedQuantityPerMaterial($materialRequest->id);
 
             $details = [];
             $hasPositionsTable = Schema::hasTable('inventory_stock_positions');
 
             foreach ($materialRequest->items as $item) {
-                $remainingToSatisfy = (float) $item->cantidad_solicitada;
+                $already = (float) ($alreadyDispatched[$item->material_id] ?? 0);
+                $remainingToSatisfy = (float) $item->cantidad_solicitada - $already;
+
+                if ($remainingToSatisfy <= 0) {
+                    continue;
+                }
 
                 if ($hasPositionsTable) {
                     // Buscar posiciones en origen para este material (FIFO)
@@ -326,18 +334,24 @@ class MaterialRequestController extends Controller
                 } else {
                     // Si no hay tabla de posiciones, usamos stock general
                     $stock = $stockService->getStock($item->material_id, $materialRequest->origin_location_id);
-                    if ($stock->stock_actual < $item->cantidad_solicitada) {
+                    if ($stock->stock_actual < $remainingToSatisfy) {
                         throw ValidationException::withMessages([
-                            'stock' => "Stock insuficiente para {$item->material->nombre} en {$materialRequest->originLocation->nombre}. Disponible: {$stock->stock_actual}, Requerido: {$item->cantidad_solicitada}"
+                            'stock' => "Stock insuficiente para {$item->material->nombre} en {$materialRequest->originLocation->nombre}. Disponible: {$stock->stock_actual}, Requerido: {$remainingToSatisfy}"
                         ]);
                     }
 
                     $details[] = [
                         'material_id' => $item->material_id,
-                        'cantidad' => $item->cantidad_solicitada,
+                        'cantidad' => $remainingToSatisfy,
                         'sentido' => 'salida',
                     ];
                 }
+            }
+
+            if (empty($details)) {
+                throw ValidationException::withMessages([
+                    'movement' => "El traslado de {$materialRequest->codigo} ya fue completado en su totalidad (".(count($alreadyDispatched) > 0 ? implode(', ', array_map(fn ($materialId, $qty) => "material {$materialId}: {$qty}", array_keys($alreadyDispatched), $alreadyDispatched)) : '0').' unidades).',
+                ]);
             }
 
             // Buscar tipo de movimiento TRANSFERENCIA
