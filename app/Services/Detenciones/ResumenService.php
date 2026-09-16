@@ -152,7 +152,7 @@ class ResumenService
 
         return [
             'labels' => $agrupado->keys()->reverse()->values()->all(),
-            'series' => $agrupado->values()->reverse()->all(),
+            'series' => $agrupado->reverse()->values()->all(),
         ];
     }
 

@@ -152,7 +152,7 @@ export default function DetencionesDashboard({ auth, resumen = {} }) {
   const topCausasOptions = useMemo(() => ({
     chart: { type: 'bar', toolbar: { show: false } },
     plotOptions: { bar: { horizontal: true, barHeight: '55%', borderRadius: 3 } },
-    dataLabels: { enabled: false },
+    dataLabels: { enabled: true, formatter: (val) => fmtMin(val), style: { fontSize: '12px', fontWeight: 600 } },
     colors: [BRAND_ORANGE],
     xaxis: {
       categories: Array.isArray(charts.topCausas?.labels) ? charts.topCausas.labels : [],
@@ -164,7 +164,14 @@ export default function DetencionesDashboard({ auth, resumen = {} }) {
   }), [charts.topCausas])
 
   const topCausasSeries = useMemo(() => [
-    { name: 'Minutos perdidos', data: Array.isArray(charts.topCausas?.series) ? charts.topCausas.series : [] },
+    {
+      name: 'Minutos perdidos',
+      data: Array.isArray(charts.topCausas?.series)
+        ? charts.topCausas.series
+        : charts.topCausas?.series && typeof charts.topCausas.series === 'object'
+          ? Object.values(charts.topCausas.series)
+          : [],
+    },
   ], [charts.topCausas])
 
   const hasPorMaquina = (charts.porMaquina?.labels || []).length > 0
