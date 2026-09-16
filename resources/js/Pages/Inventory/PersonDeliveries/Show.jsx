@@ -59,7 +59,8 @@ export default function PersonDeliveryShow({ delivery }) {
 
                 <div className="grid grid-cols-1 gap-5 sm:grid-cols-2">
                   <Info label="Persona que recibe" value={delivery.person_name} />
-                  <Info label="Cargo" value={delivery.person_position} />
+                  <Info label="Cargo" value={delivery.person_position || '-'} />
+                  <Info label="Área" value={delivery.person_area || '-'} />
                   <Info label="Ubicación origen" value={delivery.origin_location?.nombre || '-'} />
                   <Info label="Entregado por" value={delivery.creator?.name || '-'} />
                 </div>

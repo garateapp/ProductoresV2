@@ -13,6 +13,7 @@ class Personal extends Model
         'nombre',
         'email',
         'cargo',
+        'area',
     ];
 
     public function deliveries(): HasMany

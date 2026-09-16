@@ -19,6 +19,7 @@ class InventoryPersonDelivery extends Model
         'person_id',
         'person_name',
         'person_position',
+        'person_area',
         'delivered_at',
         'signature_data_url',
         'notes',

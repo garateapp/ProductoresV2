@@ -29,11 +29,13 @@ export default function CreatePersonDelivery({ locations = [], materials = [], p
   const [peopleList, setPeopleList] = useState(people)
   const [personModalOpen, setPersonModalOpen] = useState(false)
   const [personSaving, setPersonSaving] = useState(false)
-  const [personForm, setPersonForm] = useState({ nombre: '', email: '', cargo: '' })
+  const [personForm, setPersonForm] = useState({ nombre: '', email: '', cargo: '', area: '' })
   const [personErrors, setPersonErrors] = useState({})
   const { data, setData, post, processing, errors, clearErrors } = useForm({
     origin_location_id: '',
     person_id: '',
+    person_position: '',
+    person_area: '',
     delivered_at: getLocalDateTimeInputValue(),
     notes: '',
     signature_data_url: '',
@@ -116,7 +118,7 @@ export default function CreatePersonDelivery({ locations = [], materials = [], p
     }
 
     setPersonModalOpen(false)
-    setPersonForm({ nombre: '', email: '', cargo: '' })
+    setPersonForm({ nombre: '', email: '', cargo: '', area: '' })
     setPersonErrors({})
   }
 
@@ -133,7 +135,7 @@ export default function CreatePersonDelivery({ locations = [], materials = [], p
       setData('person_id', String(person.id))
       clearErrors('person_id')
       setPersonModalOpen(false)
-      setPersonForm({ nombre: '', email: '', cargo: '' })
+      setPersonForm({ nombre: '', email: '', cargo: '', area: '' })
     } catch (error) {
       if (error.response?.status === 422) {
         setPersonErrors(error.response.data.errors || {})
@@ -194,15 +196,47 @@ export default function CreatePersonDelivery({ locations = [], materials = [], p
                     options={personOptions}
                     value={personOptions.find((option) => option.value === data.person_id)}
                     onChange={(option) => {
+                      const person = peopleList.find((p) => String(p.id) === option?.value)
                       setData('person_id', option?.value || '')
+                      setData('person_position', person?.cargo || '')
+                      setData('person_area', person?.area || '')
                       clearErrors('person_id')
                     }}
                     placeholder="Buscar por nombre, correo o cargo"
                   />
                   {selectedPerson && (
-                    <p className="text-sm text-slate-500">
-                      {selectedPerson.email}{selectedPerson.cargo ? ` · ${selectedPerson.cargo}` : ' · Sin cargo informado'}
-                    </p>
+                    <div className="grid grid-cols-1 gap-4 rounded-md border border-slate-200 bg-slate-50 p-4 sm:grid-cols-2">
+                      <div className="space-y-2">
+                        <Label>Cargo</Label>
+                        {selectedPerson.cargo ? (
+                          <div className="rounded-md border border-slate-200 bg-white px-3 py-2 text-sm text-slate-700">
+                            {selectedPerson.cargo}
+                          </div>
+                        ) : (
+                          <Input
+                            value={data.person_position}
+                            onChange={(event) => setData('person_position', event.target.value)}
+                            placeholder="Indicar cargo de la persona"
+                          />
+                        )}
+                        {errors.person_position && <p className="text-sm text-red-600">{errors.person_position}</p>}
+                      </div>
+                      <div className="space-y-2">
+                        <Label>Área</Label>
+                        {selectedPerson.area ? (
+                          <div className="rounded-md border border-slate-200 bg-white px-3 py-2 text-sm text-slate-700">
+                            {selectedPerson.area}
+                          </div>
+                        ) : (
+                          <Input
+                            value={data.person_area}
+                            onChange={(event) => setData('person_area', event.target.value)}
+                            placeholder="Indicar área a la que pertenece"
+                          />
+                        )}
+                        {errors.person_area && <p className="text-sm text-red-600">{errors.person_area}</p>}
+                      </div>
+                    </div>
                   )}
                   {errors.person_id && <p className="text-sm text-red-600">{errors.person_id}</p>}
                 </div>
@@ -376,6 +410,16 @@ export default function CreatePersonDelivery({ locations = [], materials = [], p
                   onChange={(event) => updatePersonForm('cargo', event.target.value)}
                 />
                 {personErrors.cargo && <p className="text-sm text-red-600">{personErrors.cargo[0]}</p>}
+              </div>
+
+              <div className="space-y-2">
+                <Label htmlFor="person-area">Área (opcional)</Label>
+                <Input
+                  id="person-area"
+                  value={personForm.area}
+                  onChange={(event) => updatePersonForm('area', event.target.value)}
+                />
+                {personErrors.area && <p className="text-sm text-red-600">{personErrors.area[0]}</p>}
               </div>
 
               {personErrors.general && <p className="text-sm text-red-600">{personErrors.general}</p>}

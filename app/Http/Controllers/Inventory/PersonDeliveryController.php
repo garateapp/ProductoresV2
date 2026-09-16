@@ -71,7 +71,7 @@ class PersonDeliveryController extends Controller
                 ]),
             'people' => Personal::query()
                 ->orderBy('nombre')
-                ->get(['id', 'nombre', 'email', 'cargo']),
+                ->get(['id', 'nombre', 'email', 'cargo', 'area']),
         ]);
     }
 
@@ -82,6 +82,8 @@ class PersonDeliveryController extends Controller
         $data = $request->validate([
             'origin_location_id' => ['required', 'exists:inventory_locations,id'],
             'person_id' => ['required', 'integer', 'exists:personal,id'],
+            'person_position' => ['nullable', 'string', 'max:150'],
+            'person_area' => ['nullable', 'string', 'max:150'],
             'delivered_at' => ['nullable', 'date'],
             'notes' => ['nullable', 'string'],
             'signature_data_url' => [
@@ -110,6 +112,16 @@ class PersonDeliveryController extends Controller
                 ->whereIn('id', $items->pluck('material_id')->all())
                 ->pluck('nombre', 'id');
 
+            $personPosition = filled($data['person_position'] ?? null) ? trim((string) $data['person_position']) : ($person->cargo ?? '');
+            $personArea = filled($data['person_area'] ?? null) ? trim((string) $data['person_area']) : ($person->area ?? '');
+
+            if ($personPosition !== ($person->cargo ?? '') || $personArea !== ($person->area ?? '')) {
+                $person->forceFill([
+                    'cargo' => $personPosition,
+                    'area' => $personArea,
+                ])->save();
+            }
+
             $movementDetails = $this->buildMovementDetails($items, $origin, $materialNames);
             $code = 'ENT-'.now()->format('YmdHis').'-'.Str::upper(Str::random(4));
 
@@ -119,7 +131,8 @@ class PersonDeliveryController extends Controller
                 'origin_location_id' => $origin->id,
                 'person_id' => $person->id,
                 'person_name' => $person->nombre,
-                'person_position' => $person->cargo ?? '',
+                'person_position' => $personPosition,
+                'person_area' => $personArea,
                 'delivered_at' => $data['delivered_at'] ?? now(),
                 'signature_data_url' => $data['signature_data_url'],
                 'notes' => $data['notes'] ?? null,
@@ -146,6 +159,7 @@ class PersonDeliveryController extends Controller
                     'person_delivery_id' => $delivery->id,
                     'person_name' => $delivery->person_name,
                     'person_position' => $delivery->person_position,
+                    'person_area' => $delivery->person_area,
                     'person_id' => $person->id,
                     'person_email' => $person->email,
                     'signature_hash' => hash('sha256', $delivery->signature_data_url),
@@ -366,6 +380,7 @@ return response()->file($pdfPath, [
             'codigo' => $delivery->codigo,
             'person_name' => $delivery->person_name,
             'person_position' => $delivery->person_position,
+            'person_area' => $delivery->person_area,
             'delivered_at' => optional($delivery->delivered_at)->toISOString(),
             'notes' => $delivery->notes,
             'signature_data_url' => $includeSignature ? $delivery->signature_data_url : null,

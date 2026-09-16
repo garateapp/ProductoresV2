@@ -151,16 +151,16 @@
                 <td>{{ $delivery->person_position }}</td>
             </tr>
             <tr>
+                <th>Área</th>
+                <td>{{ $delivery->person_area ?: '-' }}</td>
                 <th>Ubicación origen</th>
                 <td>{{ $delivery->originLocation?->nombre }}</td>
-                <th>Entregado por</th>
-                <td>{{ $delivery->creator?->name }}</td>
             </tr>
             <tr>
+                <th>Entregado por</th>
+                <td>{{ $delivery->creator?->name }}</td>
                 <th>Movimiento inventario</th>
                 <td>{{ $delivery->movement?->folio ?? '-' }}</td>
-                <th>Estado movimiento</th>
-                <td>{{ $delivery->movement?->estado ?? '-' }}</td>
             </tr>
         </table>
 
