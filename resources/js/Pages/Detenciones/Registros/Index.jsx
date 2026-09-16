@@ -22,6 +22,8 @@ const fmtMin = (min = 0) => {
   return (h > 0 ? `${h}h ${rest}m` : `${rest}m`)
 }
 
+const hora = (v) => (v ? String(v).slice(11) : '')
+
 export default function RegistrosIndex({ turnos, maquinas, motivos, filtros }) {
   const [showNuevoTurno, setShowNuevoTurno] = useState(false)
   const [detencionTarget, setDetencionTarget] = useState(null)
@@ -72,7 +74,9 @@ export default function RegistrosIndex({ turnos, maquinas, motivos, filtros }) {
         tipo_id: String(tipoId || ''),
         motivo_causa_id: String(editTarget.motivo_causa_id),
         hora_detencion: toDateTimeLocal(editTarget.hora_detencion),
-        hora_reinicio: editTarget.hora_reinicio ? toDateTimeLocal(editTarget.hora_reinicio) : '',
+        hora_reinicio: editTarget.en_curso
+          ? toDateTimeLocal(new Date().toISOString().slice(0, 16))
+          : editTarget.hora_reinicio ? toDateTimeLocal(editTarget.hora_reinicio) : '',
         observaciones: editTarget.observaciones || '',
       })
     }
@@ -147,6 +151,32 @@ export default function RegistrosIndex({ turnos, maquinas, motivos, filtros }) {
 
   const errorMsg = (form) => Object.values(form.errors)[0]
 
+  const renderDetencionItem = (r, abierto) => (
+    <div key={r.id} className="rounded border border-gray-100 bg-gray-50 px-2 py-1.5 text-xs">
+      <div className="flex items-center gap-2">
+        <span className="font-semibold">{r.hora_detencion}</span>
+        {r.en_curso
+          ? <Badge variant="destructive" className="text-[10px]">en curso</Badge>
+          : <span className="text-gray-600">→ {r.hora_reinicio}</span>}
+        {!r.en_curso && <Badge variant="secondary" className="text-[10px]">{fmtMin(r.minutos)}</Badge>}
+        {abierto && (
+          <span className="ml-auto flex gap-1">
+            <button type="button" title="Editar" onClick={() => setEditTarget(r)} className="p-1.5 text-gray-500 hover:text-gray-800">
+              <Pencil className="h-3.5 w-3.5" />
+            </button>
+            <button type="button" title="Eliminar" onClick={() => eliminarDetencion(r)} className="p-1.5 text-gray-500 hover:text-rose-600">
+              <Trash2 className="h-3.5 w-3.5" />
+            </button>
+          </span>
+        )}
+      </div>
+      <div className="mt-0.5 text-gray-600">
+        <span className="font-semibold">{r.tipo?.nombre}</span> / {r.causa?.nombre}
+        {r.observaciones && <span> — {r.observaciones}</span>}
+      </div>
+    </div>
+  )
+
   return (
     <AuthenticatedLayout
       header={
@@ -161,41 +191,41 @@ export default function RegistrosIndex({ turnos, maquinas, motivos, filtros }) {
       <Head title="Detenciones · Registro" />
       <Toaster />
 
-      <div className="py-12">
+      <div className="py-12 pb-28 md:pb-12">
         <div className="mx-auto max-w-7xl space-y-6 px-4 sm:px-6 lg:px-8">
           <Card>
-            <CardContent className="pt-6">
-              <div className="flex flex-wrap items-end gap-3">
-                <div>
-                  <Label className="text-xs text-gray-500">Máquina</Label>
-                  <Select value={filtroMaquina} onValueChange={(v) => setFiltroMaquina(v)}>
-                    <SelectTrigger className="w-56">
-                      <SelectValue placeholder="Todas las máquinas" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="0">Todas las máquinas</SelectItem>
-                      {(filtros?.maquinas || maquinas).map((m) => (
-                        <SelectItem key={m.id} value={String(m.id)}>{m.codigo} · {m.nombre}</SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                </div>
-                <div>
-                  <Label className="text-xs text-gray-500">Desde</Label>
-                  <Input type="date" className="w-40" value={filtroDesde} onChange={(e) => setFiltroDesde(e.target.value)} />
-                </div>
-                <div>
-                  <Label className="text-xs text-gray-500">Hasta</Label>
-                  <Input type="date" className="w-40" value={filtroHasta} onChange={(e) => setFiltroHasta(e.target.value)} />
-                </div>
-                <Button variant="secondary" onClick={aplicarFiltros}>
-                  <Search className="w-4 h-4 mr-2" /> Filtrar
-                </Button>
+            <CardContent className="grid grid-cols-1 gap-3 pt-6 sm:flex sm:flex-wrap sm:items-end sm:gap-3">
+              <div className="min-w-0 sm:w-56">
+                <Label className="text-xs text-gray-500">Máquina</Label>
+                <Select value={filtroMaquina} onValueChange={(v) => setFiltroMaquina(v)}>
+                  <SelectTrigger className="w-full sm:w-56">
+                    <SelectValue placeholder="Todas las máquinas" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="0">Todas las máquinas</SelectItem>
+                    {(filtros?.maquinas || maquinas).map((m) => (
+                      <SelectItem key={m.id} value={String(m.id)}>{m.codigo} · {m.nombre}</SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
               </div>
+              <div className="min-w-0 sm:w-40">
+                <Label className="text-xs text-gray-500">Desde</Label>
+                <Input type="date" className="w-full sm:w-40" value={filtroDesde} onChange={(e) => setFiltroDesde(e.target.value)} />
+              </div>
+              <div className="min-w-0 sm:w-40">
+                <Label className="text-xs text-gray-500">Hasta</Label>
+                <Input type="date" className="w-full sm:w-40" value={filtroHasta} onChange={(e) => setFiltroHasta(e.target.value)} />
+              </div>
+              <Button variant="secondary" onClick={aplicarFiltros} className="w-full sm:w-auto">
+                <Search className="w-4 h-4 mr-2" />
+                <span className="sm:hidden">Aplicar filtros</span>
+                <span className="hidden sm:inline">Filtrar</span>
+              </Button>
             </CardContent>
           </Card>
 
-          <Card>
+          <Card className="hidden md:block">
             <CardContent className="pt-6">
               <Table>
                 <TableHeader>
@@ -228,31 +258,7 @@ export default function RegistrosIndex({ turnos, maquinas, motivos, filtros }) {
                         <TableCell className="py-3 text-xs">{turno.minutos_trabajados != null ? fmtMin(turno.minutos_trabajados) : '—'}</TableCell>
                         <TableCell className="py-3">
                           <div className="space-y-1">
-                            {turno.registros.map((r) => (
-                              <div key={r.id} className="rounded border border-gray-100 bg-gray-50 px-2 py-1 text-xs">
-                                <div className="flex items-center gap-2">
-                                  <span className="font-semibold">{r.hora_detencion}</span>
-                                  {r.en_curso
-                                    ? <Badge variant="destructive" className="text-[10px]">en curso</Badge>
-                                    : <span className="text-gray-600">→ {r.hora_reinicio}</span>}
-                                  {!r.en_curso && <Badge variant="secondary" className="text-[10px]">{fmtMin(r.minutos)}</Badge>}
-                                  {abierto && (
-                                    <span className="ml-auto flex gap-1">
-                                      <button type="button" title="Editar" onClick={() => setEditTarget(r)} className="text-gray-500 hover:text-gray-800">
-                                        <Pencil className="h-3.5 w-3.5" />
-                                      </button>
-                                      <button type="button" title="Eliminar" onClick={() => eliminarDetencion(r)} className="text-gray-500 hover:text-rose-600">
-                                        <Trash2 className="h-3.5 w-3.5" />
-                                      </button>
-                                    </span>
-                                  )}
-                                </div>
-                                <div className="mt-0.5 text-gray-600">
-                                  <span className="font-semibold">{r.tipo?.nombre}</span> / {r.causa?.nombre}
-                                  {r.observaciones && <span> — {r.observaciones}</span>}
-                                </div>
-                              </div>
-                            ))}
+                            {turno.registros.map((r) => renderDetencionItem(r, abierto))}
                             {turno.registros.length === 0 && <span className="text-xs text-gray-400">Sin detenciones</span>}
                           </div>
                         </TableCell>
@@ -289,12 +295,121 @@ export default function RegistrosIndex({ turnos, maquinas, motivos, filtros }) {
               </Table>
             </CardContent>
           </Card>
+
+          <div className="space-y-4 md:hidden">
+            {turnos.map((turno) => {
+              const abierto = !turno.cerrado
+              return (
+                <div key={turno.id} className="rounded-lg border bg-white p-4 shadow-sm space-y-3">
+                  <div className="flex items-start gap-3">
+                    <div className="min-w-0 flex-1">
+                      <div className="font-semibold truncate">{turno.maquina?.nombre || 'Sin máquina'}</div>
+                      <div className="font-mono text-xs text-gray-500">{turno.maquina?.codigo}</div>
+                    </div>
+                    <Badge variant={abierto ? 'secondary' : 'default'} className={abierto ? 'bg-amber-100 text-amber-800' : 'shrink-0'}>
+                      {abierto ? 'En curso' : 'Cerrado'}
+                    </Badge>
+                  </div>
+
+                  <div className="grid grid-cols-3 gap-2 rounded-md bg-gray-50 p-2 text-xs">
+                    <div className="min-w-0">
+                      <div className="text-gray-500">Fecha</div>
+                      <div className="font-medium">{turno.fecha}</div>
+                    </div>
+                    <div className="min-w-0">
+                      <div className="text-gray-500">Inicio</div>
+                      <div className="font-mono">{hora(turno.hora_inicio_turno)}</div>
+                    </div>
+                    <div className="min-w-0">
+                      <div className="text-gray-500">Fin</div>
+                      {turno.hora_fin_turno
+                        ? <div className="font-mono">{hora(turno.hora_fin_turno)}</div>
+                        : <span className="text-rose-600 font-medium">en curso</span>}
+                    </div>
+                  </div>
+
+                  {turno.minutos_trabajados != null && (
+                    <div className="text-xs text-gray-600">
+                      Trabajado: <span className="font-medium">{fmtMin(turno.minutos_trabajados)}</span>
+                    </div>
+                  )}
+
+                  <div className="space-y-1.5">
+                    {turno.registros.map((r) => (
+                      <div key={r.id} className="rounded-md border bg-gray-50 px-2.5 py-2 text-xs space-y-1">
+                        <div className="flex items-center gap-2">
+                          <span className="font-mono font-semibold">{hora(r.hora_detencion)}</span>
+                          {r.en_curso
+                            ? <Badge variant="destructive" className="text-[10px]">en curso</Badge>
+                            : <span className="text-gray-600">→ {hora(r.hora_reinicio)}</span>}
+                          {!r.en_curso && <Badge variant="secondary" className="text-[10px]">{fmtMin(r.minutos)}</Badge>}
+                        </div>
+                        <div className="text-gray-700">
+                          <span className="font-semibold">{r.tipo?.nombre}</span> / {r.causa?.nombre}
+                          {r.observaciones && <span className="text-gray-500"> — {r.observaciones}</span>}
+                        </div>
+                        {abierto && (
+                          <div className="flex items-center gap-2 pt-0.5">
+                            {r.en_curso && (
+                              <Button size="sm" variant="secondary" className="h-9 flex-1" onClick={() => setEditTarget(r)}>
+                                <Play className="w-3.5 h-3.5 mr-1.5" /> Reiniciar
+                              </Button>
+                            )}
+                            <button
+                              type="button"
+                              title="Editar"
+                              onClick={() => setEditTarget(r)}
+                              className="ml-auto inline-flex h-9 w-9 items-center justify-center rounded-md text-gray-500 hover:bg-gray-100 hover:text-gray-800 active:bg-gray-200"
+                            >
+                              <Pencil className="h-4 w-4" />
+                            </button>
+                            <button
+                              type="button"
+                              title="Eliminar"
+                              onClick={() => eliminarDetencion(r)}
+                              className="inline-flex h-9 w-9 items-center justify-center rounded-md text-gray-500 hover:bg-gray-100 hover:text-rose-600 active:bg-gray-200"
+                            >
+                              <Trash2 className="h-4 w-4" />
+                            </button>
+                          </div>
+                        )}
+                      </div>
+                    ))}
+                    {turno.registros.length === 0 && <span className="text-xs text-gray-400">Sin detenciones</span>}
+                  </div>
+
+                  {abierto && (
+                    <div className="grid grid-cols-2 gap-2 pt-1">
+                      <Button onClick={() => setDetencionTarget(turno)}>
+                        <CircleOff className="w-4 h-4 mr-2" /> Detención
+                      </Button>
+                      <Button variant="secondary" onClick={() => setCerrarTarget(turno)}>
+                        <X className="w-4 h-4 mr-2" /> Cerrar
+                      </Button>
+                    </div>
+                  )}
+                </div>
+              )
+            })}
+            {turnos.length === 0 && (
+              <div className="rounded-lg border border-dashed border-gray-200 bg-white py-10 text-center text-sm text-gray-500">
+                Sin turnos registrados para los filtros seleccionados.
+              </div>
+            )}
+          </div>
         </div>
       </div>
 
+      <Button
+        className="fixed bottom-6 right-4 z-40 md:hidden h-14 rounded-full px-6 shadow-xl"
+        onClick={() => setShowNuevoTurno(true)}
+      >
+        <Plus className="w-5 h-5 mr-2" /> Nuevo turno
+      </Button>
+
       {/* Nuevo turno */}
       <Dialog open={showNuevoTurno} onOpenChange={setShowNuevoTurno}>
-        <DialogContent className="max-w-md">
+        <DialogContent className="max-w-md max-h-[90dvh] overflow-y-auto p-4 sm:p-6">
           <DialogHeader>
             <DialogTitle>Nuevo Turno</DialogTitle>
             <DialogDescription>Define el inicio del turno de la máquina.</DialogDescription>
@@ -333,7 +448,7 @@ export default function RegistrosIndex({ turnos, maquinas, motivos, filtros }) {
               <Textarea value={turnoForm.data.observaciones} onChange={(e) => turnoForm.setData('observaciones', e.target.value)} />
             </div>
             {errorMsg(turnoForm) && !turnoForm.errors.maquina_id && <p className="text-red-500 text-xs">{errorMsg(turnoForm)}</p>}
-            <DialogFooter>
+            <DialogFooter className="gap-2">
               <Button type="button" variant="secondary" onClick={() => setShowNuevoTurno(false)}>Cancelar</Button>
               <Button type="submit" disabled={turnoForm.processing}>
                 {turnoForm.processing ? <Loader2 className="w-4 h-4 animate-spin" /> : <Play className="w-4 h-4 mr-1" />}
@@ -347,7 +462,7 @@ export default function RegistrosIndex({ turnos, maquinas, motivos, filtros }) {
       {/* Registrar / editar detención */}
       {(detencionTarget || editTarget) && (
         <Dialog open onOpenChange={() => { setDetencionTarget(null); setEditTarget(null) }}>
-          <DialogContent className="max-w-md">
+          <DialogContent className="max-w-md max-h-[90dvh] overflow-y-auto p-4 sm:p-6">
             <DialogHeader>
               <DialogTitle>{editTarget ? 'Editar detención' : 'Registrar detención'}</DialogTitle>
               <DialogDescription>
@@ -409,7 +524,7 @@ export default function RegistrosIndex({ turnos, maquinas, motivos, filtros }) {
                 <Textarea value={detencionForm.data.observaciones} onChange={(e) => detencionForm.setData('observaciones', e.target.value)} />
               </div>
               {errorMsg(detencionForm) && !detencionForm.errors.motivo_causa_id && <p className="text-red-500 text-xs">{errorMsg(detencionForm)}</p>}
-              <DialogFooter>
+              <DialogFooter className="gap-2">
                 <Button type="button" variant="secondary" onClick={() => { setDetencionTarget(null); setEditTarget(null) }}>Cancelar</Button>
                 <Button type="submit" disabled={detencionForm.processing || !detencionForm.data.motivo_causa_id}>
                   {detencionForm.processing && <Loader2 className="w-4 h-4 animate-spin" />}
@@ -424,7 +539,7 @@ export default function RegistrosIndex({ turnos, maquinas, motivos, filtros }) {
       {/* Cerrar turno */}
       {cerrarTarget && (
         <Dialog open onOpenChange={() => setCerrarTarget(null)}>
-          <DialogContent className="max-w-sm">
+          <DialogContent className="max-w-sm max-h-[90dvh] overflow-y-auto p-4 sm:p-6">
             <DialogHeader>
               <DialogTitle>Cerrar turno</DialogTitle>
               <DialogDescription>{cerrarTarget.maquina?.nombre} · iniciado {cerrarTarget.hora_inicio_turno}</DialogDescription>
@@ -435,7 +550,7 @@ export default function RegistrosIndex({ turnos, maquinas, motivos, filtros }) {
                 <Input type="datetime-local" value={cerrarForm.data.hora_fin_turno} onChange={(e) => cerrarForm.setData('hora_fin_turno', e.target.value)} required />
                 {cerrarForm.errors.hora_fin_turno && <p className="text-red-500 text-xs mt-1">{cerrarForm.errors.hora_fin_turno}</p>}
               </div>
-              <DialogFooter>
+              <DialogFooter className="gap-2">
                 <Button type="button" variant="secondary" onClick={() => setCerrarTarget(null)}>Cancelar</Button>
                 <Button type="submit" disabled={cerrarForm.processing}>
                   {cerrarForm.processing && <Loader2 className="w-4 h-4 animate-spin" />}
