@@ -243,11 +243,20 @@ class PersonDeliveryController extends Controller
 
           //  return response()->file($pdfPath);
         $filename = 'Acta_Entrega_'.$personDelivery->codigo.'.pdf';
+        // Verifica que el archivo realmente se haya creado antes de responder
+if (! file_exists($pdfPath)) {
+    abort(500, 'El archivo PDF no se pudo generar correctamente.');
+}
 
-        return response($pdf, 200, [
-            'Content-Type' => 'application/pdf',
-            'Content-Disposition' => 'inline; filename="'.$filename.'"',
-        ]);
+// Retorna el binario directamente al navegador
+return response()->file($pdfPath, [
+    'Content-Type' => 'application/pdf',
+    'Content-Disposition' => 'inline; filename="' . $filename . '"',
+]);
+        // return response($pdf, 200, [
+        //     'Content-Type' => 'application/pdf',
+        //     'Content-Disposition' => 'inline; filename="'.$filename.'"',
+        // ]);
     }
 
     private function loadDeliveryForAct(InventoryPersonDelivery $personDelivery): InventoryPersonDelivery
