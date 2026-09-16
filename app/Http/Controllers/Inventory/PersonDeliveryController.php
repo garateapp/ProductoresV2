@@ -242,7 +242,7 @@ class PersonDeliveryController extends Controller
             //$recepcion->save();
 
           //  return response()->file($pdfPath);
-        //$filename = ;
+        $filename = 'Acta_Entrega_'.$personDelivery->codigo.'.pdf';
 
         return response($pdf, 200, [
             'Content-Type' => 'application/pdf',
