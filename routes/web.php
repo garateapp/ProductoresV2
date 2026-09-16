@@ -472,6 +472,10 @@ Route::get('logistic-units/print-lot/{lotCode}', [App\Http\Controllers\Inventory
         Route::resource('person-deliveries', App\Http\Controllers\Inventory\PersonDeliveryController::class)->only(['index', 'create', 'store', 'show'])->names('person-deliveries');
         Route::post('personal', [App\Http\Controllers\Inventory\PersonalController::class, 'store'])->name('personal.store');
 
+        // Control del pañol (stock y entregas a personas)
+        Route::get('panol', [App\Http\Controllers\Inventory\PanolController::class, 'index'])->name('panol.index');
+        Route::get('panol/export-excel', [App\Http\Controllers\Inventory\PanolController::class, 'exportExcel'])->name('panol.export-excel');
+
         // Equipos tecnológicos y actas de entrega
         Route::get('tech-equipment', [App\Http\Controllers\Inventory\TechEquipmentController::class, 'index'])->name('tech-equipment.index');
         Route::post('tech-equipment', [App\Http\Controllers\Inventory\TechEquipmentController::class, 'store'])->name('tech-equipment.store');

@@ -26,6 +26,7 @@ export default function InventoryMenu() {
         <DropdownMenuItem asChild><Link href={route('inventory.traceability-report.index')} className="w-full">Reporte de Trazabilidad</Link></DropdownMenuItem>
         <DropdownMenuItem asChild><Link href={route('inventory.planning-simulator.index')} className="w-full">Simulador de planificación</Link></DropdownMenuItem>
         <DropdownMenuItem asChild><Link href={route('inventory.person-deliveries.index')} className="w-full">Entrega a Personas</Link></DropdownMenuItem>
+        <DropdownMenuItem asChild><Link href={route('inventory.panol.index')} className="w-full">Control del Pañol</Link></DropdownMenuItem>
         <DropdownMenuItem asChild><Link href={route('inventory.tech-equipment-deliveries.index')} className="w-full">Equipos tecnológicos · Actas de entrega</Link></DropdownMenuItem>
         <DropdownMenuItem asChild><Link href={route('inventory.tech-equipment-deliveries.history')} className="w-full">Equipos · Historial</Link></DropdownMenuItem>
         <DropdownMenuItem asChild><Link href={route('inventory.guide')} className="w-full">Instructivo de uso</Link></DropdownMenuItem>
