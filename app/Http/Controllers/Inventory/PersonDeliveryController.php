@@ -209,6 +209,7 @@ class PersonDeliveryController extends Controller
                 ->waitUntilNetworkIdle()
                 ->wait(15)
                 ->setViewport(1920, 1080)
+                ->margins(12, 12, 12, 12)
                 ->landscape(false)
                 ->showBackground()
                 ->savePdf($pdfPath);
@@ -229,6 +230,7 @@ class PersonDeliveryController extends Controller
                     ->waitUntilNetworkIdle()
                     ->wait(15)
                     ->setViewport(1920, 1080)
+                    ->margins(12, 12, 12, 12)
                     ->landscape(false)
                     ->showBackground()
                     ->savePdf($pdfPath);
