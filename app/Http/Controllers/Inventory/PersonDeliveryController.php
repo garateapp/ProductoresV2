@@ -183,14 +183,66 @@ class PersonDeliveryController extends Controller
         $html = view('reports.inventory_person_delivery', [
             'delivery' => $personDelivery,
         ])->render();
+         $pdfRelative = 'Acta_Entrega_'.$personDelivery->codigo.'.pdf';
+         $pdfPath = storage_path('app/public/' . $pdfRelative);
+            $tmpDir = storage_path('app/browsershot-temp');
+            if (! is_dir($tmpDir)) {
+                mkdir($tmpDir, 0755, true);
+            }
+            $chrome = env('BROWSERSHOT_CHROME_PATH', '/home/forge/.cache/puppeteer/chrome/linux-139.0.7258.138/chrome-linux64/chrome');
+            if(config('app.env') === 'local') {
 
-        $pdf = Browsershot::html($html)
-            ->format('A4')
-            ->margins(12, 12, 12, 12)
-            ->showBackground()
-            ->pdf();
 
-        $filename = 'Acta_Entrega_'.$personDelivery->codigo.'.pdf';
+            Browsershot::html($html)
+                ->setTemporaryDirectory($tmpDir)
+                //  ->setChromePath($chrome)
+                //  ->setOption('executablePath', $chrome)
+                ->setOption('headless', true)
+                ->noSandbox()
+                ->addChromiumArguments([
+                    '--no-sandbox',
+                    '--disable-dev-shm-usage',
+                    '--disable-gpu',
+                    '--font-render-hinting=none',
+                    '--headless=new',
+                ])
+                ->waitUntilNetworkIdle()
+                ->wait(15)
+                ->setViewport(1920, 1080)
+                ->landscape(false)
+                ->showBackground()
+                ->savePdf($pdfPath);
+                } else {
+                    Browsershot::html($html)
+                    ->setTemporaryDirectory($tmpDir)
+                     ->setChromePath($chrome)
+                     ->setOption('executablePath', $chrome)
+                    ->setOption('headless', true)
+                    ->noSandbox()
+                    ->addChromiumArguments([
+                        '--no-sandbox',
+                        '--disable-dev-shm-usage',
+                        '--disable-gpu',
+                        '--font-render-hinting=none',
+                        '--headless=new',
+                    ])
+                    ->waitUntilNetworkIdle()
+                    ->wait(15)
+                    ->setViewport(1920, 1080)
+                    ->landscape(false)
+                    ->showBackground()
+                    ->savePdf($pdfPath);
+                }
+        // $pdf = Browsershot::html($html)
+        //     ->format('A4')
+        //     ->margins(12, 12, 12, 12)
+        //     ->showBackground()
+        //     ->pdf();
+        $pdf= asset('storage/' . 'Acta_Entrega_'.$personDelivery->codigo.'.pdf');
+            //$recepcion->save();
+
+          //  return response()->file($pdfPath);
+        //$filename = ;
 
         return response($pdf, 200, [
             'Content-Type' => 'application/pdf',
