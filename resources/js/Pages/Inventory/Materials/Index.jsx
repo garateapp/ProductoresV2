@@ -27,6 +27,7 @@ const emptyForm = {
   tipo_material: 'consumo',
   stock_minimo: '',
   activo: true,
+  consumo_inmediato: false,
 }
 
 export default function InventoryMaterials({ materials, families = [], units = [], services = [], filters = {} }) {
@@ -70,8 +71,9 @@ export default function InventoryMaterials({ materials, families = [], units = [
       unit_id: material.unit_id ? String(material.unit_id) : '',
       service_id: material.service_id ? String(material.service_id) : '',
       tipo_material: material.tipo_material,
-      stock_minimo: material.stock_minimo || '',
+      stock_minimo: material.stock_minimo ?? '',
       activo: Boolean(material.activo),
+      consumo_inmediato: Boolean(material.consumo_inmediato),
     })
   }
 
@@ -199,6 +201,10 @@ export default function InventoryMaterials({ materials, families = [], units = [
                 <input type="checkbox" checked={Boolean(data.activo)} onChange={(e) => setData('activo', e.target.checked)} />
                 Activo
               </label>
+              <label className="flex items-center gap-2 text-sm md:col-span-1 md:mt-8">
+                <input type="checkbox" checked={Boolean(data.consumo_inmediato)} onChange={(e) => setData('consumo_inmediato', e.target.checked)} />
+                Consumo inmediato
+              </label>
             </div>
             <div className="flex justify-end gap-2">
               {editing && <Button type="button" variant="outline" onClick={startCreate}>Cancelar</Button>}
@@ -248,7 +254,12 @@ export default function InventoryMaterials({ materials, families = [], units = [
               {(materials?.data || []).map((material) => (
                 <TableRow key={material.id}>
                   <TableCell className="font-medium">{material.codigo}</TableCell>
-                  <TableCell>{material.nombre}</TableCell>
+                  <TableCell>
+                    <div className="flex items-center gap-2">
+                      <span>{material.nombre}</span>
+                      {material.consumo_inmediato ? <Badge variant="outline">Consumo inmediato</Badge> : null}
+                    </div>
+                  </TableCell>
                   <TableCell>{material.servicio || '-'}</TableCell>
                   <TableCell>{material.familia || '-'}</TableCell>
                   <TableCell>{material.unidad || '-'}</TableCell>

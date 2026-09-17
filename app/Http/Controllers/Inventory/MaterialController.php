@@ -60,6 +60,7 @@ class MaterialController extends Controller
                 'internal_stock' => (float) ($material->internal_stock ?? 0),
                 'stock_minimo' => (float) $material->stock_minimo,
                 'activo' => (bool) $material->activo,
+                'consumo_inmediato' => (bool) $material->consumo_inmediato,
             ]);
 
         return Inertia::render('Inventory/Materials/Index', [
@@ -85,7 +86,10 @@ class MaterialController extends Controller
             'tipo_material' => ['required', 'in:consumo,semielaborado,retornable'],
             'stock_minimo' => ['nullable', 'numeric', 'min:0'],
             'activo' => ['boolean'],
+            'consumo_inmediato' => ['boolean'],
         ]);
+
+        $data['stock_minimo'] = $data['stock_minimo'] ?? 0;
 
         InventoryMaterial::create($data);
 
@@ -105,7 +109,10 @@ class MaterialController extends Controller
             'tipo_material' => ['required', 'in:consumo,semielaborado,retornable'],
             'stock_minimo' => ['nullable', 'numeric', 'min:0'],
             'activo' => ['boolean'],
+            'consumo_inmediato' => ['boolean'],
         ]);
+
+        $data['stock_minimo'] = $data['stock_minimo'] ?? 0;
 
         $material->fill($data)->save();
 

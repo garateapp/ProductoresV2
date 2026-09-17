@@ -93,6 +93,7 @@ class PanolController extends Controller
             'persona' => trim((string) $request->input('persona', '')),
             'cargo' => trim((string) $request->input('cargo', '')),
             'area' => trim((string) $request->input('area', '')),
+            'solo_con_stock' => filter_var((string) $request->input('solo_con_stock', '1'), FILTER_VALIDATE_BOOLEAN),
         ];
     }
 
@@ -110,6 +111,7 @@ class PanolController extends Controller
             'cargo' => $filters['cargo'],
             'area' => $filters['area'],
             'q' => $filters['producto'],
+            'solo_con_stock' => $filters['solo_con_stock'],
         ];
     }
 }

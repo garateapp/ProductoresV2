@@ -7,6 +7,7 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/Components/ui/card'
 import { Input } from '@/Components/ui/input'
 import { Label } from '@/Components/ui/label'
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/Components/ui/table'
+import { Switch } from '@/Components/ui/switch'
 import { ChevronDown, ChevronRight, Download, Search } from 'lucide-react'
 
 const number = (value) => Number(value || 0).toLocaleString('es-CL', { maximumFractionDigits: 4 })
@@ -19,6 +20,7 @@ export default function PanolIndex({ filters = {}, rows = [], totals = {}, peopl
     persona: filters.persona || '',
     cargo: filters.cargo || '',
     area: filters.area || '',
+    solo_con_stock: filters.solo_con_stock ?? true,
   })
   const [expanded, setExpanded] = useState(new Set())
 
@@ -34,7 +36,7 @@ export default function PanolIndex({ filters = {}, rows = [], totals = {}, peopl
   }
 
   const clearFilters = () => {
-    const next = { date_from: '', date_to: '', producto: '', persona: '', cargo: '', area: '' }
+    const next = { date_from: '', date_to: '', producto: '', persona: '', cargo: '', area: '', solo_con_stock: true }
     setFilterData(next)
     setExpanded(new Set())
     router.get(route('inventory.panol.index'), next, { preserveScroll: true, preserveState: true })
@@ -118,6 +120,15 @@ export default function PanolIndex({ filters = {}, rows = [], totals = {}, peopl
               <Button type="submit" className="flex-1">Filtrar</Button>
               <Button type="button" variant="outline" onClick={clearFilters}>Limpiar</Button>
             </div>
+            <div className="flex items-end gap-2 md:col-span-2">
+              <label className="flex items-center gap-2 text-sm text-slate-700">
+                <Switch
+                  checked={filterData.solo_con_stock}
+                  onCheckedChange={(checked) => setField('solo_con_stock', checked)}
+                />
+                Solo con stock
+              </label>
+            </div>
           </form>
 
           <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
@@ -168,7 +179,12 @@ export default function PanolIndex({ filters = {}, rows = [], totals = {}, peopl
                             </button>
                           </TableCell>
                           <TableCell className="font-mono text-xs text-slate-500">{row.material_codigo}</TableCell>
-                          <TableCell className="font-medium">{row.material_nombre}</TableCell>
+                          <TableCell className="font-medium">
+                            <span className="inline-flex items-center gap-2">
+                              {row.material_nombre}
+                              {row.consumo_inmediato ? <span className="rounded-full bg-amber-100 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-amber-700">Consumo inmediato</span> : null}
+                            </span>
+                          </TableCell>
                           <TableCell className="text-sm text-slate-500">{row.unit_codigo || '-'}</TableCell>
                           <TableCell className="text-right font-semibold">{number(row.stock_actual)}</TableCell>
                           <TableCell className="text-right">{number(row.total_entregado)}</TableCell>

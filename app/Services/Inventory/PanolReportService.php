@@ -7,7 +7,6 @@ use Illuminate\Support\Facades\DB;
 
 class PanolReportService
 {
-    private const CODIGO_PREFIX = '61%';
 
     /**
      * Reporte de control del pañol: stock en línea por material (61xx, Bodega Central)
@@ -37,11 +36,10 @@ class PanolReportService
             })
             ->leftJoinSub($deliverySub, 'dlv', 'dlv.material_id', '=', 'mat.id')
             ->where('mat.activo', true)
-            ->where('mat.codigo', 'like', self::CODIGO_PREFIX)
-            ->where(function ($query) use ($hasDeliveryFilters): void {
+            ->where(function ($query) use ($hasDeliveryFilters, $filters): void {
                 if ($hasDeliveryFilters) {
                     $query->whereNotNull('dlv.material_id');
-                } else {
+                } elseif ($filters['solo_con_stock']) {
                     $query->where(function ($stock): void {
                         $stock->where('sl.stock_actual', '!=', 0);
                     })->orWhereNotNull('dlv.material_id');
@@ -65,6 +63,7 @@ class PanolReportService
                 'mat.id as material_id',
                 'mat.codigo as material_codigo',
                 'mat.nombre as material_nombre',
+                'mat.consumo_inmediato as consumo_inmediato',
                 'u.codigo as unit_codigo',
                 DB::raw('COALESCE(sl.stock_actual, 0) as stock_actual'),
                 DB::raw('COALESCE(dlv.total_entregado, 0) as total_entregado'),
@@ -82,6 +81,7 @@ class PanolReportService
                 'material_id' => (int) $row->material_id,
                 'material_codigo' => (string) $row->material_codigo,
                 'material_nombre' => (string) $row->material_nombre,
+                'consumo_inmediato' => (bool) $row->consumo_inmediato,
                 'unit_codigo' => (string) ($row->unit_codigo ?: ''),
                 'stock_actual' => round((float) $row->stock_actual, 4),
                 'total_entregado' => round((float) $row->total_entregado, 4),
@@ -108,7 +108,6 @@ class PanolReportService
         $query = DB::table('inventory_person_delivery_items as di')
             ->join('inventory_person_deliveries as d', 'd.id', '=', 'di.person_delivery_id')
             ->join('inventory_materials as m', 'm.id', '=', 'di.material_id')
-            ->where('m.codigo', 'like', self::CODIGO_PREFIX)
             ->select([
                 'di.material_id',
                 DB::raw('SUM(di.cantidad) as total_entregado'),
@@ -133,7 +132,6 @@ class PanolReportService
         $query = DB::table('inventory_person_delivery_items as di')
             ->join('inventory_person_deliveries as d', 'd.id', '=', 'di.person_delivery_id')
             ->join('inventory_materials as m', 'm.id', '=', 'di.material_id')
-            ->where('m.codigo', 'like', self::CODIGO_PREFIX)
             ->select([
                 'di.material_id',
                 'd.id as delivery_id',
@@ -228,6 +226,10 @@ class PanolReportService
             'cargo' => trim((string) ($filters['cargo'] ?? '')),
             'area' => trim((string) ($filters['area'] ?? '')),
             'q' => trim((string) ($filters['q'] ?? '')),
+            'solo_con_stock' => filter_var(
+                (string) ($filters['solo_con_stock'] ?? '1'),
+                FILTER_VALIDATE_BOOLEAN
+            ),
         ];
     }
 }

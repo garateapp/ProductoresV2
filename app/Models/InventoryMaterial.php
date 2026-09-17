@@ -16,6 +16,7 @@ class InventoryMaterial extends Model
         'unit_id',
         'service_id',
         'tipo_material',
+        'consumo_inmediato',
         'sap_on_hand',
         'sap_avg_price',
         'metadata',
@@ -29,6 +30,7 @@ class InventoryMaterial extends Model
         'stock_minimo' => 'decimal:4',
         'metadata' => 'array',
         'activo' => 'boolean',
+        'consumo_inmediato' => 'boolean',
     ];
 
     public function family(): BelongsTo
