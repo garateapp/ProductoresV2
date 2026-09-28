@@ -46,7 +46,7 @@ class InventoryRepositorySqlsrv
     {
         $limit = (int) ($filters['limit'] ?? 1200);
 
-        $query = DB::connection('sqlsrv')
+        $query = DB::connection('temporada_anterior')
             ->table('V_PKG_Stock_Inventario')
             ->where('id_empresa', (int) ($filters['id_empresa'] ?? 1))
             ->where('creacion_tipo', (string) ($filters['creacion_tipo'] ?? 'RFG'));
@@ -510,7 +510,9 @@ class InventoryRepositorySqlsrv
      */
     public function getStockSummary(array $filters = []): Collection
     {
-        $query = DB::connection('sqlsrv')
+        //se cambia solo por ahora
+$query = DB::connection('temporada_anterior')
+        //$query = DB::connection('sqlsrv')
             ->table('V_PKG_Stock_Inventario')
             ->where('id_empresa', (int) ($filters['id_empresa'] ?? 1))
             ->where('creacion_tipo', (string) ($filters['creacion_tipo'] ?? 'RFG'));
@@ -569,7 +571,7 @@ class InventoryRepositorySqlsrv
 
     private function buildRepackBaseQuery(array $filters = [])
     {
-        $query = DB::connection('sqlsrv')
+        $query = DB::connection('temporada_anterior')
             ->table('V_PKG_Stock_Inventario')
             ->where('id_empresa', (int) ($filters['id_empresa'] ?? 1))
             ->where('t_categoria', 'Exportacion')

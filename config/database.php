@@ -60,7 +60,20 @@ return [
                 PDO::MYSQL_ATTR_SSL_CA => env('MYSQL_ATTR_SSL_CA'),
             ]) : [],
         ],
-
+         'temporada_anterior' => [
+            'driver' => 'sqlsrv',
+            'url' => env('DATABASE_URL', ''),
+            'host' => env('DB_SQLSRV_HOST_TANT', '192.168.0.9'),
+            'port' => env('DB_SQLSRV_PORT_TANT', '1433'),
+            'database' => env('DB_SQLSRV_DATABASE_TANT', 'Temporada_2026'),
+            'username' => env('DB_SQLSRV_USERNAME_TANT', 'fx'),
+            'password' => env('DB_SQLSRV_PASSWORD_TANT', 'Primet3c1'),
+            'charset' => 'utf8',
+            'prefix' => '',
+            'prefix_indexes' => true,
+            // 'encrypt' => env('DB_ENCRYPT', 'yes'),
+            'trust_server_certificate' => env('DB_TRUST_SERVER_CERTIFICATE', 'true'),
+        ],
         'mariadb' => [
             'driver' => 'mariadb',
             'url' => env('DB_URL'),
