@@ -38,6 +38,7 @@ export default function InventoryMenu() {
         <DropdownMenuSeparator />
         <DropdownMenuItem asChild><Link href={route('inventory.materials.index')} className="w-full">Materiales</Link></DropdownMenuItem>
         <DropdownMenuItem asChild><Link href={route('inventory.packagings.index')} className="w-full">Embalajes</Link></DropdownMenuItem>
+        <DropdownMenuItem asChild><Link href={route('inventory.labels.index')} className="w-full">Etiquetas</Link></DropdownMenuItem>
         <DropdownMenuItem asChild><Link href={route('inventory.locations.index')} className="w-full">Ubicaciones</Link></DropdownMenuItem>
         <DropdownMenuItem asChild><Link href={route('inventory.consumption-origins.index')} className="w-full">Orígenes de consumo</Link></DropdownMenuItem>
         <DropdownMenuItem asChild><Link href={route('inventory.tech-equipment.index')} className="w-full">Equipos tecnológicos (mantenedor)</Link></DropdownMenuItem>

@@ -37,6 +37,11 @@ class Service extends Model
         return $this->hasMany(InventoryMaterial::class, 'service_id');
     }
 
+    public function inventoryLabels(): HasMany
+    {
+        return $this->hasMany(InventoryLabel::class, 'service_id');
+    }
+
     public function prospectosProductores(): HasMany
     {
         return $this->hasMany(ProspectoProductor::class);

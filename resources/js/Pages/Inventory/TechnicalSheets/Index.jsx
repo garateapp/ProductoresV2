@@ -37,6 +37,7 @@ const createEmptyForm = () => ({
   nombre: '',
   packaging_id: '',
   material_id: '',
+  etiqueta_id: '',
   es_semielaborado: false,
   fecha_vigencia_desde: '',
   fecha_vigencia_hasta: '',
@@ -101,7 +102,7 @@ function Section({ title, children, open = false }) {
   )
 }
 
-export default function InventoryTechnicalSheets({ sheets = [], packagings = [], materials = [] }) {
+export default function InventoryTechnicalSheets({ sheets = [], packagings = [], materials = [], labels = [] }) {
   const { props } = usePage()
   const [editing, setEditing] = useState(null)
   const fileInputRef = useRef(null)
@@ -111,6 +112,10 @@ export default function InventoryTechnicalSheets({ sheets = [], packagings = [],
   const importForm = useForm({ file: null })
   const packagingOptions = packagings.map((item) => ({ value: String(item.id), label: `${item.codigo} · ${item.nombre}` }))
   const materialOptions = materials.map((item) => ({ value: String(item.id), label: `${item.codigo} · ${item.nombre}` }))
+  const labelOptions = labels.map((item) => ({
+    value: String(item.id),
+    label: item.service_name ? `${item.codigo} · ${item.nombre} (${item.service_name})` : `${item.codigo} · ${item.nombre}`,
+  }))
 
   const syncPackagings = () => router.post(route('inventory.technical-sheets.sync-packagings'), {}, { preserveScroll: true })
 
@@ -150,6 +155,7 @@ export default function InventoryTechnicalSheets({ sheets = [], packagings = [],
       nombre: sheet.nombre || '',
       packaging_id: sheet.packaging_id || '',
       material_id: sheet.material_id || '',
+      etiqueta_id: sheet.etiqueta_id || '',
       es_semielaborado: Boolean(sheet.es_semielaborado),
       fecha_vigencia_desde: sheet.fecha_vigencia_desde || '',
       fecha_vigencia_hasta: sheet.fecha_vigencia_hasta || '',
@@ -359,6 +365,11 @@ export default function InventoryTechnicalSheets({ sheets = [], packagings = [],
                   )}
                 </div>
                 <div>
+                  <Label>Etiqueta</Label>
+                  <SearchableSelect options={labelOptions} value={labelOptions.find((item) => item.value === String(data.etiqueta_id)) || null} onChange={(option) => setData('etiqueta_id', option?.value || '')} placeholder="Selecciona etiqueta" />
+                  <FieldError message={errors.etiqueta_id} />
+                </div>
+                <div>
                   <Label>Vigencia desde</Label>
                   <Input type="date" value={data.fecha_vigencia_desde} onChange={(event) => setData('fecha_vigencia_desde', event.target.value)} />
                   <FieldError message={errors.fecha_vigencia_desde} />
@@ -434,6 +445,7 @@ export default function InventoryTechnicalSheets({ sheets = [], packagings = [],
                     <div className="mt-2 flex gap-2">
                       {sheet.activo ? <Badge>Activa</Badge> : <Badge variant="outline">Inactiva</Badge>}
                       <Badge variant="secondary">{sheet.es_semielaborado ? 'Semielaborado' : 'Embalaje'}</Badge>
+                      {sheet.etiqueta && <Badge variant="outline">Etiqueta: {sheet.etiqueta.codigo}</Badge>}
                       {!sheet.es_semielaborado && sheet.images?.length > 0 && <Badge variant="outline">{sheet.images.length} imágenes</Badge>}
                     </div>
                   </div>

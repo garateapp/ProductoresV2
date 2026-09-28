@@ -11,6 +11,7 @@ class InventoryTechnicalSheet extends Model
     protected $fillable = [
         'packaging_id',
         'material_id',
+        'etiqueta_id',
         'es_semielaborado',
         'nombre',
         'version',
@@ -38,6 +39,11 @@ class InventoryTechnicalSheet extends Model
     public function material(): BelongsTo
     {
         return $this->belongsTo(InventoryMaterial::class, 'material_id');
+    }
+
+    public function etiqueta(): BelongsTo
+    {
+        return $this->belongsTo(InventoryLabel::class, 'etiqueta_id');
     }
 
     public function creator(): BelongsTo

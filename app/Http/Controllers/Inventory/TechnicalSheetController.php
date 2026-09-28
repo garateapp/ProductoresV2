@@ -6,6 +6,7 @@ use App\Exports\TechnicalSheetTemplateExport;
 use App\Http\Controllers\Controller;
 use App\Http\Controllers\Inventory\Concerns\AuthorizesInventory;
 use App\Http\Requests\Inventory\TechnicalSheetRequest;
+use App\Models\InventoryLabel;
 use App\Models\InventoryMaterial;
 use App\Models\InventoryPackaging;
 use App\Models\InventoryTechnicalSheet;
@@ -32,7 +33,7 @@ class TechnicalSheetController extends Controller
         $this->authorizeInventory($request);
 
         $sheets = InventoryTechnicalSheet::query()
-            ->with(['packaging:id,codigo,nombre', 'material:id,codigo,nombre', 'creator:id,name', 'unitItems.material:id,codigo,nombre', 'unitItems.replacementMaterial:id,codigo,nombre', 'palletItems.material:id,codigo,nombre', 'palletItems.replacementMaterial:id,codigo,nombre', 'images'])
+            ->with(['packaging:id,codigo,nombre', 'material:id,codigo,nombre', 'etiqueta:id,codigo,nombre', 'creator:id,name', 'unitItems.material:id,codigo,nombre', 'unitItems.replacementMaterial:id,codigo,nombre', 'palletItems.material:id,codigo,nombre', 'palletItems.replacementMaterial:id,codigo,nombre', 'images'])
             ->orderByDesc('fecha_vigencia_desde')
             ->orderByDesc('version')
             ->get()
@@ -40,6 +41,12 @@ class TechnicalSheetController extends Controller
                 'id' => $sheet->id,
                 'packaging_id' => $sheet->packaging_id,
                 'material_id' => $sheet->material_id,
+                'etiqueta_id' => $sheet->etiqueta_id,
+                'etiqueta' => $sheet->etiqueta ? [
+                    'id' => $sheet->etiqueta->id,
+                    'codigo' => $sheet->etiqueta->codigo,
+                    'nombre' => $sheet->etiqueta->nombre,
+                ] : null,
                 'nombre' => $sheet->nombre,
                 'packaging' => trim(($sheet->packaging?->codigo ?? '').' · '.($sheet->packaging?->nombre ?? '')),
                 'material' => $sheet->material ? [
@@ -84,6 +91,17 @@ class TechnicalSheetController extends Controller
             'sheets' => $sheets,
             'packagings' => InventoryPackaging::query()->where('activo', true)->orderBy('nombre')->get(['id', 'codigo', 'nombre', 'tipo', 'cantidad_cajas', 'altura']),
             'materials' => InventoryMaterial::query()->where('activo', true)->orderBy('nombre')->get(['id', 'codigo', 'nombre']),
+            'labels' => InventoryLabel::query()
+                ->with('service:id,name')
+                ->where('activo', true)
+                ->orderBy('codigo')
+                ->get(['id', 'codigo', 'nombre', 'service_id'])
+                ->map(fn (InventoryLabel $label) => [
+                    'id' => $label->id,
+                    'codigo' => $label->codigo,
+                    'nombre' => $label->nombre,
+                    'service_name' => $label->service?->name,
+                ]),
         ]);
     }
 

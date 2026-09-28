@@ -240,8 +240,6 @@ Route::middleware('auth')->group(function () {
     Route::delete('sag/certifications/{certification}', [App\Http\Controllers\SagController::class, 'destroyCertification'])->name('sag.certifications.destroy');
     Route::post('sag/certifications/{certification}/active', [App\Http\Controllers\SagController::class, 'setCertificationActive'])->name('sag.certifications.setActive');
 
-
-
     // SDP Sites (Sitios de Plantación) Maintainer
     Route::resource('sdp-sites', App\Http\Controllers\SdpSiteController::class)->names('sdp-sites');
 
@@ -415,6 +413,11 @@ Route::middleware('auth')->group(function () {
         Route::patch('packagings/{packaging}', [App\Http\Controllers\Inventory\PackagingController::class, 'update'])->name('packagings.update');
         Route::post('packagings/sync-sqlsrv', [App\Http\Controllers\Inventory\PackagingController::class, 'sync'])->name('packagings.sync-sqlsrv');
 
+        Route::get('labels', [App\Http\Controllers\Inventory\LabelController::class, 'index'])->name('labels.index');
+        Route::post('labels', [App\Http\Controllers\Inventory\LabelController::class, 'store'])->name('labels.store');
+        Route::patch('labels/{label}', [App\Http\Controllers\Inventory\LabelController::class, 'update'])->name('labels.update');
+        Route::delete('labels/{label}', [App\Http\Controllers\Inventory\LabelController::class, 'destroy'])->name('labels.destroy');
+
         Route::get('movements', [App\Http\Controllers\Inventory\MovementController::class, 'index'])->name('movements.index');
         Route::get('movements/stock-reference', [App\Http\Controllers\Inventory\MovementController::class, 'stockReference'])->name('movements.stock-reference');
         Route::post('movements', [App\Http\Controllers\Inventory\MovementController::class, 'store'])->name('movements.store');
@@ -425,7 +428,7 @@ Route::middleware('auth')->group(function () {
         Route::get('logistic-units', [App\Http\Controllers\Inventory\LogisticUnitController::class, 'index'])->name('logistic-units.index');
         Route::post('logistic-units', [App\Http\Controllers\Inventory\LogisticUnitController::class, 'store'])->name('logistic-units.store');
         Route::get('logistic-units/by-code/{code}', [App\Http\Controllers\Inventory\LogisticUnitController::class, 'showByCode'])->name('logistic-units.by-code');
-Route::get('logistic-units/print-lot/{lotCode}', [App\Http\Controllers\Inventory\LogisticUnitController::class, 'printLot'])->name('logistic-units.print-lot');
+        Route::get('logistic-units/print-lot/{lotCode}', [App\Http\Controllers\Inventory\LogisticUnitController::class, 'printLot'])->name('logistic-units.print-lot');
         Route::get('logistic-units/{logisticUnit}', [App\Http\Controllers\Inventory\LogisticUnitController::class, 'show'])->name('logistic-units.show');
         Route::post('logistic-units/{logisticUnit}/relocate', [App\Http\Controllers\Inventory\LogisticUnitController::class, 'relocate'])->name('logistic-units.relocate');
         Route::post('logistic-units/{logisticUnit}/split', [App\Http\Controllers\Inventory\LogisticUnitController::class, 'split'])->name('logistic-units.split');
@@ -563,12 +566,8 @@ Route::get('logistic-units/print-lot/{lotCode}', [App\Http\Controllers\Inventory
         Route::get('reportes/exportar/{tipo}', [App\Http\Controllers\PreCooling\ReporteController::class, 'exportar'])->name('reportes.exportar');
     });
 
-
-
     // Producer Groups
     Route::resource('producer-groups', App\Http\Controllers\ProducerGroupController::class)->except(['show', 'create'])->names('producer-groups');
-
-
 
     // Detenciones de Máquinas
     Route::prefix('detenciones')->name('detenciones.')->group(function () {
@@ -591,8 +590,6 @@ Route::get('logistic-units/print-lot/{lotCode}', [App\Http\Controllers\Inventory
         Route::post('motivos/tipos/{tipo}/causas', [App\Http\Controllers\Detenciones\MotivoController::class, 'storeCausa'])->name('motivos.tipos.causas.store');
         Route::patch('motivos/causas/{causa}', [App\Http\Controllers\Detenciones\MotivoController::class, 'updateCausa'])->name('motivos.causas.update');
     });
-
-
 
     // Integrations Module
     require __DIR__.'/integrations.php';

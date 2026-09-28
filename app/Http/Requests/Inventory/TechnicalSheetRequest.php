@@ -20,6 +20,7 @@ class TechnicalSheetRequest extends FormRequest
             'es_semielaborado' => ['required', 'boolean'],
             'packaging_id' => ['required_if:es_semielaborado,false', 'nullable', 'exists:inventory_packagings,id'],
             'material_id' => ['required_if:es_semielaborado,true', 'nullable', 'exists:inventory_materials,id'],
+            'etiqueta_id' => ['nullable', 'integer', 'exists:inventory_labels,id'],
             'fecha_vigencia_desde' => ['required', 'date'],
             'fecha_vigencia_hasta' => ['nullable', 'date', 'after_or_equal:fecha_vigencia_desde'],
             'activo' => ['required', 'boolean'],

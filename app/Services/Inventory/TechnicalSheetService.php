@@ -34,6 +34,7 @@ class TechnicalSheetService
                 $sheet = InventoryTechnicalSheet::create([
                     'packaging_id' => $isSemielaborado ? null : $targetId,
                     'material_id' => $isSemielaborado ? $targetId : null,
+                    'etiqueta_id' => (int) ($data['etiqueta_id'] ?? 0) ?: null,
                     'es_semielaborado' => $isSemielaborado,
                     'nombre' => trim((string) $data['nombre']),
                     'version' => $nextVersion,
@@ -77,6 +78,7 @@ class TechnicalSheetService
                 $sheet->fill([
                     'packaging_id' => $isSemielaborado ? null : $targetId,
                     'material_id' => $isSemielaborado ? $targetId : null,
+                    'etiqueta_id' => (int) ($data['etiqueta_id'] ?? 0) ?: null,
                     'es_semielaborado' => $isSemielaborado,
                     'nombre' => trim((string) $data['nombre']),
                     'fecha_vigencia_desde' => $data['fecha_vigencia_desde'],
