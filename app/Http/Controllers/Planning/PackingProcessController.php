@@ -22,6 +22,7 @@ use App\Models\User;
 use App\Models\Variedad;
 use App\Services\Planning\CapacityResolverService;
 use App\Services\Planning\InventoryRepositorySqlsrv;
+use App\Services\Planning\SeasonContext;
 use App\Services\Planning\ProcessConfirmationService;
 use App\Services\Planning\ProcessGeneratorService;
 use App\Services\Planning\QualityRepositoryMysql;
@@ -869,6 +870,9 @@ class PackingProcessController extends Controller
             ->values()
             ->all();
 
+        // Temporada activa y base SQL Server efectiva (para que la UI muestre de dónde leyó).
+        $seasons = app(SeasonContext::class);
+
         return Inertia::render('Planning/Processes/Show', [
             'process' => $process,
             'planningMode' => $isRepackMode ? 'reembalaje' : 'normal',
@@ -880,6 +884,8 @@ class PackingProcessController extends Controller
             'packagingDestinosAvailable' => $packagingDestinosAvailable,
             'allowSplit' => (bool) config('planning.allow_split', false),
             'badges' => $badges,
+            'temporada' => $seasons->current(),
+            'temporadaDb' => (string) config('database.connections.'.$seasons->connection().'.database'),
         ]);
     }
 

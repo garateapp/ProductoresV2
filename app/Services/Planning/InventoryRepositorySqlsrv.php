@@ -2,11 +2,25 @@
 
 namespace App\Services\Planning;
 
+use Illuminate\Database\Connection;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\DB;
 
 class InventoryRepositorySqlsrv
 {
+    public function __construct(private readonly SeasonContext $seasons) {}
+
+    /**
+     * Conexión SQL Server de la temporada activa.
+     *
+     * 'actual' -> 'sqlsrv' | 'anterior' -> 'temporada_anterior'
+     * (lo decide el switch de Planning/Processes/Show).
+     */
+    private function connection(): Connection
+    {
+        return DB::connection($this->seasons->connection());
+    }
+
     /**
      * Convierte campos fecha que a veces vienen como NVARCHAR en la vista (con formatos mixtos)
      * a DATE de forma segura (sin reventar por valores inválidos).
@@ -16,6 +30,7 @@ class InventoryRepositorySqlsrv
     private function dateExpr(string $column): string
     {
         $col = trim($column);
+
         // Formatos comunes en vistas:
         // - 2026-02-15
         // - 2026-02-15 13:45:00
@@ -46,7 +61,7 @@ class InventoryRepositorySqlsrv
     {
         $limit = (int) ($filters['limit'] ?? 1200);
 
-        $query = DB::connection('temporada_anterior')
+        $query = $this->connection()
             ->table('V_PKG_Stock_Inventario')
             ->where('id_empresa', (int) ($filters['id_empresa'] ?? 1))
             ->where('creacion_tipo', (string) ($filters['creacion_tipo'] ?? 'RFG'));
@@ -366,7 +381,7 @@ class InventoryRepositorySqlsrv
                 'Cant_Contenedor',
                 'n_cliente_packing',
                 'ns_cliente_packing',
-                'antiguedad'
+                'antiguedad',
             ])
             ->whereNotNull('folio')
             ->orderBy('fecha_produccion')
@@ -510,9 +525,7 @@ class InventoryRepositorySqlsrv
      */
     public function getStockSummary(array $filters = []): Collection
     {
-        //se cambia solo por ahora
-$query = DB::connection('temporada_anterior')
-        //$query = DB::connection('sqlsrv')
+        $query = $this->connection()
             ->table('V_PKG_Stock_Inventario')
             ->where('id_empresa', (int) ($filters['id_empresa'] ?? 1))
             ->where('creacion_tipo', (string) ($filters['creacion_tipo'] ?? 'RFG'));
@@ -566,12 +579,13 @@ $query = DB::connection('temporada_anterior')
         }
 
         $caseSql = 'case '.implode(' ', $cases).' else cast(cantidad as float) end';
+
         return 'sum('.$caseSql.')';
     }
 
     private function buildRepackBaseQuery(array $filters = [])
     {
-        $query = DB::connection('temporada_anterior')
+        $query = $this->connection()
             ->table('V_PKG_Stock_Inventario')
             ->where('id_empresa', (int) ($filters['id_empresa'] ?? 1))
             ->where('t_categoria', 'Exportacion')

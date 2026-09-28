@@ -14,6 +14,7 @@ use App\Models\Valor;
 use App\Models\Variedad;
 use App\Mail\ReceptionReportPreview;
 use App\Services\QualityChartsService;
+use App\Services\Planning\SeasonContext;
 use App\Services\ReportNotificationService;
 use Carbon\Carbon;
 use Illuminate\Http\Request;
@@ -29,6 +30,15 @@ use Spatie\Browsershot\Browsershot;
 
 class ControlCalidadController extends Controller
 {
+    public function __construct(private readonly SeasonContext $seasons) {}
+
+    /**
+     * Conexión SQL Server de la temporada activa ('sqlsrv' | 'temporada_anterior').
+     */
+    private function sqlsrv(): \Illuminate\Database\Connection
+    {
+        return DB::connection($this->seasons->connection());
+    }
 
     public function index(Request $request)
     {
@@ -98,6 +108,8 @@ class ControlCalidadController extends Controller
             'totalKilos' => $totalKilos,
             'parametros' => $parametros,
             'photoTypes' => $photoTypes,
+            'temporada' => $this->seasons->current(),
+            'temporadaDb' => (string) config('database.connections.'.$this->seasons->connection().'.database'),
         ]);
     }
 
@@ -150,7 +162,7 @@ class ControlCalidadController extends Controller
         $recepcion = Recepcion::find($recepcionId);
         if ($recepcion) {
             $recepcion->nota_calidad = ($nota_calidad === '' || $nota_calidad === null) ? null : $nota_calidad;
-            DB::connection('sqlsrv')
+            $this->sqlsrv()
     ->table('PKG_G_Recepcion')
     ->where('numero_i', $recepcion->numero_g_recepcion)
     ->update(['nota_calidad' => $nota_calidad]);
@@ -326,7 +338,7 @@ class ControlCalidadController extends Controller
         ]);
 
         try {
-            $remote = DB::connection('sqlsrv')
+            $remote = $this->sqlsrv()
                 ->table('V_PKG_Recepcion_FG')
                 ->selectRaw('SUM(COALESCE(peso_neto, 0)) as total_peso_neto')
                 ->where('numero_g_recepcion', $recepcion->numero_g_recepcion)
@@ -2022,7 +2034,7 @@ public function previewPage(Recepcion $recepcion)
     }
     public function syncNotasCalidad()
     {
-        $recepciones =  DB::connection('sqlsrv')
+        $recepciones =  $this->sqlsrv()
             ->table('PKG_G_Recepcion')
             ->selectRaw("
                numero_i,nota_calidad

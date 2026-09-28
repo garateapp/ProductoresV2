@@ -9,6 +9,7 @@ import { Badge } from '@/Components/ui/badge'
 import { Textarea } from '@/Components/ui/textarea'
 import { Alert, AlertDescription, AlertTitle } from '@/Components/ui/alert'
 import { Popover, PopoverContent, PopoverTrigger } from '@/Components/ui/popover'
+import SeasonSwitch from '@/Components/SeasonSwitch'
 import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem } from '@/Components/ui/command'
 import Combobox from '@/Components/ui/combobox'
 import axios from 'axios'
@@ -192,6 +193,8 @@ function SizeCurveValues({ payload, loading, onLoad }) {
 
 
 function PackagingPicker({ lot, onPick, disabled, destinos = [] }) {
+  const { props } = usePage()
+  const temporada = String(props?.temporada || 'actual')
   const [open, setOpen] = useState(false)
   const [q, setQ] = useState('')
   const [loading, setLoading] = useState(false)
@@ -215,7 +218,7 @@ function PackagingPicker({ lot, onPick, disabled, destinos = [] }) {
 
     const t = setTimeout(async () => {
       try {
-        const res = await axios.get(route('planning.packaging.suggestions'), { params: { n_g_recepcion: n, limit: 12, destinos } })
+        const res = await axios.get(route('planning.packaging.suggestions'), { params: { n_g_recepcion: n, limit: 12, destinos, temporada } })
         if (lastSuggestFetch.current !== now) return
         setSuggestions(res?.data?.data || [])
       } catch (e) {
@@ -226,7 +229,7 @@ function PackagingPicker({ lot, onPick, disabled, destinos = [] }) {
     }, 50)
 
     return () => clearTimeout(t)
-  }, [open, lot?.n_g_recepcion, JSON.stringify(destinos || [])])
+  }, [open, lot?.n_g_recepcion, JSON.stringify(destinos || []), temporada])
 
   useEffect(() => {
     if (!open) return
@@ -242,7 +245,7 @@ function PackagingPicker({ lot, onPick, disabled, destinos = [] }) {
 
     const t = setTimeout(async () => {
       try {
-        const res = await axios.get(route('planning.packaging.search'), { params: { q: query } })
+        const res = await axios.get(route('planning.packaging.search'), { params: { q: query, temporada } })
         if (lastFetch.current !== now) return
         setOptions(res?.data?.data || [])
       } catch (e) {
@@ -254,7 +257,7 @@ function PackagingPicker({ lot, onPick, disabled, destinos = [] }) {
     }, 250)
 
     return () => clearTimeout(t)
-  }, [q, open])
+  }, [q, open, temporada])
 
   const currentLabel = lot?.c_embalaje
     ? `${lot.c_embalaje}${lot.n_embalaje ? ` · ${lot.n_embalaje}` : ''}`
@@ -337,7 +340,7 @@ function PackagingPicker({ lot, onPick, disabled, destinos = [] }) {
   )
 }
 
-export default function Show({ process, planningMode = null, lines = [], allLines = [], inventory = [], inventoryFilters = {}, inventoryFilterOptions = {}, allowSplit, badges = {}, lineDay = null }) {
+export default function Show({ process, planningMode = null, lines = [], allLines = [], inventory = [], inventoryFilters = {}, inventoryFilterOptions = {}, allowSplit, badges = {}, lineDay = null, temporada = 'actual', temporadaDb = null }) {
   const { props } = usePage()
   const isLineDay = Boolean(lineDay)
   const status = statusLabel(process?.estado)
@@ -1187,6 +1190,7 @@ export default function Show({ process, planningMode = null, lines = [], allLine
             </div>
 
             <div className="flex flex-wrap items-center gap-2">
+              <SeasonSwitch temporada={temporada} database={temporadaDb} />
           {!isLineDay ? (
             <>
               <Button variant="outline" onClick={openEditLines} disabled={isLocked} title="Elegir líneas/cámaras incluidas en este proceso">

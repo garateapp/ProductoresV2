@@ -12,6 +12,7 @@ import {
   TableRow,
 } from '@/Components/ui/table';
 import { Input } from '@/Components/ui/input';
+import SeasonSwitch from '@/Components/SeasonSwitch';
 import { FileText, Trash2, UploadCloud, Eye, ClipboardCheck, Send, Loader2, X } from 'lucide-react';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from '@/Components/ui/dialog';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/Components/ui/tabs';
@@ -57,7 +58,7 @@ const Paginator = ({ links }) => {
   );
 };
 
-export default function Index({ recepciones, especies, variedades = [], filters, isProducer, totalRecepciones, totalKilos = 0, parametros, photoTypes = [] }) {
+export default function Index({ recepciones, especies, variedades = [], filters, isProducer, totalRecepciones, totalKilos = 0, parametros, photoTypes = [], temporada = 'actual', temporadaDb = null }) {
   const getSpeciesBadgeClass = (name = '') => {
     const key = String(name).toLowerCase();
     if (key.includes('cherries')) return 'bg-[#7F1F38] text-white'; // cereza oscuro
@@ -635,7 +636,14 @@ export default function Index({ recepciones, especies, variedades = [], filters,
       )}
       <Card>
         <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-          <CardTitle className="text-2xl font-bold">Control de Calidad</CardTitle>
+          <div className="flex flex-row items-center gap-3">
+            <CardTitle className="text-2xl font-bold">Control de Calidad</CardTitle>
+            <SeasonSwitch
+              temporada={temporada}
+              database={temporadaDb}
+              params={{ search: filterData.search, especie_id: filterData.especie_id, variedad_id: filterData.variedad_id }}
+            />
+          </div>
         </CardHeader>
         <CardContent>
           <div className="mb-4 flex flex-col md:flex-row justify-between items-center gap-4">

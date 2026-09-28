@@ -13,9 +13,10 @@ import {
 import { Input } from '@/Components/ui/input';
 import { FileText, RefreshCw, Mail, MessageCircle, Send } from 'lucide-react'; // Import FileText icon
 import AuthenticatedLayout from '@/Layouts/AuthenticatedLayout';
+import SeasonSwitch from '@/Components/SeasonSwitch';
 import { usePage } from '@inertiajs/react';
 
-export default function Index({ recepciones, especies, variedades = [], exportadoras = [], filters, isProducer, totalRecepciones, totalKilos = 0 }) {
+export default function Index({ recepciones, especies, variedades = [], exportadoras = [], filters, isProducer, totalRecepciones, totalKilos = 0, temporada = 'actual', temporadaDb = null }) {
   const { props } = usePage();
   const { data, setData, get } = useForm({
     search: filters.search || '',
@@ -106,7 +107,14 @@ export default function Index({ recepciones, especies, variedades = [], exportad
     <div className="container mx-auto py-10">
       <Card>
         <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-          <CardTitle className="text-2xl font-bold">Recepciones</CardTitle>
+          <div className="flex flex-row items-center gap-3">
+            <CardTitle className="text-2xl font-bold">Recepciones</CardTitle>
+            <SeasonSwitch
+              temporada={temporada}
+              database={temporadaDb}
+              params={{ search: data.search, especie_id: data.especie_id, variedad_id: data.variedad_id, exportadora: data.exportadora }}
+            />
+          </div>
           {canManage && <SyncButton />}
         </CardHeader>
         <CardContent>

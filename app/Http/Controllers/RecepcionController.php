@@ -8,6 +8,7 @@ use App\Models\Recepcion;
 use App\Models\Calidad;
 use App\Models\NotificationLog;
 use App\Services\ReportNotificationService;
+use App\Services\Planning\SeasonContext;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Database\Eloquent\Relations\BelongsToMany;
 use App\Models\Service;
@@ -21,6 +22,16 @@ use Inertia\Inertia;
 
 class RecepcionController extends Controller
 {
+    public function __construct(private readonly SeasonContext $seasons) {}
+
+    /**
+     * Conexión SQL Server de la temporada activa ('sqlsrv' | 'temporada_anterior').
+     */
+    private function sqlsrv(): \Illuminate\Database\Connection
+    {
+        return DB::connection($this->seasons->connection());
+    }
+
     public function index(Request $request)
     {
         $user = Auth::user();
@@ -242,6 +253,8 @@ class RecepcionController extends Controller
             'isProducer' => $isProducer,
             'totalRecepciones' => $totalRecepciones, // Pass total recepciones
             'totalKilos' => $totalKilos,             // Pass total kilos
+            'temporada' => $this->seasons->current(),
+            'temporadaDb' => (string) config('database.connections.'.$this->seasons->connection().'.database'),
         ]);
 
     }
@@ -286,7 +299,7 @@ class RecepcionController extends Controller
                 $recep=Recepcion::where('nota_calidad',0)->get();
 
                     foreach($recep as $row){
-                    $nota = DB::connection('sqlsrv')
+                    $nota = $this->sqlsrv()
                     ->table('PKG_G_Recepcion')
                     ->where('numero_i', $row->numero_g_recepcion)   // acceso con ->
                     ->value('nota_calidad');                         // <- clave
@@ -361,7 +374,7 @@ class RecepcionController extends Controller
 
         $cutoff = Carbon::now()->subDays(60)->format('Y-m-d');
 
-        return DB::connection('sqlsrv')
+        return $this->sqlsrv()
             ->table('V_PKG_Recepcion_FG')
             ->selectRaw("
                 id_empresa,
