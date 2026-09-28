@@ -861,6 +861,7 @@ export default function Edit({
                             <Input
                               className={rowErrors?.peso_caja ? 'border-red-500 bg-red-50' : ''}
                               type="number"
+                              min="0"
                               step="0.1"
                               value={row?.peso_caja ?? ''}
                               onChange={(e) => {
@@ -874,6 +875,8 @@ export default function Edit({
                             <Input
                               className={rowErrors?.cp2 ? 'border-red-500 bg-red-50' : ''}
                               type="number"
+                              min="0"
+                              step="1"
                               value={row?.cp2 ?? ''}
                               onChange={(e) => {
                                 updateRow(idx, rowKey, { cp2: e.target.value })

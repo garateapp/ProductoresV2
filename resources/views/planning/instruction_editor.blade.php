@@ -138,6 +138,7 @@
                         <th style="width:80px;">Destino</th>
                         <th style="width:105px;">Código</th>
                         <th style="width:260px;">Descripción</th>
+                        <th style="width:100px;">Peso (kg)</th>
                         <th style="width:180px;">Calibres</th>
                         <th style="width:280px;">Observaciones</th>
                         <th style="width:200px;">Pedido</th>
@@ -153,12 +154,21 @@
                             $calValue = old("rows.$i.calibres", $row['calibres'] ?? '-');
                             $obsValue = old("rows.$i.observaciones", $row['observaciones'] ?? '');
                             $pedValue = old("rows.$i.pedido", $row['pedido'] ?? '');
+                            $pesoValue = old("rows.$i.peso_caja", '');
+                            $pesoActual = ($row['peso_caja'] ?? null) !== null && $row['peso_caja'] !== ''
+                                ? rtrim(rtrim(number_format((float) $row['peso_caja'], 1, ',', ''), '0'), ',')
+                                : null;
                         @endphp
                         <tr data-row-index="{{ $i }}" class="{{ $isDeleted === '1' ? 'deleted' : '' }}">
                             <td class="right muted">{{ $i + 1 }}</td>
                             <td class="nowrap"><strong>{{ $row['destino'] ?? '-' }}</strong></td>
                             <td class="nowrap"><strong class="mono">{{ $row['c_item'] ?? '-' }}</strong></td>
                             <td class="wrap-any">{{ $row['desc_embalaje'] ?? '-' }}</td>
+                            <td>
+                                <input type="number" min="0" step="0.1" name="rows[{{ $i }}][peso_caja]" value="{{ $pesoValue }}"
+                                       placeholder="{{ $pesoActual !== null ? 'Actual: '.$pesoActual : 'Kg' }}">
+                                @error("rows.$i.peso_caja") <div class="error">{{ $message }}</div> @enderror
+                            </td>
                             <td>
                                 <input type="hidden" name="rows[{{ $i }}][key]" value="{{ $key }}">
                                 <input type="hidden" name="rows[{{ $i }}][_deleted]" value="{{ $isDeleted }}" class="deleted-flag">
@@ -181,7 +191,7 @@
                         </tr>
                     @empty
                         <tr>
-                            <td colspan="8" class="muted">No hay embalajes asignados todavía para esta línea.</td>
+                            <td colspan="9" class="muted">No hay embalajes asignados todavía para esta línea.</td>
                         </tr>
                     @endforelse
                     </tbody>
