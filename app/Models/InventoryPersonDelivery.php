@@ -13,6 +13,7 @@ class InventoryPersonDelivery extends Model
 
     protected $fillable = [
         'codigo',
+        'numero_referencia',
         'movement_id',
         'created_by',
         'origin_location_id',
@@ -27,6 +28,7 @@ class InventoryPersonDelivery extends Model
 
     protected $casts = [
         'delivered_at' => 'datetime',
+        'numero_referencia' => 'integer',
     ];
 
     public function movement(): BelongsTo

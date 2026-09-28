@@ -35,6 +35,13 @@ export default function PanolIndex({ filters = {}, rows = [], totals = {}, peopl
     router.get(route('inventory.panol.index'), filterData, { preserveScroll: true, preserveState: true })
   }
 
+  const toggleSoloStock = (checked) => {
+    const next = { ...filterData, solo_con_stock: checked }
+    setFilterData(next)
+    setExpanded(new Set())
+    router.get(route('inventory.panol.index'), next, { preserveScroll: true, preserveState: true })
+  }
+
   const clearFilters = () => {
     const next = { date_from: '', date_to: '', producto: '', persona: '', cargo: '', area: '', solo_con_stock: true }
     setFilterData(next)
@@ -67,7 +74,7 @@ export default function PanolIndex({ filters = {}, rows = [], totals = {}, peopl
             <div>
               <CardTitle>Control del Pañol · Entrega a Personas</CardTitle>
               <p className="mt-1 text-sm text-slate-600">
-                Stock en línea de Bodega Central y entregas por material (códigos 61xx), según los filtros seleccionados.
+                Stock en línea de Bodega Central y entregas por material, según los filtros seleccionados.
               </p>
             </div>
             <Button type="button" variant="outline" asChild>
@@ -124,7 +131,7 @@ export default function PanolIndex({ filters = {}, rows = [], totals = {}, peopl
               <label className="flex items-center gap-2 text-sm text-slate-700">
                 <Switch
                   checked={filterData.solo_con_stock}
-                  onCheckedChange={(checked) => setField('solo_con_stock', checked)}
+                  onCheckedChange={toggleSoloStock}
                 />
                 Solo con stock
               </label>

@@ -39,6 +39,7 @@ export default function PersonDeliveriesIndex({ deliveries }) {
               <Table>
                 <TableHeader>
                   <TableRow>
+                    <TableHead className="w-24">N° Ref.</TableHead>
                     <TableHead>Acta</TableHead>
                     <TableHead>Fecha</TableHead>
                     <TableHead>Persona</TableHead>
@@ -52,7 +53,10 @@ export default function PersonDeliveriesIndex({ deliveries }) {
                 <TableBody>
                   {deliveries.data.map((delivery) => (
                     <TableRow key={delivery.id}>
-                      <TableCell className="font-mono">{delivery.codigo}</TableCell>
+                      <TableCell className="text-lg font-bold tabular-nums">
+                        {delivery.numero_referencia ?? '-'}
+                      </TableCell>
+                      <TableCell className="font-mono text-xs">{delivery.codigo}</TableCell>
                       <TableCell>{formatDate(delivery.delivered_at)}</TableCell>
                       <TableCell className="font-medium">{delivery.person_name}</TableCell>
                       <TableCell>{delivery.person_position}</TableCell>

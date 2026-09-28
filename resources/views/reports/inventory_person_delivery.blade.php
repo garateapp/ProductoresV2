@@ -38,6 +38,32 @@
             font-size: 18px;
             font-weight: 700;
         }
+        .reference {
+            border: 1.5px solid #111827;
+            display: inline-block;
+            margin-top: 6px;
+            padding: 5px 12px 6px;
+        }
+        .reference-label {
+            color: #6b7280;
+            display: block;
+            font-size: 9px;
+            letter-spacing: .1em;
+            text-transform: uppercase;
+        }
+        .reference-value {
+            display: block;
+            font-size: 24px;
+            font-variant-numeric: tabular-nums;
+            font-weight: 700;
+            letter-spacing: .06em;
+            line-height: 1.1;
+        }
+        .internal-code {
+            color: #6b7280;
+            font-family: "DejaVu Sans Mono", monospace;
+            font-size: 9px;
+        }
         h1 {
             font-size: 20px;
             letter-spacing: .04em;
@@ -103,6 +129,24 @@
             max-width: 100%;
             object-fit: contain;
         }
+        .signature-image {
+            display: block;
+            height: 86px;
+            margin: 0 auto;
+            max-width: 100%;
+            object-fit: contain;
+        }
+        .signature-missing {
+            align-items: center;
+            border: 1px dashed #9ca3af;
+            color: #9ca3af;
+            display: flex;
+            font-size: 10px;
+            height: 86px;
+            justify-content: center;
+            letter-spacing: .04em;
+            text-transform: uppercase;
+        }
         .signature-line {
             border-top: 1px solid #111827;
             margin-top: 12px;
@@ -129,8 +173,12 @@
         <header class="header">
             <img class="logo" src="{{ asset('img/logo_garate.png') }}" alt="Gárate Hermanos">
             <div class="folio">
-                <div class="folio-label">Acta de entrega</div>
-                <div class="folio-value">{{ $delivery->codigo }}</div>
+                <div class="reference">
+                    <span class="reference-label">N° Referencia SAP</span>
+                    <span class="reference-value">{{ $delivery->numero_referencia ?? '-' }}</span>
+                </div>
+                <div class="folio-label" style="margin-top: 8px">Acta de entrega</div>
+                <div class="internal-code">{{ $delivery->codigo }}</div>
                 <div>{{ optional($delivery->delivered_at)->format('d/m/Y H:i') }}</div>
             </div>
         </header>
@@ -145,22 +193,28 @@
         <div class="section-title">Datos generales</div>
         <table>
             <tr>
+                <th>N° Referencia SAP</th>
+                <td><strong>{{ $delivery->numero_referencia ?? '-' }}</strong></td>
                 <th>Persona que recibe</th>
                 <td>{{ $delivery->person_name }}</td>
-                <th>Cargo</th>
-                <td>{{ $delivery->person_position }}</td>
             </tr>
             <tr>
+                <th>Cargo</th>
+                <td>{{ $delivery->person_position }}</td>
                 <th>Área</th>
                 <td>{{ $delivery->person_area ?: '-' }}</td>
+            </tr>
+            <tr>
                 <th>Ubicación origen</th>
                 <td>{{ $delivery->originLocation?->nombre }}</td>
+                <th>Movimiento inventario</th>
+                <td>{{ $delivery->movement?->folio ?? '-' }}</td>
             </tr>
             <tr>
                 <th>Entregado por</th>
                 <td>{{ $delivery->creator?->name }}</td>
-                <th>Movimiento inventario</th>
-                <td>{{ $delivery->movement?->folio ?? '-' }}</td>
+                <th>Código interno del acta</th>
+                <td class="internal-code">{{ $delivery->codigo }}</td>
             </tr>
         </table>
 
@@ -201,7 +255,11 @@
             </div>
 
             <div class="signature-box">
-                <div style="height: 86px;"></div>
+                @if ($entregaSignatureDataUrl)
+                    <img class="signature-image" src="{{ $entregaSignatureDataUrl }}" alt="Firma responsable de entrega">
+                @else
+                    <div class="signature-missing">Firma no cargada</div>
+                @endif
                 <div class="signature-line">
                     <strong>{{ $delivery->creator?->name }}</strong><br>
                     Responsable de entrega

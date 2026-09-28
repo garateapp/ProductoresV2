@@ -12,6 +12,7 @@ use App\Models\InventoryStockLocation;
 use App\Models\InventoryStockPosition;
 use App\Models\Personal;
 use App\Services\Inventory\MovementService;
+use App\Services\Inventory\ReferenceNumberService;
 use Closure;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
@@ -27,6 +28,8 @@ use Spatie\Browsershot\Browsershot;
 class PersonDeliveryController extends Controller
 {
     use AuthorizesInventory;
+
+    private const DELIVERY_SIGNATURE_IMAGE = 'img/firma_entrega_materiales.png';
 
     public function index(Request $request): Response
     {
@@ -75,7 +78,7 @@ class PersonDeliveryController extends Controller
         ]);
     }
 
-    public function store(Request $request, MovementService $movementService): RedirectResponse
+    public function store(Request $request, MovementService $movementService, ReferenceNumberService $referenceNumbers): RedirectResponse
     {
         $this->authorizeInventory($request);
 
@@ -105,7 +108,7 @@ class PersonDeliveryController extends Controller
             ]);
         }
 
-        $delivery = DB::transaction(function () use ($data, $items, $movementService, $request): InventoryPersonDelivery {
+        $delivery = DB::transaction(function () use ($data, $items, $movementService, $referenceNumbers, $request): InventoryPersonDelivery {
             $origin = InventoryLocation::query()->findOrFail((int) $data['origin_location_id']);
             $person = Personal::query()->findOrFail((int) $data['person_id']);
             $materialNames = InventoryMaterial::query()
@@ -124,9 +127,11 @@ class PersonDeliveryController extends Controller
 
             $movementDetails = $this->buildMovementDetails($items, $origin, $materialNames);
             $code = 'ENT-'.now()->format('YmdHis').'-'.Str::upper(Str::random(4));
+            $referenceNumber = $referenceNumbers->next(ReferenceNumberService::PERSON_DELIVERY_KEY);
 
             $delivery = InventoryPersonDelivery::query()->create([
                 'codigo' => $code,
+                'numero_referencia' => $referenceNumber,
                 'created_by' => (int) $request->user()->id,
                 'origin_location_id' => $origin->id,
                 'person_id' => $person->id,
@@ -157,6 +162,7 @@ class PersonDeliveryController extends Controller
                 'metadata' => [
                     'workflow' => 'person_delivery',
                     'person_delivery_id' => $delivery->id,
+                    'numero_referencia' => $delivery->numero_referencia,
                     'person_name' => $delivery->person_name,
                     'person_position' => $delivery->person_position,
                     'person_area' => $delivery->person_area,
@@ -196,6 +202,7 @@ class PersonDeliveryController extends Controller
 
         $html = view('reports.inventory_person_delivery', [
             'delivery' => $personDelivery,
+            'entregaSignatureDataUrl' => $this->deliverySignatureDataUrl(),
         ])->render();
          $pdfRelative = 'Acta_Entrega_'.$personDelivery->codigo.'.pdf';
          $pdfPath = storage_path('app/public/' . $pdfRelative);
@@ -284,6 +291,37 @@ return response()->file($pdfPath, [
             'items.material:id,codigo,nombre,unit_id',
             'items.material.unit:id,codigo',
         ]);
+    }
+
+    /**
+     * Firma del responsable de entrega incrustada como data URI.
+     *
+     * Browsershot carga el acta desde un archivo local, así que una ruta de public/
+     * no se resolvería. Incrustarla evita depender de que el servidor web esté
+     * levantado mientras se genera el PDF.
+     */
+    private function deliverySignatureDataUrl(): ?string
+    {
+        $path = public_path(self::DELIVERY_SIGNATURE_IMAGE);
+
+        if (! is_file($path)) {
+            return null;
+        }
+
+        $contents = file_get_contents($path);
+
+        if ($contents === false || $contents === '') {
+            return null;
+        }
+
+        $mime = match (strtolower(pathinfo($path, PATHINFO_EXTENSION))) {
+            'jpg', 'jpeg' => 'image/jpeg',
+            'svg' => 'image/svg+xml',
+            'webp' => 'image/webp',
+            default => 'image/png',
+        };
+
+        return 'data:'.$mime.';base64,'.base64_encode($contents);
     }
 
     private function normalizeItems(array $items): Collection
@@ -378,6 +416,7 @@ return response()->file($pdfPath, [
         return [
             'id' => $delivery->id,
             'codigo' => $delivery->codigo,
+            'numero_referencia' => $delivery->numero_referencia,
             'person_name' => $delivery->person_name,
             'person_position' => $delivery->person_position,
             'person_area' => $delivery->person_area,
