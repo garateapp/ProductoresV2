@@ -2515,6 +2515,9 @@ class PackingProcessController extends Controller
                     return $rowSpeciesKey === $speciesKey;
                 }));
 
+                // Orden manual guardado por el usuario en la versión del instructivo.
+                $speciesPackSummary = $this->sortPackagingSummaryByOverrideOrder($speciesPackSummary);
+
                 $sheetKey = $lineId.'|'.Str::lower($speciesKey);
 
                 $lineSheets[] = [
@@ -2560,6 +2563,57 @@ class PackingProcessController extends Controller
         }
 
         return $lineSheets;
+    }
+
+    /**
+     * Ordena las filas de "Destino + Embalajes" según el `orden` guardado en el override
+     * de cada fila (ver instructionUpdate). Las filas sin orden explícito conservan
+     * su posición relativa al final, para no alterar instructivos antiguos.
+     *
+     * @param  array<int, mixed>  $rows
+     * @return array<int, mixed>
+     */
+    private function sortPackagingSummaryByOverrideOrder(array $rows): array
+    {
+        if (count($rows) < 2) {
+            return $rows;
+        }
+
+        $decorated = [];
+        $position = 0;
+        foreach ($rows as $row) {
+            $override = is_array($row) ? ($row['override'] ?? null) : null;
+            $override = is_array($override) ? $override : [];
+            $orden = null;
+            if (isset($override['orden']) && is_numeric($override['orden'])) {
+                $orden = (int) $override['orden'];
+            }
+
+            $decorated[] = [
+                'orden' => $orden,
+                'position' => $position++,
+                'row' => $row,
+            ];
+        }
+
+        usort($decorated, function (array $a, array $b) {
+            if ($a['orden'] === null && $b['orden'] === null) {
+                return $a['position'] <=> $b['position'];
+            }
+            if ($a['orden'] === null) {
+                return 1;
+            }
+            if ($b['orden'] === null) {
+                return -1;
+            }
+            if ($a['orden'] === $b['orden']) {
+                return $a['position'] <=> $b['position'];
+            }
+
+            return $a['orden'] <=> $b['orden'];
+        });
+
+        return array_map(fn (array $item) => $item['row'], $decorated);
     }
 
     public function instructionEdit(Request $request, PackingProcess $process)
@@ -2775,6 +2829,9 @@ class PackingProcessController extends Controller
             'lots.*.n_variedad' => ['nullable', 'string', 'max:120'],
             'lots.*.pulpa' => ['nullable', 'string', 'max:120'],
             'lots.*.huerto' => ['nullable', 'string', 'in:Tipo A,Tipo B,Tipo C,Tipo C*'],
+            // Orden visible de la tabla "Procesos / lotes" (ids en el orden enviado).
+            'lots_order' => ['nullable', 'array'],
+            'lots_order.*' => ['integer', 'min:1'],
             'rows' => ['nullable', 'array'],
             'rows.*.key' => ['required_with:rows', 'string'],
             'rows.*._deleted' => ['nullable', 'string', 'in:0,1'],
@@ -2822,7 +2879,7 @@ class PackingProcessController extends Controller
         $nextVersion = max(1, $baseVersion + 1);
 
         $overrides = [];
-        foreach (($data['rows'] ?? []) as $row) {
+        foreach (($data['rows'] ?? []) as $rowIndex => $row) {
             $key = trim((string) ($row['key'] ?? ''));
             if ($key === '') {
                 continue;
@@ -2848,6 +2905,8 @@ class PackingProcessController extends Controller
             $cp2 = is_numeric($cp2) ? (int) $cp2 : null;
 
             $ov = [
+                // Posición enviada por la UI: permite reordenar las filas del instructivo.
+                'orden' => (int) $rowIndex,
                 'destino' => $destino !== '' ? $destino : null,
                 'c_item' => $cItem !== '' ? $cItem : null,
                 'desc_embalaje' => $descEmb !== '' ? $descEmb : null,
@@ -2953,6 +3012,15 @@ class PackingProcessController extends Controller
             }
         }
 
+        // Orden de la tabla "Procesos / lotes" (columna process_lots.orden).
+        // El editor Inertia envía el array `lots` ya ordenado; el editor Blade envía `lots_order`.
+        $lotOrderIds = $data['lots_order'] ?? collect($data['lots'] ?? [])
+            ->map(fn ($row) => (int) (is_array($row) ? ($row['id'] ?? 0) : 0))
+            ->values()
+            ->all();
+
+        $reorderedLotsCount = $this->applyInstructionLotOrder($process, $lineId, $lotOrderIds);
+
         $lineSheets = $this->buildInstructionLineSheets($process, $date, $shiftId, [$lineId], [$lineId => $overrides]);
 
         $metaByLineId = [
@@ -3002,7 +3070,61 @@ class PackingProcessController extends Controller
 
         return redirect()
             ->route('planning.processes.instruction.edit', $redirectParams)
-            ->with('success', 'Instructivo guardado correctamente. Versión '.$nextVersion.'. Lotes actualizados: '.$updatedLotsCount.'.');
+            ->with('success', 'Instructivo guardado correctamente. Versión '.$nextVersion.'. Lotes actualizados: '.$updatedLotsCount.'. Lotes reordenados: '.$reorderedLotsCount.'.');
+    }
+
+    /**
+     * Persiste el orden visible de los lotes de una línea (tabla "Procesos / lotes" del editor).
+     *
+     * @param  array<int, mixed>  $orderedIds  ids de lote en el orden mostrado por la UI
+     * @return int cantidad de lotes cuyo `orden` cambió
+     */
+    private function applyInstructionLotOrder(PackingProcess $process, int $lineId, array $orderedIds): int
+    {
+        $requested = collect($orderedIds)
+            ->map(fn ($id) => (int) $id)
+            ->filter(fn ($id) => $id > 0)
+            ->unique()
+            ->values();
+
+        if ($requested->isEmpty() || $lineId <= 0) {
+            return 0;
+        }
+
+        $lots = PackingProcessLot::query()
+            ->where('process_id', $process->id)
+            ->where('packing_line_id', $lineId)
+            ->orderBy('orden')
+            ->orderBy('id')
+            ->get();
+
+        if ($lots->isEmpty()) {
+            return 0;
+        }
+
+        $byId = $lots->keyBy('id');
+        $ordered = $requested
+            ->map(fn ($id) => $byId->get($id))
+            ->filter()
+            ->values();
+
+        // Lotes de la línea que la UI no envió: se conservan al final, en su orden actual.
+        foreach ($lots as $lot) {
+            if (! $ordered->contains('id', (int) $lot->id)) {
+                $ordered->push($lot);
+            }
+        }
+
+        $changed = 0;
+        foreach ($ordered as $position => $lot) {
+            $newOrden = $position + 1;
+            if ((int) $lot->orden !== $newOrden) {
+                $lot->forceFill(['orden' => $newOrden])->save();
+                $changed++;
+            }
+        }
+
+        return $changed;
     }
 
     private function addInventoryLotToProcess(PackingProcess $process, string $n, int $lineId): void
@@ -4043,6 +4165,8 @@ class PackingProcessController extends Controller
                 $lots[] = [
                     'id' => (int) ($lot?->id ?? 0),
                     'process_id' => (int) ($lot?->process_id ?? 0),
+                    'orden' => (int) ($lot?->orden ?? 0),
+                    'packing_line_id' => (int) ($lot?->packing_line_id ?? 0),
                     'especie' => (string) ($lot?->process?->especie ?? ''),
                     'n_g_recepcion' => (string) ($lot?->n_g_recepcion ?? ''),
                     'source_type' => (string) ($lot?->source_type ?? 'recepcion'),

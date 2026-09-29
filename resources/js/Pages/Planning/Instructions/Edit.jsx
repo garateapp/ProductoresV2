@@ -6,7 +6,7 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/Components/ui/card'
 import { Textarea } from '@/Components/ui/textarea'
 import { Input } from '@/Components/ui/input'
 import { Label } from '@/Components/ui/label'
-import { FileDown, Save, ArrowLeft } from 'lucide-react'
+import { FileDown, Save, ArrowLeft, ArrowDown, ArrowUp } from 'lucide-react'
 import Combobox from '@/Components/ui/combobox'
 import { Toaster, toast } from 'sonner'
 
@@ -115,13 +115,18 @@ function toErrorText(value) {
   return String(value || '').trim()
 }
 
-function buildRowErrorState(errorBag) {
-  const errors = (errorBag && typeof errorBag === 'object') ? errorBag : {}
+function buildRowErrorState(errors, submitted = {}) {
+  const errorsBySource = (errors && typeof errors === 'object') ? errors : {}
+  const lotErrorsById = {}
+  const packagingErrorsByKey = {}
   const lotErrorsByIndex = {}
   const packagingErrorsByIndex = {}
   const globalErrors = []
 
-  Object.entries(errors).forEach(([key, raw]) => {
+  const submittedLotIds = Array.isArray(submitted.lotIds) ? submitted.lotIds : null
+  const submittedRowKeys = Array.isArray(submitted.rowKeys) ? submitted.rowKeys : null
+
+  Object.entries(errorsBySource).forEach(([key, raw]) => {
     const message = toErrorText(raw)
     if (!message) return
 
@@ -141,11 +146,21 @@ function buildRowErrorState(errorBag) {
     if (scope === 'lots') {
       lotErrorsByIndex[index] = lotErrorsByIndex[index] || {}
       lotErrorsByIndex[index][field] = message
+      const lotId = submittedLotIds ? Number(submittedLotIds[index] || 0) : 0
+      if (lotId > 0) {
+        lotErrorsById[lotId] = lotErrorsById[lotId] || {}
+        lotErrorsById[lotId][field] = message
+      }
       return
     }
 
     packagingErrorsByIndex[index] = packagingErrorsByIndex[index] || {}
     packagingErrorsByIndex[index][field] = message
+    const rowKey = submittedRowKeys ? String(submittedRowKeys[index] || '') : ''
+    if (rowKey !== '') {
+      packagingErrorsByKey[rowKey] = packagingErrorsByKey[rowKey] || {}
+      packagingErrorsByKey[rowKey][field] = message
+    }
   })
 
   const lotRows = Object.keys(lotErrorsByIndex).map((idx) => Number(idx) + 1).sort((a, b) => a - b)
@@ -153,11 +168,56 @@ function buildRowErrorState(errorBag) {
 
   return {
     lotErrorsByIndex,
+    lotErrorsById,
     packagingErrorsByIndex,
+    packagingErrorsByKey,
     lotRows,
     packagingRows,
     globalErrors,
   }
+}
+
+function moveInArray(list, index, dir) {
+  const rows = Array.isArray(list) ? list : []
+  const target = index + dir
+  if (index < 0 || index >= rows.length) return rows
+  if (target < 0 || target >= rows.length) return rows
+
+  const next = [...rows]
+  const current = next[index]
+  next[index] = next[target]
+  next[target] = current
+
+  return next
+}
+
+function RowOrderControls({ index, total, onMove, disabled = false, label = 'fila' }) {
+  const buttonClass = 'inline-flex items-center justify-center h-6 w-6 rounded border border-gray-200 bg-white text-gray-600 hover:bg-gray-100 disabled:opacity-30 disabled:cursor-not-allowed'
+
+  return (
+    <div className="flex items-center justify-center gap-1">
+      <button
+        type="button"
+        onClick={() => onMove?.(index, -1)}
+        disabled={disabled || index <= 0}
+        title={`Subir ${label}`}
+        aria-label={`Subir ${label}`}
+        className={buttonClass}
+      >
+        <ArrowUp className="h-3.5 w-3.5" />
+      </button>
+      <button
+        type="button"
+        onClick={() => onMove?.(index, 1)}
+        disabled={disabled || index >= total - 1}
+        title={`Bajar ${label}`}
+        aria-label={`Bajar ${label}`}
+        className={buttonClass}
+      >
+        <ArrowDown className="h-3.5 w-3.5" />
+      </button>
+    </div>
+  )
 }
 
 function getVarietyOptionsForLot(lot, varietiesBySpecies, defaultSpecies) {
@@ -181,9 +241,11 @@ function LotsTable({
   lots,
   editable = false,
   onUpdateLot,
+  onMoveLot = null,
   processTypeOptions = [],
   categoryOptions = [],
   lotErrorsByIndex = {},
+  lotErrorsById = {},
   varietiesBySpecies = {},
   defaultSpecies = '',
 }) {
@@ -191,12 +253,14 @@ function LotsTable({
   const hasMexico = rows.some((r) => String(r?.destino || '').trim().toUpperCase() === 'MEXICO')
   const sumBins = rows.reduce((acc, r) => acc + Number(r?.cantidad_bins || 0), 0)
   const sumKgs = rows.reduce((acc, r) => acc + Number(r?.peso_neto || 0), 0)
+  const canReorder = Boolean(editable && onMoveLot)
 
   return (
     <div className="table-wrap">
       <table>
         <thead>
           <tr>
+            {canReorder ? <th style={{ width: 72 }}>#</th> : null}
             <th>Hr Inicio Proceso</th>
             <th>Hr Término Proceso</th>
             <th>N° Proceso</th>
@@ -221,12 +285,21 @@ function LotsTable({
         </thead>
         <tbody>
           {rows.map((r, idx) => {
-            const rowErrors = lotErrorsByIndex?.[idx] || {}
+            const lotId = Number(r?.id || 0)
+            const rowErrors = lotErrorsById?.[lotId] || lotErrorsByIndex?.[idx] || {}
             const rowHasError = Object.keys(rowErrors).length > 0
             const varietyOptions = getVarietyOptionsForLot(r, varietiesBySpecies, defaultSpecies)
             const varietyValue = String(r?.n_variedad || '')
             return (
             <tr key={String(r?.id || `${r?.process_id}-${r?.n_g_recepcion}-${r?.source_key || ''}`)}>
+              {canReorder ? (
+                <td className="text-center">
+                  <div className="flex items-center justify-center gap-1">
+                    <span className="text-[10px] font-bold text-gray-500">{idx + 1}</span>
+                    <RowOrderControls index={idx} total={rows.length} onMove={onMoveLot} label="lote" />
+                  </div>
+                </td>
+              ) : null}
               <td>{fmtTime(r?.inicio) || ''}</td>
               <td>{fmtTime(r?.fin) || ''}</td>
               <td>{r?.process_id || ''}</td>
@@ -334,7 +407,7 @@ function LotsTable({
             )
           })}
           <tr>
-            <td colSpan={hasMexico ? 13 : 12} className="font-bold">TOTAL</td>
+            <td colSpan={(hasMexico ? 13 : 12) + (canReorder ? 1 : 0)} className="font-bold">TOTAL</td>
             <td className="font-bold">{sumBins ? sumBins.toLocaleString('es-CL') : ''}</td>
             <td className="font-bold">{sumKgs ? Math.round(sumKgs).toLocaleString('es-CL') : ''}</td>
             <td colSpan={5} />
@@ -506,7 +579,12 @@ export default function Edit({
     rows: initialRows,
   })
 
-  const [newRows, setNewRows] = useState([])
+  // Orden con el que se envió el último guardado: permite asociar los errores
+  // del servidor a cada lote/fila aunque después se reordene la tabla.
+  const submittedOrderRef = useRef({ lotIds: [], rowKeys: [] })
+
+  const isNewRowKey = (key) => String(key || '').startsWith('_new_')
+
   const addNewRow = () => {
     const key = `_new_${Date.now()}_${Math.random().toString(36).slice(2, 6)}`
     const newRow = {
@@ -524,16 +602,28 @@ export default function Edit({
       count: '',
       pedido: '',
     }
-    setNewRows((prev) => [...prev, newRow])
     setData('rows', [...(Array.isArray(data.rows) ? data.rows : []), newRow])
   }
 
-  const removeNewRow = (newIdx) => {
-    setNewRows((prev) => prev.filter((_, i) => i !== newIdx))
+  const removeNewRow = (idx) => {
+    const current = Array.isArray(data.rows) ? data.rows : []
+    if (!isNewRowKey(current[idx]?.key)) return
+    setData('rows', current.filter((_, i) => i !== idx))
+  }
+
+  const movePackagingRow = (idx, dir) => {
+    setData('rows', moveInArray(data.rows, idx, dir))
+  }
+
+  const moveLot = (idx, dir) => {
+    setData('lots', moveInArray(data.lots, idx, dir))
   }
 
   const lotComments = useMemo(() => commentsByLots(data.lots), [data.lots])
-  const rowErrorState = useMemo(() => buildRowErrorState(errors), [errors])
+  const rowErrorState = useMemo(
+    () => buildRowErrorState(errors, submittedOrderRef.current),
+    [errors],
+  )
   const rowErrorSummary = useMemo(() => {
     const parts = []
     if (rowErrorState.lotRows.length > 0) {
@@ -590,13 +680,14 @@ export default function Edit({
   }
 
   const visiblePackaging = useMemo(() => {
-    const existing = packaging.map((r, idx) => ({ ...r, _idx: idx, _isNew: false }))
-    const added = newRows.map((r, idx) => ({ ...r, _idx: packaging.length + idx, _isNew: true }))
-    return [...existing, ...added].filter((r) => {
-      const row = data.rows?.[r._idx] || {}
-      return row._deleted !== '1' && row._deleted !== 1
-    })
-  }, [packaging, newRows, data.rows])
+    const rows = Array.isArray(data.rows) ? data.rows : []
+    return rows
+      .map((row, idx) => ({ ...row, _idx: idx, _isNew: isNewRowKey(row?.key) }))
+      .filter((r) => r?._deleted !== '1' && r?._deleted !== 1)
+  }, [data.rows])
+
+  // El límite de las flechas usa el total real enviado (incluye filas ocultas por eliminación).
+  const rowTotal = Array.isArray(data.rows) ? data.rows.length : 0
 
   const updateLot = (lotId, patch) => {
     const id = Number(lotId || 0)
@@ -611,10 +702,14 @@ export default function Edit({
 
   const onSubmit = (e) => {
     e.preventDefault()
+    submittedOrderRef.current = {
+      lotIds: (Array.isArray(data.lots) ? data.lots : []).map((l) => Number(l?.id || 0)),
+      rowKeys: (Array.isArray(data.rows) ? data.rows : []).map((r) => String(r?.key || '')),
+    }
     post(route('planning.processes.instruction.update', process.id), {
       preserveScroll: true,
       onError: (serverErrors) => {
-        const state = buildRowErrorState(serverErrors)
+        const state = buildRowErrorState(serverErrors, submittedOrderRef.current)
         const parts = []
         if (state.lotRows.length > 0) {
           parts.push(`Procesos/lotes: filas ${state.lotRows.join(', ')}`)
@@ -742,9 +837,11 @@ export default function Edit({
                 lots={data.lots}
                 editable
                 onUpdateLot={updateLot}
+                onMoveLot={moveLot}
                 processTypeOptions={normalizedProcessTypeOptions}
                 categoryOptions={normalizedCategoryOptions}
                 lotErrorsByIndex={rowErrorState.lotErrorsByIndex}
+                lotErrorsById={rowErrorState.lotErrorsById}
                 varietiesBySpecies={normalizedVarietiesBySpecies}
                 defaultSpecies={sheet?.speciesLabel || process?.especie || ''}
               />
@@ -776,7 +873,7 @@ export default function Edit({
                       <th>Indicaciones</th>
                       <th>Observaciones</th>
                       <th>Pedido</th>
-                      <th className="w-12"></th>
+                      <th className="w-28">Orden</th>
                     </tr>
                   </thead>
                   <tbody>
@@ -784,7 +881,7 @@ export default function Edit({
                       const idx = r._idx
                       const rowKey = String(r?.key || '')
                       const row = data.rows?.[idx] || {}
-                      const rowErrors = rowErrorState.packagingErrorsByIndex?.[idx] || {}
+                      const rowErrors = rowErrorState.packagingErrorsByKey?.[rowKey] || rowErrorState.packagingErrorsByIndex?.[idx] || {}
                       const rowHasError = Object.keys(rowErrors).length > 0
                       const isNew = r._isNew
                       return (
@@ -943,14 +1040,18 @@ export default function Edit({
                             {rowErrors?.pedido ? <div className="mt-1 text-[10px] text-red-600">{rowErrors.pedido}</div> : null}
                           </td>
                           <td className="text-center">
-                            <button
-                              type="button"
-                              onClick={() => isNew ? removeNewRow(idx - packaging.length) : toggleDeleteRow(idx)}
-                              className="inline-flex items-center justify-center h-7 w-7 rounded border border-red-200 bg-red-50 text-red-600 hover:bg-red-100 text-xs font-bold"
-                              title={isNew ? 'Quitar fila nueva' : 'Eliminar esta fila'}
-                            >
-                              ✕
-                            </button>
+                            <div className="flex items-center justify-center gap-1">
+                              <span className="text-[10px] font-bold text-gray-500">{idx + 1}</span>
+                              <RowOrderControls index={idx} total={rowTotal} onMove={movePackagingRow} label="fila" />
+                              <button
+                                type="button"
+                                onClick={() => isNew ? removeNewRow(idx) : toggleDeleteRow(idx)}
+                                className="inline-flex items-center justify-center h-7 w-7 rounded border border-red-200 bg-red-50 text-red-600 hover:bg-red-100 text-xs font-bold"
+                                title={isNew ? 'Quitar fila nueva' : 'Eliminar esta fila'}
+                              >
+                                ✕
+                              </button>
+                            </div>
                           </td>
                         </tr>
                       )

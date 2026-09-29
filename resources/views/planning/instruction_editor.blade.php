@@ -49,6 +49,14 @@
         .del-btn:hover { background:#fee2e2; border-color:#fecaca; }
         .del-btn.active { background:var(--danger); color:#fff; border-color:var(--danger); }
 
+        .row-actions { display:flex; gap:4px; align-items:center; white-space:nowrap; }
+        .move-btn { cursor:pointer; border:1px solid var(--border); background:#fff; color:#334155; border-radius:6px; width:26px; height:26px; font-size:12px; line-height:1; font-weight:900; }
+        .move-btn:hover:not(:disabled) { background:var(--soft); border-color:#cbd5e1; }
+        .move-btn:disabled { opacity: .3; cursor: not-allowed; }
+        .seq { font-weight:900; text-align:right; }
+        .lot-name { font-weight:800; }
+        .nowrap { white-space: nowrap; }
+
         @media (max-width: 980px) {
             .grid { grid-template-columns: 1fr; }
         }
@@ -122,13 +130,99 @@
             </div>
 
             @php
+                $lots = $sheet['lots'] ?? [];
+
+                // Tras un error de validación se reordena con el orden que el usuario ya había enviado.
+                $orderedLots = $lots;
+                $postedLotOrder = old('lots_order');
+                if (is_array($postedLotOrder) && count($postedLotOrder) > 0) {
+                    $byId = collect($lots)->keyBy('id');
+                    $reordered = collect($postedLotOrder)
+                        ->map(fn ($id) => $byId->get((int) $id))
+                        ->filter()
+                        ->values();
+                    foreach ($lots as $lot) {
+                        if (! $reordered->contains('id', (int) ($lot['id'] ?? 0))) {
+                            $reordered->push($lot);
+                        }
+                    }
+                    $orderedLots = $reordered->all();
+                }
+
                 $packagingSummary = $sheet['packagingSummary'] ?? [];
             @endphp
+
+            <div style="padding:12px;">
+                <div style="display:flex; align-items:center; justify-content:space-between; margin-bottom:8px;">
+                    <div style="font-weight:900;">Procesos / lotes</div>
+                    <div class="muted" style="font-size:11px;">
+                        <span id="lotRowCount">{{ count($orderedLots) }}</span> lote(s) · usa ↑ ↓ para reordenar
+                    </div>
+                </div>
+                <table>
+                    <thead>
+                    <tr>
+                        <th style="width:40px;">#</th>
+                        <th style="width:150px;">N° Recepción</th>
+                        <th style="width:110px;">Lote/Origen</th>
+                        <th style="width:90px;">Destino</th>
+                        <th style="width:120px;">Tipo proceso</th>
+                        <th style="width:110px;">Categoría</th>
+                        <th style="width:150px;">Variedad</th>
+                        <th style="width:110px;">Pulpa</th>
+                        <th style="width:90px;">Huerto</th>
+                        <th style="width:90px;">Kg</th>
+                        <th style="width:80px;">Orden</th>
+                    </tr>
+                    </thead>
+                    <tbody id="lotRows">
+                    @forelse($orderedLots as $li => $lot)
+                        @php
+                            $lotId = (int) ($lot['id'] ?? 0);
+                            $sourceLabel = trim((string) ($lot['source_lote'] ?? ''));
+                            if ($sourceLabel === '') {
+                                $sourceLabel = trim((string) ($lot['source_categoria'] ?? ''));
+                            }
+                            if ($sourceLabel === '') {
+                                $sourceLabel = '-';
+                            }
+                        @endphp
+                        <tr data-lot-row data-row-index="{{ $li }}" data-lot-id="{{ $lotId }}">
+                            <td class="seq" data-seq>{{ $li + 1 }}</td>
+                            <td class="nowrap lot-name">
+                                {{ $lot['n_g_recepcion'] ?? '-' }}
+                                <input type="hidden" name="lots_order[]" value="{{ $lotId }}">
+                            </td>
+                            <td class="wrap-any">{{ $sourceLabel }}</td>
+                            <td class="nowrap">{{ $lot['destino'] ?? '-' }}</td>
+                            <td class="nowrap">{{ $lot['tipo_proceso'] ?? 'Normal' }}</td>
+                            <td class="nowrap">{{ $lot['categoria_origen'] ?? '-' }}</td>
+                            <td class="wrap-any">{{ $lot['n_variedad'] ?: ($lot['variedad_original'] ?? '-') }}</td>
+                            <td class="wrap-any">{{ $lot['pulpa'] ?: '-' }}</td>
+                            <td class="nowrap">{{ $lot['huerto'] ?: '-' }}</td>
+                            <td class="right">{{ $lot['peso_neto'] !== null ? number_format((float) $lot['peso_neto'], 0, ',', '') : '-' }}</td>
+                            <td>
+                                <div class="row-actions">
+                                    <button type="button" class="move-btn" title="Subir lote" onclick="moveRow(this, -1, 'lotRows')">▲</button>
+                                    <button type="button" class="move-btn" title="Bajar lote" onclick="moveRow(this, 1, 'lotRows')">▼</button>
+                                </div>
+                            </td>
+                        </tr>
+                    @empty
+                        <tr>
+                            <td colspan="11" class="muted">No hay lotes asignados a esta línea.</td>
+                        </tr>
+                    @endforelse
+                    </tbody>
+                </table>
+                <div class="hint">El orden elegido se guarda en <span class="mono">process_lots.orden</span> y se aplica al generar el instructivo.</div>
+            </div>
+
             <div style="padding:12px;">
                 <div style="display:flex; align-items:center; justify-content:space-between; margin-bottom:8px;">
                     <div style="font-weight:900;">Destino + Embalajes (editables)</div>
                     <div class="muted" style="font-size:11px;">
-                        <span id="rowCount">{{ count($packagingSummary) }}</span> fila(s) visibles
+                        <span id="rowCount">{{ count($packagingSummary) }}</span> fila(s) visibles · usa ↑ ↓ para reordenar
                     </div>
                 </div>
                 <table>
@@ -142,10 +236,10 @@
                         <th style="width:180px;">Calibres</th>
                         <th style="width:280px;">Observaciones</th>
                         <th style="width:200px;">Pedido</th>
-                        <th style="width:60px;">Acción</th>
+                        <th style="width:110px;">Acciones</th>
                     </tr>
                     </thead>
-                    <tbody>
+                    <tbody id="packRows">
                     @forelse($packagingSummary as $i => $row)
                         @php
                             $key = (string) ($row['key'] ?? '');
@@ -159,8 +253,8 @@
                                 ? rtrim(rtrim(number_format((float) $row['peso_caja'], 1, ',', ''), '0'), ',')
                                 : null;
                         @endphp
-                        <tr data-row-index="{{ $i }}" class="{{ $isDeleted === '1' ? 'deleted' : '' }}">
-                            <td class="right muted">{{ $i + 1 }}</td>
+                        <tr data-pack-row data-row-index="{{ $i }}" class="{{ $isDeleted === '1' ? 'deleted' : '' }}">
+                            <td class="right muted" data-seq>{{ $i + 1 }}</td>
                             <td class="nowrap"><strong>{{ $row['destino'] ?? '-' }}</strong></td>
                             <td class="nowrap"><strong class="mono">{{ $row['c_item'] ?? '-' }}</strong></td>
                             <td class="wrap-any">{{ $row['desc_embalaje'] ?? '-' }}</td>
@@ -184,9 +278,13 @@
                                 @error("rows.$i.pedido") <div class="error">{{ $message }}</div> @enderror
                             </td>
                             <td>
-                                <button type="button" class="del-btn" data-row="{{ $i }}" onclick="toggleDelete(this, {{ $i }})" title="Eliminar esta fila">
-                                    ✕
-                                </button>
+                                <div class="row-actions">
+                                    <button type="button" class="move-btn" title="Subir fila" onclick="moveRow(this, -1, 'packRows')">▲</button>
+                                    <button type="button" class="move-btn" title="Bajar fila" onclick="moveRow(this, 1, 'packRows')">▼</button>
+                                    <button type="button" class="del-btn" data-row="{{ $i }}" onclick="toggleDelete(this)" title="Eliminar esta fila">
+                                        ✕
+                                    </button>
+                                </div>
                             </td>
                         </tr>
                     @empty
@@ -212,7 +310,7 @@
 </div>
 
 <script>
-function toggleDelete(btn, index) {
+function toggleDelete(btn) {
     const tr = btn.closest('tr');
     const flag = tr.querySelector('.deleted-flag');
     const isDeleted = flag.value === '1';
@@ -231,15 +329,94 @@ function toggleDelete(btn, index) {
     updateRowCount();
 }
 
+/**
+ * Sube o baja la fila que contiene el botón pulsado.
+ * dir = -1 sube, dir = 1 baja.
+ */
+function moveRow(btn, dir, tbodyId) {
+    const tr = btn.closest('tr');
+    const tbody = document.getElementById(tbodyId);
+    if (!tbody || !tr || !tr.parentElement || tr.parentElement !== tbody) return;
+
+    const sibling = dir < 0 ? tr.previousElementSibling : tr.nextElementSibling;
+    if (!sibling || sibling.tagName !== 'TR' || !sibling.hasAttribute('data-row-index')) return;
+
+    if (dir < 0) {
+        tbody.insertBefore(tr, sibling);
+    } else {
+        tbody.insertBefore(sibling, tr);
+    }
+
+    renumberRows(tbodyId);
+    updateRowCount();
+
+    if (!btn.disabled) {
+        btn.focus();
+    }
+}
+
+/**
+ * Renumera la tabla segun el orden visual actual.
+ * En "Destino + Embalajes" ademas reescribe los names rows[i][...] para que
+ * el orden enviado por el formulario coincida con el mostrado.
+ */
+function renumberRows(tbodyId) {
+    const tbody = document.getElementById(tbodyId);
+    if (!tbody) return;
+
+    const rows = Array.from(tbody.querySelectorAll('tr[data-row-index]'));
+    const prefix = (tbodyId === 'packRows') ? 'rows' : null;
+
+    rows.forEach(function (row, index) {
+        row.setAttribute('data-row-index', index);
+
+        const seq = row.querySelector('[data-seq]');
+        if (seq) seq.textContent = index + 1;
+
+        if (!prefix) return;
+
+        row.querySelectorAll('input[name], textarea[name], select[name]').forEach(function (field) {
+            field.name = field.name.replace(
+                new RegExp('^' + prefix + '\\[[^\\]]*\\]'),
+                prefix + '[' + index + ']'
+            );
+        });
+
+        const delBtn = row.querySelector('.del-btn');
+        if (delBtn) delBtn.setAttribute('data-row', index);
+    });
+
+    refreshMoveButtons(tbodyId);
+}
+
+function refreshMoveButtons(tbodyId) {
+    const tbody = document.getElementById(tbodyId);
+    if (!tbody) return;
+
+    const rows = Array.from(tbody.querySelectorAll('tr[data-row-index]'));
+    rows.forEach(function (row, index) {
+        const buttons = row.querySelectorAll('.move-btn');
+        if (buttons.length < 2) return;
+        buttons[0].disabled = index === 0;
+        buttons[1].disabled = index === rows.length - 1;
+    });
+}
+
 function updateRowCount() {
-    const rows = document.querySelectorAll('tbody tr[data-row-index]');
+    const rows = document.querySelectorAll('#packRows tr[data-row-index]');
     let count = 0;
-    rows.forEach(function(row) {
+    rows.forEach(function (row) {
         if (!row.classList.contains('deleted')) count++;
     });
     const el = document.getElementById('rowCount');
     if (el) el.textContent = count;
 }
+
+document.addEventListener('DOMContentLoaded', function () {
+    renumberRows('lotRows');
+    renumberRows('packRows');
+    updateRowCount();
+});
 </script>
 </body>
 </html>
