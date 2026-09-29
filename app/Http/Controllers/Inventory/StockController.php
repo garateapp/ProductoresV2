@@ -9,9 +9,11 @@ use App\Models\InventoryLocation;
 use App\Models\InventoryMaterial;
 use App\Models\InventoryMaterialFamily;
 use App\Models\InventoryStockLocation;
+use App\Models\InventoryStockPosition;
 use App\Models\Service;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Http\Request;
+use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\DB;
 use Inertia\Inertia;
 use Inertia\Response;
@@ -77,37 +79,43 @@ class StockController extends Controller
         $stocks = $baseQuery
             ->orderByDesc('stock_actual')
             ->paginate($perPage)
-            ->withQueryString()
-            ->through(function (InventoryStockLocation $stock) {
-                $stockActual = (float) $stock->stock_actual;
-                $materialInternalTotal = (float) ($stock->material_internal_total ?? 0);
-                $sapOnHand = (float) ($stock->material?->sap_on_hand ?? 0);
+            ->withQueryString();
 
-                return [
-                    'id' => $stock->id,
-                    'location' => [
-                        'id' => $stock->location?->id,
-                        'codigo' => $stock->location?->codigo,
-                        'nombre' => $stock->location?->nombre,
-                        'tipo' => $stock->location?->tipo,
-                    ],
-                    'material' => [
-                        'id' => $stock->material?->id,
-                        'codigo' => $stock->material?->codigo,
-                        'nombre' => $stock->material?->nombre,
-                        'familia' => $stock->material?->family?->nombre,
-                        'servicio' => $stock->material?->service?->name,
-                        'unidad' => $stock->material?->unit?->codigo,
-                    ],
-                    'stock_actual' => $stockActual,
-                    'material_internal_total' => $materialInternalTotal,
-                    'sap_on_hand' => $sapOnHand,
-                    'distribution_ratio' => $materialInternalTotal > 0
-                        ? round(($stockActual / $materialInternalTotal) * 100, 2)
-                        : 0,
-                    'status' => $stockActual < 0 ? 'negative' : ($stockActual == 0.0 ? 'zero' : 'positive'),
-                ];
-            });
+        $locationIds = $stocks->getCollection()->pluck('location_id')->filter()->unique();
+        $materialIds = $stocks->getCollection()->pluck('material_id')->filter()->unique();
+        $distributionsByPair = $this->loadDistributionsByPair($locationIds, $materialIds);
+
+        $stocks->through(function (InventoryStockLocation $stock) use ($distributionsByPair) {
+            $stockActual = (float) $stock->stock_actual;
+            $materialInternalTotal = (float) ($stock->material_internal_total ?? 0);
+            $sapOnHand = (float) ($stock->material?->sap_on_hand ?? 0);
+
+            return [
+                'id' => $stock->id,
+                'location' => [
+                    'id' => $stock->location?->id,
+                    'codigo' => $stock->location?->codigo,
+                    'nombre' => $stock->location?->nombre,
+                    'tipo' => $stock->location?->tipo,
+                ],
+                'material' => [
+                    'id' => $stock->material?->id,
+                    'codigo' => $stock->material?->codigo,
+                    'nombre' => $stock->material?->nombre,
+                    'familia' => $stock->material?->family?->nombre,
+                    'servicio' => $stock->material?->service?->name,
+                    'unidad' => $stock->material?->unit?->codigo,
+                ],
+                'stock_actual' => $stockActual,
+                'material_internal_total' => $materialInternalTotal,
+                'sap_on_hand' => $sapOnHand,
+                'distribution_ratio' => $materialInternalTotal > 0
+                    ? round(($stockActual / $materialInternalTotal) * 100, 2)
+                    : 0,
+                'status' => $stockActual < 0 ? 'negative' : ($stockActual == 0.0 ? 'zero' : 'positive'),
+                'distributions' => $distributionsByPair->get($stock->location_id.'-'.$stock->material_id, []),
+            ];
+        });
 
         return Inertia::render('Inventory/Stocks/Index', [
             'filters' => $filters,
@@ -164,9 +172,54 @@ class StockController extends Controller
             ->orderByDesc('stock_actual')
             ->get();
 
+        $locationIds = $stocks->pluck('location_id')->filter()->unique();
+        $materialIds = $stocks->pluck('material_id')->filter()->unique();
+        $distributionsByPair = $this->loadDistributionsByPair($locationIds, $materialIds);
+
         $filename = 'stock-ubicaciones-'.now()->format('Ymd-His').'.xlsx';
 
-        return Excel::download(new InventoryStockExport($stocks), $filename);
+        return Excel::download(new InventoryStockExport($stocks, $distributionsByPair), $filename);
+    }
+
+    private function loadDistributionsByPair(Collection $locationIds, Collection $materialIds): Collection
+    {
+        if ($locationIds->isEmpty() || $materialIds->isEmpty()) {
+            return collect();
+        }
+
+        $positions = InventoryStockPosition::query()
+            ->with('logisticUnit:id,spatial_prefix,spatial_column,spatial_row')
+            ->whereIn('location_id', $locationIds)
+            ->whereIn('material_id', $materialIds)
+            ->where('quantity', '>', 0)
+            ->get(['id', 'material_id', 'location_id', 'logistic_unit_id', 'quantity', 'lot_code']);
+
+        return $positions
+            ->groupBy(fn ($pos) => $pos->location_id.'-'.$pos->material_id)
+            ->map(function ($items) {
+                return $items
+                    ->groupBy(function ($pos) {
+                        $prefix = (string) ($pos->logisticUnit?->spatial_prefix ?? '');
+                        $column = (string) ($pos->logisticUnit?->spatial_column ?? '');
+                        $row = (string) ($pos->logisticUnit?->spatial_row ?? '');
+
+                        return $prefix.'|'.$column.'|'.$row;
+                    })
+                    ->map(function ($group) {
+                        $first = $group->first();
+
+                        return [
+                            'spatial_prefix' => $first->logisticUnit?->spatial_prefix ?: null,
+                            'spatial_column' => $first->logisticUnit?->spatial_column ?: null,
+                            'spatial_row' => $first->logisticUnit?->spatial_row ?: null,
+                            'quantity' => round((float) $group->sum('quantity'), 4),
+                            'lpn_count' => $group->pluck('logistic_unit_id')->filter()->unique()->count(),
+                            'lot_codes' => $group->pluck('lot_code')->filter()->unique()->values()->all(),
+                        ];
+                    })
+                    ->values()
+                    ->all();
+            });
     }
 
     private function applyStockStateFilter(Builder $query, string $stockState): void
