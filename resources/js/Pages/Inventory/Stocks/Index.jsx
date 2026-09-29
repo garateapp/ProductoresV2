@@ -6,6 +6,7 @@ import { Button } from '@/Components/ui/button'
 import { Input } from '@/Components/ui/input'
 import { Badge } from '@/Components/ui/badge'
 import SearchableSelect from '@/Components/SearchableSelect'
+import { Download } from 'lucide-react'
 import {
   Table,
   TableBody,
@@ -30,6 +31,7 @@ export default function InventoryStocksIndex({
   locations = [],
   materials = [],
   families = [],
+  services = [],
   locationTypes = [],
 }) {
   const [filterData, setFilterData] = useState({
@@ -38,6 +40,7 @@ export default function InventoryStocksIndex({
     location_type: filters.location_type || '',
     material_id: filters.material_id || '',
     family_id: filters.family_id || '',
+    service_id: filters.service_id || '',
     stock_state: filters.stock_state || 'positive',
     per_page: filters.per_page || '20',
   })
@@ -55,6 +58,11 @@ export default function InventoryStocksIndex({
   const familyOptions = families.map((item) => ({
     value: String(item.id),
     label: item.nombre,
+  }))
+
+  const serviceOptions = services.map((item) => ({
+    value: String(item.id),
+    label: item.name,
   }))
 
   const locationTypeOptions = locationTypes.map((item) => ({
@@ -76,7 +84,7 @@ export default function InventoryStocksIndex({
   ]
 
   const activeFilterCount = useMemo(() => {
-    return ['q', 'location_id', 'location_type', 'material_id', 'family_id']
+    return ['q', 'location_id', 'location_type', 'material_id', 'family_id', 'service_id']
       .filter((key) => String(filterData[key] || '').trim() !== '').length
       + (filterData.stock_state !== 'positive' ? 1 : 0)
       + (filterData.per_page !== '20' ? 1 : 0)
@@ -97,6 +105,7 @@ export default function InventoryStocksIndex({
       location_type: '',
       material_id: '',
       family_id: '',
+      service_id: '',
       stock_state: 'positive',
       per_page: '20',
     }
@@ -106,6 +115,17 @@ export default function InventoryStocksIndex({
       preserveScroll: true,
       preserveState: true,
     })
+  }
+
+  const exportUrl = () => {
+    const params = new URLSearchParams()
+    Object.entries(filterData).forEach(([key, value]) => {
+      if (key !== 'per_page' && value !== '' && value !== null && value !== undefined) {
+        params.set(key, String(value))
+      }
+    })
+    const queryString = params.toString()
+    return queryString ? `${route('inventory.stocks.export')}?${queryString}` : route('inventory.stocks.export')
   }
 
   return (
@@ -157,15 +177,20 @@ export default function InventoryStocksIndex({
               Revisa rápido dónde está cada material, cuánto hay en esa ubicación y cómo se reparte respecto del stock interno total.
             </p>
           </div>
-          <div className="flex items-center gap-2 text-sm text-slate-500">
+          <div className="flex flex-wrap items-center gap-2 text-sm text-slate-500">
             <Badge variant="outline" className="border-slate-300 bg-slate-50 text-slate-700">
               {activeFilterCount} filtros activos
             </Badge>
             <Button type="button" variant="outline" onClick={resetFilters}>Limpiar filtros</Button>
+            <Button asChild variant="outline" className="border-emerald-600 text-emerald-700 hover:bg-emerald-50">
+              <a href={exportUrl()}>
+                <Download className="mr-2 h-4 w-4" /> Exportar a Excel
+              </a>
+            </Button>
           </div>
         </CardHeader>
         <CardContent className="space-y-6 pt-6">
-          <form onSubmit={applyFilters} className="grid gap-3 rounded-xl border border-slate-200 bg-slate-50 p-4 lg:grid-cols-7">
+          <form onSubmit={applyFilters} className="grid gap-3 rounded-xl border border-slate-200 bg-slate-50 p-4 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4">
             <Input
               value={filterData.q}
               onChange={(event) => setFilterData((current) => ({ ...current, q: event.target.value }))}
@@ -185,16 +210,22 @@ export default function InventoryStocksIndex({
               placeholder="Todos los tipos"
             />
             <SearchableSelect
-              options={materialOptions}
-              value={materialOptions.find((item) => item.value === String(filterData.material_id)) || null}
-              onChange={(option) => setFilterData((current) => ({ ...current, material_id: option?.value || '' }))}
-              placeholder="Todos los materiales"
+              options={serviceOptions}
+              value={serviceOptions.find((item) => item.value === String(filterData.service_id)) || null}
+              onChange={(option) => setFilterData((current) => ({ ...current, service_id: option?.value || '' }))}
+              placeholder="Todos los servicios"
             />
             <SearchableSelect
               options={familyOptions}
               value={familyOptions.find((item) => item.value === String(filterData.family_id)) || null}
               onChange={(option) => setFilterData((current) => ({ ...current, family_id: option?.value || '' }))}
               placeholder="Todas las familias"
+            />
+            <SearchableSelect
+              options={materialOptions}
+              value={materialOptions.find((item) => item.value === String(filterData.material_id)) || null}
+              onChange={(option) => setFilterData((current) => ({ ...current, material_id: option?.value || '' }))}
+              placeholder="Todos los materiales"
             />
             <SearchableSelect
               options={stockStateOptions}
@@ -255,6 +286,7 @@ export default function InventoryStocksIndex({
                 <TableRow>
                   <TableHead>Ubicación</TableHead>
                   <TableHead>Material</TableHead>
+                  <TableHead>Servicio</TableHead>
                   <TableHead>Familia</TableHead>
                   <TableHead>Unidad</TableHead>
                   <TableHead className="text-right">Stock ubicación</TableHead>
@@ -275,6 +307,7 @@ export default function InventoryStocksIndex({
                       <div className="font-medium text-slate-900">{item.material?.codigo || '-'}</div>
                       <div className="text-xs text-slate-500">{item.material?.nombre || '-'}</div>
                     </TableCell>
+                    <TableCell>{item.material?.servicio || '-'}</TableCell>
                     <TableCell>{item.material?.familia || '-'}</TableCell>
                     <TableCell>{item.material?.unidad || '-'}</TableCell>
                     <TableCell className={`text-right font-semibold ${item.status === 'negative' ? 'text-rose-700' : 'text-slate-900'}`}>
@@ -296,7 +329,7 @@ export default function InventoryStocksIndex({
                 ))}
                 {(stocks?.data || []).length === 0 && (
                   <TableRow>
-                    <TableCell colSpan={9} className="py-16 text-center">
+                    <TableCell colSpan={10} className="py-16 text-center">
                       <div className="space-y-2">
                         <div className="text-base font-medium text-slate-700">No hay posiciones de stock para estos filtros.</div>
                         <div className="text-sm text-slate-500">Prueba limpiando filtros o cambiando el estado del stock visible.</div>

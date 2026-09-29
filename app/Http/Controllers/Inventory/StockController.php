@@ -2,17 +2,21 @@
 
 namespace App\Http\Controllers\Inventory;
 
+use App\Exports\InventoryStockExport;
 use App\Http\Controllers\Controller;
 use App\Http\Controllers\Inventory\Concerns\AuthorizesInventory;
 use App\Models\InventoryLocation;
 use App\Models\InventoryMaterial;
 use App\Models\InventoryMaterialFamily;
 use App\Models\InventoryStockLocation;
+use App\Models\Service;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use Inertia\Inertia;
 use Inertia\Response;
+use Maatwebsite\Excel\Facades\Excel;
+use Symfony\Component\HttpFoundation\BinaryFileResponse;
 
 class StockController extends Controller
 {
@@ -28,6 +32,7 @@ class StockController extends Controller
             'location_type' => (string) $request->input('location_type', ''),
             'material_id' => (string) $request->input('material_id', ''),
             'family_id' => (string) $request->input('family_id', ''),
+            'service_id' => (string) $request->input('service_id', ''),
             'stock_state' => (string) $request->input('stock_state', 'positive'),
             'per_page' => (string) $request->input('per_page', '20'),
         ];
@@ -91,6 +96,7 @@ class StockController extends Controller
                         'codigo' => $stock->material?->codigo,
                         'nombre' => $stock->material?->nombre,
                         'familia' => $stock->material?->family?->nombre,
+                        'servicio' => $stock->material?->service?->name,
                         'unidad' => $stock->material?->unit?->codigo,
                     ],
                     'stock_actual' => $stockActual,
@@ -127,6 +133,7 @@ class StockController extends Controller
                 ->orderBy('nombre')
                 ->get(['id', 'codigo', 'nombre']),
             'families' => InventoryMaterialFamily::query()->orderBy('nombre')->get(['id', 'nombre']),
+            'services' => Service::query()->orderBy('name')->get(['id', 'name']),
             'locationTypes' => InventoryLocation::query()
                 ->select('tipo')
                 ->distinct()
@@ -134,6 +141,32 @@ class StockController extends Controller
                 ->pluck('tipo')
                 ->values(),
         ]);
+    }
+
+    public function export(Request $request): BinaryFileResponse
+    {
+        $this->authorizeInventory($request);
+
+        $filters = [
+            'q' => trim((string) $request->input('q', '')),
+            'location_id' => (string) $request->input('location_id', ''),
+            'location_type' => (string) $request->input('location_type', ''),
+            'material_id' => (string) $request->input('material_id', ''),
+            'family_id' => (string) $request->input('family_id', ''),
+            'service_id' => (string) $request->input('service_id', ''),
+            'stock_state' => (string) $request->input('stock_state', 'positive'),
+        ];
+
+        $query = $this->buildStockQuery($filters, true);
+        $this->applyStockStateFilter($query, $filters['stock_state']);
+
+        $stocks = $query
+            ->orderByDesc('stock_actual')
+            ->get();
+
+        $filename = 'stock-ubicaciones-'.now()->format('Ymd-His').'.xlsx';
+
+        return Excel::download(new InventoryStockExport($stocks), $filename);
     }
 
     private function applyStockStateFilter(Builder $query, string $stockState): void
@@ -160,8 +193,9 @@ class StockController extends Controller
                 )
                 ->with([
                     'location:id,codigo,nombre,tipo,activo',
-                    'material:id,codigo,nombre,family_id,unit_id,sap_on_hand,activo',
+                    'material:id,codigo,nombre,family_id,unit_id,service_id,sap_on_hand,activo',
                     'material.family:id,nombre',
+                    'material.service:id,name',
                     'material.unit:id,codigo',
                 ]);
         }
@@ -173,7 +207,8 @@ class StockController extends Controller
             })
             ->whereHas('material', function (Builder $query) use ($filters): void {
                 $query->when($filters['material_id'] !== '', fn (Builder $inner) => $inner->where('id', $filters['material_id']))
-                    ->when($filters['family_id'] !== '', fn (Builder $inner) => $inner->where('family_id', $filters['family_id']));
+                    ->when($filters['family_id'] !== '', fn (Builder $inner) => $inner->where('family_id', $filters['family_id']))
+                    ->when($filters['service_id'] !== '', fn (Builder $inner) => $inner->where('service_id', $filters['service_id']));
             })
             ->when($filters['q'] !== '', function (Builder $query) use ($filters): void {
                 $query->where(function (Builder $searchQuery) use ($filters): void {

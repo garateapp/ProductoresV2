@@ -396,6 +396,7 @@ Route::middleware('auth')->group(function () {
     Route::prefix('inventory')->name('inventory.')->group(function () {
         Route::get('/', [App\Http\Controllers\Inventory\DashboardController::class, 'index'])->name('dashboard');
         Route::get('stocks', [App\Http\Controllers\Inventory\StockController::class, 'index'])->name('stocks.index');
+        Route::get('stocks/export', [App\Http\Controllers\Inventory\StockController::class, 'export'])->name('stocks.export');
 
         Route::get('materials', [App\Http\Controllers\Inventory\MaterialController::class, 'index'])->name('materials.index');
         Route::post('materials', [App\Http\Controllers\Inventory\MaterialController::class, 'store'])->name('materials.store');
