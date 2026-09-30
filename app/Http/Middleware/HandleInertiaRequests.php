@@ -55,6 +55,7 @@ class HandleInertiaRequests extends Middleware
                 'error' => fn () => $request->session()->get('error'),
                 'sync_output' => fn () => $request->session()->get('sync_output'),
                 'calidad_id' => fn () => $request->session()->get('calidad_id'),
+                'cloned_sheet_id' => fn () => $request->session()->get('cloned_sheet_id'),
             ],
             'ziggy' => function () use ($request) {
                 return array_merge((new \Tighten\Ziggy\Ziggy)->toArray(), [

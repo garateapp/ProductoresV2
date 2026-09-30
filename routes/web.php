@@ -500,6 +500,7 @@ Route::middleware('auth')->group(function () {
         Route::post('technical-sheets', [App\Http\Controllers\Inventory\TechnicalSheetController::class, 'store'])->name('technical-sheets.store');
         Route::get('technical-sheets/images/{image}', [App\Http\Controllers\Inventory\TechnicalSheetController::class, 'showImage'])->name('technical-sheets.images.show');
         Route::patch('technical-sheets/{technicalSheet}', [App\Http\Controllers\Inventory\TechnicalSheetController::class, 'update'])->name('technical-sheets.update');
+        Route::post('technical-sheets/{technicalSheet}/clone', [App\Http\Controllers\Inventory\TechnicalSheetController::class, 'clone'])->name('technical-sheets.clone');
         Route::post('technical-sheets/sync-packagings', [App\Http\Controllers\Inventory\TechnicalSheetController::class, 'syncPackagings'])->name('technical-sheets.sync-packagings');
         Route::get('technical-sheets/template', [App\Http\Controllers\Inventory\TechnicalSheetController::class, 'downloadTemplate'])->name('technical-sheets.template');
         Route::post('technical-sheets/import', [App\Http\Controllers\Inventory\TechnicalSheetController::class, 'import'])->name('technical-sheets.import');

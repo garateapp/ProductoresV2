@@ -114,6 +114,23 @@ class TechnicalSheetController extends Controller
         return back()->with('success', 'Ficha técnica creada.');
     }
 
+    public function clone(Request $request, InventoryTechnicalSheet $technicalSheet, TechnicalSheetService $sheetService): RedirectResponse
+    {
+        $this->authorizeInventory($request);
+
+        try {
+            $clone = $sheetService->cloneSheet($technicalSheet, (int) $request->user()->id);
+        } catch (Throwable $exception) {
+            report($exception);
+
+            return back()->with('error', 'No fue posible clonar la ficha técnica: '.$exception->getMessage());
+        }
+
+        return back()
+            ->with('success', 'Ficha clonada como "'.$clone->nombre.'". Modifica los datos y guarda los cambios.')
+            ->with('cloned_sheet_id', $clone->id);
+    }
+
     public function update(TechnicalSheetRequest $request, InventoryTechnicalSheet $technicalSheet, TechnicalSheetService $sheetService): RedirectResponse
     {
         $this->authorizeInventory($request);

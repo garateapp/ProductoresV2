@@ -1,6 +1,6 @@
-import { useRef, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { router, useForm, usePage } from '@inertiajs/react'
-import { ChevronDown, ChevronUp, ImagePlus, Trash2 } from 'lucide-react'
+import { ChevronDown, ChevronUp, Copy, ImagePlus, Trash2 } from 'lucide-react'
 import AuthenticatedLayout from '@/Layouts/AuthenticatedLayout'
 import { Card, CardContent, CardHeader, CardTitle } from '@/Components/ui/card'
 import { Button } from '@/Components/ui/button'
@@ -107,9 +107,11 @@ export default function InventoryTechnicalSheets({ sheets = [], packagings = [],
   const [editing, setEditing] = useState(null)
   const fileInputRef = useRef(null)
   const imageInputRef = useRef(null)
+  const handledCloneRef = useRef(null)
   const form = useForm(createEmptyForm())
   const { data, setData, post, processing, errors, reset, clearErrors, transform } = form
   const importForm = useForm({ file: null })
+  const cloneForm = useForm({})
   const packagingOptions = packagings.map((item) => ({ value: String(item.id), label: `${item.codigo} · ${item.nombre}` }))
   const materialOptions = materials.map((item) => ({ value: String(item.id), label: `${item.codigo} · ${item.nombre}` }))
   const labelOptions = labels.map((item) => ({
@@ -170,6 +172,25 @@ export default function InventoryTechnicalSheets({ sheets = [], packagings = [],
     })
     window.scrollTo({ top: 0, behavior: 'smooth' })
   }
+
+  const cloneSheet = (sheet) => {
+    releasePreviews()
+    cloneForm.post(route('inventory.technical-sheets.clone', sheet.id), {
+      preserveScroll: true,
+    })
+  }
+
+  const clonedSheetId = props?.flash?.cloned_sheet_id
+
+  useEffect(() => {
+    if (!clonedSheetId || handledCloneRef.current === clonedSheetId) return
+
+    const cloned = sheets.find((sheet) => sheet.id === clonedSheetId)
+    if (!cloned) return
+
+    handledCloneRef.current = clonedSheetId
+    startEdit(cloned)
+  }, [clonedSheetId, sheets])
 
   const submit = (event) => {
     event.preventDefault()
@@ -449,7 +470,13 @@ export default function InventoryTechnicalSheets({ sheets = [], packagings = [],
                       {!sheet.es_semielaborado && sheet.images?.length > 0 && <Badge variant="outline">{sheet.images.length} imágenes</Badge>}
                     </div>
                   </div>
-                  <Button variant="outline" size="sm" onClick={() => startEdit(sheet)}>Editar</Button>
+                  <div className="flex flex-wrap gap-2">
+                    <Button variant="outline" size="sm" onClick={() => startEdit(sheet)}>Editar</Button>
+                    <Button variant="outline" size="sm" onClick={() => cloneSheet(sheet)} disabled={cloneForm.processing}>
+                      <Copy className="mr-1 h-4 w-4" />
+                      {cloneForm.processing ? 'Clonando...' : 'Clonar'}
+                    </Button>
+                  </div>
                 </div>
                 <div className="mt-4 grid gap-4 md:grid-cols-2">
                   {[
