@@ -47,6 +47,7 @@ export default function InventoryLogisticUnits({ units, materials = [], location
   const [productionModal, setProductionModal] = useState({ open: false })
   const [showRequestDetail, setShowRequestDetail] = useState(false)
   const [productionLpnCode, setProductionLpnCode] = useState('')
+  const [availableLpns, setAvailableLpns] = useState({ loading: false, data: [] })
   const [printers, setPrinters] = useState([])
   const [selectedPrinter, setSelectedPrinter] = useState(() => window.localStorage?.getItem('inventory.zplPrinter') || '')
 
@@ -163,6 +164,56 @@ export default function InventoryLogisticUnits({ units, materials = [], location
     setProductionModal({ open: true })
   }
 
+  const emptyPending = { pending: [], failed: [], pending_count: 0, failed_count: 0 }
+  const [pendingModal, setPendingModal] = useState({ open: false })
+  const [pendingConsumptions, setPendingConsumptions] = useState({
+    loading: false,
+    processing: false,
+    data: emptyPending,
+  })
+  const pendingTotal = pendingConsumptions.data.pending_count + pendingConsumptions.data.failed_count
+
+  const openPending = async () => {
+    setPendingModal({ open: true })
+    setPendingConsumptions((prev) => ({ ...prev, loading: true }))
+
+    try {
+      const response = await window.axios.get(route('inventory.transformation.pending'))
+      setPendingConsumptions((prev) => ({ ...prev, loading: false, data: response.data || emptyPending }))
+    } catch (e) {
+      setPendingConsumptions((prev) => ({ ...prev, loading: false }))
+      toast.error(e.response?.data?.message || 'No fue posible consultar los consumos pendientes.')
+    }
+  }
+
+  const processPendingConsumption = async (item) => {
+    setPendingConsumptions((prev) => ({ ...prev, processing: true }))
+
+    try {
+      const response = await window.axios.post(route('inventory.transformation.pending.process'), item
+        ? { id: String(item.id), state: item.state }
+        : {})
+
+      setPendingConsumptions((prev) => ({ ...prev, processing: false, data: response.data.overview || emptyPending }))
+
+      if (response.data.ok) {
+        toast.success(response.data.message || 'Consumo registrado.')
+        router.reload({ only: ['units', 'stocks'] })
+      } else {
+        toast.error(response.data.message || 'No fue posible procesar el consumo.')
+      }
+    } catch (e) {
+      const payload = e.response?.data
+
+      setPendingConsumptions((prev) => ({
+        ...prev,
+        processing: false,
+        data: payload?.overview || prev.data,
+      }))
+      toast.error(payload?.message || 'No fue posible procesar el consumo.')
+    }
+  }
+
   const loadPrinters = async () => {
     try {
       await connectQz()
@@ -182,7 +233,7 @@ export default function InventoryLogisticUnits({ units, materials = [], location
     }
   }
 
-  const addInput = async (lpnCode) => {
+const addInput = async (lpnCode) => {
     const code = String(lpnCode || '').trim()
     if (!code) return
 
@@ -207,7 +258,13 @@ export default function InventoryLogisticUnits({ units, materials = [], location
         }
 
         if (productionForm.data.inputs.some((item) => item.lpn_code === unit.license_plate_number)) {
-          return
+            toast.error('Ese LPN ya fue agregado como insumo')
+            return
+        }
+
+        if (Number(unit.available_quantity) <= 0) {
+            toast.error(`El LPN ${unit.license_plate_number} no tiene stock disponible`)
+            return
         }
 
         productionForm.setData('inputs', [...productionForm.data.inputs, {
@@ -220,8 +277,50 @@ export default function InventoryLogisticUnits({ units, materials = [], location
             wastes: [],
         }])
     } catch (e) {
-        toast.error('LPN no encontrado o inválido')
+      toast.error('LPN no encontrado o inválido')
     }
+  }
+
+  // LPNs con stock de los materiales de la ficha técnica, para el desplegable de insumos.
+  const loadAvailableLpns = async (sheetId) => {
+    if (!sheetId) {
+      setAvailableLpns({ loading: false, data: [] })
+      return
+    }
+
+    setAvailableLpns((prev) => ({ ...prev, loading: true }))
+
+    try {
+      const response = await window.axios.get(route('inventory.logistic-units.available-for-sheet'), {
+        params: { technical_sheet_id: sheetId },
+      })
+      setAvailableLpns({ loading: false, data: response.data.lpns || [] })
+    } catch (e) {
+      setAvailableLpns({ loading: false, data: [] })
+      toast.error('No se pudieron cargar los LPN disponibles')
+    }
+  }
+
+  useEffect(() => {
+    if (!productionModal.open) return
+    loadAvailableLpns(productionForm.data.technical_sheet_id)
+  }, [productionModal.open, productionForm.data.technical_sheet_id])
+
+  // Se ocultan del desplegable los LPNs ya agregados como insumo.
+  const selectableLpns = availableLpns.data.filter(
+    (lpn) => !productionForm.data.inputs.some((item) => item.lpn_code === lpn.license_plate_number)
+  )
+
+  const lpnSelectOptions = selectableLpns.map((lpn) => ({
+    value: lpn.license_plate_number,
+    label: `${lpn.license_plate_number} · ${lpn.material_codigo ?? ''} · ${Number(lpn.available_quantity).toLocaleString('es-CL')}${lpn.location_label ? ' · ' + lpn.location_label : ''}`,
+    lpn,
+  }))
+
+  const addInputFromSelect = async (option) => {
+    if (!option) return
+    setProductionLpnCode('')
+    await addInput(option.value)
   }
 
   const updateProductionInput = (index, changes) => {
@@ -855,11 +954,102 @@ export default function InventoryLogisticUnits({ units, materials = [], location
     <div className=" mx-auto py-10 space-y-4">
       <Card>
         <CardHeader>
-          <div className="flex justify-between items-center">
+          <div className="flex flex-wrap justify-between items-center gap-2">
             <CardTitle>Pallets / LPN</CardTitle>
-            <Button variant="secondary" onClick={openProduction}>Producir Semielaborado</Button>
+            <div className="flex flex-wrap items-center gap-2">
+              <Button
+                variant="outline"
+                onClick={openPending}
+                disabled={pendingConsumptions.loading}
+              >
+                {pendingConsumptions.loading
+                  ? 'Buscando...'
+                  : `Consumos pendientes${pendingTotal > 0 ? ` (${pendingTotal})` : ''}`}
+              </Button>
+              <Button variant="secondary" onClick={openProduction}>Producir Semielaborado</Button>
+            </div>
           </div>
         </CardHeader>
+      <Dialog open={pendingModal.open} onOpenChange={(val) => setPendingModal({ ...pendingModal, open: val })}>
+  <DialogContent className="max-h-[88vh] overflow-hidden p-0 sm:max-w-3xl">
+    <DialogHeader className="border-b px-6 py-5">
+      <DialogTitle className="text-xl">Consumos pendientes</DialogTitle>
+      <DialogDescription>
+        Producciones de semielaborado que quedaron sin registrar porque el procesamiento en segundo plano no se ejecutó.
+        Al procesar aquí se descuentan los insumos inmediatamente.
+      </DialogDescription>
+    </DialogHeader>
+
+    <div className="max-h-[calc(88vh-140px)] space-y-5 overflow-y-auto px-6 py-5">
+      {pendingConsumptions.loading ? (
+        <p className="text-sm text-slate-500">Buscando consumos pendientes...</p>
+      ) : pendingTotal === 0 ? (
+        <p className="text-sm text-slate-500">No hay consumos pendientes.</p>
+      ) : (
+        <>
+          <div className="flex justify-end">
+            <Button size="sm" disabled={pendingConsumptions.processing} onClick={() => processPendingConsumption(null)}>
+              {pendingConsumptions.processing ? 'Procesando...' : 'Procesar todos'}
+            </Button>
+          </div>
+
+          {[...pendingConsumptions.data.pending, ...pendingConsumptions.data.failed].map((item) => (
+            <div key={`${item.state}-${item.id}`} className="rounded-xl border bg-white p-4 shadow-sm">
+              <div className="flex flex-wrap items-start justify-between gap-3">
+                <div className="min-w-0">
+                  <div className="flex items-center gap-2">
+                    <span className={`rounded-full px-2 py-0.5 text-xs font-medium ${
+                      item.state === 'failed'
+                        ? 'bg-red-100 text-red-700'
+                        : 'bg-amber-100 text-amber-700'
+                    }`}>
+                      {item.state === 'failed' ? 'Con error' : 'En cola'}
+                    </span>
+                    <span className="text-sm font-semibold text-slate-900">
+                      {item.technical_sheet || 'Ficha técnica no disponible'}
+                    </span>
+                  </div>
+                  <p className="mt-1 text-xs text-slate-500">
+                    {item.location || 'Sin ubicación'} · {Number(item.quantity || 0).toLocaleString('es-CL', { maximumFractionDigits: 4 })} produced
+                  </p>
+                  {item.created_at && <p className="text-xs text-slate-400">En cola desde {item.created_at}</p>}
+                  {item.error && <p className="mt-1 text-xs text-red-600">{item.error}</p>}
+                </div>
+                <Button
+                  size="sm"
+                  disabled={pendingConsumptions.processing}
+                  onClick={() => processPendingConsumption(item)}
+                >
+                  Procesar
+                </Button>
+              </div>
+
+              <div className="mt-3 space-y-1">
+                {(item.inputs || []).map((input) => (
+                  <div key={input.lpn_code} className="flex justify-between text-xs text-slate-600">
+                    <span className="font-mono">{input.lpn_code}</span>
+                    <span>
+                      consumo {Number(input.consumed || 0).toLocaleString('es-CL', { maximumFractionDigits: 4 })}
+                      {Number(input.waste_total || 0) > 0
+                        ? ` · merma ${Number(input.waste_total).toLocaleString('es-CL', { maximumFractionDigits: 4 })}`
+                        : ''}
+                    </span>
+                  </div>
+                ))}
+              </div>
+            </div>
+          ))}
+        </>
+      )}
+    </div>
+
+    <DialogFooter className="border-t bg-white px-6 py-4">
+      <Button type="button" variant="ghost" onClick={() => setPendingModal({ ...pendingModal, open: false })}>
+        Cerrar
+      </Button>
+    </DialogFooter>
+  </DialogContent>
+</Dialog>
       <Dialog open={productionModal.open} onOpenChange={(val) => setProductionModal({ ...productionModal, open: val })}>
   <DialogContent className="max-h-[92vh] overflow-hidden p-0 sm:max-w-7xl">
     <DialogHeader className="border-b px-6 py-5">
@@ -919,7 +1109,7 @@ export default function InventoryLogisticUnits({ units, materials = [], location
             {availability.data && (
             <div className="mt-4 rounded-lg border bg-slate-100/50 p-3 text-xs">
               <h4 className="mb-2 font-bold flex items-center gap-2">
-                <Package className="h-3 w-3" /> Disponibilidad en ubicación
+                <Package className="h-3 w-3" /> Disponibilidad de insumos
               </h4>
               <div className="space-y-1">
                 {availability.data.map((item, idx) => (
@@ -943,15 +1133,15 @@ export default function InventoryLogisticUnits({ units, materials = [], location
 
         </section>
 
-        {(productionForm.errors.technical_sheet_id ||
-          productionForm.errors.location_id ||
-          productionForm.errors.quantity ||
-          productionForm.errors.inputs) && (
+        {Object.keys(productionForm.errors).length > 0 && (
           <div className="rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
-            {productionForm.errors.technical_sheet_id ||
-              productionForm.errors.location_id ||
-              productionForm.errors.quantity ||
-              productionForm.errors.inputs}
+            <ul className="list-disc space-y-1 pl-4">
+              {Object.entries(productionForm.errors).flatMap(([field, messages]) =>
+                (Array.isArray(messages) ? messages : [messages]).map((message, index) => (
+                  <li key={`${field}-${index}`}>{message}</li>
+                ))
+              )}
+            </ul>
           </div>
         )}
 
@@ -959,37 +1149,64 @@ export default function InventoryLogisticUnits({ units, materials = [], location
           <div className="mb-3 flex flex-col gap-3 md:flex-row md:items-end md:justify-between">
             <div>
               <h3 className="text-sm font-semibold text-slate-900">Insumos</h3>
-              <p className="text-xs text-slate-500">Escanea un LPN y presiona Enter para agregarlo.</p>
+              <p className="text-xs text-slate-500">
+                Selecciona un LPN de la lista o escanea el código y presiona Enter.
+              </p>
             </div>
 
-            <div className="flex w-full gap-2 md:max-w-xl">
-              <Input
-                value={productionLpnCode}
-                onChange={(e) => setProductionLpnCode(e.target.value)}
-                onKeyDown={(e) => {
-                  if (e.key === 'Enter') {
-                    e.preventDefault()
-                    if (!isAvailabilityInvalid) {
-                        addInput(productionLpnCode)
-                        setProductionLpnCode('')
-                    }
-                  }
-                }}
-                disabled={isAvailabilityInvalid}
-                placeholder={isAvailabilityInvalid ? "Corrija stock faltante para escanear..." : "Escanear LPN..."}
+            <div className="w-full md:max-w-xl">
+              <Label>LPN de insumo</Label>
+              <SearchableSelect
+                options={lpnSelectOptions}
+                value={null}
+                onChange={addInputFromSelect}
+                isDisabled={isAvailabilityInvalid || availableLpns.loading || lpnSelectOptions.length === 0}
+                placeholder={
+                  isAvailabilityInvalid
+                    ? 'Corrija el stock faltante para agregar insumos'
+                    : availableLpns.loading
+                      ? 'Cargando LPN disponibles...'
+                      : lpnSelectOptions.length === 0
+                        ? 'No hay LPN con stock para esta ficha'
+                        : 'Selecciona un LPN disponible'
+                }
+                menuPortalTarget={null}
               />
-              <Button
-                type="button"
-                variant="outline"
-                disabled={isAvailabilityInvalid}
-                onClick={() => {
-                  addInput(productionLpnCode)
-                  setProductionLpnCode('')
-                }}
-              >
-                <Plus className="mr-1 h-4 w-4" />
-                Agregar
-              </Button>
+              {selectableLpns.length < availableLpns.data.length && (
+                <p className="mt-1 text-xs text-slate-500">
+                  {availableLpns.data.length - selectableLpns.length} LPN ya agregados, ocultos de la lista.
+                </p>
+              )}
+
+              <div className="mt-2 flex gap-2">
+                <Input
+                  value={productionLpnCode}
+                  onChange={(e) => setProductionLpnCode(e.target.value)}
+                  onKeyDown={(e) => {
+                    if (e.key === 'Enter') {
+                      e.preventDefault()
+                      if (!isAvailabilityInvalid) {
+                          addInput(productionLpnCode)
+                          setProductionLpnCode('')
+                      }
+                    }
+                  }}
+                  disabled={isAvailabilityInvalid}
+                  placeholder={isAvailabilityInvalid ? "Corrija stock faltante para escanear..." : "Escanear LPN..."}
+                />
+                <Button
+                  type="button"
+                  variant="outline"
+                  disabled={isAvailabilityInvalid || !productionLpnCode.trim()}
+                  onClick={() => {
+                    addInput(productionLpnCode)
+                    setProductionLpnCode('')
+                  }}
+                >
+                  <Plus className="mr-1 h-4 w-4" />
+                  Agregar
+                </Button>
+              </div>
             </div>
           </div>
 

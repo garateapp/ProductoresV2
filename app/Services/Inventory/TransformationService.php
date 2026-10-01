@@ -3,11 +3,13 @@
 namespace App\Services\Inventory;
 
 use App\Models\InventoryLogisticUnit;
+use App\Models\InventoryMaterial;
 use App\Models\InventoryMovementType;
 use App\Models\InventoryStockPosition;
 use App\Models\InventoryTechnicalSheet;
 use App\Models\InventoryWasteReason;
 use Illuminate\Support\Collection;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Validation\ValidationException;
 
 class TransformationService
@@ -18,6 +20,16 @@ class TransformationService
     ) {
     }
 
+    /**
+     * Comprueba si hay stock suficiente de los insumos de la ficha técnica.
+     *
+     * $locationId es la ubicación DESTINO del semielaborado, no la de los insumos:
+     * el consumo real lo hace allocateFromPallet() sobre las posiciones de stock de
+     * cada LPN elegido, sin importar dónde estén. Por eso la disponibilidad se
+     * calcula sobre inventory_stock_positions (la misma fuente que se descuenta) y
+     * no sobre inventory_stock_locations filtrada por el destino, que además puede
+     * estar desactualizada.
+     */
     public function validateAvailability(int $sheetId, float $quantity, int $locationId): array
     {
         $sheet = InventoryTechnicalSheet::query()
@@ -29,29 +41,17 @@ class TransformationService
         $hasErrors = false;
 
         foreach ($requirements as $materialId => $req) {
-            // Check primary stock
-            $stock = \App\Models\InventoryStockLocation::query()
-                ->where('location_id', $locationId)
-                ->where('material_id', $materialId)
-                ->first();
-
-            $availableQty = (float) ($stock->stock_actual ?? 0);
+            $availableQty = $this->availableQuantity((int) $materialId);
             $shortage = max(0, $req['quantity'] - $availableQty);
 
             $replacementAvailable = 0;
             $replacementMaterial = null;
 
-            // If shortage and has replacement, check replacement stock
+            // Si hay faltante y existe material de reemplazo, se considera su stock.
             if ($shortage > 0 && $req['replacement_material_id']) {
-                $replacementStock = \App\Models\InventoryStockLocation::query()
-                    ->where('location_id', $locationId)
-                    ->where('material_id', $req['replacement_material_id'])
-                    ->first();
-                
-                $replacementAvailable = (float) ($replacementStock->stock_actual ?? 0);
-                $replacementMaterial = \App\Models\InventoryMaterial::find($req['replacement_material_id']);
+                $replacementAvailable = $this->availableQuantity((int) $req['replacement_material_id']);
+                $replacementMaterial = InventoryMaterial::find($req['replacement_material_id']);
 
-                // If total (primary + replacement) is enough, we mark as OK but note the use of replacement
                 if (($availableQty + $replacementAvailable) >= $req['quantity']) {
                     $shortage = 0;
                 }
@@ -77,12 +77,25 @@ class TransformationService
 
         if ($hasErrors) {
              throw ValidationException::withMessages([
-                'availability' => 'Stock insuficiente en la ubicación para cumplir con la ficha técnica (considerando reemplazos).',
+                'availability' => 'Stock insuficiente para cumplir con la ficha técnica (considerando reemplazos).',
                 'details' => $availability
             ]);
         }
 
         return $availability;
+    }
+
+    /**
+     * Stock realmente disponible de un material: suma de las posiciones con
+     * cantidad, que es exactamente de donde toma allocateFromPallet().
+     */
+    private function availableQuantity(int $materialId): float
+    {
+        return (float) InventoryStockPosition::query()
+            ->where('material_id', $materialId)
+            ->where('quantity', '>', 0)
+            ->where(fn ($query) => $query->whereNull('status')->orWhere('status', 'available'))
+            ->sum('quantity');
     }
 
     private function calculateRequirements(InventoryTechnicalSheet $sheet, float $quantity): array
@@ -103,68 +116,76 @@ class TransformationService
 
     public function transform(array $data, int $userId): InventoryLogisticUnit
     {
-        $sheetId = (int) $data['technical_sheet_id'];
-        $quantity = (float) $data['quantity'];
-        $locationId = (int) $data['location_id'];
+        return DB::transaction(function () use ($data, $userId): InventoryLogisticUnit {
+            $sheetId = (int) $data['technical_sheet_id'];
+            $quantity = (float) $data['quantity'];
+            $locationId = (int) $data['location_id'];
 
-        // Validar disponibilidad antes de procesar
-        $this->validateAvailability($sheetId, $quantity, $locationId);
+            // Validar disponibilidad antes de procesar
+            $this->validateAvailability($sheetId, $quantity, $locationId);
 
-        $sheet = InventoryTechnicalSheet::query()->findOrFail($sheetId);
+            $sheet = InventoryTechnicalSheet::query()->findOrFail($sheetId);
 
-        if (! $sheet->es_semielaborado || ! $sheet->material_id) {
-            throw ValidationException::withMessages([
-                'technical_sheet_id' => 'La ficha técnica debe corresponder a un semielaborado con material definido.',
-            ]);
-        }
-
-        $units = $this->resolveAndValidateInputs($data['inputs']);
-        $positionBalances = [];
-        $consumptionDetailsByLocation = [];
-        $wasteDetailsByGroup = [];
-
-        foreach ($data['inputs'] as $input) {
-            $unit = $units[$input['lpn_code']];
-
-            foreach ($this->allocateFromPallet($unit, (float) ($input['consumed'] ?? 0), $positionBalances) as $allocation) {
-                $consumptionDetailsByLocation[$allocation['location_id']][] = $this->movementDetail($unit, $allocation);
+            if (! $sheet->es_semielaborado || ! $sheet->material_id) {
+                throw ValidationException::withMessages([
+                    'technical_sheet_id' => 'La ficha técnica debe corresponder a un semielaborado con material definido.',
+                ]);
             }
 
-            foreach (($input['wastes'] ?? []) as $waste) {
-                foreach ($this->allocateFromPallet($unit, (float) $waste['quantity'], $positionBalances) as $allocation) {
-                    $key = implode('|', [
-                        $allocation['location_id'],
-                        (int) $waste['waste_reason_id'],
-                        (int) $waste['waste_type_id'],
-                    ]);
+            $units = $this->resolveAndValidateInputs($data['inputs']);
+            $positionBalances = [];
+            $consumptionDetailsByLocation = [];
+            $wasteDetailsByGroup = [];
 
-                    $wasteDetailsByGroup[$key]['location_id'] = $allocation['location_id'];
-                    $wasteDetailsByGroup[$key]['waste_reason_id'] = (int) $waste['waste_reason_id'];
-                    $wasteDetailsByGroup[$key]['waste_type_id'] = (int) $waste['waste_type_id'];
-                    $wasteDetailsByGroup[$key]['details'][] = $this->movementDetail($unit, $allocation);
+            foreach ($data['inputs'] as $input) {
+                $unit = $units[$input['lpn_code']];
+
+                foreach ($this->allocateFromPallet($unit, (float) ($input['consumed'] ?? 0), $positionBalances) as $allocation) {
+                    $consumptionDetailsByLocation[$allocation['location_id']][] = $this->movementDetail($unit, $allocation);
+                }
+
+                foreach (($input['wastes'] ?? []) as $waste) {
+                    if (empty($waste['waste_reason_id'])) {
+                        throw ValidationException::withMessages([
+                            'inputs' => "El LPN {$unit->license_plate_number} tiene merma sin motivo informado.",
+                        ]);
+                    }
+
+                    foreach ($this->allocateFromPallet($unit, (float) $waste['quantity'], $positionBalances) as $allocation) {
+                        $key = implode('|', [
+                            $allocation['location_id'],
+                            (int) $waste['waste_reason_id'],
+                            (int) ($waste['waste_type_id'] ?? 0),
+                        ]);
+
+                        $wasteDetailsByGroup[$key]['location_id'] = $allocation['location_id'];
+                        $wasteDetailsByGroup[$key]['waste_reason_id'] = (int) $waste['waste_reason_id'];
+                        $wasteDetailsByGroup[$key]['waste_type_id'] = $waste['waste_type_id'] ?? null;
+                        $wasteDetailsByGroup[$key]['details'][] = $this->movementDetail($unit, $allocation);
+                    }
                 }
             }
-        }
 
-        $newUnit = $this->logisticUnitService->create([
-            'license_plate_number' => $this->logisticUnitService->suggestLicensePlateNumber((int) $sheet->material_id),
-            'material_id' => (int) $sheet->material_id,
-            'current_location_id' => (int) $data['location_id'],
-            'status' => 'active',
-            'available_quantity' => (float) $data['quantity'],
-            'base_quantity' => (float) $data['quantity'],
-            'reference_type' => 'semi_finished_production',
-            'reference_id' => (int) $sheet->id,
-            'metadata' => [
-                'workflow' => 'semi_finished_production',
-                'technical_sheet_id' => (int) $sheet->id,
-            ],
-        ], $userId);
+            $newUnit = $this->logisticUnitService->create([
+                'license_plate_number' => $this->logisticUnitService->suggestLicensePlateNumber((int) $sheet->material_id),
+                'material_id' => (int) $sheet->material_id,
+                'current_location_id' => $locationId,
+                'status' => 'active',
+                'available_quantity' => $quantity,
+                'base_quantity' => $quantity,
+                'reference_type' => 'semi_finished_production',
+                'reference_id' => (int) $sheet->id,
+                'metadata' => [
+                    'workflow' => 'semi_finished_production',
+                    'technical_sheet_id' => (int) $sheet->id,
+                ],
+            ], $userId);
 
-        $this->createConsumptionMovements($consumptionDetailsByLocation, $newUnit, $userId);
-        $this->createWasteMovements($wasteDetailsByGroup, $newUnit, $userId);
+            $this->createConsumptionMovements($consumptionDetailsByLocation, $newUnit, $userId);
+            $this->createWasteMovements($wasteDetailsByGroup, $newUnit, $userId);
 
-        return $newUnit;
+            return $newUnit;
+        });
     }
 
     private function resolveAndValidateInputs(array $inputs): array
@@ -331,7 +352,7 @@ class TransformationService
                 'metadata' => [
                     'workflow' => 'semi_finished_production',
                     'detected_location_id' => (int) $group['location_id'],
-                    'waste_type_id' => (int) $group['waste_type_id'],
+                    'waste_type_id' => $group['waste_type_id'] !== null ? (int) $group['waste_type_id'] : null,
                     'output_logistic_unit_id' => $newUnit->id,
                     'output_lpn' => $newUnit->license_plate_number,
                 ],

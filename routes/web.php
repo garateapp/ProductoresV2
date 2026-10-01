@@ -429,6 +429,7 @@ Route::middleware('auth')->group(function () {
         Route::get('logistic-units', [App\Http\Controllers\Inventory\LogisticUnitController::class, 'index'])->name('logistic-units.index');
         Route::post('logistic-units', [App\Http\Controllers\Inventory\LogisticUnitController::class, 'store'])->name('logistic-units.store');
         Route::get('logistic-units/by-code/{code}', [App\Http\Controllers\Inventory\LogisticUnitController::class, 'showByCode'])->name('logistic-units.by-code');
+        Route::get('logistic-units/available-for-sheet', [App\Http\Controllers\Inventory\LogisticUnitController::class, 'availableForSheet'])->name('logistic-units.available-for-sheet');
         Route::get('logistic-units/print-lot/{lotCode}', [App\Http\Controllers\Inventory\LogisticUnitController::class, 'printLot'])->name('logistic-units.print-lot');
         Route::get('logistic-units/{logisticUnit}', [App\Http\Controllers\Inventory\LogisticUnitController::class, 'show'])->name('logistic-units.show');
         Route::post('logistic-units/{logisticUnit}/relocate', [App\Http\Controllers\Inventory\LogisticUnitController::class, 'relocate'])->name('logistic-units.relocate');
@@ -449,6 +450,8 @@ Route::middleware('auth')->group(function () {
         Route::post('workflows/waste-scan', [App\Http\Controllers\Inventory\WorkflowController::class, 'waste'])->name('workflows.waste');
         Route::post('transformation/check-availability', [App\Http\Controllers\Inventory\TransformationController::class, 'checkAvailability'])->name('transformation.check-availability');
         Route::post('transformation', [App\Http\Controllers\Inventory\TransformationController::class, 'store'])->name('transformation.store');
+        Route::get('transformation/pending', [App\Http\Controllers\Inventory\PendingTransformationController::class, 'index'])->name('transformation.pending');
+        Route::post('transformation/pending/process', [App\Http\Controllers\Inventory\PendingTransformationController::class, 'store'])->name('transformation.pending.process');
 
         Route::get('waste/{wasteRecord}/act-pdf', [App\Http\Controllers\Inventory\WasteController::class, 'pdfAct'])->name('waste.act-pdf');
         Route::get('waste/{wasteRecord}', [App\Http\Controllers\Inventory\WasteController::class, 'show'])->name('waste.show');

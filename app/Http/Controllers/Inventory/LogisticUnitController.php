@@ -293,6 +293,79 @@ class LogisticUnitController extends Controller
         ]);
     }
 
+    /**
+     * LPNs disponibles con stock para consumir en la producción de un semielaborado.
+     *
+     * Solo devuelve LPNs cuyo material es un insumo (o reemplazo) de la ficha técnica
+     * indicada, que es lo que valida después el consumo real.
+     */
+    public function availableForSheet(Request $request): JsonResponse
+    {
+        $this->authorizeInventory($request);
+
+        $data = $request->validate([
+            'technical_sheet_id' => ['required', 'integer', 'exists:inventory_technical_sheets,id'],
+            'search' => ['nullable', 'string', 'max:64'],
+        ]);
+
+        $sheet = InventoryTechnicalSheet::query()
+            ->with(['unitItems', 'palletItems'])
+            ->findOrFail($data['technical_sheet_id']);
+
+        $allowedMaterialIds = collect($sheet->unitItems)
+            ->concat($sheet->palletItems)
+            ->flatMap(fn ($item) => [$item->material_id, $item->replacement_material_id])
+            ->filter()
+            ->unique()
+            ->values();
+
+        if ($allowedMaterialIds->isEmpty()) {
+            return response()->json(['lpns' => []]);
+        }
+
+        // La cantidad se toma de las posiciones con stock, que es la misma fuente que
+        // descuenta la transformación, y se evita el LPN si ya está agregado en inputs.
+        $rows = InventoryStockPosition::query()
+            ->join('inventory_logistic_units as units', 'units.id', '=', 'inventory_stock_positions.logistic_unit_id')
+            ->join('inventory_materials as materials', 'materials.id', '=', 'units.material_id')
+            ->leftJoin('inventory_locations as locations', 'locations.id', '=', 'inventory_stock_positions.location_id')
+            ->whereIn('units.material_id', $allowedMaterialIds)
+            ->where('inventory_stock_positions.quantity', '>', 0)
+            ->where(fn ($query) => $query->whereNull('inventory_stock_positions.status')->orWhere('inventory_stock_positions.status', 'available'))
+            ->when($data['search'] ?? null, function ($query, string $search) {
+                $like = '%'.str_replace(['%', '_'], ['\%', '\_'], $search).'%';
+                $query->where(fn ($q) => $q->where('units.license_plate_number', 'like', $like)->orWhere('materials.nombre', 'like', $like));
+            })
+            ->groupBy('units.id', 'units.license_plate_number', 'units.material_id', 'materials.codigo', 'materials.nombre', 'units.status')
+            ->select([
+                'units.id',
+                'units.license_plate_number',
+                'units.material_id',
+                'units.status',
+                'materials.codigo as material_codigo',
+                'materials.nombre as material_nombre',
+            ])
+            ->selectRaw('SUM(inventory_stock_positions.quantity) as available_quantity')
+            ->selectRaw('MIN(locations.codigo) as location_codigo')
+            ->selectRaw('MIN(locations.nombre) as location_nombre')
+            ->orderBy('materials.nombre')
+            ->orderBy('units.license_plate_number')
+            ->limit(200)
+            ->get()
+            ->map(fn ($row) => [
+                'id' => $row->id,
+                'license_plate_number' => $row->license_plate_number,
+                'material_id' => $row->material_id,
+                'status' => $row->status,
+                'available_quantity' => (float) $row->available_quantity,
+                'location_label' => $row->location_codigo
+                    ? $row->location_codigo . ($row->location_nombre ? ' · ' . $row->location_nombre : '')
+                    : null,
+            ]);
+
+        return response()->json(['lpns' => $rows]);
+    }
+
     public function relocate(Request $request, InventoryLogisticUnit $logisticUnit, LogisticUnitService $logisticUnitService): RedirectResponse
     {
         $this->authorizeInventory($request);
