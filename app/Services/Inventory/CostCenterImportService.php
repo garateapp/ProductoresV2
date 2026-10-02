@@ -147,10 +147,6 @@ class CostCenterImportService
         $rows = collect();
 
         for ($row = $headerRow + 1; $row <= $highestRow; $row++) {
-            if ($row === CostCenterTemplateExport::FIRST_DATA_ROW) {
-                continue;
-            }
-
             $codigo = trim((string) $sheet->getCell('A'.$row)->getValue());
             $nombre = trim((string) $sheet->getCell('B'.$row)->getValue());
 
