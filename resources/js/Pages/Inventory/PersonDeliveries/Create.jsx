@@ -23,7 +23,7 @@ const emptyItem = { material_id: '', cantidad: '' }
 
 const formatQuantity = (value) => Number(value || 0).toLocaleString('es-CL', { maximumFractionDigits: 4 })
 
-export default function CreatePersonDelivery({ locations = [], materials = [], people = [] }) {
+export default function CreatePersonDelivery({ locations = [], materials = [], people = [], costCenters = [] }) {
   const [stockReferenceByIndex, setStockReferenceByIndex] = useState({})
   const [signatureError, setSignatureError] = useState('')
   const [peopleList, setPeopleList] = useState(people)
@@ -33,6 +33,7 @@ export default function CreatePersonDelivery({ locations = [], materials = [], p
   const [personErrors, setPersonErrors] = useState({})
   const { data, setData, post, processing, errors, clearErrors } = useForm({
     origin_location_id: '',
+    cost_center_id: '',
     person_id: '',
     person_position: '',
     person_area: '',
@@ -43,6 +44,10 @@ export default function CreatePersonDelivery({ locations = [], materials = [], p
   })
 
   const locationOptions = locations.map((location) => ({ value: String(location.id), label: location.nombre }))
+  const costCenterOptions = costCenters.map((costCenter) => ({
+    value: String(costCenter.id),
+    label: `${costCenter.codigo} · ${costCenter.nombre}`,
+  }))
   const personOptions = peopleList.map((person) => ({
     value: String(person.id),
     label: `${person.nombre} · ${person.email}${person.cargo ? ` · ${person.cargo}` : ''}`,
@@ -250,6 +255,17 @@ export default function CreatePersonDelivery({ locations = [], materials = [], p
                     placeholder="Selecciona bodega"
                   />
                   {errors.origin_location_id && <p className="text-sm text-red-600">{errors.origin_location_id}</p>}
+                </div>
+
+                <div className="space-y-2">
+                  <Label>Centro de costo</Label>
+                  <SearchableSelect
+                    options={costCenterOptions}
+                    value={costCenterOptions.find((option) => option.value === data.cost_center_id)}
+                    onChange={(option) => setData('cost_center_id', option?.value || '')}
+                    placeholder="Sin centro de costo"
+                  />
+                  {errors.cost_center_id && <p className="text-sm text-red-600">{errors.cost_center_id}</p>}
                 </div>
 
                 <div className="space-y-2">

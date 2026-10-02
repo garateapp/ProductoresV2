@@ -96,11 +96,11 @@ class ConsumptionReportService
         // El consumo proviene de folios de auto consumo o de acciones manuales (reembalaje/reproceso/completar saldos).
         // Las mermas se incluyen siempre que se pidan.
         $isConsumo = function ($q): void {
-            $q->where('t.codigo', 'CONSUMO')
-                ->where(function ($inner): void {
-                    $inner->whereNotNull('f.id')
-                        ->orWhereNotNull('mc.id');
-                });
+            $q->where('t.codigo', 'CONSUMO');
+                // ->where(function ($inner): void {
+                //     $inner->whereNotNull('f.id')
+                //     ->orWhereNotNull('mc.id');
+                // });
         };
 
         if ($filters['incluir_mermas']) {

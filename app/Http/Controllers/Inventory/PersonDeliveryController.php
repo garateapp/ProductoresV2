@@ -4,6 +4,7 @@ namespace App\Http\Controllers\Inventory;
 
 use App\Http\Controllers\Controller;
 use App\Http\Controllers\Inventory\Concerns\AuthorizesInventory;
+use App\Models\InventoryCostCenter;
 use App\Models\InventoryLocation;
 use App\Models\InventoryMaterial;
 use App\Models\InventoryMovementType;
@@ -39,6 +40,7 @@ class PersonDeliveryController extends Controller
             ->with([
                 'creator:id,name',
                 'originLocation:id,nombre',
+                'costCenter:id,codigo,nombre',
                 'movement:id,folio,estado',
                 'items.material:id,codigo,nombre,unit_id',
                 'items.material.unit:id,codigo',
@@ -75,7 +77,27 @@ class PersonDeliveryController extends Controller
             'people' => Personal::query()
                 ->orderBy('nombre')
                 ->get(['id', 'nombre', 'email', 'cargo', 'area']),
+            'costCenters' => $this->activeCostCenters(),
         ]);
+    }
+
+    /**
+     * Centros de costo activos para imputar la entrega.
+     *
+     * @return list<array<string, mixed>>
+     */
+    private function activeCostCenters(): array
+    {
+        return InventoryCostCenter::query()
+            ->where('activo', true)
+            ->orderBy('codigo')
+            ->get(['id', 'codigo', 'nombre', 'service_id'])
+            ->map(fn (InventoryCostCenter $costCenter) => [
+                'id' => $costCenter->id,
+                'codigo' => $costCenter->codigo,
+                'nombre' => $costCenter->nombre,
+            ])
+            ->all();
     }
 
     public function store(Request $request, MovementService $movementService, ReferenceNumberService $referenceNumbers): RedirectResponse
@@ -84,6 +106,7 @@ class PersonDeliveryController extends Controller
 
         $data = $request->validate([
             'origin_location_id' => ['required', 'exists:inventory_locations,id'],
+            'cost_center_id' => ['nullable', 'integer', 'exists:inventory_cost_centers,id'],
             'person_id' => ['required', 'integer', 'exists:personal,id'],
             'person_position' => ['nullable', 'string', 'max:150'],
             'person_area' => ['nullable', 'string', 'max:150'],
@@ -111,6 +134,10 @@ class PersonDeliveryController extends Controller
         $delivery = DB::transaction(function () use ($data, $items, $movementService, $referenceNumbers, $request): InventoryPersonDelivery {
             $origin = InventoryLocation::query()->findOrFail((int) $data['origin_location_id']);
             $person = Personal::query()->findOrFail((int) $data['person_id']);
+            $costCenterId = filled($data['cost_center_id'] ?? null) ? (int) $data['cost_center_id'] : null;
+            $costCenter = $costCenterId
+                ? InventoryCostCenter::query()->findOrFail($costCenterId)
+                : null;
             $materialNames = InventoryMaterial::query()
                 ->whereIn('id', $items->pluck('material_id')->all())
                 ->pluck('nombre', 'id');
@@ -134,6 +161,7 @@ class PersonDeliveryController extends Controller
                 'numero_referencia' => $referenceNumber,
                 'created_by' => (int) $request->user()->id,
                 'origin_location_id' => $origin->id,
+                'cost_center_id' => $costCenter?->id,
                 'person_id' => $person->id,
                 'person_name' => $person->nombre,
                 'person_position' => $personPosition,
@@ -168,6 +196,9 @@ class PersonDeliveryController extends Controller
                     'person_area' => $delivery->person_area,
                     'person_id' => $person->id,
                     'person_email' => $person->email,
+                    'cost_center_id' => $costCenter?->id,
+                    'cost_center_codigo' => $costCenter?->codigo,
+                    'cost_center_nombre' => $costCenter?->nombre,
                     'signature_hash' => hash('sha256', $delivery->signature_data_url),
                 ],
                 'details' => $movementDetails,
@@ -287,6 +318,7 @@ return response()->file($pdfPath, [
         return $personDelivery->load([
             'creator:id,name',
             'originLocation:id,nombre,codigo',
+            'costCenter:id,codigo,nombre',
             'movement:id,folio,estado,ledger_hash',
             'items.material:id,codigo,nombre,unit_id',
             'items.material.unit:id,codigo',
@@ -431,6 +463,11 @@ return response()->file($pdfPath, [
                 'id' => $delivery->originLocation->id,
                 'codigo' => $delivery->originLocation->codigo ?? null,
                 'nombre' => $delivery->originLocation->nombre,
+            ] : null,
+            'cost_center' => $delivery->costCenter ? [
+                'id' => $delivery->costCenter->id,
+                'codigo' => $delivery->costCenter->codigo,
+                'nombre' => $delivery->costCenter->nombre,
             ] : null,
             'movement' => $delivery->movement ? [
                 'id' => $delivery->movement->id,

@@ -45,6 +45,7 @@ export default function PersonDeliveriesIndex({ deliveries }) {
                     <TableHead>Persona</TableHead>
                     <TableHead>Cargo</TableHead>
                     <TableHead>Origen</TableHead>
+                    <TableHead>Centro de costo</TableHead>
                     <TableHead>Movimiento</TableHead>
                     <TableHead>Materiales</TableHead>
                     <TableHead className="text-right">Acciones</TableHead>
@@ -61,6 +62,11 @@ export default function PersonDeliveriesIndex({ deliveries }) {
                       <TableCell className="font-medium">{delivery.person_name}</TableCell>
                       <TableCell>{delivery.person_position}</TableCell>
                       <TableCell>{delivery.origin_location?.nombre || '-'}</TableCell>
+                      <TableCell className="text-sm">
+                        {delivery.cost_center
+                          ? `${delivery.cost_center.codigo} · ${delivery.cost_center.nombre}`
+                          : '-'}
+                      </TableCell>
                       <TableCell>
                         {delivery.movement ? (
                           <div className="space-y-1">

@@ -100,6 +100,10 @@ export default function PersonDeliveryShow({ delivery }) {
                   <Info label="Cargo" value={delivery.person_position || '-'} />
                   <Info label="Área" value={delivery.person_area || '-'} />
                   <Info label="Ubicación origen" value={delivery.origin_location?.nombre || '-'} />
+                  <Info
+                    label="Centro de costo"
+                    value={delivery.cost_center ? `${delivery.cost_center.codigo} · ${delivery.cost_center.nombre}` : '-'}
+                  />
                   <Info label="Entregado por" value={delivery.creator?.name || '-'} />
                 </div>
 

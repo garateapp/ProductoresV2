@@ -213,8 +213,18 @@
             <tr>
                 <th>Entregado por</th>
                 <td>{{ $delivery->creator?->name }}</td>
+                <th>Centro de costo</th>
+                <td>
+                    @if ($delivery->costCenter)
+                        <strong>{{ $delivery->costCenter->codigo }}</strong> · {{ $delivery->costCenter->nombre }}
+                    @else
+                        -
+                    @endif
+                </td>
+            </tr>
+            <tr>
                 <th>Código interno del acta</th>
-                <td class="internal-code">{{ $delivery->codigo }}</td>
+                <td colspan="3" class="internal-code">{{ $delivery->codigo }}</td>
             </tr>
         </table>
 

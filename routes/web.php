@@ -520,6 +520,13 @@ Route::middleware('auth')->group(function () {
         Route::patch('consumption-origins/{origin}', [App\Http\Controllers\Inventory\ConsumptionOriginController::class, 'update'])->name('consumption-origins.update');
         Route::delete('consumption-origins/{origin}', [App\Http\Controllers\Inventory\ConsumptionOriginController::class, 'destroy'])->name('consumption-origins.destroy');
 
+        Route::get('cost-centers', [App\Http\Controllers\Inventory\CostCenterController::class, 'index'])->name('cost-centers.index');
+        Route::post('cost-centers', [App\Http\Controllers\Inventory\CostCenterController::class, 'store'])->name('cost-centers.store');
+        Route::patch('cost-centers/{costCenter}', [App\Http\Controllers\Inventory\CostCenterController::class, 'update'])->name('cost-centers.update');
+        Route::delete('cost-centers/{costCenter}', [App\Http\Controllers\Inventory\CostCenterController::class, 'destroy'])->name('cost-centers.destroy');
+        Route::get('cost-centers/template', [App\Http\Controllers\Inventory\CostCenterController::class, 'downloadTemplate'])->name('cost-centers.template');
+        Route::post('cost-centers/import', [App\Http\Controllers\Inventory\CostCenterController::class, 'import'])->name('cost-centers.import');
+
         Route::get('consumption-reports', [App\Http\Controllers\Inventory\ConsumptionReportController::class, 'index'])->name('consumption-reports.index');
         Route::get('consumption-reports/export-csv', [App\Http\Controllers\Inventory\ConsumptionReportController::class, 'exportCsv'])->name('consumption-reports.export-csv');
         Route::get('consumption-reports/export-pdf', [App\Http\Controllers\Inventory\ConsumptionReportController::class, 'exportPdf'])->name('consumption-reports.export-pdf');
