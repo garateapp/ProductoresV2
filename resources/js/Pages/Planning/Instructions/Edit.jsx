@@ -608,7 +608,12 @@ export default function Edit({
   const removeNewRow = (idx) => {
     const current = Array.isArray(data.rows) ? data.rows : []
     if (!isNewRowKey(current[idx]?.key)) return
-    setData('rows', current.filter((_, i) => i !== idx))
+    // Se marca como eliminada en lugar de quitarse del payload: el servidor
+    // necesita la clave para ocultar la fila en el instructivo.
+    const next = [...current]
+    const base = (next[idx] && typeof next[idx] === 'object') ? next[idx] : {}
+    next[idx] = { ...base, _deleted: '1' }
+    setData('rows', next)
   }
 
   const movePackagingRow = (idx, dir) => {

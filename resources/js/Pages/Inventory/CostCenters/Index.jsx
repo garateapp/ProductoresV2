@@ -127,7 +127,8 @@ export default function CostCenters({ costCenters = [], services = [] }) {
           <p className="text-sm text-slate-500">
             Catálogo de centros de costo usado para imputar las entregas de materiales a personas.
             Se puede asociar cada centro a un servicio, aunque es opcional. Para cargar varios a la vez,
-            descarga la plantilla y súbela con "Subir masivamente": las filas se identifican por código,
+            descarga la plantilla y súbela con "Subir masivamente": completa la hoja "Centros de Costo"
+            desde la fila 11 y deja la hoja "Ejemplo" como está. Las filas se identifican por código,
             así que si el código ya existe se actualiza en lugar de duplicarse.
           </p>
 

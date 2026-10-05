@@ -2491,6 +2491,65 @@ class PackingProcessController extends Controller
 
             $lineId = (int) ($lineLots->first()?->packing_line_id ?? 0);
 
+            // Embalajes agregados desde el editor ("+ Agregar embalaje"): su clave no coincide
+            // con ningún embalaje derivado de los lotes, así que se reconstruyen desde el override.
+            $lineOverrides = is_array($effectiveOverridesByLineId[$lineId] ?? null)
+                ? $effectiveOverridesByLineId[$lineId]
+                : [];
+
+            // Filas eliminadas por el usuario (tombstone _hidden) no forman parte del instructivo.
+            foreach ($packSummary as $packKey => $packRow) {
+                if (is_array($packRow['override'] ?? null) && ! empty($packRow['override']['_hidden'])) {
+                    unset($packSummary[$packKey]);
+                }
+            }
+
+            foreach ($lineOverrides as $overrideKey => $override) {
+                if (! is_array($override) || isset($packSummary[$overrideKey])) {
+                    continue;
+                }
+
+                if (! empty($override['_hidden'])) {
+                    continue;
+                }
+
+                $code = trim((string) ($override['c_item'] ?? ''));
+                if ($code === '') {
+                    continue;
+                }
+
+                $speciesLabel = trim((string) ($override['especie'] ?? ''));
+                if ($speciesLabel === '') {
+                    // Sin especie explícita: hoja VARIAS si existe, si no la primera de la línea.
+                    $speciesLabel = isset($speciesByKey['VARIAS'])
+                        ? 'VARIAS'
+                        : (string) (reset($speciesByKey) ?: '');
+                }
+
+                $destino = trim((string) ($override['destino'] ?? ''));
+                $desc = trim((string) ($override['desc_embalaje'] ?? ''));
+                $etiqueta = trim((string) ($override['etiqueta'] ?? ''));
+                $altura = trim((string) ($override['altura'] ?? ''));
+                $indications = trim((string) ($override['indications'] ?? ''));
+                $cp2 = $override['cp2'] ?? null;
+
+                $packSummary[$overrideKey] = [
+                    'key' => (string) $overrideKey,
+                    'destino' => $destino !== '' ? mb_strtoupper($destino) : '-',
+                    'especie' => $speciesLabel,
+                    'c_item' => $code,
+                    'n_item' => $desc !== '' ? $desc : null,
+                    'etiqueta' => $etiqueta !== '' ? $etiqueta : null,
+                    'cp2' => is_numeric($cp2) ? (int) $cp2 : null,
+                    'altura' => $altura !== '' ? $altura : null,
+                    'cantidad_bins' => 0,
+                    'kilos' => 0,
+                    'rule' => null,
+                    'override' => $override,
+                    'indications' => $indications !== '' ? $indications : null,
+                ];
+            }
+
             foreach ($speciesByKey as $speciesKey => $speciesLabel) {
                 $speciesLots = $lineLots
                     ->filter(function ($lot) use ($resolveSpecies, $speciesKey) {
@@ -2885,8 +2944,13 @@ class PackingProcessController extends Controller
                 continue;
             }
 
-            // Filas marcadas como eliminadas: no incluir en overrides.
+            // Filas eliminadas: se guardan como tombstone para que la fila no reaparezca
+            // al fusionar con la versión anterior ni al reconstruir el instructivo.
             if (trim((string) ($row['_deleted'] ?? '')) === '1') {
+                $overrides[$key] = [
+                    'orden' => (int) $rowIndex,
+                    '_hidden' => true,
+                ];
                 continue;
             }
 
@@ -2919,6 +2983,9 @@ class PackingProcessController extends Controller
                 'observaciones' => ($v = trim((string) ($row['observaciones'] ?? ''))) !== '' ? $v : null,
                 'count' => $count !== '' ? $count : null,
                 'pedido' => ($v = trim((string) ($row['pedido'] ?? ''))) !== '' ? $v : null,
+                // Especie visible en el editor: permite ubicar las filas agregadas manualmente
+                // en la hoja de especie correcta al reconstruir el instructivo.
+                'especie' => $speciesFilter !== '' ? $speciesFilter : null,
             ];
             $overrides[$key] = $ov;
         }

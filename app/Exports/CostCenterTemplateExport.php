@@ -139,6 +139,8 @@ class CostCenterExampleSheet implements FromArray, WithStyles
 
     public function styles(Worksheet $sheet): array
     {
+        $sheet->setTitle('Ejemplo');
+
         $sheet->mergeCells('A1:E1');
         $sheet->getStyle('A1')->applyFromArray([
             'font' => ['bold' => true, 'size' => 12, 'color' => ['argb' => 'FFFFFFFF']],
