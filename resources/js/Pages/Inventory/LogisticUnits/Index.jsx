@@ -704,7 +704,9 @@ const addInput = async (lpnCode) => {
   }
 
   const printWithQz = async (zpl, copies = 1) => {
-    if (!zpl || typeof zpl !== 'string') {
+    const jobs = Array.isArray(zpl) ? zpl : [zpl]
+
+    if (!jobs.length || jobs.some((job) => typeof job !== 'string' || !job)) {
       throw new Error('El ZPL está vacío o es inválido.')
     }
 
@@ -715,15 +717,14 @@ const addInput = async (lpnCode) => {
       copies,
       encoding: 'UTF-8',
       rasterize: false,
+      spool: { end: '^XZ', size: 1 },
     })
 
-    const data = [
-      {
-        type: 'raw',
-        format: 'plain',
-        data: zpl,
-      },
-    ]
+    const data = jobs.map((job) => ({
+      type: 'raw',
+      format: 'plain',
+      data: job,
+    }))
 
     await withTimeout(qz.print(config, data), 30000, 'Se agotó el tiempo enviando la etiqueta a la impresora.')
 
@@ -863,7 +864,6 @@ const addInput = async (lpnCode) => {
       const copies = getLotCopies()
       const zplAll = labels
         .flatMap((label) => Array(copies).fill(generateLabelZpl(label)))
-        .join('\n')
 
       const printer = await printWithQz(zplAll, 1)
 
