@@ -148,7 +148,7 @@ export const generateLogisticUnitLabelZPL = (label) => {
   const lpnDisplay = label.dispatchGuide ? `${label.lpn}-${label.dispatchGuide}` : (label.lpn || '-')
 
   const description = cleanText(label.productDescription, '-')
-  const descFont = Math.min(90, Math.max(18, Math.floor((1199 - 40) / Math.max(1, description.length))))
+  const descFont = Math.min(90, Math.max(68, Math.floor((1199 - 40) / Math.max(1, description.length))))
 
   return [
     '^XA',
@@ -176,8 +176,8 @@ export const generateLogisticUnitLabelZPL = (label) => {
 export const generateMaterialLabelZPL = (label) => {
   const enc = encodeZplText
   const lpnDisplay = label.dispatchGuide ? `${label.lpn}-${label.dispatchGuide}` : (label.lpn || '-')
-    const description = cleanText(label.productDescription, '-')
-  const descFont = Math.min(90, Math.max(18, Math.floor((1199 - 40) / Math.max(1, description.length))))
+const description = cleanText(label.productDescription, '-')
+  const descFont = Math.min(90, Math.max(68, Math.floor((1199 - 40) / Math.max(1, description.length))))
 
   return [
     '^XA',
@@ -193,9 +193,9 @@ export const generateMaterialLabelZPL = (label) => {
     `^FO660,30^A0R,26,26^FD${enc(label.center || 'CENTRO DE ARMADO')}^FS`,
     `^FO740,30^A0R,28,28^FDGárate Hermanos^FS`,
     `^FO26,820^A0R,38,38^FD${enc(label.date || '-')}^FS`,
-    '^FO185,40^A0R,68,68^FDCant:^FS',
+    '^FO185,40^A0R,67,67^FDCant:^FS',
     `^FO185,200^A0R,90,90^FD${enc(label.quantity || '0')}^FS`,
-    `^TBR,1100,110^FO335,40^A0R,68,68^FD${enc(description)}^FS`,
+    `^TBR,1100,110^FO335,40^A0R,${descFont},${descFont}^FD${enc(description)}^FS`,
     `^FO115,40^A0R,64,64^FD${enc(lpnDisplay)}^FS`,
     `^FO26,40^A0R,48,48^FD${enc(label.lot || label.lotCode || '-')}^FS`,
     '^XZ',
