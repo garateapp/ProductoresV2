@@ -195,7 +195,7 @@ export const generateMaterialLabelZPL = (label) => {
     `^FO26,820^A0R,38,38^FD${enc(label.date || '-')}^FS`,
     '^FO185,40^A0R,68,68^FDCant:^FS',
     `^FO185,200^A0R,90,90^FD${enc(label.quantity || '0')}^FS`,
-    `^TBR,1100,110^FO335,40^A0R,${descFont},${descFont}^FD${enc(description)}^FS`,
+    `^TBR,1100,110^FO335,40^A0R,68,68^FD${enc(description)}^FS`,
     `^FO115,40^A0R,64,64^FD${enc(lpnDisplay)}^FS`,
     `^FO26,40^A0R,48,48^FD${enc(label.lot || label.lotCode || '-')}^FS`,
     '^XZ',
