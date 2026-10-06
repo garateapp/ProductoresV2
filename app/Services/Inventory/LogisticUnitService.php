@@ -90,12 +90,12 @@ class LogisticUnitService
                 ]);
             }
 
-            $lpnCodes = $this->suggestLicensePlateNumbers((int) $unit->material_id, $count);
+            $lpnCodes = $this->suggestLicensePlateNumbers((int) $unit->material_id, $count - 1);
 
             $newUnits = [];
 
             foreach ($lpnCodes as $index => $lpn) {
-                $quantity = $index === $count - 1 ? $lastPallet : $perPallet;
+                $quantity = $index === count($lpnCodes) - 1 ? $lastPallet : $perPallet;
 
                 $newUnit = InventoryLogisticUnit::create([
                     'license_plate_number' => $lpn,
@@ -129,7 +129,53 @@ class LogisticUnitService
                 $newUnits[] = $newUnit;
             }
 
-            $this->close($unit, $userId, 'Dividido en '.$count.' pallets: '.implode(', ', $lpnCodes));
+            $metadata = (array) ($unit->metadata ?? []);
+            $metadata['changelog'] = array_merge(
+                (array) ($metadata['changelog'] ?? []),
+                [[
+                    'field' => 'split',
+                    'from' => 'LPN origen',
+                    'to' => 'Conservado como parte de la división',
+                    'reason' => 'Dividido en '.$count.' pallets: '.$unit->license_plate_number.', '.implode(', ', $lpnCodes),
+                    'changed_by' => $userId,
+                    'changed_at' => now()->toISOString(),
+                ]],
+            );
+
+            $unit->forceFill([
+                'spatial_prefix' => $data['spatial_prefix'] ?? $unit->spatial_prefix,
+                'spatial_column' => $data['spatial_column'] ?? $unit->spatial_column,
+                'spatial_row' => $data['spatial_row'] ?? $unit->spatial_row,
+                'base_quantity' => $perPallet,
+                'available_quantity' => $perPallet,
+                'status' => 'active',
+                'closed_at' => null,
+                'last_moved_at' => now(),
+                'metadata' => $metadata,
+            ])->save();
+
+            if ($this->positionsTableExists()) {
+                InventoryStockPosition::updateOrCreate(
+                    [
+                        'material_id' => $unit->material_id,
+                        'location_id' => $unit->current_location_id,
+                        'logistic_unit_id' => $unit->id,
+                        'lot_code' => $unit->normalizedLotCode(),
+                        'status' => 'available',
+                    ],
+                    [
+                        'quantity' => $perPallet,
+                        'metadata' => [
+                            'created_from' => 'logistic_unit_split',
+                            'license_plate_number' => $unit->license_plate_number,
+                        ],
+                    ],
+                );
+            }
+
+            $this->syncLpnQuantity($unit);
+
+            array_unshift($newUnits, $unit->fresh());
 
             if ($unit->current_location_id) {
                 $this->stockProjectionService->syncMaterialLocationFromPositions(
