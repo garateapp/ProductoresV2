@@ -15,9 +15,9 @@ class MaterialCatalogService
 {
     private const SQL_QUERY_NAME = 'vGEX_STOCK';
 
-    private const CENTRAL_WAREHOUSES = ['BD009', 'BD010'];
+    private const CENTRAL_WAREHOUSES = ['BD009', 'BD026'];
 
-    private const PRODUCTION_WAREHOUSE = 'BD026';
+    private const PRODUCTION_WAREHOUSE = 'BD010';
 
     public function __construct(
         private readonly ServiceLayerClient $serviceLayerClient,

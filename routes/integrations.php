@@ -17,6 +17,9 @@ use App\Http\Controllers\Integrations\ExportController;
 use App\Http\Controllers\Integrations\RuleController;
 use App\Http\Controllers\Integrations\MappingSetController;
 use App\Http\Controllers\Integrations\MappingItemController;
+use App\Http\Controllers\Integrations\GarcesDictionaryController;
+use App\Http\Controllers\Integrations\GarcesCatalogController;
+use App\Http\Controllers\Integrations\GarcesPalletDefaultController;
 use Illuminate\Support\Facades\Route;
 
 Route::middleware(['auth'])->prefix('integrations')->name('integrations.')->group(function () {
@@ -63,6 +66,24 @@ Route::middleware(['auth'])->prefix('integrations')->name('integrations.')->grou
     Route::put('mapping-sets/{mappingSet}/items/{item}', [MappingItemController::class, 'update'])->name('mapping-items.update');
     Route::delete('mapping-sets/{mappingSet}/items/{item}', [MappingItemController::class, 'destroy'])->name('mapping-items.destroy');
     Route::post('mapping-sets/{mappingSet}/items/import', [MappingItemController::class, 'importBulk'])->name('mapping-items.import');
+
+    Route::prefix('garces')->name('garces.')->group(function () {
+        Route::get('dictionary', [GarcesDictionaryController::class, 'index'])->name('dictionary.index');
+        Route::post('dictionary', [GarcesDictionaryController::class, 'store'])->name('dictionary.store');
+        Route::post('dictionary/import', [GarcesDictionaryController::class, 'import'])->name('dictionary.import');
+        Route::put('dictionary/{mapping}', [GarcesDictionaryController::class, 'update'])->name('dictionary.update');
+        Route::delete('dictionary/{mapping}', [GarcesDictionaryController::class, 'destroy'])->name('dictionary.destroy');
+
+        Route::get('catalog', [GarcesCatalogController::class, 'index'])->name('catalog.index');
+        Route::post('catalog', [GarcesCatalogController::class, 'store'])->name('catalog.store');
+        Route::put('catalog/{catalog}', [GarcesCatalogController::class, 'update'])->name('catalog.update');
+        Route::delete('catalog/{catalog}', [GarcesCatalogController::class, 'destroy'])->name('catalog.destroy');
+
+        Route::get('defaults', [GarcesPalletDefaultController::class, 'index'])->name('defaults.index');
+        Route::post('defaults', [GarcesPalletDefaultController::class, 'store'])->name('defaults.store');
+        Route::put('defaults/{default}', [GarcesPalletDefaultController::class, 'update'])->name('defaults.update');
+        Route::delete('defaults/{default}', [GarcesPalletDefaultController::class, 'destroy'])->name('defaults.destroy');
+    });
 
     Route::get('compare', [VersionDiffController::class, 'index'])->name('compare.index');
     Route::get('compare/versions/{version}', [VersionDiffController::class, 'show'])->name('compare.show');

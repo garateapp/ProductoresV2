@@ -51,6 +51,12 @@ Schedule::command('sync:produccion-garces')
     ->withoutOverlapping()
     ->description('Envia produccion nueva a Garces Fruits cada 5 minutos');
 
+Schedule::command('sync:pallet-box')
+    ->everyFiveMinutes()
+    ->withoutOverlapping()
+    ->when(fn () => filter_var(config('services.garces_pallet_box.enabled', true), FILTER_VALIDATE_BOOLEAN))
+    ->description('Sincroniza carga de pallets por caja con Garces cada 5 minutos');
+
 Schedule::command('inventory:auto-consume')
     ->everyFiveMinutes()
     ->withoutOverlapping()

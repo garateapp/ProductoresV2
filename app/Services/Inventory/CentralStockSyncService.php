@@ -15,9 +15,9 @@ class CentralStockSyncService
 
     private const PRODUCTION_LOCATION_CODE = 'PRODUCCION_1';
 
-    private const CENTRAL_WAREHOUSES = ['BD009', 'BD010'];
+    private const CENTRAL_WAREHOUSES = ['BD009', 'BD026'];
 
-    private const PRODUCTION_WAREHOUSE = 'BD026';
+    private const PRODUCTION_WAREHOUSE = 'BD010';
 
     public function __construct(
         private readonly MovementService $movementService,
