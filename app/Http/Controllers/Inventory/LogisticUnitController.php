@@ -4,15 +4,16 @@ namespace App\Http\Controllers\Inventory;
 
 use App\Http\Controllers\Controller;
 use App\Http\Controllers\Inventory\Concerns\AuthorizesInventory;
+use App\Http\Requests\Inventory\SplitLogisticUnitRequest;
 use App\Http\Requests\Inventory\StoreLogisticUnitRequest;
 use App\Http\Requests\Inventory\UpdateLogisticUnitRequest;
-use App\Http\Requests\Inventory\SplitLogisticUnitRequest;
 use App\Models\InventoryLocation;
 use App\Models\InventoryLogisticUnit;
 use App\Models\InventoryMaterial;
 use App\Models\InventoryMaterialRequest;
 use App\Models\InventoryMovementType;
 use App\Models\InventoryStockPosition;
+use App\Models\InventoryTechnicalSheet;
 use App\Models\InventoryWasteReason;
 use App\Models\InventoryWasteType;
 use App\Notifications\InventoryTransferDispatchedNotification;
@@ -26,7 +27,6 @@ use Illuminate\Support\Facades\DB;
 use Illuminate\Validation\ValidationException;
 use Inertia\Inertia;
 use Inertia\Response;
-use App\Models\InventoryTechnicalSheet;
 
 class LogisticUnitController extends Controller
 {
@@ -94,7 +94,6 @@ class LogisticUnitController extends Controller
                 'service_name' => $material->service?->name,
                 'suggested_lpn' => $logisticUnitService->suggestLicensePlateNumber((int) $material->id),
             ]);
-
 
         return Inertia::render('Inventory/LogisticUnits/Index', [
             'filters' => $filters,
@@ -236,6 +235,49 @@ class LogisticUnitController extends Controller
         return back()->with('success', 'Pallet actualizado.');
     }
 
+    public function bulkSpatialUpdate(Request $request, LogisticUnitService $logisticUnitService): RedirectResponse
+    {
+        $this->authorizeInventory($request);
+
+        $data = $request->validate([
+            'lot_code' => ['nullable', 'string', 'max:100', 'required_without:logistic_unit_ids'],
+            'logistic_unit_ids' => ['nullable', 'array', 'required_without:lot_code'],
+            'logistic_unit_ids.*' => ['integer', 'exists:inventory_logistic_units,id'],
+            'spatial_prefix' => ['nullable', 'string', 'max:50'],
+            'spatial_column' => ['nullable', 'string', 'max:50'],
+            'spatial_row' => ['nullable', 'string', 'max:50'],
+            'only_active' => ['sometimes', 'boolean'],
+        ]);
+
+        $spatial = [
+            'spatial_prefix' => $data['spatial_prefix'] ?? null,
+            'spatial_column' => $data['spatial_column'] ?? null,
+            'spatial_row' => $data['spatial_row'] ?? null,
+        ];
+
+        $userId = (int) $request->user()->id;
+
+        if (! empty($data['logistic_unit_ids'])) {
+            $scopeCount = count($data['logistic_unit_ids']);
+            $updated = $logisticUnitService->updateSpatialForUnits($data['logistic_unit_ids'], $spatial, $userId);
+            $scope = $scopeCount.' LPN seleccionados';
+        } else {
+            $updated = $logisticUnitService->updateSpatialByLot(
+                (string) $data['lot_code'],
+                $spatial,
+                $userId,
+                (bool) ($data['only_active'] ?? true),
+            );
+            $scope = 'el lote '.$data['lot_code'];
+        }
+
+        if ($updated === 0) {
+            return back()->with('error', 'No se encontraron LPN con cambios en '.$scope.'.');
+        }
+
+        return back()->with('success', 'Posición geoespacial asignada a '.$updated.' LPN de '.$scope.'.');
+    }
+
     public function destroy(Request $request, InventoryLogisticUnit $logisticUnit, LogisticUnitService $logisticUnitService): RedirectResponse
     {
         $this->authorizeInventory($request);
@@ -359,7 +401,7 @@ class LogisticUnitController extends Controller
                 'status' => $row->status,
                 'available_quantity' => (float) $row->available_quantity,
                 'location_label' => $row->location_codigo
-                    ? $row->location_codigo . ($row->location_nombre ? ' · ' . $row->location_nombre : '')
+                    ? $row->location_codigo.($row->location_nombre ? ' · '.$row->location_nombre : '')
                     : null,
             ]);
 

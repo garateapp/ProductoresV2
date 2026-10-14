@@ -4,7 +4,6 @@ namespace App\Services\Inventory;
 
 use App\Models\InventoryLogisticUnit;
 use App\Models\InventoryMaterial;
-use App\Models\InventoryMovementType;
 use App\Models\InventoryStockPosition;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Schema;
@@ -340,35 +339,13 @@ class LogisticUnitService
         });
     }
 
-
-
     public function relocate(
-    InventoryLogisticUnit $unit,
-    int $toLocationId,
-    int $userId,
-    ?int $materialRequestId = null
-): InventoryLogisticUnit {
-    unset($userId);
-
-    if ((int) $unit->current_location_id === $toLocationId) {
-        throw ValidationException::withMessages([
-            'to_location_id' => 'La ubicación destino debe ser distinta al origen.',
-        ]);
-    }
-
-    $syncPairs = [];
-
-    $unit = DB::transaction(function () use ($unit, $toLocationId, $materialRequestId, &$syncPairs) {
-        $unit = InventoryLogisticUnit::query()
-            ->whereKey($unit->id)
-            ->lockForUpdate()
-            ->firstOrFail();
-
-        if (! in_array($unit->status, ['active', 'in_transit'], true)) {
-            throw ValidationException::withMessages([
-                'logistic_unit' => 'La unidad logística no está activa.',
-            ]);
-        }
+        InventoryLogisticUnit $unit,
+        int $toLocationId,
+        int $userId,
+        ?int $materialRequestId = null
+    ): InventoryLogisticUnit {
+        unset($userId);
 
         if ((int) $unit->current_location_id === $toLocationId) {
             throw ValidationException::withMessages([
@@ -376,86 +353,106 @@ class LogisticUnitService
             ]);
         }
 
-        $fromLocationId = $unit->current_location_id;
+        $syncPairs = [];
 
-        if ($this->positionsTableExists() && $fromLocationId) {
-            $positions = InventoryStockPosition::query()
-                ->where('logistic_unit_id', $unit->id)
-                ->where('location_id', $fromLocationId)
-                ->orderBy('id')
+        $unit = DB::transaction(function () use ($unit, $toLocationId, $materialRequestId, &$syncPairs) {
+            $unit = InventoryLogisticUnit::query()
+                ->whereKey($unit->id)
                 ->lockForUpdate()
-                ->get();
+                ->firstOrFail();
 
-            foreach ($positions as $position) {
-                $quantity = (float) $position->quantity;
-
-                if ($quantity <= 0) {
-                    continue;
-                }
-
-                $target = InventoryStockPosition::query()
-                    ->where('material_id', $position->material_id)
-                    ->where('location_id', $toLocationId)
-                    ->where('logistic_unit_id', $position->logistic_unit_id)
-                    ->where('lot_code', $position->lot_code)
-                    ->where('status', $position->status)
-                    ->lockForUpdate()
-                    ->first();
-
-                if ($target) {
-                    $target->quantity = round(((float) $target->quantity) + $quantity, 4);
-                    $target->save();
-                } else {
-                    InventoryStockPosition::create([
-                        'material_id' => $position->material_id,
-                        'location_id' => $toLocationId,
-                        'logistic_unit_id' => $position->logistic_unit_id,
-                        'lot_code' => $position->lot_code,
-                        'status' => $position->status,
-                        'quantity' => $quantity,
-                        'metadata' => [
-                            ...((array) $position->metadata),
-                            'relocated_from_location_id' => $fromLocationId,
-                            'material_request_id' => $materialRequestId,
-                        ],
-                    ]);
-                }
-
-                $syncPairs[] = [
-                    'material_id' => (int) $position->material_id,
-                    'from_location_id' => (int) $fromLocationId,
-                    'to_location_id' => (int) $toLocationId,
-                ];
-
-                $position->delete();
+            if (! in_array($unit->status, ['active', 'in_transit'], true)) {
+                throw ValidationException::withMessages([
+                    'logistic_unit' => 'La unidad logística no está activa.',
+                ]);
             }
+
+            if ((int) $unit->current_location_id === $toLocationId) {
+                throw ValidationException::withMessages([
+                    'to_location_id' => 'La ubicación destino debe ser distinta al origen.',
+                ]);
+            }
+
+            $fromLocationId = $unit->current_location_id;
+
+            if ($this->positionsTableExists() && $fromLocationId) {
+                $positions = InventoryStockPosition::query()
+                    ->where('logistic_unit_id', $unit->id)
+                    ->where('location_id', $fromLocationId)
+                    ->orderBy('id')
+                    ->lockForUpdate()
+                    ->get();
+
+                foreach ($positions as $position) {
+                    $quantity = (float) $position->quantity;
+
+                    if ($quantity <= 0) {
+                        continue;
+                    }
+
+                    $target = InventoryStockPosition::query()
+                        ->where('material_id', $position->material_id)
+                        ->where('location_id', $toLocationId)
+                        ->where('logistic_unit_id', $position->logistic_unit_id)
+                        ->where('lot_code', $position->lot_code)
+                        ->where('status', $position->status)
+                        ->lockForUpdate()
+                        ->first();
+
+                    if ($target) {
+                        $target->quantity = round(((float) $target->quantity) + $quantity, 4);
+                        $target->save();
+                    } else {
+                        InventoryStockPosition::create([
+                            'material_id' => $position->material_id,
+                            'location_id' => $toLocationId,
+                            'logistic_unit_id' => $position->logistic_unit_id,
+                            'lot_code' => $position->lot_code,
+                            'status' => $position->status,
+                            'quantity' => $quantity,
+                            'metadata' => [
+                                ...((array) $position->metadata),
+                                'relocated_from_location_id' => $fromLocationId,
+                                'material_request_id' => $materialRequestId,
+                            ],
+                        ]);
+                    }
+
+                    $syncPairs[] = [
+                        'material_id' => (int) $position->material_id,
+                        'from_location_id' => (int) $fromLocationId,
+                        'to_location_id' => (int) $toLocationId,
+                    ];
+
+                    $position->delete();
+                }
+            }
+
+            $unit->forceFill([
+                'current_location_id' => $toLocationId,
+                'status' => 'active',
+                'last_moved_at' => now(),
+            ])->save();
+
+            $this->syncLpnQuantity($unit);
+
+            return $unit->fresh();
+        }, 3);
+
+        foreach ($syncPairs as $pair) {
+            $this->stockProjectionService->syncMaterialLocationFromPositions(
+                $pair['material_id'],
+                $pair['from_location_id'],
+            );
+
+            $this->stockProjectionService->syncMaterialLocationFromPositions(
+                $pair['material_id'],
+                $pair['to_location_id'],
+            );
         }
 
-        $unit->forceFill([
-            'current_location_id' => $toLocationId,
-            'status' => 'active',
-            'last_moved_at' => now(),
-        ])->save();
-
-        $this->syncLpnQuantity($unit);
-
-        return $unit->fresh();
-    }, 3);
-
-    foreach ($syncPairs as $pair) {
-        $this->stockProjectionService->syncMaterialLocationFromPositions(
-            $pair['material_id'],
-            $pair['from_location_id'],
-        );
-
-        $this->stockProjectionService->syncMaterialLocationFromPositions(
-            $pair['material_id'],
-            $pair['to_location_id'],
-        );
+        return $unit;
     }
-
-    return $unit;
-}
 
     public function markInTransit(InventoryLogisticUnit $unit, int $userId, array $context = []): InventoryLogisticUnit
     {
@@ -597,6 +594,106 @@ class LogisticUnitService
 
             return $unit->fresh();
         });
+    }
+
+    /**
+     * Asigna la misma ubicación geoespacial (prefijo, columna, fila) a todos los
+     * LPN de un lote. Solo afecta los campos espaciales; el stock no cambia.
+     */
+    public function updateSpatialByLot(string $lotCode, array $spatial, int $userId, bool $onlyActive = true): int
+    {
+        $lotCode = trim($lotCode);
+
+        if ($lotCode === '') {
+            return 0;
+        }
+
+        return DB::transaction(function () use ($lotCode, $spatial, $userId, $onlyActive): int {
+            $units = InventoryLogisticUnit::query()
+                ->where('lot_code', $lotCode)
+                ->when($onlyActive, fn ($query) => $query->where('status', 'active'))
+                ->lockForUpdate()
+                ->get();
+
+            return $this->applySpatialToUnits($units, $spatial, $userId);
+        });
+    }
+
+    /**
+     * Asigna la misma ubicación geoespacial a un conjunto explícito de LPN
+     * (p. ej. selección manual o un rango dentro de un lote).
+     *
+     * @param  array<int, int|string>  $unitIds
+     */
+    public function updateSpatialForUnits(array $unitIds, array $spatial, int $userId): int
+    {
+        $unitIds = array_values(array_unique(array_filter(
+            array_map('intval', $unitIds),
+            fn (int $id): bool => $id > 0,
+        )));
+
+        if (empty($unitIds)) {
+            return 0;
+        }
+
+        return DB::transaction(function () use ($unitIds, $spatial, $userId): int {
+            $units = InventoryLogisticUnit::query()
+                ->whereIn('id', $unitIds)
+                ->lockForUpdate()
+                ->get();
+
+            return $this->applySpatialToUnits($units, $spatial, $userId);
+        });
+    }
+
+    /**
+     * @param  \Illuminate\Support\Collection<int, InventoryLogisticUnit>  $units
+     */
+    private function applySpatialToUnits(\Illuminate\Support\Collection $units, array $spatial, int $userId): int
+    {
+        $updated = 0;
+
+        foreach ($units as $unit) {
+            $changes = [];
+
+            foreach (['spatial_prefix', 'spatial_column', 'spatial_row'] as $field) {
+                $newValue = $spatial[$field] ?? null;
+
+                if ((string) $unit->{$field} === (string) $newValue) {
+                    continue;
+                }
+
+                $changes[] = [
+                    'field' => $field,
+                    'from' => $unit->{$field},
+                    'to' => $newValue,
+                    'reason' => 'Asignación masiva de ubicación',
+                    'changed_by' => $userId,
+                    'changed_at' => now()->toISOString(),
+                ];
+            }
+
+            if (empty($changes)) {
+                continue;
+            }
+
+            $metadata = (array) ($unit->metadata ?? []);
+            $metadata['changelog'] = array_merge(
+                (array) ($metadata['changelog'] ?? []),
+                $changes,
+            );
+
+            $unit->forceFill([
+                'spatial_prefix' => $spatial['spatial_prefix'] ?? null,
+                'spatial_column' => $spatial['spatial_column'] ?? null,
+                'spatial_row' => $spatial['spatial_row'] ?? null,
+                'metadata' => $metadata,
+            ])->save();
+
+            $updated++;
+        }
+
+        return $updated;
     }
 
     public function close(InventoryLogisticUnit $unit, int $userId, ?string $reason = null): InventoryLogisticUnit

@@ -52,6 +52,12 @@ export default function InventoryLogisticUnits({ units, materials = [], location
   const [selectedPrinter, setSelectedPrinter] = useState(() => window.localStorage?.getItem('inventory.zplPrinter') || '')
 
   const [editModal, setEditModal] = useState({ open: false, unit: null })
+  const [spatialTarget, setSpatialTarget] = useState('single')
+  const [lotUnits, setLotUnits] = useState([])
+  const [lotUnitsLoading, setLotUnitsLoading] = useState(false)
+  const [selectedUnitIds, setSelectedUnitIds] = useState([])
+  const [rangeFrom, setRangeFrom] = useState('')
+  const [rangeTo, setRangeTo] = useState('')
   const [deleteConfirm, setDeleteConfirm] = useState({ open: false, unit: null, reason: '' })
 
   const [splitModal, setSplitModal] = useState({ open: false, unit: null })
@@ -392,6 +398,32 @@ const addInput = async (lpnCode) => {
       }
     })
   }
+  const sortedLotUnits = React.useMemo(
+    () => [...lotUnits].sort((a, b) =>
+      String(a.license_plate_number).localeCompare(String(b.license_plate_number), undefined, { numeric: true })),
+    [lotUnits],
+  )
+
+  const toggleUnitSelection = (unitId) => {
+    setSelectedUnitIds((prev) => (prev.includes(unitId) ? prev.filter((id) => id !== unitId) : [...prev, unitId]))
+  }
+
+  const applySelectionRange = () => {
+    if (!rangeFrom || !rangeTo) {
+      toast.error('Selecciona el LPN "desde" y "hasta".')
+      return
+    }
+
+    const fromIndex = sortedLotUnits.findIndex((unit) => unit.license_plate_number === rangeFrom)
+    const toIndex = sortedLotUnits.findIndex((unit) => unit.license_plate_number === rangeTo)
+
+    if (fromIndex === -1 || toIndex === -1) return
+
+    const [start, end] = fromIndex <= toIndex ? [fromIndex, toIndex] : [toIndex, fromIndex]
+
+    setSelectedUnitIds(sortedLotUnits.slice(start, end + 1).map((unit) => unit.id))
+  }
+
   const openEditModal = (unit) => {
     editForm.setData({
       license_plate_number: unit.license_plate_number,
@@ -404,23 +436,80 @@ const addInput = async (lpnCode) => {
       dispatch_guide: unit.dispatch_guide || '',
       available_quantity: unit.available_quantity || '',
     })
+    setSpatialTarget('single')
+    setSelectedUnitIds([])
+    setRangeFrom('')
+    setRangeTo('')
+    setLotUnits([])
     setEditModal({ open: true, unit })
+
+    if (unit.lot_code) {
+      setLotUnitsLoading(true)
+      axios.get(route('inventory.logistic-units.print-lot', unit.lot_code))
+        .then((response) => setLotUnits(response.data?.units || []))
+        .catch(() => toast.error('No se pudieron cargar los LPN del lote.'))
+        .finally(() => setLotUnitsLoading(false))
+    }
   }
 
-  const submitEdit = (e) => {
-    e.preventDefault()
+  const closeEditModal = () => {
+    setEditModal({ open: false, unit: null })
+    setSpatialTarget('single')
+    setSelectedUnitIds([])
+    setRangeFrom('')
+    setRangeTo('')
+    setLotUnits([])
+    editForm.reset()
+  }
+
+  function goToUpdateAfterBulk() {
     editForm.put(route('inventory.logistic-units.update', editModal.unit.id), {
       preserveScroll: true,
       onSuccess: () => {
-        setEditModal({ open: false, unit: null })
-        editForm.reset()
-        toast.success('Pallet actualizado.')
+        closeEditModal()
+        toast.success('Ubicación actualizada.')
       },
       onError: (errors) => {
         const msg = Object.values(errors).join(', ')
         toast.error(msg || 'Error al actualizar.')
       },
     })
+  }
+
+  const submitBulkSpatial = (payload) => {
+    router.post(route('inventory.logistic-units.bulk-spatial'), {
+      ...payload,
+      spatial_prefix: editForm.data.spatial_prefix,
+      spatial_column: editForm.data.spatial_column,
+      spatial_row: editForm.data.spatial_row,
+    }, {
+      preserveScroll: true,
+      onSuccess: goToUpdateAfterBulk,
+      onError: (errors) => {
+        const msg = Object.values(errors).join(', ')
+        toast.error(msg || 'Error al asignar la posición a los LPN.')
+      },
+    })
+  }
+
+  const submitEdit = (e) => {
+    e.preventDefault()
+
+    if (spatialTarget === 'lot' && editModal.unit?.lot_code) {
+      submitBulkSpatial({ lot_code: editModal.unit.lot_code, only_active: true })
+      return
+    }
+
+    if (spatialTarget === 'subset') {
+      if (selectedUnitIds.length === 0) {
+        toast.error('Selecciona al menos un LPN del lote.')
+        return
+      }
+      submitBulkSpatial({ logistic_unit_ids: selectedUnitIds })
+      return
+    }
+
+    goToUpdateAfterBulk()
   }
 
   const confirmDelete = () => {
@@ -1844,7 +1933,7 @@ const addInput = async (lpnCode) => {
         </DialogContent>
       </Dialog>
 
-      <Dialog open={editModal.open} onOpenChange={(val) => { if (!val) { setEditModal({ open: false, unit: null }); editForm.reset(); } }}>
+      <Dialog open={editModal.open} onOpenChange={(val) => { if (!val) closeEditModal(); }}>
         <DialogContent className="sm:max-w-lg">
           <DialogHeader>
             <DialogTitle>Editar Pallet {editModal.unit?.license_plate_number}</DialogTitle>
@@ -1919,8 +2008,116 @@ const addInput = async (lpnCode) => {
                 {editForm.errors.available_quantity && <p className="text-sm text-red-500">{editForm.errors.available_quantity}</p>}
               </div>
             </div>
+            {editModal.unit?.lot_code && (
+              <div className="space-y-3 rounded-md border border-amber-200 bg-amber-50 p-3">
+                <div className="text-sm font-medium text-amber-900">
+                  Aplicar ubicación geoespacial (prefijo, columna y fila)
+                </div>
+                <div className="space-y-2 text-sm text-amber-900">
+                  <label className="flex cursor-pointer items-center gap-2">
+                    <input
+                      type="radio"
+                      name="spatialTarget"
+                      className="h-4 w-4 border-gray-300 text-amber-600 focus:ring-amber-500"
+                      checked={spatialTarget === 'single'}
+                      onChange={() => setSpatialTarget('single')}
+                    />
+                    Solo este LPN ({editModal.unit.license_plate_number})
+                  </label>
+                  <label className="flex cursor-pointer items-center gap-2">
+                    <input
+                      type="radio"
+                      name="spatialTarget"
+                      className="h-4 w-4 border-gray-300 text-amber-600 focus:ring-amber-500"
+                      checked={spatialTarget === 'subset'}
+                      onChange={() => setSpatialTarget('subset')}
+                    />
+                    Algunos LPN del lote (rango o selección)
+                  </label>
+                  <label className="flex cursor-pointer items-center gap-2">
+                    <input
+                      type="radio"
+                      name="spatialTarget"
+                      className="h-4 w-4 border-gray-300 text-amber-600 focus:ring-amber-500"
+                      checked={spatialTarget === 'lot'}
+                      onChange={() => setSpatialTarget('lot')}
+                    />
+                    Todo el lote ({editModal.unit.lot_code})
+                  </label>
+                </div>
+
+                {spatialTarget === 'subset' && (
+                  <div className="space-y-2 rounded border border-amber-200 bg-white/70 p-2">
+                    {lotUnitsLoading ? (
+                      <p className="text-xs text-amber-700">Cargando LPN del lote...</p>
+                    ) : sortedLotUnits.length === 0 ? (
+                      <p className="text-xs text-amber-700">El lote no tiene LPN activos.</p>
+                    ) : (
+                      <>
+                        <div className="flex flex-wrap items-end gap-2">
+                          <div className="flex-1">
+                            <Label className="text-xs">Desde</Label>
+                            <select
+                              className="mt-1 w-full rounded-md border-gray-300 text-sm"
+                              value={rangeFrom}
+                              onChange={(e) => setRangeFrom(e.target.value)}
+                            >
+                              <option value="">—</option>
+                              {sortedLotUnits.map((unit) => (
+                                <option key={unit.id} value={unit.license_plate_number}>{unit.license_plate_number}</option>
+                              ))}
+                            </select>
+                          </div>
+                          <div className="flex-1">
+                            <Label className="text-xs">Hasta</Label>
+                            <select
+                              className="mt-1 w-full rounded-md border-gray-300 text-sm"
+                              value={rangeTo}
+                              onChange={(e) => setRangeTo(e.target.value)}
+                            >
+                              <option value="">—</option>
+                              {sortedLotUnits.map((unit) => (
+                                <option key={unit.id} value={unit.license_plate_number}>{unit.license_plate_number}</option>
+                              ))}
+                            </select>
+                          </div>
+                          <Button type="button" variant="outline" size="sm" onClick={applySelectionRange}>
+                            Aplicar rango
+                          </Button>
+                        </div>
+
+                        <div className="flex items-center justify-between text-xs text-amber-800">
+                          <span>{selectedUnitIds.length} de {sortedLotUnits.length} seleccionados</span>
+                          <div className="flex gap-3">
+                            <button type="button" className="underline" onClick={() => setSelectedUnitIds(sortedLotUnits.map((unit) => unit.id))}>Todos</button>
+                            <button type="button" className="underline" onClick={() => setSelectedUnitIds([])}>Ninguno</button>
+                          </div>
+                        </div>
+
+                        <div className="max-h-48 space-y-1 overflow-y-auto">
+                          {sortedLotUnits.map((unit) => (
+                            <label key={unit.id} className="flex cursor-pointer items-center gap-2 text-xs text-amber-900">
+                              <input
+                                type="checkbox"
+                                className="h-4 w-4 rounded border-gray-300 text-amber-600 focus:ring-amber-500"
+                                checked={selectedUnitIds.includes(unit.id)}
+                                onChange={() => toggleUnitSelection(unit.id)}
+                              />
+                              <span>{unit.license_plate_number}</span>
+                              {(unit.spatial_prefix || unit.spatial_column || unit.spatial_row) && (
+                                <span className="text-gray-500">({spatialPositionLabel(unit.spatial_prefix, unit.spatial_column, unit.spatial_row)})</span>
+                              )}
+                            </label>
+                          ))}
+                        </div>
+                      </>
+                    )}
+                  </div>
+                )}
+              </div>
+            )}
             <DialogFooter>
-              <Button type="button" variant="ghost" onClick={() => { setEditModal({ open: false, unit: null }); editForm.reset(); }}>Cancelar</Button>
+              <Button type="button" variant="ghost" onClick={closeEditModal}>Cancelar</Button>
               <Button type="submit" disabled={editForm.processing}>
                 {editForm.processing ? 'Guardando...' : 'Guardar cambios'}
               </Button>
