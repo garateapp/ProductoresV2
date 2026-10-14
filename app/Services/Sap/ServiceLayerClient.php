@@ -13,6 +13,8 @@ class ServiceLayerClient
 {
     private const SESSION_CACHE_KEY = 'sap_service_layer.session';
 
+    private const MAX_SQL_PAGES = 10000;
+
     public function sessionId(): string
     {
         return Cache::remember(self::SESSION_CACHE_KEY, now()->addMinutes(25), function (): string {
@@ -39,19 +41,46 @@ class ServiceLayerClient
 
     public function sqlQuery(string $name, array $params = []): Collection
     {
-        $response = $this->request($name, $params, $this->sessionId());
+        $url = $this->baseUrl().'/SQLQueries(\''.$name.'\')/List';
+        $query = $params;
+        $rows = collect();
+        $pages = 0;
 
-        if ($response->status() === 401) {
-            Cache::forget(self::SESSION_CACHE_KEY);
-            $response = $this->request($name, $params, $this->sessionId());
+        while (true) {
+            $response = $this->sqlRequest($url, $query, $this->sessionId());
+
+            if ($response->status() === 401) {
+                Cache::forget(self::SESSION_CACHE_KEY);
+                $response = $this->sqlRequest($url, $query, $this->sessionId());
+            }
+
+            if (! $response->successful()) {
+                throw new RuntimeException($this->errorMessage($response));
+            }
+
+            $payload = $response->json() ?? [];
+
+            foreach (($payload['value'] ?? []) as $row) {
+                $rows->push((object) $row);
+            }
+
+            // Paginación dirigida por el servidor: `odata.nextLink` ya incluye
+            // todos los parámetros de la consulta.
+            $next = $payload['odata.nextLink'] ?? $payload['@odata.nextLink'] ?? null;
+
+            if (! is_string($next) || $next === '') {
+                break;
+            }
+
+            if (++$pages >= self::MAX_SQL_PAGES) {
+                throw new RuntimeException('SAP Service Layer: se excedió el límite de páginas al consultar '.$name.'.');
+            }
+
+            $url = $this->absoluteUrl($next);
+            $query = [];
         }
 
-        if (! $response->successful()) {
-            throw new RuntimeException($this->errorMessage($response));
-        }
-
-        return collect($response->json('value') ?? [])
-            ->map(fn ($row) => (object) $row);
+        return $rows;
     }
 
     public function entitySet(string $name, array $params = []): Collection
@@ -89,13 +118,19 @@ class ServiceLayerClient
         return $rows;
     }
 
-    private function request(string $name, array $params, string $sessionId): Response
+    private function sqlRequest(string $url, array $params, string $sessionId): Response
     {
-        $url = $this->baseUrl().'/SQLQueries(\''.$name.'\')/List';
+        $request = $this->http()
+            ->withHeaders([
+                'Cookie' => 'B1SESSION='.$sessionId,
+                'Prefer' => 'odata.maxpagesize=1000',
+            ]);
 
-        return $this->http()
-            ->withHeaders(['Cookie' => 'B1SESSION='.$sessionId])
-            ->get($url, $params);
+        // No pasar un array de query vacío: Guzzle reemplazaría la query que ya
+        // viene embebida en la URL de `odata.nextLink`.
+        return $params === []
+            ? $request->get($url)
+            : $request->get($url, $params);
     }
 
     private function entitySetRequest(string $name, array $params, string $sessionId): Response
@@ -122,6 +157,30 @@ class ServiceLayerClient
     private function baseUrl(): string
     {
         return rtrim((string) config('services.sap_service_layer.base_url'), '/');
+    }
+
+    private function absoluteUrl(string $url): string
+    {
+        $url = trim($url);
+
+        if (preg_match('#^https?://#i', $url) === 1) {
+            return $url;
+        }
+
+        $parts = parse_url($this->baseUrl());
+        $origin = ($parts['scheme'] ?? 'https').'://'.($parts['host'] ?? '');
+        $origin .= isset($parts['port']) ? ':'.$parts['port'] : '';
+
+        // SAP devuelve `odata.nextLink` relativo a la raíz del servicio (b1s/v1).
+        if (str_starts_with($url, '/')) {
+            return $origin.$url;
+        }
+
+        if (str_starts_with($url, '?')) {
+            return $this->baseUrl().$url;
+        }
+
+        return $this->baseUrl().'/'.$url;
     }
 
     private function timeout(): int

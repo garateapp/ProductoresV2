@@ -63,6 +63,18 @@ return [
         'api_key' => env('PRECOOLING_API_KEY', env('TERMO_API_KEY')),
     ],
 
+    'garces_pallet_box' => [
+        'enabled' => filter_var(env('GARCES_PALLET_BOX_ENABLED', true), FILTER_VALIDATE_BOOLEAN),
+        'base_url' => env('GARCES_PALLET_BOX_BASE_URL', ''),
+        'api_key' => env('GARCES_PALLET_BOX_API_KEY', ''),
+        'timeout' => (int) env('GARCES_PALLET_BOX_TIMEOUT', 60),
+        'integration_client_code' => env('GARCES_PALLET_BOX_CLIENT_CODE', 'GARCES-PALLETBOX'),
+        'is_export_default' => (int) env('GARCES_PALLET_BOX_IS_EXPORT_DEFAULT', 1),
+        'max_pallets_per_shipment' => (int) env('GARCES_PALLET_BOX_MAX_PALLETS', 50),
+        'max_boxes_per_shipment' => (int) env('GARCES_PALLET_BOX_MAX_BOXES', 5000),
+        'kilos_tolerance' => (float) env('GARCES_PALLET_BOX_KILOS_TOLERANCE', 0.01),
+    ],
+
     'sap_service_layer' => [
         'enabled' => filter_var(env('SAP_SL_ENABLED', false), FILTER_VALIDATE_BOOLEAN),
         'base_url' => env('SAP_SL_BASE_URL', 'https://188.34.132.98:50005/b1s/v1'),

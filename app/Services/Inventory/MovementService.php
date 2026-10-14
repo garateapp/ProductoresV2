@@ -15,9 +15,7 @@ class MovementService
 {
     public function __construct(
         private readonly InventoryTransactionService $inventoryTransactionService,
-    )
-    {
-    }
+    ) {}
 
     public function create(array $data, int $userId, bool $apply = false): InventoryMovement
     {
@@ -158,7 +156,12 @@ class MovementService
             ]);
         }
 
-        $requiresExplicitPosition = in_array($type->codigo, ['CONSUMO', 'MERMA', 'AJUSTE_NEG'], true)
+        // Los movimientos de conciliación con SAP (sap_sync) asignan las posiciones
+        // de stock automáticamente (FIFO) y pueden incluir un remanente sin posición.
+        $isSystemReconciliation = ($data['referencia_tipo'] ?? null) === 'sap_sync';
+
+        $requiresExplicitPosition = ! $isSystemReconciliation
+            && in_array($type->codigo, ['CONSUMO', 'MERMA', 'AJUSTE_NEG'], true)
             && ! empty($data['origin_location_id'])
             && Schema::hasTable('inventory_stock_positions');
 

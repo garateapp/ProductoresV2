@@ -21,6 +21,9 @@ export default function IntegrationsMenu() {
         <DropdownMenuItem asChild><Link href={route('integrations.source-adapters.index')} className="w-full">Source Adapters</Link></DropdownMenuItem>
         <DropdownMenuItem asChild><Link href={route('integrations.runs.index')} className="w-full">Ejecuciones</Link></DropdownMenuItem>
         <DropdownMenuItem asChild><Link href={route('integrations.pending-mappings.index')} className="w-full">Pendientes de Homologación</Link></DropdownMenuItem>
+        <DropdownMenuItem asChild><Link href={route('integrations.garces.dictionary.index')} className="w-full">Diccionario Garces</Link></DropdownMenuItem>
+        <DropdownMenuItem asChild><Link href={route('integrations.garces.catalog.index')} className="w-full">Catálogo Garces</Link></DropdownMenuItem>
+        <DropdownMenuItem asChild><Link href={route('integrations.garces.defaults.index')} className="w-full">Defaults Pallet Garces</Link></DropdownMenuItem>
         <DropdownMenuItem asChild><Link href={route('integrations.failures.index')} className="w-full">Fallos</Link></DropdownMenuItem>
         <DropdownMenuItem asChild><Link href={route('integrations.simulator.index')} className="w-full">Simulador</Link></DropdownMenuItem>
 

@@ -5,6 +5,7 @@ namespace App\Http\Controllers\Integrations;
 use App\Http\Controllers\Controller;
 use App\Models\IntegrationClient;
 use App\Models\IntegrationPendingMapping;
+use App\Services\Garces\GarcesPendingMappingBridge;
 use App\Services\Integrations\Audit\IntegrationAuditService;
 use Illuminate\Http\Request;
 use Inertia\Inertia;
@@ -48,7 +49,7 @@ class PendingMappingController extends Controller
         ]);
     }
 
-    public function update(Request $request, IntegrationPendingMapping $pendingMapping, IntegrationAuditService $audit)
+    public function update(Request $request, IntegrationPendingMapping $pendingMapping, IntegrationAuditService $audit, GarcesPendingMappingBridge $garcesBridge)
     {
         $data = $request->validate([
             'valor_asignado' => 'required|string|max:500',
@@ -62,19 +63,31 @@ class PendingMappingController extends Controller
             'resolved_at' => now(),
         ]);
 
+        $garcesBridge->sync([[
+            'client_code' => $pendingMapping->client?->codigo,
+            'campo' => $pendingMapping->campo,
+            'valor_interno' => $pendingMapping->valor_interno,
+            'valor_asignado' => $data['valor_asignado'],
+        ]]);
+
         $audit->log('pending_mapping_resolved', 'IntegrationPendingMapping', $pendingMapping->id,
             "Mapeo pendiente resuelto: {$pendingMapping->campo} = {$data['valor_asignado']}");
 
         return back()->with('success', 'Mapeo resuelto correctamente.');
     }
 
-    public function bulkResolve(Request $request, IntegrationAuditService $audit)
+    public function bulkResolve(Request $request, IntegrationAuditService $audit, GarcesPendingMappingBridge $garcesBridge)
     {
         $data = $request->validate([
             'ids' => 'required|array',
             'ids.*' => 'exists:integration_pending_mappings,id',
             'valor_asignado' => 'required|string|max:500',
         ]);
+
+        $pendings = IntegrationPendingMapping::with('client')
+            ->whereIn('id', $data['ids'])
+            ->whereNull('resolved_at')
+            ->get();
 
         IntegrationPendingMapping::whereIn('id', $data['ids'])
             ->whereNull('resolved_at')
@@ -83,6 +96,13 @@ class PendingMappingController extends Controller
                 'resolved_by' => $request->user()->id,
                 'resolved_at' => now(),
             ]);
+
+        $garcesBridge->sync($pendings->map(fn (IntegrationPendingMapping $pending) => [
+            'client_code' => $pending->client?->codigo,
+            'campo' => $pending->campo,
+            'valor_interno' => $pending->valor_interno,
+            'valor_asignado' => $data['valor_asignado'],
+        ])->all());
 
         $audit->log('pending_mappings_bulk_resolved', 'IntegrationPendingMapping', 0,
             count($data['ids']) . ' mapeos resueltos en lote con valor: ' . $data['valor_asignado']);
