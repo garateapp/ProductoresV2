@@ -16,6 +16,7 @@ import { Switch } from '@/Components/ui/switch';
 import { FileText, RefreshCw, Send, Upload as UploadIcon, X, Mail, MessageCircle, Truck } from 'lucide-react';
 import Chart from 'react-apexcharts';
 import AuthenticatedLayout from '@/Layouts/AuthenticatedLayout';
+import SeasonSwitch from '@/Components/SeasonSwitch';
 
 const formatProcessDate = (dateString) => {
   if (!dateString) {
@@ -32,7 +33,7 @@ const formatProcessDate = (dateString) => {
   return date.toLocaleDateString('es-CL');
 };
 
-export default function Index({ procesos, especies, variedades = [], exportadoras = [], filters, isProducer, totalProcesos, totalKgProcesados, totalExportacion, totalComercial, totalMerma, chartData }) {
+export default function Index({ procesos, especies, variedades = [], exportadoras = [], filters, isProducer, totalProcesos, totalKgProcesados, totalExportacion, totalComercial, totalMerma, chartData, temporada = 'actual', temporadaDb = null }) {
   const { props } = usePage();
   const { data, setData, get } = useForm({
     search: filters.search || '',
@@ -367,7 +368,21 @@ export default function Index({ procesos, especies, variedades = [], exportadora
     <div className="container mx-auto py-10">
           <Card>
             <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-              <CardTitle className="text-2xl font-bold">Procesos</CardTitle>
+              <div className="flex flex-row items-center gap-3">
+                <CardTitle className="text-2xl font-bold">Procesos</CardTitle>
+                <SeasonSwitch
+                  temporada={temporada}
+                  database={temporadaDb}
+                  params={{
+                    search: data.search,
+                    especie_id: data.especie_id,
+                    variedad_id: data.variedad_id,
+                    exportadora: data.exportadora,
+                    search_fields: selectedSearchFields,
+                    search_exact: data.search_exact,
+                  }}
+                />
+              </div>
           {canManage && (
             <div className="flex items-center gap-2">
               <SyncButton />

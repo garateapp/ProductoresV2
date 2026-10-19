@@ -14,6 +14,7 @@ use Illuminate\Support\Facades\Log;
 use Inertia\Inertia;
 use Illuminate\Support\Facades\Storage;
 use App\Services\ReportNotificationService;
+use App\Services\Planning\SeasonContext;
 use Illuminate\Support\Facades\DB;
 
 use Illuminate\Support\Collection;
@@ -22,6 +23,16 @@ use Carbon\Carbon;
 
 class ProcesoController extends Controller
 {
+    public function __construct(private readonly SeasonContext $seasons) {}
+
+    /**
+     * Conexión SQL Server de la temporada activa ('sqlsrv' | 'temporada_anterior').
+     */
+    private function sqlsrv(): \Illuminate\Database\Connection
+    {
+        return DB::connection($this->seasons->connection());
+    }
+
     public function index(Request $request)
     {
         $user = Auth::user();
@@ -273,6 +284,8 @@ class ProcesoController extends Controller
             'totalComercial' => $totalComercial,
             'totalMerma' => $totalMerma,
             'chartData' => $chartData->toArray(), // Pass chart data to frontend
+            'temporada' => $this->seasons->current(),
+            'temporadaDb' => (string) config('database.connections.'.$this->seasons->connection().'.database'),
         ]);
     }
     public function uploadInformes(Request $request, ReportNotificationService $reportNotificationService)
@@ -468,7 +481,7 @@ class ProcesoController extends Controller
             abort(403);
         }
 
-        $exportadora = DB::connection('sqlsrv')
+        $exportadora = $this->sqlsrv()
             ->table('V_PKG_Produccion_Completo')
             ->where('numero_proceso', $proceso->n_proceso)
             ->where('id_empresa', $proceso->id_empresa)
@@ -498,7 +511,7 @@ class ProcesoController extends Controller
             abort(403);
         }
 
-        $rows = DB::connection('sqlsrv')
+        $rows = $this->sqlsrv()
             ->table('V_PKG_Produccion_Completo')
             ->select([
                 'numero_proceso',
@@ -555,7 +568,7 @@ class ProcesoController extends Controller
         // agrupadas por proceso en el código PHP. Es mejor obtener los datos
         // ya consolidados por PROCESO, no por categoría.
 
-        $procesos_data = DB::connection('sqlsrv')
+        $procesos_data = $this->sqlsrv()
             ->table('V_PKG_Produccion_Completo', 'ppc')
             ->select(
                 'n_productor_proceso AS agricola',
@@ -708,7 +721,7 @@ class ProcesoController extends Controller
 
     //     // Formatear la fecha para mostrarla
 
-    //     $procesos = DB::connection('sqlsrv')
+    //     $procesos = $this->sqlsrv()
     //         ->table('V_PKG_Produccion_Completo', 'ppc') // Use an alias 'ppc' for clarity and to match your original SQL
     //         ->select(
     //             'n_productor_proceso AS Agricola',
@@ -967,7 +980,7 @@ class ProcesoController extends Controller
                 $created = 0; $updated = 0; $skipped = 0; $total = 0;
                 $speciesStats = [];
                 $dateStats = [];
-                 $resp = DB::connection('sqlsrv')
+                 $resp = $this->sqlsrv()
     ->table('V_PKG_Produccion_Completo', 'ppc') // Use an alias 'ppc' for clarity and to match your original SQL
     ->select(
         'n_productor_proceso AS Agricola',
@@ -1063,7 +1076,7 @@ class ProcesoController extends Controller
             abort(403);
         }
 
-        $rows = DB::connection('sqlsrv')
+        $rows = $this->sqlsrv()
             ->table('V_PKG_Produccion_Completo as ppc')
             ->select([
                 DB::raw('ppc.numero_proceso AS n_proceso'),

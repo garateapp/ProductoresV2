@@ -25,11 +25,17 @@ export default function SeasonSwitch({ temporada = 'actual', database = null, pa
 
     const url = new URL(page.url || window.location.pathname, window.location.origin);
     Object.entries(params || {}).forEach(([key, value]) => {
+      url.searchParams.delete(key);
       if (value === '' || value === null || value === undefined) {
-        url.searchParams.delete(key);
-      } else {
-        url.searchParams.set(key, String(value));
+        return;
       }
+      if (Array.isArray(value)) {
+        value
+          .filter((item) => item !== '' && item !== null && item !== undefined)
+          .forEach((item) => url.searchParams.append(`${key}[]`, String(item)));
+        return;
+      }
+      url.searchParams.set(key, String(value));
     });
     url.searchParams.set('temporada', value);
 
