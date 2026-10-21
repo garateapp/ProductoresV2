@@ -118,7 +118,7 @@ class GarcesPalletBoxService
         $boxes = 0;
 
         foreach ($items as $item) {
-            $boxes += count($item['payload']['cajas'] ?? []);
+            $boxes += count($item['payload']['detail'] ?? $item['payload']['cajas'] ?? []);
         }
 
         return [
@@ -173,30 +173,33 @@ class GarcesPalletBoxService
         $translated = $this->translatePallet($item, $recordMissing);
 
         return [
+            'header'=> [
+                'codeSubsidiary' => (string) ($defaults['subsidiary_garces'] ?? ($cab->id_empresa ?? ($cab->c_exportadora ?? ''))),
+                'codeSeason' => (string) ($defaults['season_garces'] ?? ''),
+
             'pallets' => [
                 'folio' => $item['folio'],
-                'fechaProduccion' => $item['fecha_produccion'],
+                'fechaTarja' => $item['fecha_produccion'],
                 'tipoTarja' => (string) ($defaults['tipo_tarja'] ?? ''),
                 'especie' => $translated['especie'] ?? (string) ($cab->id_especie ?? ($cab->c_especie ?? '')),
                 'variedad' => $translated['variedad'] ?? (string) ($cab->id_variedad ?? ($cab->c_variedad ?? '')),
                 'envase' => $translated['envase'] ?? (string) ($cab->id_contenedor ?? ($cab->c_contenedor ?? '')),
                 'embalaje' => $translated['embalaje'] ?? (string) ($cab->id_embalaje ?? ($cab->c_embalaje ?? '')),
                 'etiqueta' => $translated['etiqueta'] ?? (string) ($cab->id_etiqueta ?? ($cab->c_etiqueta ?? '')),
-                'tipoFruta' => (string) ($defaults['tipo_fruta'] ?? ''),
-                'tipoPallet' => (string) ($defaults['tipo_pallet'] ?? ''),
+                'tipoFruta' => (string) ($defaults['tipo_fruta'] ?? '1'),
+                'tipoPallet' => (string) ($defaults['tipo_pallet'] ?? '4'),
                 'categoria' => $translated['categoria'] ?? (string) ($cab->id_categoria ?? ($cab->c_categoria ?? '')),
                 'isExport' => $isExportDefault,
                 'cajasTotal' => $item['cantidad_cajas'],
                 'kilosTotal' => round((float) $item['peso_neto_total'], 3),
-                'subsidiary' => (string) ($defaults['subsidiary_garces'] ?? ($cab->id_empresa ?? ($cab->c_exportadora ?? ''))),
-                'season' => (string) ($defaults['season_garces'] ?? ''),
             ],
-            'detail' => $this->mapBoxes($item['detalles'] ?? []),
+            'detail' => $this->mapBoxes($item['detalles'] ?? [], $recordMissing),
+            ],
         ];
     }
 
-    private function mapBoxes(array $detalles): array
-    {||||
+    private function mapBoxes(array $detalles, bool $recordMissing = true): array
+    {
         $result = [];
 
         foreach ($detalles as $det) {
@@ -206,17 +209,45 @@ class GarcesPalletBoxService
             $numeroProceso = is_object($det) ? ($det->numeroProceso ?? ($det->n_g_proceso ?? '')) : ($det['numeroProceso'] ?? ($det['n_g_proceso'] ?? ''));
             $productorReal = is_object($det) ? ($det->productorReal ?? ($det->c_productor_original ?? '')) : ($det['productorReal'] ?? ($det['c_productor_original'] ?? ''));
             $productor = is_object($det) ? ($det->productor ?? ($det->c_productor ?? '')) : ($det['productor'] ?? ($det['c_productor'] ?? ''));
-            $variedadReal = is_object($det) ? ($det->variedadReal ?? ($det->id_variedad ?? '')) : ($det['variedadReal'] ?? ($det['id_variedad'] ?? ''));
-            $variedadComercial = is_object($det) ? ($det->variedadComercial ?? ($det->id_variedad ?? '')) : ($det['variedadComercial'] ?? ($det['id_variedad'] ?? ''));
+            $variedadRealRaw = is_object($det) ? ($det->variedadReal ?? ($det->id_variedad ?? '')) : ($det['variedadReal'] ?? ($det['id_variedad'] ?? ''));
+            $variedadComercialRaw = is_object($det) ? ($det->variedadComercial ?? ($det->id_variedad ?? '')) : ($det['variedadComercial'] ?? ($det['id_variedad'] ?? ''));
             $fechaEmbalaje = is_object($det) ? ($det->fechaEmbalaje ?? ($det->fecha_produccion ?? '')) : ($det['fechaEmbalaje'] ?? ($det['fecha_produccion'] ?? ''));
-            $calibre = is_object($det) ? ($det->calibre ?? ($det->id_calibre ?? '')) : ($det['calibre'] ?? ($det['id_calibre'] ?? ''));
+            $calibreRaw = is_object($det) ? ($det->calibre ?? ($det->id_calibre ?? '')) : ($det['calibre'] ?? ($det['id_calibre'] ?? ''));
             $clasificacion = is_object($det) ? ($det->clasificacion ?? '') : ($det['clasificacion'] ?? '');
-            $categoria = is_object($det) ? ($det->categoria ?? ($det->id_categoria ?? '')) : ($det['categoria'] ?? ($det['id_categoria'] ?? ''));
-            $etiqueta = is_object($det) ? ($det->etiqueta ?? ($det->id_etiqueta ?? '')) : ($det['etiqueta'] ?? ($det['id_etiqueta'] ?? ''));
+            $categoriaRaw = is_object($det) ? ($det->categoria ?? ($det->id_categoria ?? '')) : ($det['categoria'] ?? ($det['id_categoria'] ?? ''));
+            $etiquetaRaw = is_object($det) ? ($det->etiqueta ?? ($det->id_etiqueta ?? '')) : ($det['etiqueta'] ?? ($det['id_etiqueta'] ?? ''));
+
+            $translations = $this->dictionary->translateMany([
+                GarcesCodeDictionaryService::TYPE_VARIEDAD => (string) $variedadRealRaw,
+                GarcesCodeDictionaryService::TYPE_CATEGORIA => (string) $categoriaRaw,
+                GarcesCodeDictionaryService::TYPE_ETIQUETA => (string) $etiquetaRaw,
+                GarcesCodeDictionaryService::TYPE_CALIBRE => (string) $calibreRaw,
+            ]);
+
+            if ($recordMissing) {
+                foreach ($translations as $tipo => $valor) {
+                    if ($valor === null) {
+                        $raw = match ($tipo) {
+                            GarcesCodeDictionaryService::TYPE_VARIEDAD => (string) $variedadRealRaw,
+                            GarcesCodeDictionaryService::TYPE_CATEGORIA => (string) $categoriaRaw,
+                            GarcesCodeDictionaryService::TYPE_ETIQUETA => (string) $etiquetaRaw,
+                            GarcesCodeDictionaryService::TYPE_CALIBRE => (string) $calibreRaw,
+                            default => '',
+                        };
+                        $this->dictionary->missing($tipo, $raw === '' ? null : $raw);
+                    }
+                }
+            }
+
+            $variedadReal = $translations[GarcesCodeDictionaryService::TYPE_VARIEDAD] ?? (string) $variedadRealRaw;
+            $variedadComercial = $translations[GarcesCodeDictionaryService::TYPE_VARIEDAD] ?? (string) $variedadComercialRaw;
+            $categoria = $translations[GarcesCodeDictionaryService::TYPE_CATEGORIA] ?? (string) $categoriaRaw;
+            $etiqueta = $translations[GarcesCodeDictionaryService::TYPE_ETIQUETA] ?? (string) $etiquetaRaw;
+            $calibre = $translations[GarcesCodeDictionaryService::TYPE_CALIBRE] ?? (string) $calibreRaw;
 
             $result[] = [
-                'numeroCaja' => is_numeric($ncaja) ? (int) $ncaja : $ncaja,
-                'pesoMedido' => is_numeric($peso) ? (float) $peso : $peso,
+                'idCaja' => is_numeric($ncaja) ? (int) $ncaja : $ncaja,
+                'kilos' => is_numeric($peso) ? (float) $peso : $peso,
                 'lote' => $lote,
                 'numeroProceso' => $numeroProceso,
                 'productorReal' => $productorReal,

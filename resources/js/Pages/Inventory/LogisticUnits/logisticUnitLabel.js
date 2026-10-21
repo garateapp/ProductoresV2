@@ -138,30 +138,6 @@ const encodeZplText = (text) => {
     .replace(/~/g, '\\~')
 }
 
-const ZPL_FRAME_LEFT = 16
-const ZPL_FRAME_RIGHT = 626
-const ZPL_DESC_MAX_LINES = 6
-const ZPL_DESC_MIN_FONT = 34
-const ZPL_DESC_MAX_FONT = 90
-
-/**
- * Calcula fuente y cantidad de lineas para que una descripcion larga
- * se parta dentro del bloque de la etiqueta en vez de desbordarla.
- */
-const calcWrappedDesc = (text, { width, maxLines = ZPL_DESC_MAX_LINES, minFont = ZPL_DESC_MIN_FONT, maxFont = ZPL_DESC_MAX_FONT }) => {
-  const length = String(text ?? '').trim().length
-
-  if (!length) {
-    return { font: maxFont, lines: 1 }
-  }
-
-  const font = Math.min(maxFont, Math.max(minFont, Math.floor(width / Math.ceil(length / maxLines))))
-  const charsPerLine = Math.max(1, Math.floor(width / font))
-  const lines = Math.min(maxLines + 2, Math.ceil(length / charsPerLine))
-
-  return { font, lines }
-}
-
 const generateQrZpl = (data, x, y, moduleWidth = 6) => {
   const qrCommand = `^FO${x},${y}^BQN,2,${moduleWidth}^FDQA,${encodeZplText(data)}^FS`
   return qrCommand
@@ -203,11 +179,8 @@ export const generateLogisticUnitLabelZPL = (label) => {
 export const generateMaterialLabelZPL = (label) => {
   const enc = encodeZplText
   const lpnDisplay = label.dispatchGuide ? `${label.lpn}-${label.dispatchGuide}` : (label.lpn || '-')
-  const description = cleanText(label.productDescription, '-')
-  const descX = ZPL_FRAME_LEFT + 10
-  const descY = 330
-  const descWidth = ZPL_FRAME_RIGHT - descX - 12
-  const desc = calcWrappedDesc(description, { width: descWidth })
+const description = cleanText(label.productDescription, '-')
+  const descFont = Math.min(90, Math.max(68, Math.floor((1199 - 40) / Math.max(1, description.length))))
 
   return [
     '^XA',
@@ -225,7 +198,7 @@ export const generateMaterialLabelZPL = (label) => {
     `^FO26,820^A0R,38,38^FD${enc(label.date || '-')}^FS`,
     '^FO185,40^A0R,67,67^FDCant:^FS',
     `^FO185,200^A0R,90,90^FD${enc(label.quantity || '0')}^FS`,
-    `^FO${descX},${descY}^A0R,${desc.font},${desc.font}^FB${descWidth},${desc.lines},6,L,0^FD${enc(description)}^FS`,
+    `^FO335,40^A0R,${descFont},${descFont}^FB1100,3,5,L,0^FD${enc(description)}^FS`,
     `^FO115,40^A0R,64,64^FD${enc(lpnDisplay)}^FS`,
     `^FO26,40^A0R,48,48^FD${enc(label.lot || label.lotCode || '-')}^FS`,
     '^XZ',
