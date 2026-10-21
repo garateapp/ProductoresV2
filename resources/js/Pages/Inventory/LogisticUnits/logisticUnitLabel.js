@@ -138,6 +138,30 @@ const encodeZplText = (text) => {
     .replace(/~/g, '\\~')
 }
 
+const ZPL_FRAME_LEFT = 16
+const ZPL_FRAME_RIGHT = 626
+const ZPL_DESC_MAX_LINES = 6
+const ZPL_DESC_MIN_FONT = 34
+const ZPL_DESC_MAX_FONT = 90
+
+/**
+ * Calcula fuente y cantidad de lineas para que una descripcion larga
+ * se parta dentro del bloque de la etiqueta en vez de desbordarla.
+ */
+const calcWrappedDesc = (text, { width, maxLines = ZPL_DESC_MAX_LINES, minFont = ZPL_DESC_MIN_FONT, maxFont = ZPL_DESC_MAX_FONT }) => {
+  const length = String(text ?? '').trim().length
+
+  if (!length) {
+    return { font: maxFont, lines: 1 }
+  }
+
+  const font = Math.min(maxFont, Math.max(minFont, Math.floor(width / Math.ceil(length / maxLines))))
+  const charsPerLine = Math.max(1, Math.floor(width / font))
+  const lines = Math.min(maxLines + 2, Math.ceil(length / charsPerLine))
+
+  return { font, lines }
+}
+
 const generateQrZpl = (data, x, y, moduleWidth = 6) => {
   const qrCommand = `^FO${x},${y}^BQN,2,${moduleWidth}^FDQA,${encodeZplText(data)}^FS`
   return qrCommand
@@ -148,7 +172,10 @@ export const generateLogisticUnitLabelZPL = (label) => {
   const lpnDisplay = label.dispatchGuide ? `${label.lpn}-${label.dispatchGuide}` : (label.lpn || '-')
 
   const description = cleanText(label.productDescription, '-')
-  const descFont = Math.min(90, Math.max(68, Math.floor((1199 - 40) / Math.max(1, description.length))))
+  const descFlow = 1100
+  const descFont = Math.min(90, Math.max(68, Math.floor(descFlow / Math.max(1, description.length))))
+  const descCharsPerLine = Math.max(1, Math.floor(descFlow / descFont))
+  const descLines = Math.min(8, Math.ceil(description.length / descCharsPerLine))
 
   return [
     '^XA',
@@ -166,7 +193,7 @@ export const generateLogisticUnitLabelZPL = (label) => {
     `^FO26,820^A0R,38,38^FD${enc(label.date || '-')}^FS`,
     '^FO185,40^A0R,68,68^FDCant:^FS',
     `^FO185,200^A0R,90,90^FD${enc(label.quantity || '0')}^FS`,
-    `^TBR,1100,110^FO335,40^A0R,${descFont},${descFont}^FD${enc(description)}^FS`,
+    `^TBR,1100,110^FO335,40^A0R,${descFont},${descFont}^FB${descFlow},${descLines},4,L,0^FD${enc(description)}^FS`,
     `^FO115,40^A0R,64,64^FD${enc(lpnDisplay)}^FS`,
     `^FO26,40^A0R,48,48^FD${enc(label.lot || label.lotCode || '-')}^FS`,
     '^XZ',
@@ -176,8 +203,11 @@ export const generateLogisticUnitLabelZPL = (label) => {
 export const generateMaterialLabelZPL = (label) => {
   const enc = encodeZplText
   const lpnDisplay = label.dispatchGuide ? `${label.lpn}-${label.dispatchGuide}` : (label.lpn || '-')
-const description = cleanText(label.productDescription, '-')
-  const descFont = Math.min(90, Math.max(68, Math.floor((1199 - 40) / Math.max(1, description.length))))
+  const description = cleanText(label.productDescription, '-')
+  const descX = ZPL_FRAME_LEFT + 10
+  const descY = 330
+  const descWidth = ZPL_FRAME_RIGHT - descX - 12
+  const desc = calcWrappedDesc(description, { width: descWidth })
 
   return [
     '^XA',
@@ -195,7 +225,7 @@ const description = cleanText(label.productDescription, '-')
     `^FO26,820^A0R,38,38^FD${enc(label.date || '-')}^FS`,
     '^FO185,40^A0R,67,67^FDCant:^FS',
     `^FO185,200^A0R,90,90^FD${enc(label.quantity || '0')}^FS`,
-    `^FO335,40^A0R,${descFont},${descFont}^FB1100,3,5,L,0^FD${enc(description)}^FS`,
+    `^FO${descX},${descY}^A0R,${desc.font},${desc.font}^FB${descWidth},${desc.lines},6,L,0^FD${enc(description)}^FS`,
     `^FO115,40^A0R,64,64^FD${enc(lpnDisplay)}^FS`,
     `^FO26,40^A0R,48,48^FD${enc(label.lot || label.lotCode || '-')}^FS`,
     '^XZ',
@@ -205,6 +235,20 @@ const description = cleanText(label.productDescription, '-')
 const SHEET_WIDTH_MM = 100
 const SHEET_HEIGHT_MM = 150
 
+
+const descCellClass = (text) => {
+  const length = String(text ?? '').trim().length
+
+  if (length > 90) {
+    return 'desc desc--xs'
+  }
+
+  if (length > 45) {
+    return 'desc desc--sm'
+  }
+
+  return 'desc'
+}
 
 const buildLabelSheet = (label, qrDataUrl = '') => {
   const qrMarkup = qrDataUrl
@@ -250,7 +294,7 @@ const buildLabelSheet = (label, qrDataUrl = '') => {
       ${tableRows.map((row, idx) => `
       <div class="table-row">
         <div class="num">${idx + 1}</div>
-        <div class="desc">${escapeHtml(row.desc)}</div>
+        <div class="${descCellClass(row.desc)}">${escapeHtml(row.desc)}</div>
         <div class="lpn">${escapeHtml(row.lpn)}</div>
         <div class="lot">${escapeHtml(row.lote)}</div>
         <div class="qty">${escapeHtml(row.qty)}</div>
@@ -395,6 +439,17 @@ const LABEL_CSS = `
     .table-row > div:last-child {
       border-right: none;
     }
+
+    .table-row > div.desc {
+      white-space: normal;
+      overflow-wrap: break-word;
+      word-break: normal;
+      line-height: 1.06;
+      text-overflow: clip;
+    }
+
+    .table-row > div.desc--sm { font-size: 6pt; }
+    .table-row > div.desc--xs { font-size: 5pt; }
 
     .num {
       text-align: center;
