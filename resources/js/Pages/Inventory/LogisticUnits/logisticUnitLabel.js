@@ -198,7 +198,7 @@ const description = cleanText(label.productDescription, '-')
     `^FO26,820^A0R,38,38^FD${enc(label.date || '-')}^FS`,
     '^FO185,40^A0R,67,67^FDCant:^FS',
     `^FO185,200^A0R,90,90^FD${enc(label.quantity || '0')}^FS`,
-    `^FO335,40^A0R,${descFont},${descFont}^FB1100,3,5,L,0^FD${enc(description)}^FS`,
+    `^FO335,25^A0R,${descFont},${descFont}^FB1100,3,0,L,0^FD${enc(description)}^FS`,
     `^FO115,40^A0R,64,64^FD${enc(lpnDisplay)}^FS`,
     `^FO26,40^A0R,48,48^FD${enc(label.lot || label.lotCode || '-')}^FS`,
     '^XZ',
