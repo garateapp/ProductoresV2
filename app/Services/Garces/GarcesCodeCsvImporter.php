@@ -35,7 +35,12 @@ class GarcesCodeCsvImporter
      */
     public function parse(string $csv): array
     {
+        if (str_starts_with($csv, "\xEF\xBB\xBF")) {
+            $csv = substr($csv, 3);
+        }
+
         $lines = preg_split('/\r\n|\r|\n/', $csv) ?: [];
+        $delimiter = $this->detectDelimiter($lines);
         $rows = [];
         $columns = null;
 
@@ -44,7 +49,7 @@ class GarcesCodeCsvImporter
                 continue;
             }
 
-            $cells = str_getcsv($line);
+            $cells = str_getcsv($line, $delimiter);
 
             if ($columns === null) {
                 $columns = $this->detectColumns($cells);
@@ -119,6 +124,22 @@ class GarcesCodeCsvImporter
         }
 
         return ['created' => $created, 'updated' => $updated, 'skipped' => $skipped];
+    }
+
+    /**
+     * @param  array<int,string>  $lines
+     */
+    private function detectDelimiter(array $lines): string
+    {
+        foreach ($lines as $line) {
+            if (trim($line) === '') {
+                continue;
+            }
+
+            return substr_count($line, ';') > substr_count($line, ',') ? ';' : ',';
+        }
+
+        return ',';
     }
 
     /**

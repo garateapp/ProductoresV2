@@ -73,6 +73,8 @@ return [
         'max_pallets_per_shipment' => (int) env('GARCES_PALLET_BOX_MAX_PALLETS', 50),
         'max_boxes_per_shipment' => (int) env('GARCES_PALLET_BOX_MAX_BOXES', 5000),
         'kilos_tolerance' => (float) env('GARCES_PALLET_BOX_KILOS_TOLERANCE', 0.01),
+        'code_subsidiary' => env('GARCES_PALLET_BOX_CODE_SUBSIDIARY'),
+        'code_season' => env('GARCES_PALLET_BOX_CODE_SEASON'),
     ],
 
     'sap_service_layer' => [

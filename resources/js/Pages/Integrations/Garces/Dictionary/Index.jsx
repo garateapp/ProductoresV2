@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { router, useForm } from '@inertiajs/react';
+import { router, useForm, usePage } from '@inertiajs/react';
 import { Button } from '@/Components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/Components/ui/card';
 import { Input } from '@/Components/ui/input';
@@ -35,6 +35,7 @@ const emptyForm = {
 };
 
 export default function Index({ mappings, filters, types }) {
+  const { props } = usePage();
   const [editing, setEditing] = useState(null);
   const [importText, setImportText] = useState('');
   const { data, setData, post, put, processing, errors, reset } = useForm(emptyForm);
@@ -150,8 +151,20 @@ export default function Index({ mappings, filters, types }) {
         <Card>
           <CardHeader><CardTitle>Importar CSV</CardTitle></CardHeader>
           <CardContent className="space-y-3">
+            {props?.flash?.success && (
+              <div className="rounded border border-green-200 bg-green-50 text-green-800 px-3 py-2 text-sm">
+                {props.flash.success}
+              </div>
+            )}
+            {props?.flash?.error && (
+              <div className="rounded border border-red-200 bg-red-50 text-red-800 px-3 py-2 text-sm">
+                {props.flash.error}
+              </div>
+            )}
             <p className="text-xs text-muted-foreground">
               Encabezado: tipo,clave_interna,clave_garces,vigencia_desde,vigencia_hasta,prioridad,activo,notas
+              <br />
+              Delimitador ; o , (se detecta automáticamente). Fechas dd-mm-yyyy.
             </p>
             <input
               type="file"

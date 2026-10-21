@@ -8,6 +8,42 @@ use Illuminate\Support\Facades\Log;
 
 class SqlServerReader
 {
+    /**
+     * Columnas deseadas de la vista de cabeceras (inventario/resumen).
+     * Se cruzan con las que realmente existen en la vista configurada.
+     */
+    private const CABECERA_COLUMNS = [
+        'id_g_produccion',
+        'folio',
+        'fecha_produccion',
+        'id_especie',
+        'n_especie',
+        'id_variedad',
+        'n_variedad',
+        'id_embalaje',
+        'c_embalaje',
+        'n_embalaje',
+
+        'id_contenedor',
+        'c_contenedor',
+        'n_contenedor',
+        'id_categoria',
+        'c_categoria',
+        'n_categoria',
+        't_categoria',
+
+        'id_etiqueta',
+        'c_etiqueta',
+        'n_etiqueta',
+        'id_altura',
+        'cantidad',
+        'peso_neto',
+
+        'id_exportadora',
+        'c_exportadora',
+        'n_exportadora',
+    ];
+
     public function connection(): string
     {
         return (string) config('services.termo.auto_consumption.conexion', 'sqlsrv');
@@ -24,6 +60,37 @@ class SqlServerReader
     public function getCabeceras(array $folios = []): Collection
     {
         $view = $this->viewCabecera();
+        $columns = $this->availableColumns($view, self::CABECERA_COLUMNS);
+
+        if (! in_array('folio', $columns, true)) {
+            Log::error('GARCES_PALLETBOX_SQLSRV_CAB', [
+                'error' => 'La vista no expone la columna folio.',
+                'view' => $view,
+            ]);
+
+            return collect();
+        }
+
+        $groupBy = [];
+        foreach ($columns as $col) {
+            if (in_array($col, ['cantidad', 'peso_neto'], true)) {
+                continue;
+            }
+            $groupBy[] = $col;
+        }
+
+        $aggSelect = implode(",\n                           ", array_map(function ($col) use ($columns) {
+            if ($col === 'cantidad') {
+                return 'SUM(cantidad) AS cantidad';
+            }
+            if ($col === 'peso_neto') {
+                return 'SUM(peso_neto) AS peso_neto';
+            }
+
+            return $col;
+        }, $columns));
+
+        $groupByClause = implode(', ', $groupBy);
 
         try {
             if ($folios !== []) {
@@ -33,32 +100,11 @@ class SqlServerReader
                 $rows = DB::connection($this->connection())->select(
                     <<<SQL
                     SELECT TOP 500
-                           id_g_produccion,
-                           folio,
-                           fecha_produccion,
-                           c_especie,
-                           n_especie,
-                           c_variedad,
-                           n_variedad,
-                           c_variedad_comercial,
-                           c_embalaje,
-                           CP1,
-                           CP2,
-                           CP3,
-                           CP4,
-                           CP5,
-                           c_contenedor,
-                           c_categoria,
-                           n_categoria,
-                           t_categoria,
-                           c_calibre,
-                           c_etiqueta,
-                           c_altura,
-                           cantidad,
-                           peso_neto
+                           $aggSelect
                       FROM {$view}
                      WHERE folio IN ({$placeholders})
-                     ORDER BY id_g_produccion DESC
+                     GROUP BY $groupByClause
+                     ORDER BY MAX(id_g_produccion) DESC
                     SQL,
                     $folios
                 );
@@ -66,31 +112,10 @@ class SqlServerReader
                 $rows = DB::connection($this->connection())->select(
                     <<<SQL
                     SELECT TOP 500
-                           id_g_produccion,
-                           folio,
-                           fecha_produccion,
-                           c_especie,
-                           n_especie,
-                           c_variedad,
-                           n_variedad,
-                           c_variedad_comercial,
-                           c_embalaje,
-                           CP1,
-                           CP2,
-                           CP3,
-                           CP4,
-                           CP5,
-                           c_contenedor,
-                           c_categoria,
-                           n_categoria,
-                           t_categoria,
-                           c_calibre,
-                           c_etiqueta,
-                           c_altura,
-                           cantidad,
-                           peso_neto
+                           $aggSelect
                       FROM {$view}
-                     ORDER BY id_g_produccion DESC
+                     GROUP BY $groupByClause
+                     ORDER BY MAX(id_g_produccion) DESC
                     SQL
                 );
             }
@@ -120,52 +145,49 @@ class SqlServerReader
 
                 $rows = DB::connection($conn)->select(
                     <<<SQL
-                    SELECT s.ncaja,
-                           s.id_pkg_stock_det_creacion,
-                           d.folio,
-                           d.id_adm_p_items,
-                           d.id_pro_p_categorias,
-                           d.id_pro_p_calibres,
-                           d.id_pro_p_etiquetas,
-                           d.lote_recepcion,
-                           d.recepciones_trazabilidad,
-                           d.Programacion_Id_G_Produccion,
-                           d.id_adm_p_entidades_productor_rotulacion,
-                           d.id_pro_p_variedades_rotulacion,
-                           d.LoteR_Unitec,
-                           s.Peso_medido,
-                           s.Fecha_Hora_Creacion,
-                           s.peso_fijo,
-                           s.Origen
-                      FROM PKG_Stock_Cajas s
-                      JOIN PKG_Stock_Det d ON d.id_pkg_stock_det_creacion = s.id_pkg_stock_det_creacion
-                     WHERE d.folio IN ({$placeholders})
+                    SELECT 
+                           c.ncaja AS idCaja,
+                           d.n_g_proceso AS numeroProceso,
+                           d.recepciones_trazabilidad AS lote,
+                           d.c_productor_original AS productorReal,
+                           d.c_productor AS productor,
+                           d.id_variedad AS variedadReal,
+                           d.id_variedad AS variedadComercial,
+                           d.fecha_produccion AS fechaEmbalaje,
+                           d.id_calibre AS calibre,
+                           1 AS cajas,
+                           d.peso_std_embalaje AS kilos,
+                           '' AS clasificacion,
+                           d.id_categoria AS categoria,
+                           d.id_etiqueta AS etiqueta,
+                           d.folio
+                      FROM V_PKG_Cajas AS c
+                      INNER JOIN V_PKG_Stock_Inventario AS d ON c.id_pkg_stock_det = d.id_pkg_stock_det
+                     WHERE c.folio IN ({$placeholders})
                     SQL,
                     $folios
                 );
             } else {
                 $rows = DB::connection($conn)->select(
                     <<<'SQL'
-                    SELECT TOP 5000
-                           s.ncaja,
-                           s.id_pkg_stock_det_creacion,
-                           d.folio,
-                           d.id_adm_p_items,
-                           d.id_pro_p_categorias,
-                           d.id_pro_p_calibres,
-                           d.id_pro_p_etiquetas,
-                           d.lote_recepcion,
-                           d.recepciones_trazabilidad,
-                           d.Programacion_Id_G_Produccion,
-                           d.id_adm_p_entidades_productor_rotulacion,
-                           d.id_pro_p_variedades_rotulacion,
-                           d.LoteR_Unitec,
-                           s.Peso_medido,
-                           s.Fecha_Hora_Creacion,
-                           s.peso_fijo,
-                           s.Origen
-                      FROM PKG_Stock_Cajas s
-                      JOIN PKG_Stock_Det d ON d.id_pkg_stock_det_creacion = s.id_pkg_stock_det_creacion
+                    SELECT 
+                           c.ncaja AS idCaja,
+                           d.n_g_proceso AS numeroProceso,
+                           d.recepciones_trazabilidad AS lote,
+                           d.c_productor_original AS productorReal,
+                           d.c_productor AS productor,
+                           d.id_variedad AS variedadReal,
+                           d.id_variedad AS variedadComercial,
+                           d.fecha_produccion AS fechaEmbalaje,
+                           d.id_calibre AS calibre,
+                           1 AS cajas,
+                           d.peso_std_embalaje AS kilos,
+                           '' AS clasificacion,
+                           d.id_categoria AS categoria,
+                           d.id_etiqueta AS etiqueta,
+                           c.folio
+                      FROM V_PKG_Cajas AS c
+                      INNER JOIN V_PKG_Stock_Inventario AS d ON c.id_pkg_stock_det = d.id_pkg_stock_det
                     SQL
                 );
             }
@@ -178,5 +200,47 @@ class SqlServerReader
         }
 
         return collect($rows)->filter(fn ($r) => ! empty($r->folio))->values();
+    }
+
+    /**
+     * Columnas de $wanted que existen realmente en la tabla/vista indicada.
+     */
+    private function availableColumns(string $table, array $wanted): array
+    {
+        try {
+            $rows = DB::connection($this->connection())->select(
+                'SELECT COLUMN_NAME FROM INFORMATION_SCHEMA.COLUMNS WHERE TABLE_NAME = ?',
+                [$table]
+            );
+        } catch (\Throwable $e) {
+            Log::warning('GARCES_PALLETBOX_SQLSRV_COLUMNS', [
+                'error' => $e->getMessage(),
+                'table' => $table,
+            ]);
+
+            return $wanted;
+        }
+
+        $available = array_map(fn ($r) => (string) $r->COLUMN_NAME, $rows);
+
+        if ($available === []) {
+            Log::warning('GARCES_PALLETBOX_SQLSRV_COLUMNS', [
+                'error' => 'No se pudieron resolver columnas.',
+                'table' => $table,
+            ]);
+
+            return $wanted;
+        }
+
+        $missing = array_values(array_diff($wanted, $available));
+
+        if ($missing !== []) {
+            Log::warning('GARCES_PALLETBOX_SQLSRV_COLUMNS_FALTANTES', [
+                'table' => $table,
+                'missing' => $missing,
+            ]);
+        }
+
+        return array_values(array_intersect($wanted, $available));
     }
 }

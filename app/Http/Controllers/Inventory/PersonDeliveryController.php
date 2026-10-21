@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers\Inventory;
 
+use App\Exports\PersonDeliveryReportExport;
 use App\Http\Controllers\Controller;
 use App\Http\Controllers\Inventory\Concerns\AuthorizesInventory;
 use App\Models\InventoryCostCenter;
@@ -13,6 +14,7 @@ use App\Models\InventoryStockLocation;
 use App\Models\InventoryStockPosition;
 use App\Models\Personal;
 use App\Services\Inventory\MovementService;
+use App\Services\Inventory\PersonDeliveryReportService;
 use App\Services\Inventory\ReferenceNumberService;
 use Closure;
 use Illuminate\Http\RedirectResponse;
@@ -24,6 +26,7 @@ use Illuminate\Support\Str;
 use Illuminate\Validation\ValidationException;
 use Inertia\Inertia;
 use Inertia\Response;
+use Maatwebsite\Excel\Facades\Excel;
 use Spatie\Browsershot\Browsershot;
 
 class PersonDeliveryController extends Controller
@@ -32,9 +35,16 @@ class PersonDeliveryController extends Controller
 
     private const DELIVERY_SIGNATURE_IMAGE = 'img/firma_entrega_materiales.png';
 
+    public function __construct(private readonly PersonDeliveryReportService $reportService)
+    {
+    }
+
     public function index(Request $request): Response
     {
         $this->authorizeInventory($request);
+
+        $filters = $this->readFilters($request);
+        $options = $this->reportService->filterOptions();
 
         $deliveries = InventoryPersonDelivery::query()
             ->with([
@@ -45,13 +55,95 @@ class PersonDeliveryController extends Controller
                 'items.material:id,codigo,nombre,unit_id',
                 'items.material.unit:id,codigo',
             ])
+            ->when($filters['date_from'] !== '', fn ($query) => $query->whereDate('delivered_at', '>=', $filters['date_from']))
+            ->when($filters['date_to'] !== '', fn ($query) => $query->whereDate('delivered_at', '<=', $filters['date_to']))
+            ->when($filters['material_id'] !== '', fn ($query) => $query->whereHas(
+                'items',
+                fn ($items) => $items->where('material_id', (int) $filters['material_id'])
+            ))
+            ->when($filters['area'] !== '', fn ($query) => $query->whereRaw(
+                "COALESCE(NULLIF(TRIM(person_area), ''), ?) = ?",
+                [PersonDeliveryReportService::AREA_SIN_DEFINIR, $filters['area']]
+            ))
+            ->when($filters['person_id'] !== '', fn ($query) => $query->where('person_id', (int) $filters['person_id']))
             ->latest('delivered_at')
             ->paginate(15)
+            ->withQueryString()
             ->through(fn (InventoryPersonDelivery $delivery) => $this->presentDelivery($delivery));
 
         return Inertia::render('Inventory/PersonDeliveries/Index', [
             'deliveries' => $deliveries,
+            'filters' => $filters,
+            'materials' => $options['materials'],
+            'people' => $options['people'],
+            'areas' => $options['areas'],
         ]);
+    }
+
+    /**
+     * Reporte Excel de entregas de materiales a personas.
+     */
+    public function exportExcel(Request $request)
+    {
+        $this->authorizeInventory($request);
+
+        $filters = $this->readFilters($request);
+        $detail = $this->reportService->detail($filters);
+        $consolidated = $this->reportService->consolidatedByArea($detail);
+
+        $filename = 'reporte-entrega-materiales-personas-'.now()->format('Ymd_His').'.xlsx';
+
+        return Excel::download(
+            new PersonDeliveryReportExport($consolidated, $detail->all(), $this->reportMeta($filters)),
+            $filename
+        );
+    }
+
+    /**
+     * @param  array<string, mixed>  $filters
+     * @return array<string, mixed>
+     */
+    private function readFilters(Request $request): array
+    {
+        return $this->reportService->normalizeFilters([
+            'date_from' => $request->input('date_from', ''),
+            'date_to' => $request->input('date_to', ''),
+            'material_id' => $request->input('material_id', ''),
+            'area' => $request->input('area', ''),
+            'person_id' => $request->input('person_id', ''),
+        ]);
+    }
+
+    /**
+     * Encabezado con los filtros aplicados, incluido en cada hoja del reporte.
+     *
+     * @param  array<string, mixed>  $filters
+     * @return array<string, mixed>
+     */
+    private function reportMeta(array $filters): array
+    {
+        $materialLabel = 'TODOS';
+        if ($filters['material_id'] !== '') {
+            $material = InventoryMaterial::query()->find((int) $filters['material_id']);
+            $materialLabel = $material ? $material->codigo.' · '.$material->nombre : 'TODOS';
+        }
+
+        $personLabel = 'TODOS';
+        if ($filters['person_id'] !== '') {
+            $person = Personal::query()->find((int) $filters['person_id']);
+            $personLabel = $person ? $person->nombre : 'TODOS';
+        }
+
+        return [
+            'generated_at' => now()->format('d-m-Y H:i'),
+            'filters' => [
+                'Desde' => $filters['date_from'] !== '' ? date('d-m-Y', strtotime($filters['date_from'])) : 'SIN FILTRO',
+                'Hasta' => $filters['date_to'] !== '' ? date('d-m-Y', strtotime($filters['date_to'])) : 'SIN FILTRO',
+                'Material' => $materialLabel,
+                'Área' => $filters['area'] !== '' ? $filters['area'] : 'TODAS',
+                'Persona' => $personLabel,
+            ],
+        ];
     }
 
     public function create(Request $request): Response

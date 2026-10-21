@@ -22,10 +22,9 @@ class Normalizer
      */
     public function normalize(Collection $cabeceras, Collection $detalles): array
     {
-        $detByFolio = $detalles->groupBy(fn ($row) => trim((string) (is_object($row) ? ($row->folio ?? '') : ($row['folio'] ?? ''))));
+        $detByFolio = $detalles->groupBy(fn ($row) => trim((string) ($this->prop($row, 'folio') ?? '')));
 
         $result = [];
-
         foreach ($cabeceras as $cab) {
             $folio = trim((string) ($this->prop($cab, 'folio') ?? ''));
 
@@ -34,16 +33,30 @@ class Normalizer
             }
 
             $detalleList = collect($detByFolio->get($folio, []));
-            $totCajas = (int) $detalleList->sum(fn ($r) => (int) (is_object($r) ? ($r->ncaja ?? 0) : ($r['ncaja'] ?? 0)));
-            $totKilos = (float) $detalleList->sum(function ($r) {
-                $peso = is_object($r) ? ($r->Peso_medido ?? $r->peso_medido ?? 0) : ($r['Peso_medido'] ?? $r['peso_medido'] ?? 0);
-                $cajas = is_object($r) ? ($r->ncaja ?? 0) : ($r['ncaja'] ?? 0);
 
-                return (float) $peso * (int) $cajas;
-            });
+            $totCajas = (int) ($this->prop($cab, 'cantidad') ?? 0);
+            $totKilos = (float) ($this->prop($cab, 'peso_neto') ?? 0);
 
-            if ($totCajas < 0) {
-                $totCajas = 0;
+            if ($detalleList->isNotEmpty()) {
+                $calcCajas = (int) $detalleList->sum(fn ($r) => (int) ($this->prop($r, 'ncaja') ?? 0));
+                $calcKilos = (float) $detalleList->sum(function ($r) {
+                    $peso = $this->prop($r, 'Peso_medido') ?? $this->prop($r, 'peso_medido') ?? 0;
+                    $cajas = (int) ($this->prop($r, 'ncaja') ?? 0);
+
+                    return (float) $peso * (int) $cajas;
+                });
+
+                if ($totCajas <= 0) {
+                    $totCajas = $calcCajas;
+                }
+                if ($totKilos <= 0.0) {
+                    $totKilos = $calcKilos;
+                }
+            } elseif ($totCajas <= 0) {
+                $totCajas = (int) ($this->prop($cab, 'cantidad_cajas') ?? 0);
+            }
+            if ($totKilos <= 0.0 && ! $detalleList->isNotEmpty()) {
+                $totKilos = (float) ($this->prop($cab, 'peso_neto_total') ?? 0);
             }
 
             if ($totKilos < 0) {
@@ -53,11 +66,11 @@ class Normalizer
             $fechaProd = $this->toCarbon($this->prop($cab, 'fecha_produccion'));
             $fecha = $fechaProd?->format('Y-m-d');
 
-            $cEspecie = trim((string) ($this->prop($cab, 'c_especie') ?? ''));
-            $cVariedad = trim((string) ($this->prop($cab, 'c_variedad') ?? ''));
+            $cEspecie = trim((string) ($this->prop($cab, 'id_especie') ?? ($this->prop($cab, 'c_especie') ?? '')));
+            $cVariedad = trim((string) ($this->prop($cab, 'id_variedad') ?? ($this->prop($cab, 'c_variedad') ?? '')));
 
-            $subsidiary = trim((string) ($this->prop($cab, 'code_subsidiary') ?? ''));
-            $season = trim((string) ($this->prop($cab, 'code_season') ?? ''));
+            $subsidiary = trim((string) ($this->prop($cab, 'code_subsidiary') ?? ($this->prop($cab, 'id_empresa') ?? ($this->prop($cab, 'c_exportadora') ?? config('services.garces_pallet_box.code_subsidiary') ?? ''))));
+            $season = trim((string) ($this->prop($cab, 'code_season') ?? config('services.garces_pallet_box.code_season') ?? ''));
             $defaults = $this->resolveDefaults($subsidiary, $season);
 
             $result[] = [

@@ -476,6 +476,7 @@ Route::middleware('auth')->group(function () {
         Route::resource('returns', App\Http\Controllers\Inventory\ReturnController::class)->only(['index', 'create', 'store'])->names('returns');
         Route::patch('returns/{return}/status', [App\Http\Controllers\Inventory\ReturnController::class, 'updateStatus'])->name('returns.update-status');
         Route::post('returns/{return}/generate-transfer', [App\Http\Controllers\Inventory\ReturnController::class, 'generateTransfer'])->name('returns.generate-transfer');
+        Route::get('person-deliveries/export-excel', [App\Http\Controllers\Inventory\PersonDeliveryController::class, 'exportExcel'])->name('person-deliveries.export-excel');
         Route::get('person-deliveries/{person_delivery}/pdf', [App\Http\Controllers\Inventory\PersonDeliveryController::class, 'pdf'])->name('person-deliveries.pdf');
         Route::resource('person-deliveries', App\Http\Controllers\Inventory\PersonDeliveryController::class)->only(['index', 'create', 'store', 'show'])->names('person-deliveries');
         Route::post('personal', [App\Http\Controllers\Inventory\PersonalController::class, 'store'])->name('personal.store');
