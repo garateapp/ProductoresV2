@@ -5,11 +5,13 @@ namespace App\Services\Inventory;
 use App\Models\InventoryLogisticUnit;
 use App\Models\InventoryMaterial;
 use App\Models\InventoryMovementType;
+use App\Models\InventorySemiFinishedProduction;
 use App\Models\InventoryStockPosition;
 use App\Models\InventoryTechnicalSheet;
 use App\Models\InventoryWasteReason;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Schema;
 use Illuminate\Validation\ValidationException;
 
 class TransformationService
@@ -181,11 +183,54 @@ class TransformationService
                 ],
             ], $userId);
 
-            $this->createConsumptionMovements($consumptionDetailsByLocation, $newUnit, $userId);
-            $this->createWasteMovements($wasteDetailsByGroup, $newUnit, $userId);
+            $consumptionMovementIds = $this->createConsumptionMovements($consumptionDetailsByLocation, $newUnit, $userId);
+            $wasteMovementIds = $this->createWasteMovements($wasteDetailsByGroup, $newUnit, $userId);
+
+            $this->registerProduction(
+                $newUnit,
+                $sheet,
+                $locationId,
+                $quantity,
+                $userId,
+                $consumptionMovementIds,
+                $wasteMovementIds,
+            );
 
             return $newUnit;
         });
+    }
+
+    /**
+     * Deja la trazabilidad de la producción para poder revertirla después
+     * (material equivocado, cantidad errónea) sin depender de los movimientos.
+     */
+    private function registerProduction(
+        InventoryLogisticUnit $newUnit,
+        InventoryTechnicalSheet $sheet,
+        int $locationId,
+        float $quantity,
+        int $userId,
+        array $consumptionMovementIds,
+        array $wasteMovementIds,
+    ): void {
+        if (! Schema::hasTable('inventory_semi_finished_productions')) {
+            return;
+        }
+
+        InventorySemiFinishedProduction::query()->create([
+            'logistic_unit_id' => $newUnit->id,
+            'technical_sheet_id' => (int) $sheet->id,
+            'location_id' => $locationId,
+            'created_by' => $userId,
+            'quantity' => $quantity,
+            'status' => 'completed',
+            'metadata' => [
+                'workflow' => 'semi_finished_production',
+                'technical_sheet_id' => (int) $sheet->id,
+                'consumption_movement_ids' => array_values($consumptionMovementIds),
+                'waste_movement_ids' => array_values($wasteMovementIds),
+            ],
+        ]);
     }
 
     private function resolveAndValidateInputs(array $inputs): array
@@ -304,16 +349,17 @@ class TransformationService
         ];
     }
 
-    private function createConsumptionMovements(array $detailsByLocation, InventoryLogisticUnit $newUnit, int $userId): void
+    private function createConsumptionMovements(array $detailsByLocation, InventoryLogisticUnit $newUnit, int $userId): array
     {
         if (empty($detailsByLocation)) {
-            return;
+            return [];
         }
 
         $type = InventoryMovementType::query()->where('codigo', 'CONSUMO')->firstOrFail();
+        $movementIds = [];
 
         foreach ($detailsByLocation as $locationId => $details) {
-            $this->movementService->create([
+            $movement = $this->movementService->create([
                 'movement_type_id' => $type->id,
                 'fecha_movimiento' => now(),
                 'origin_location_id' => (int) $locationId,
@@ -327,21 +373,26 @@ class TransformationService
                 ],
                 'details' => $details,
             ], $userId, true);
+
+            $movementIds[] = (int) $movement->id;
         }
+
+        return $movementIds;
     }
 
-    private function createWasteMovements(array $groups, InventoryLogisticUnit $newUnit, int $userId): void
+    private function createWasteMovements(array $groups, InventoryLogisticUnit $newUnit, int $userId): array
     {
         if (empty($groups)) {
-            return;
+            return [];
         }
 
         $type = InventoryMovementType::query()->where('codigo', 'MERMA')->firstOrFail();
+        $movementIds = [];
 
         foreach ($groups as $group) {
             $reason = InventoryWasteReason::query()->findOrFail((int) $group['waste_reason_id']);
 
-            $this->movementService->create([
+            $movement = $this->movementService->create([
                 'movement_type_id' => $type->id,
                 'fecha_movimiento' => now(),
                 'origin_location_id' => (int) $group['location_id'],
@@ -358,6 +409,10 @@ class TransformationService
                 ],
                 'details' => $group['details'],
             ], $userId, true);
+
+            $movementIds[] = (int) $movement->id;
         }
+
+        return $movementIds;
     }
 }

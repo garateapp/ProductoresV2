@@ -8,7 +8,7 @@ import { Button } from '@/Components/ui/button'
 import { Input } from '@/Components/ui/input'
 import { Label } from '@/Components/ui/label'
 import SearchableSelect from '@/Components/SearchableSelect'
-import { ChevronDown, ChevronRight, Eye, MoveHorizontal, Package, Plus, Printer, QrCode, Split, Trash2 } from 'lucide-react'
+import { ChevronDown, ChevronRight, Eye, MoveHorizontal, Package, Plus, Printer, QrCode, RotateCcw, Split, Trash2, Undo2 } from 'lucide-react'
 import {
   Dialog,
   DialogContent,
@@ -39,6 +39,7 @@ export default function InventoryLogisticUnits({ units, materials = [], location
   const [expandedLpns, setExpandedLpns] = useState(new Set())
   const [transferModal, setTransferModal] = useState({ open: false, type: 'full', unit: null, position: null })
   const [labelModal, setLabelModal] = useState({ open: false, ...createLogisticUnitLabelData() })
+  const [labelQrDataUrl, setLabelQrDataUrl] = useState('')
   const [labelCopies, setLabelCopies] = useState(1)
   const [lotCopies, setLotCopies] = useState(2)
   const [lotStartFrom, setLotStartFrom] = useState('')
@@ -529,7 +530,44 @@ const addInput = async (lpnCode) => {
     })
   }
 
-  const [labelQrDataUrl, setLabelQrDataUrl] = useState('')
+  const [revertModal, setRevertModal] = useState({ open: false, unit: null, reason: '' })
+
+  const openRevertModal = (unit) => {
+    const rev = unit.production_reversal || {}
+    if (!rev.reversible) {
+      toast.error(rev.reason || 'Este LPN no se puede revertir.')
+      return
+    }
+    setRevertModal({ open: true, unit, reason: '' })
+  }
+
+  const submitRevert = (e) => {
+    e.preventDefault()
+    if (!revertModal.unit) return
+    if (!revertModal.reason || revertModal.reason.trim().length < 5) {
+      toast.error('Ingresa un motivo (mínimo 5 caracteres).')
+      return
+    }
+
+    router.post(route('inventory.logistic-units.reverse-production', revertModal.unit.id), {
+      reason: revertModal.reason,
+    }, {
+      preserveScroll: true,
+      onSuccess: (page) => {
+        setRevertModal({ open: false, unit: null, reason: '' })
+        const flashError = page?.props?.flash?.error
+        if (flashError) {
+          toast.error(flashError)
+          return
+        }
+        toast.success(page?.props?.flash?.success || 'Producción revertida.')
+      },
+      onError: (errors) => {
+        const msg = Object.values(errors).join(', ')
+        toast.error(msg || 'Error al revertir la producción.')
+      },
+    })
+  }
   const [lastSuggestedLpn, setLastSuggestedLpn] = useState('')
 
   const toggleExpand = (id) => {
@@ -1621,6 +1659,11 @@ const addInput = async (lpnCode) => {
                         <Button variant="outline" size="sm" onClick={(e) => { e.stopPropagation(); openLabelModal({ lpn: unit.license_plate_number, dispatch_guide: unit.dispatch_guide, material: unit.material, location: unit.location, spatialPosition: spatialPositionLabel(unit.spatial_prefix, unit.spatial_column, unit.spatial_row), lotCode: unit.lot_code, supplierLot: unit.supplier_lot, quantity: unit.available_quantity, unit: unit.unit }); }}>
                           <Printer className="h-4 w-4 mr-1" /> Etiqueta
                         </Button>
+                        {(unit.production_reversal?.reversible) && (
+                          <Button variant="outline" size="sm" className="text-amber-700 border-amber-200 hover:bg-amber-50" onClick={(e) => { e.stopPropagation(); openRevertModal(unit); }}>
+                            <Undo2 className="h-4 w-4 mr-1" /> Revertir producción
+                          </Button>
+                        )}
                         <Button variant="outline" size="sm" disabled={unit.status !== 'active'} onClick={(e) => { e.stopPropagation(); openFullTransfer(unit); }}>
                           <MoveHorizontal className="h-4 w-4 mr-1" /> Traslado LPN
                         </Button>
@@ -2267,6 +2310,34 @@ const addInput = async (lpnCode) => {
               </div>
             </div>
           )}
+        </DialogContent>
+      </Dialog>
+
+      <Dialog open={revertModal.open} onOpenChange={(val) => setRevertModal({ open: val, unit: null, reason: '' })}>
+        <DialogContent className="sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle>Revertir producción de semielaborado</DialogTitle>
+            <DialogDescription>
+              Se devolverán los insumos consumidos desde los LPN originales y el LPN <strong>{revertModal.unit?.license_plate_number}</strong> se cerrará.
+              Esta acción queda registrada en el historial.
+            </DialogDescription>
+          </DialogHeader>
+          <form onSubmit={submitRevert} className="space-y-4">
+            <div className="space-y-2">
+              <Label>Motivo de reversión *</Label>
+              <Input
+                value={revertModal.reason}
+                onChange={(e) => setRevertModal({ ...revertModal, reason: e.target.value })}
+                placeholder="Ej: Se usó material equivocado"
+                autoFocus
+              />
+              <p className="text-xs text-muted-foreground">Mínimo 5 caracteres.</p>
+            </div>
+            <DialogFooter>
+              <Button type="button" variant="ghost" onClick={() => setRevertModal({ open: false, unit: null, reason: '' })}>Cancelar</Button>
+              <Button type="submit" className="bg-amber-600 hover:bg-amber-700">Revertir producción</Button>
+            </DialogFooter>
+          </form>
         </DialogContent>
       </Dialog>
     </div>

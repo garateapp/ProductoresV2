@@ -3,13 +3,19 @@
 namespace App\Http\Controllers\Inventory;
 
 use App\Http\Controllers\Controller;
+use App\Http\Controllers\Inventory\Concerns\AuthorizesInventory;
 use App\Jobs\ProcessTransformationJob;
+use App\Models\InventoryLogisticUnit;
+use App\Services\Inventory\SemiFinishedProductionReversalService;
 use App\Services\Inventory\TransformationService;
+use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Validation\ValidationException;
 
 class TransformationController extends Controller
 {
+    use AuthorizesInventory;
+
     public function store(Request $request)
     {
         $data = $request->validate([
@@ -68,6 +74,38 @@ class TransformationController extends Controller
         }
 
         return (int) $value;
+    }
+
+    /**
+     * Revierte una producción de semielaborado antes de que el LPN generado
+     * tenga movimientos: devuelve los insumos consumidos y cierra el LPN.
+     */
+    public function reverse(
+        Request $request,
+        InventoryLogisticUnit $logisticUnit,
+        SemiFinishedProductionReversalService $reversalService,
+    ): RedirectResponse {
+        $this->authorizeInventory($request);
+
+        $data = $request->validate([
+            'reason' => ['required', 'string', 'min:5', 'max:500'],
+        ]);
+
+        try {
+            $reversalService->reverse($logisticUnit, $data['reason'], (int) $request->user()->id);
+        } catch (ValidationException $exception) {
+            return back()->with('error', $this->validationMessage($exception));
+        }
+
+        return back()->with('success', 'Producción revertida: los insumos fueron devueltos y el LPN de salida se cerró.');
+    }
+
+    private function validationMessage(ValidationException $exception): string
+    {
+        return collect($exception->errors())
+            ->flatten()
+            ->filter()
+            ->first() ?? $exception->getMessage();
     }
 
     public function checkAvailability(Request $request, TransformationService $transformationService)

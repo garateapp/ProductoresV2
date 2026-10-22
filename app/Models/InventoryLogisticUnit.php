@@ -5,6 +5,7 @@ namespace App\Models;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
+use Illuminate\Database\Eloquent\Relations\HasOne;
 
 class InventoryLogisticUnit extends Model
 {
@@ -84,6 +85,11 @@ class InventoryLogisticUnit extends Model
     public function wasteRecords(): HasMany
     {
         return $this->hasMany(InventoryWasteRecord::class, 'logistic_unit_id');
+    }
+
+    public function semiFinishedProduction(): HasOne
+    {
+        return $this->hasOne(InventorySemiFinishedProduction::class, 'logistic_unit_id')->latestOfMany();
     }
 
     public function normalizedLotCode(): ?string

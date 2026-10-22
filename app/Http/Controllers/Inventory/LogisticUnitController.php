@@ -20,6 +20,7 @@ use App\Notifications\InventoryTransferDispatchedNotification;
 use App\Services\Inventory\LogisticUnitService;
 use App\Services\Inventory\LotService;
 use App\Services\Inventory\MovementService;
+use App\Services\Inventory\SemiFinishedProductionReversalService;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
@@ -32,7 +33,7 @@ class LogisticUnitController extends Controller
 {
     use AuthorizesInventory;
 
-    public function index(Request $request, LogisticUnitService $logisticUnitService, LotService $lotService): Response
+    public function index(Request $request, LogisticUnitService $logisticUnitService, LotService $lotService, SemiFinishedProductionReversalService $reversalService): Response
     {
         $this->authorizeInventory($request);
 
@@ -78,8 +79,15 @@ class LogisticUnitController extends Controller
             ->when($filters['status'] !== '', fn ($query) => $query->where('status', $filters['status']))
             ->latest('id')
             ->paginate(20)
-            ->withQueryString()
-            ->through(fn (InventoryLogisticUnit $unit): array => $this->unitPayload($unit));
+            ->withQueryString();
+
+        $user = $request->user();
+        $reversalStatuses = $reversalService->statusForUnits($units->getCollection(), $user);
+
+        $units = $units->through(fn (InventoryLogisticUnit $unit): array => array_merge(
+            $this->unitPayload($unit),
+            ['production_reversal' => $reversalStatuses[(int) $unit->id] ?? ['production' => null, 'reversible' => false, 'reason' => null]],
+        ));
 
         $materials = InventoryMaterial::query()
             ->with('service:id,name')
