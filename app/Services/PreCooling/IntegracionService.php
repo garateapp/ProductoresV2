@@ -25,7 +25,12 @@ class IntegracionService
         }
 
         $loads = $query->orderByDesc('id')->get();
-
+        Log::info('PRECOOLING_INTEGRACION_GENERAR', [
+            'fechaInicio' => $fechaInicio,
+            'fechaFin' => $fechaFin,
+            'estado' => $estado,
+            'loadsCount' => count($loads),
+        ]);
         $data = [];
         $anyPartial = false;
 
@@ -67,7 +72,13 @@ class IntegracionService
 
             $detalles[] = $this->buildFolio($load, $folio, $sqlsrv);
         }
-
+        Log::info('PRECOOLING_INTEGRACION_LOAD', [
+            'loadId' => $load->id,
+            'loadNumber' => $load->numero,
+            'foliosFound' => $found,
+            'foliosMissing' => $missing,
+            'isPartialSuccess' => $isPartialSuccess,
+        ]);
         $this->registrarLectura($load, $found, $missing, $isPartialSuccess);
 
         $payload = [

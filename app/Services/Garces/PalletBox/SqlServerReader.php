@@ -145,7 +145,7 @@ class SqlServerReader
 
                 $rows = DB::connection($conn)->select(
                     <<<SQL
-                    SELECT 
+                    SELECT
                            c.ncaja AS idCaja,
                            d.n_g_proceso AS numeroProceso,
                            d.recepciones_trazabilidad AS lote,
@@ -154,7 +154,7 @@ class SqlServerReader
                            d.id_variedad AS variedadReal,
                            d.id_variedad AS variedadComercial,
                            d.fecha_produccion AS fechaEmbalaje,
-                           d.id_calibre AS calibre,
+                           d.c_calibre AS calibre,
                            1 AS cajas,
                            d.peso_std_embalaje AS kilos,
                            '' AS clasificacion,
@@ -170,7 +170,7 @@ class SqlServerReader
             } else {
                 $rows = DB::connection($conn)->select(
                     <<<'SQL'
-                    SELECT 
+                    SELECT
                            c.ncaja AS idCaja,
                            d.n_g_proceso AS numeroProceso,
                            d.recepciones_trazabilidad AS lote,
@@ -179,7 +179,7 @@ class SqlServerReader
                            d.id_variedad AS variedadReal,
                            d.id_variedad AS variedadComercial,
                            d.fecha_produccion AS fechaEmbalaje,
-                           d.id_calibre AS calibre,
+                           d.c_calibre AS calibre,
                            1 AS cajas,
                            d.peso_std_embalaje AS kilos,
                            '' AS clasificacion,
