@@ -113,6 +113,7 @@ class IntegracionService
 
     protected function buildFolio(PreCoolingLoad $load, $folio, array $sqlsrv): array
     {
+
         return [
             'preColdNumber' => $load->numero,
             'sinkNumber' => (string) $folio->folio,
