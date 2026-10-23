@@ -7,11 +7,19 @@ use App\Models\User;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Hash;
+use Illuminate\Support\Facades\Log;
 
 class AuthController extends Controller
 {
     public function login(Request $request): JsonResponse
     {
+        Log::info('checkpallet.login.request', [
+            'login' => $request->input('login'),
+            'ip' => $request->ip(),
+            'user_agent' => $request->userAgent(),
+            'has_password' => $request->filled('password'),
+        ]);
+
         $credentials = $request->validate([
             'login' => ['required', 'string'],
             'password' => ['required', 'string'],
@@ -25,7 +33,17 @@ class AuthController extends Controller
             $login = strtolower($login);
         }
 
+        Log::info('checkpallet.login.lookup', [
+            'field' => $field,
+            'login' => $login,
+        ]);
+
         $user = User::query()->where($field, $login)->first();
+
+        Log::info('checkpallet.login.lookup.result', [
+            'found' => (bool) $user,
+            'user_id' => $user?->id,
+        ]);
 
         if (! $user || ! Hash::check($credentials['password'], $user->password)) {
             return response()->json([
