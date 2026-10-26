@@ -6,6 +6,7 @@ use App\Services\Garces\GarcesCodeDictionaryService;
 use Illuminate\Support\Facades\Config;
 use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Facades\Log;
+use Illuminate\Support\Carbon;
 
 class GarcesPalletBoxService
 {
@@ -118,7 +119,9 @@ class GarcesPalletBoxService
         $boxes = 0;
 
         foreach ($items as $item) {
-            $boxes += count($item['payload']['detail'] ?? $item['payload']['cajas'] ?? []);
+            foreach ($item['payload']['pallets'] ?? [] as $pallet) {
+                $boxes += count($pallet['detail'] ?? []);
+            }
         }
 
         return [
@@ -168,32 +171,36 @@ class GarcesPalletBoxService
     {
         $cab = $item['cabecera'] ?? (object) [];
         $defaults = $item['defaults'] ?? [];
+        $config = Config::get('services.garces_pallet_box') ?? [];
 
         $codigoBarra = trim((string) ($cab->folio ?? $item['folio']));
         $translated = $this->translatePallet($item, $recordMissing);
 
         return [
-            'header'=> [
-                'codeSubsidiary' => (string) ($defaults['subsidiary_garces'] ?? ($cab->id_empresa ?? ($cab->c_exportadora ?? ''))),
-                'codeSeason' => (string) ($defaults['season_garces'] ?? ''),
+
+                'codeSubsidiary' => (string) (($config['code_subsidiary'] ?? null) ?: ($defaults['subsidiary_garces'] ?? ($cab->id_empresa ?? ($cab->c_exportadora ?? '')))),
+                'codeSeason' => (string) (($config['code_season'] ?? null) ?: ($defaults['season_garces'] ?? '')),
 
             'pallets' => [
-                'folio' => $item['folio'],
-                'fechaTarja' => $item['fecha_produccion'],
-                'tipoTarja' => (string) ($defaults['tipo_tarja'] ?? ''),
-                'especie' => $translated['especie'] ?? (string) ($cab->id_especie ?? ($cab->c_especie ?? '')),
-                'variedad' => $translated['variedad'] ?? (string) ($cab->id_variedad ?? ($cab->c_variedad ?? '')),
-                'envase' => $translated['envase'] ?? (string) ($cab->id_contenedor ?? ($cab->c_contenedor ?? '')),
-                'embalaje' => $translated['embalaje'] ?? (string) ($cab->id_embalaje ?? ($cab->c_embalaje ?? '')),
-                'etiqueta' => $translated['etiqueta'] ?? (string) ($cab->id_etiqueta ?? ($cab->c_etiqueta ?? '')),
-                'tipoFruta' => (string) ($defaults['tipo_fruta'] ?? '1'),
-                'tipoPallet' => (string) ($defaults['tipo_pallet'] ?? '4'),
-                'categoria' => $translated['categoria'] ?? (string) ($cab->id_categoria ?? ($cab->c_categoria ?? '')),
-                'isExport' => $isExportDefault,
-                'cajasTotal' => $item['cantidad_cajas'],
-                'kilosTotal' => round((float) $item['peso_neto_total'], 3),
-            ],
-            'detail' => $this->mapBoxes($item['detalles'] ?? [], $recordMissing),
+                [
+                    'header' => [
+                        'folio' => $item['folio'],
+                        'fechaTarja' => $this->formatDate($item['fecha_produccion'] ?? null),
+                        'tipoTarja' => (string) ($defaults['tipo_tarja'] ?? ''),
+                        'especie' => $translated['especie'] ?? (string) ($cab->id_especie ?? ($cab->c_especie ?? '')),
+                        'variedad' => $translated['variedad'] ?? (string) ($cab->id_variedad ?? ($cab->c_variedad ?? '')),
+                        'envase' => $translated['envase'] ?? (string) ($cab->id_contenedor ?? ($cab->c_contenedor ?? '')),
+                        'embalaje' => $translated['embalaje'] ?? (string) ($cab->id_embalaje ?? ($cab->c_embalaje ?? '')),
+                        'etiqueta' => $translated['etiqueta'] ?? (string) ($cab->id_etiqueta ?? ($cab->c_etiqueta ?? '')),
+                        'tipoFruta' => (string) ($defaults['tipo_fruta'] ?? '1'),
+                        'tipoPallet' => (string) ($defaults['tipo_pallet'] ?? '4'),
+                        'categoria' => $translated['categoria'] ?? (string) ($cab->id_categoria ?? ($cab->c_categoria ?? '')),
+                        'isExport' => $isExportDefault,
+                        'cajasTotal' => $item['cantidad_cajas'],
+                        'kilosTotal' => round((float) $item['peso_neto_total'], 3),
+                    ],
+                    'detail' => $this->mapBoxes($item['detalles'] ?? [], $recordMissing),
+                ],
             ],
         ];
     }
@@ -206,13 +213,14 @@ class GarcesPalletBoxService
             $ncaja = is_object($det) ? ($det->idCaja ?? ($det->ncaja ?? ($det->id_pkg_stock_cajas ?? ($det->NumeroCaja ?? '')))) : ($det['idCaja'] ?? ($det['ncaja'] ?? ($det['id_pkg_stock_cajas'] ?? ($det['NumeroCaja'] ?? ''))));
             $peso = is_object($det) ? ($det->kilos ?? ($det->Peso_medido ?? ($det->peso_medido ?? ($det->PesoMedido ?? 0)))) : ($det['kilos'] ?? ($det['Peso_medido'] ?? ($det['peso_medido'] ?? ($det['PesoMedido'] ?? 0))));
             $lote = is_object($det) ? ($det->lote ?? ($det->recepciones_trazabilidad ?? ($det->lote_recepcion ?? ($det->loter_unitec ?? '')))) : ($det['lote'] ?? ($det['recepciones_trazabilidad'] ?? ($det['lote_recepcion'] ?? ($det['loter_unitec'] ?? ''))));
+            $lote = trim(explode(',', (string) $lote)[0]);
             $numeroProceso = is_object($det) ? ($det->numeroProceso ?? ($det->n_g_proceso ?? '')) : ($det['numeroProceso'] ?? ($det['n_g_proceso'] ?? ''));
             $productorReal = is_object($det) ? ($det->productorReal ?? ($det->c_productor_original ?? '')) : ($det['productorReal'] ?? ($det['c_productor_original'] ?? ''));
             $productor = is_object($det) ? ($det->productor ?? ($det->c_productor ?? '')) : ($det['productor'] ?? ($det['c_productor'] ?? ''));
             $variedadRealRaw = is_object($det) ? ($det->variedadReal ?? ($det->id_variedad ?? '')) : ($det['variedadReal'] ?? ($det['id_variedad'] ?? ''));
             $variedadComercialRaw = is_object($det) ? ($det->variedadComercial ?? ($det->id_variedad ?? '')) : ($det['variedadComercial'] ?? ($det['id_variedad'] ?? ''));
             $fechaEmbalaje = is_object($det) ? ($det->fechaEmbalaje ?? ($det->fecha_produccion ?? '')) : ($det['fechaEmbalaje'] ?? ($det['fecha_produccion'] ?? ''));
-            $calibreRaw = is_object($det) ? ($det->calibre ?? ($det->id_calibre ?? '')) : ($det['calibre'] ?? ($det['id_calibre'] ?? ''));
+            $calibreRaw = is_object($det) ? ($det->calibre ?? ($det->c_calibre ?? '')) : ($det['calibre'] ?? ($det['id_calibre'] ?? ''));
             $clasificacion = is_object($det) ? ($det->clasificacion ?? '') : ($det['clasificacion'] ?? '');
             $categoriaRaw = is_object($det) ? ($det->categoria ?? ($det->id_categoria ?? '')) : ($det['categoria'] ?? ($det['id_categoria'] ?? ''));
             $etiquetaRaw = is_object($det) ? ($det->etiqueta ?? ($det->id_etiqueta ?? '')) : ($det['etiqueta'] ?? ($det['id_etiqueta'] ?? ''));
@@ -254,10 +262,9 @@ class GarcesPalletBoxService
                 'productor' => $productor,
                 'variedadReal' => $variedadReal,
                 'variedadComercial' => $variedadComercial,
-                'fechaEmbalaje' => $fechaEmbalaje,
+                'fechaEmbalaje' => $this->formatDate($fechaEmbalaje),
                 'calibre' => $calibre,
                 'cajas' => 1,
-                'kilos' => is_numeric($peso) ? (float) $peso : $peso,
                 'clasificacion' => $clasificacion,
                 'categoria' => $categoria,
                 'etiqueta' => $etiqueta,
@@ -294,6 +301,25 @@ class GarcesPalletBoxService
         }
 
         return $translations;
+    }
+
+    private function formatDate(mixed $value): string
+    {
+        if ($value instanceof \DateTimeInterface) {
+            return $value->format('Y-m-d\TH:i:s');
+        }
+
+        $value = trim((string) $value);
+
+        if ($value === '') {
+            return '';
+        }
+
+        try {
+            return Carbon::parse($value)->format('Y-m-d\TH:i:s');
+        } catch (\Throwable) {
+            return $value;
+        }
     }
 
     private function getRaw(object $cab, string $tipo): string
