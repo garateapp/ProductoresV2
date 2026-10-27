@@ -8,10 +8,11 @@ use App\Models\InventoryPackaging;
 use App\Models\InventoryTechnicalSheet;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Log;
 
 class PalletController extends Controller
 {
-    private const SALIDAS_VIEW = 'V_PKG_Produccion_Salidas_XXX';
+    private const SALIDAS_VIEW = 'V_PKG_Stock_Inventario';
 
     public function show(string $folio): JsonResponse|PalletTechnicalSheetResource
     {
@@ -76,7 +77,12 @@ class PalletController extends Controller
                 'message' => "No existe ficha técnica vigente para el embalaje {$cEmbalaje}.",
             ], 404);
         }
-
+        Log::info('PalletController@show', [
+            'folio' => $folio,
+            'c_embalaje' => $cEmbalaje,
+            'technical_sheet_id' => $sheet->id,
+            'sheet'=> $sheet->toArray(),
+        ]);
         return new PalletTechnicalSheetResource($sheet, $folio, $cEmbalaje);
     }
 }
