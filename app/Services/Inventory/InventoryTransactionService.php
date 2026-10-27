@@ -997,18 +997,32 @@ class InventoryTransactionService
 
             $logisticUnit = InventoryLogisticUnit::query()->lockForUpdate()->findOrFail($transferUnit->logistic_unit_id);
             $allocation = $this->createTransferUnitAllocation($movement, $detail, $transferUnit, $logisticUnit, 'transfer_receipt');
-            $ledgerEvents[] = $this->buildTransferReceiptEventData($movement, $detail, $allocation, $transferUnit, $userId, $logisticUnit);
+            $receiptEvent = $this->buildTransferReceiptEventData($movement, $detail, $allocation, $transferUnit, $userId, $logisticUnit);
+            $receipt = $this->receiveTransferUnit($transferUnit, $logisticUnit, $userId, $movement->id);
 
-            $this->receiveTransferUnit($transferUnit, $logisticUnit, $userId, $movement->id);
+            if ($receipt['moved_quantity'] <= 0) {
+                $receiptEvent['signed_quantity'] = 0.0;
+                $receiptEvent['stock_effect'] = 'none';
+                $receiptEvent['payload']['reconciled_at_destination'] = true;
+                $receiptEvent['payload']['cantidad'] = 0.0;
+            } elseif (round((float) $receipt['moved_quantity'], 4) < round((float) $transferUnit->quantity, 4)) {
+                $receiptEvent['signed_quantity'] = (float) $receipt['moved_quantity'];
+                $receiptEvent['payload']['cantidad'] = (float) $receipt['moved_quantity'];
+                $receiptEvent['payload']['partial_reconciliation'] = true;
+            }
 
-            $syncPairs[] = [
-                'material_id' => (int) $transferUnit->material_id,
-                'location_id' => (int) $transferUnit->origin_location_id,
-            ];
-            $syncPairs[] = [
-                'material_id' => (int) $transferUnit->material_id,
-                'location_id' => (int) $transferUnit->destination_location_id,
-            ];
+            $ledgerEvents[] = $receiptEvent;
+
+            if ($receipt['moved_quantity'] > 0) {
+                $syncPairs[] = [
+                    'material_id' => (int) $transferUnit->material_id,
+                    'location_id' => (int) $transferUnit->origin_location_id,
+                ];
+                $syncPairs[] = [
+                    'material_id' => (int) $transferUnit->material_id,
+                    'location_id' => (int) $transferUnit->destination_location_id,
+                ];
+            }
 
             $transferUnit->forceFill([
                 'status' => 'received',
@@ -1019,6 +1033,8 @@ class InventoryTransactionService
                     'receipt_snapshot' => [
                         'received_at' => now()->toDateTimeString(),
                         'destination_location_snapshot' => $this->locationSnapshot((int) $transferUnit->destination_location_id),
+                        'moved_quantity' => $receipt['moved_quantity'],
+                        'reconciled' => $receipt['moved_quantity'] <= 0,
                     ],
                     'lifecycle' => [
                         ...((array) data_get($transferUnit->metadata, 'lifecycle')),
@@ -1234,15 +1250,17 @@ class InventoryTransactionService
             || filled(Arr::get($metadata, 'requested_position_id'));
     }
 
-    private function receiveTransferUnit(InventoryTransferUnit $transferUnit, InventoryLogisticUnit $logisticUnit, int $userId, int $movementId): void
+    private function receiveTransferUnit(InventoryTransferUnit $transferUnit, InventoryLogisticUnit $logisticUnit, int $userId, int $movementId): array
     {
+        $fullQuantity = round((float) $transferUnit->quantity, 4);
+
         if (! $this->positionsTableExists()) {
             $this->logisticUnitService->relocate($logisticUnit, (int) $transferUnit->destination_location_id, $userId, [
                 'movement_id' => $movementId,
                 'transfer_unit_id' => $transferUnit->id,
             ]);
 
-            return;
+            return ['moved_quantity' => $fullQuantity, 'reconciled' => false];
         }
 
         $snapshots = collect(Arr::get((array) $transferUnit->metadata, 'position_snapshots', []));
@@ -1255,13 +1273,24 @@ class InventoryTransactionService
                 'metadata' => array_diff_key((array) $logisticUnit->metadata, ['transfer_context' => true]),
             ])->save();
 
-            return;
+            return ['moved_quantity' => $fullQuantity, 'reconciled' => false];
         }
+
+        $alreadyAtDestination = $this->transferUnitAlreadyAtDestination($transferUnit);
+        $movedQuantity = 0.0;
 
         foreach ($snapshots as $snapshot) {
             $position = InventoryStockPosition::query()
                 ->lockForUpdate()
                 ->find($snapshot['position_id'] ?? null);
+
+            if ($position && (int) $position->location_id !== (int) $transferUnit->origin_location_id) {
+                if ($alreadyAtDestination) {
+                    continue;
+                }
+
+                $position = null;
+            }
 
             if (! $position) {
                 $position = InventoryStockPosition::query()
@@ -1275,22 +1304,45 @@ class InventoryTransactionService
             }
 
             if (! $position) {
+                if ($alreadyAtDestination) {
+                    continue;
+                }
+
                 throw ValidationException::withMessages([
                     'transfer_unit_ids' => 'No fue posible resolver las posiciones despachadas para confirmar la recepción.',
                 ]);
             }
 
+            $quantity = (float) ($snapshot['quantity'] ?? 0);
             $this->logisticUnitService->transferPosition(
                 $position,
                 (int) $transferUnit->destination_location_id,
-                (float) ($snapshot['quantity'] ?? 0),
+                $quantity,
                 $userId,
                 false,
             );
+            $movedQuantity += $quantity;
 
             if ($this->isPositionScopedTransferUnit($transferUnit)) {
                 $this->logisticUnitService->syncLogisticUnitQuantity($logisticUnit);
             }
+        }
+
+        $movedQuantity = round($movedQuantity, 4);
+
+        if ($movedQuantity <= 0 && $alreadyAtDestination) {
+            $isClosed = $logisticUnit->status === 'closed';
+
+            $logisticUnit->forceFill([
+                'current_location_id' => $isClosed
+                    ? $logisticUnit->current_location_id
+                    : $transferUnit->destination_location_id,
+                'status' => $isClosed ? 'closed' : 'active',
+                'last_moved_at' => $isClosed ? $logisticUnit->last_moved_at : now(),
+                'metadata' => array_diff_key((array) $logisticUnit->metadata, ['transfer_context' => true]),
+            ])->save();
+
+            return ['moved_quantity' => 0.0, 'reconciled' => true];
         }
 
         $logisticUnit->forceFill([
@@ -1301,6 +1353,37 @@ class InventoryTransactionService
             'last_moved_at' => now(),
             'metadata' => array_diff_key((array) $logisticUnit->metadata, ['transfer_context' => true]),
         ])->save();
+
+        return ['moved_quantity' => $movedQuantity, 'reconciled' => $movedQuantity < $fullQuantity];
+    }
+
+    private function transferUnitAlreadyAtDestination(InventoryTransferUnit $transferUnit): bool
+    {
+        $originHasPositions = InventoryStockPosition::query()
+            ->where('logistic_unit_id', $transferUnit->logistic_unit_id)
+            ->where('location_id', $transferUnit->origin_location_id)
+            ->exists();
+
+        if ($originHasPositions) {
+            return false;
+        }
+
+        $destinationHasPositions = InventoryStockPosition::query()
+            ->where('logistic_unit_id', $transferUnit->logistic_unit_id)
+            ->where('location_id', $transferUnit->destination_location_id)
+            ->exists();
+
+        if ($destinationHasPositions) {
+            return true;
+        }
+
+        return \App\Models\InventoryLedgerEvent::query()
+            ->where('logistic_unit_id', $transferUnit->logistic_unit_id)
+            ->where('material_id', $transferUnit->material_id)
+            ->where('location_id', $transferUnit->destination_location_id)
+            ->where('stock_effect', 'in')
+            ->when($transferUnit->dispatched_at, fn ($query, $dispatchedAt) => $query->where('occurred_at', '>=', $dispatchedAt))
+            ->exists();
     }
 
     private function returnTransferUnitToOrigin(InventoryTransferUnit $transferUnit, InventoryLogisticUnit $logisticUnit, int $userId, int $movementId): void
