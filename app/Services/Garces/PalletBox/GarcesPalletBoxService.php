@@ -189,8 +189,8 @@ class GarcesPalletBoxService
                         'tipoTarja' => (string) ($defaults['tipo_tarja'] ?? ''),
                         'especie' => $translated['especie'] ?? (string) ($cab->id_especie ?? ($cab->c_especie ?? '')),
                         'variedad' => $translated['variedad'] ?? (string) ($cab->id_variedad ?? ($cab->c_variedad ?? '')),
-                        'envase' => $translated['envase'] ?? (string) ($cab->id_contenedor ?? ($cab->c_contenedor ?? '')),
-                        'embalaje' => $translated['embalaje'] ?? (string) ($cab->id_embalaje ?? ($cab->c_embalaje ?? '')),
+                        'envase' => explode('-', $cab->c_embalaje ?? '')[1] ?? '',
+                        'embalaje' => $translated['embalaje'] ?? (string) ($cab->c_embalaje ?? ($cab->c_embalaje ?? '')),
                         'etiqueta' => $translated['etiqueta'] ?? (string) ($cab->id_etiqueta ?? ($cab->c_etiqueta ?? '')),
                         'tipoFruta' => (string) ($defaults['tipo_fruta'] ?? '1'),
                         'tipoPallet' => (string) ($defaults['tipo_pallet'] ?? '4'),
@@ -284,8 +284,8 @@ class GarcesPalletBoxService
             GarcesCodeDictionaryService::TYPE_CATEGORIA => (string) ($cab->id_categoria ?? ($cab->c_categoria ?? '')),
             GarcesCodeDictionaryService::TYPE_CALIBRE => (string) ($cab->id_calibre ?? ($cab->c_calibre ?? '')),
             GarcesCodeDictionaryService::TYPE_ETIQUETA => (string) ($cab->id_etiqueta ?? ($cab->c_etiqueta ?? '')),
-            GarcesCodeDictionaryService::TYPE_ENVASE => (string) ($cab->id_contenedor ?? ($cab->c_contenedor ?? '')),
-            GarcesCodeDictionaryService::TYPE_EMBALAJE => (string) ($cab->id_embalaje ?? ($cab->c_embalaje ?? '')),
+            GarcesCodeDictionaryService::TYPE_ENVASE => (string) ($cab->c_contenedor ?? ($cab->c_contenedor ?? '')),
+            GarcesCodeDictionaryService::TYPE_EMBALAJE => (string) ($cab->c_embalaje ?? ($cab->c_embalaje ?? '')),
             GarcesCodeDictionaryService::TYPE_CLASIFICACION => (string) ($cab->id_categoria ?? ($cab->c_categoria ?? '')),
         ]);
 
