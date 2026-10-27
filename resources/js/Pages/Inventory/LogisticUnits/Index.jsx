@@ -35,7 +35,7 @@ import {
 import { splitEvenly } from './logisticUnitSplit'
 import qz from 'qz-tray'
 import { toast } from 'sonner'
-export default function InventoryLogisticUnits({ units, materials = [], locations = [], statuses = [], filters = {}, materialRequests = [], technicalSheets = [], wasteReasons = [], wasteTypes = [], nextLotCode = '' }) {
+export default function InventoryLogisticUnits({ units, materials = [], locations = [], spatialPrefixes = [], spatialColumns = [], spatialRows = [], statuses = [], filters = {}, materialRequests = [], technicalSheets = [], wasteReasons = [], wasteTypes = [], nextLotCode = '' }) {
   const [expandedLpns, setExpandedLpns] = useState(new Set())
   const [transferModal, setTransferModal] = useState({ open: false, type: 'full', unit: null, position: null })
   const [labelModal, setLabelModal] = useState({ open: false, ...createLogisticUnitLabelData() })
@@ -582,6 +582,9 @@ const addInput = async (lpnCode) => {
     q: filters.q || '',
     material_id: filters.material_id || '',
     location_id: filters.location_id || '',
+    spatial_prefix: filters.spatial_prefix || '',
+    spatial_column: filters.spatial_column || '',
+    spatial_row: filters.spatial_row || '',
     status: filters.status || '',
   })
   const createForm = useForm({
@@ -633,6 +636,9 @@ const addInput = async (lpnCode) => {
     label: `${item.codigo} · ${item.nombre}${item.service_name ? ` · ${item.service_name}` : ''}`,
   }))
   const locationOptions = locations.map((item) => ({ value: String(item.id), label: `${item.codigo} · ${item.nombre}` }))
+  const spatialPrefixOptions = spatialPrefixes.map((value) => ({ value: String(value), label: String(value) }))
+  const spatialColumnOptions = spatialColumns.map((value) => ({ value: String(value), label: String(value) }))
+  const spatialRowOptions = spatialRows.map((value) => ({ value: String(value), label: String(value) }))
   const statusOptions = statuses.map((item) => ({ value: item, label: item }))
   const selectedCreateMaterial = materials.find((item) => String(item.id) === String(createForm.data.material_id)) || null
   const selectedCreateLocation = locations.find((item) => String(item.id) === String(createForm.data.current_location_id)) || null
@@ -1603,6 +1609,24 @@ const addInput = async (lpnCode) => {
               value={locationOptions.find((item) => item.value === String(filterForm.data.location_id)) || null}
               onChange={(option) => filterForm.setData('location_id', option?.value || '')}
               placeholder="Todas las ubicaciones"
+            />
+            <SearchableSelect
+              options={spatialPrefixOptions}
+              value={spatialPrefixOptions.find((item) => item.value === String(filterForm.data.spatial_prefix)) || null}
+              onChange={(option) => filterForm.setData('spatial_prefix', option?.value || '')}
+              placeholder="Todos los prefijos"
+            />
+            <SearchableSelect
+              options={spatialColumnOptions}
+              value={spatialColumnOptions.find((item) => item.value === String(filterForm.data.spatial_column)) || null}
+              onChange={(option) => filterForm.setData('spatial_column', option?.value || '')}
+              placeholder="Todas las columnas"
+            />
+            <SearchableSelect
+              options={spatialRowOptions}
+              value={spatialRowOptions.find((item) => item.value === String(filterForm.data.spatial_row)) || null}
+              onChange={(option) => filterForm.setData('spatial_row', option?.value || '')}
+              placeholder="Todas las filas"
             />
             <div className="flex gap-2">
               <SearchableSelect

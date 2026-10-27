@@ -63,6 +63,9 @@ class LogisticUnitController extends Controller
             'q' => trim((string) $request->input('q', '')),
             'material_id' => (string) $request->input('material_id', ''),
             'location_id' => (string) $request->input('location_id', ''),
+            'spatial_prefix' => trim((string) $request->input('spatial_prefix', '')),
+            'spatial_column' => trim((string) $request->input('spatial_column', '')),
+            'spatial_row' => trim((string) $request->input('spatial_row', '')),
             'status' => (string) $request->input('status', ''),
         ];
 
@@ -76,6 +79,9 @@ class LogisticUnitController extends Controller
             })
             ->when($filters['material_id'] !== '', fn ($query) => $query->where('material_id', $filters['material_id']))
             ->when($filters['location_id'] !== '', fn ($query) => $query->where('current_location_id', $filters['location_id']))
+            ->when($filters['spatial_prefix'] !== '', fn ($query) => $query->where('spatial_prefix', $filters['spatial_prefix']))
+            ->when($filters['spatial_column'] !== '', fn ($query) => $query->where('spatial_column', $filters['spatial_column']))
+            ->when($filters['spatial_row'] !== '', fn ($query) => $query->where('spatial_row', $filters['spatial_row']))
             ->when($filters['status'] !== '', fn ($query) => $query->where('status', $filters['status']))
             ->latest('id')
             ->paginate(20)
@@ -113,6 +119,24 @@ class LogisticUnitController extends Controller
                 ->where('activo', true)
                 ->get(),
             'locations' => InventoryLocation::query()->where('activo', true)->orderBy('nombre')->get(['id', 'codigo', 'nombre']),
+            'spatialPrefixes' => InventoryLogisticUnit::query()
+                ->whereNotNull('spatial_prefix')
+                ->where('spatial_prefix', '!=', '')
+                ->distinct()
+                ->orderBy('spatial_prefix')
+                ->pluck('spatial_prefix'),
+            'spatialColumns' => InventoryLogisticUnit::query()
+                ->whereNotNull('spatial_column')
+                ->where('spatial_column', '!=', '')
+                ->distinct()
+                ->orderBy('spatial_column')
+                ->pluck('spatial_column'),
+            'spatialRows' => InventoryLogisticUnit::query()
+                ->whereNotNull('spatial_row')
+                ->where('spatial_row', '!=', '')
+                ->distinct()
+                ->orderBy('spatial_row')
+                ->pluck('spatial_row'),
             'statuses' => ['active', 'in_transit', 'consumed', 'waste', 'blocked', 'closed'],
             'materialRequests' => $materialRequests,
             'wasteReasons' => InventoryWasteReason::query()->where('activo', true)->orderBy('nombre')->get(['id', 'codigo', 'nombre']),
