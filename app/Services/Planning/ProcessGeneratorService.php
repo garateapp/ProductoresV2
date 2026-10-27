@@ -294,8 +294,10 @@ class ProcessGeneratorService
                         'n_embalaje' => $nEmbalaje,
                         'cp2_cajas_por_pallet' => $pack['cp2_cajas_por_pallet'] ?? null,
                         'cantidad_bins' => $takeBins,
+                        'cantidad_totes' => $this->prorateCantidad($candidate['cantidad_totes'] ?? null, $takeBins, $candidateBins),
                         // si se parte, prorrateamos peso proporcional
                         'peso_neto' => $this->proratePeso($candidate['peso_neto'], $takeBins, $candidateBins),
+                        'peso_promedio_envase' => $candidate['peso_promedio_envase'] ?? null,
                         'orden' => $lineOrder++,
                         'inicio_estimado' => null,
                         'fin_estimado' => null,
@@ -355,6 +357,7 @@ class ProcessGeneratorService
                     if ($didSplit) {
                         // actualizamos el candidato con el remanente
                         $candidates[$idx]['cantidad_bins'] = $candidateBins - $takeBins;
+                        $candidates[$idx]['cantidad_totes'] = $this->prorateCantidad($candidate['cantidad_totes'] ?? null, $candidateBins - $takeBins, $candidateBins);
                         $candidates[$idx]['peso_neto'] = $this->proratePeso($candidate['peso_neto'], $candidateBins - $takeBins, $candidateBins);
                     } else {
                         $candidates->splice($idx, 1);
@@ -514,5 +517,14 @@ class ProcessGeneratorService
         }
 
         return round(((float) $peso) * ($takeBins / $totalBins), 3);
+    }
+
+    private function prorateCantidad(?int $cantidad, int $takeBins, int $totalBins): ?int
+    {
+        if ($cantidad === null || $totalBins <= 0) {
+            return $cantidad;
+        }
+
+        return (int) round($cantidad * ($takeBins / $totalBins));
     }
 }

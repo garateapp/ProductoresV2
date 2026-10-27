@@ -118,7 +118,13 @@ class InventoryRepositorySqlsrv
             $query->where('n_productor', 'like', '%'.$needle.'%');
         }
 
-        $cantidadBinsExpr = $this->buildCantidadBinsExpression();
+        $legacyBinsExpr = $this->buildCantidadBinsExpression();
+        $binsContainerId = (int) config('planning.inventory_bins_container_id', 2734);
+        $totesEnvaseId = (int) config('planning.inventory_totes_envase_id', 3158);
+        $binsCountExpr = "sum(case when id_contenedor = {$binsContainerId} then 1 else 0 end)";
+        $cantidadBinsExpr = "case when {$binsCountExpr} > 0 then {$binsCountExpr} else {$legacyBinsExpr} end";
+        $cantidadTotesExpr = "sum(case when id_envase = {$totesEnvaseId} then cantidad else 0 end)";
+        $pesoNetoTotesExpr = "sum(case when id_envase = {$totesEnvaseId} then peso_neto else 0 end)";
         $fechaCosechaExpr = $this->dateExpr('fecha_cosecha');
         $fechaCosechaSfExpr = $this->dateExpr('fecha_cosecha_sf');
 
@@ -158,6 +164,9 @@ class InventoryRepositorySqlsrv
 
                 sum(cantidad) as cantidad,
                 '.$cantidadBinsExpr.' as cantidad_bins,
+                '.$binsCountExpr.' as bins_normales,
+                '.$cantidadTotesExpr.' as cantidad_totes,
+                '.$pesoNetoTotesExpr.' as peso_neto_totes,
                 sum(peso_neto) as peso_neto,
 
                 max(id_productor) as id_productor,
@@ -206,6 +215,14 @@ class InventoryRepositorySqlsrv
         return collect($rows)->map(function ($row) {
             $cantidadBinsRaw = isset($row->cantidad_bins) ? (float) $row->cantidad_bins : 0.0;
             $cantidadBins = (int) ceil($cantidadBinsRaw);
+            $cantidadTotes = isset($row->cantidad_totes) ? (int) round((float) $row->cantidad_totes) : null;
+            $pesoNetoTotes = isset($row->peso_neto_totes) ? (float) $row->peso_neto_totes : null;
+            $idEspecie = isset($row->id_especie) ? (int) $row->id_especie : null;
+            $totesEspecieId = (int) config('planning.inventory_totes_especie_id', 7);
+            $pesoPromedioEnvase = null;
+            if ($idEspecie === $totesEspecieId && $cantidadTotes !== null && $cantidadTotes > 0 && $pesoNetoTotes !== null) {
+                $pesoPromedioEnvase = round($pesoNetoTotes / $cantidadTotes, 3);
+            }
 
             return [
                 'n_g_recepcion' => (string) ($row->n_g_recepcion ?? ''),
@@ -226,6 +243,9 @@ class InventoryRepositorySqlsrv
                 // bins calculados (con regla de conversión por embalaje)
                 'cantidad_bins' => $cantidadBins,
                 'cantidad_bins_raw' => $cantidadBinsRaw,
+                'bins_normales' => isset($row->bins_normales) ? (int) $row->bins_normales : null,
+                'cantidad_totes' => $cantidadTotes,
+                'peso_promedio_envase' => $pesoPromedioEnvase,
                 'peso_neto' => isset($row->peso_neto) ? (float) $row->peso_neto : null,
 
                 // Campos extra para visualización

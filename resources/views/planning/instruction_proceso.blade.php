@@ -69,6 +69,7 @@
                     <span><strong>Proceso #</strong> {{ $process->id }}</span>
                     <span><strong>Lotes</strong> {{ $lots->count() }}</span>
                     <span><strong>Total bins</strong> {{ number_format((int) $lots->sum('cantidad_bins'), 0, ',', '.') }}</span>
+                    <span><strong>Total totes</strong> {{ number_format((int) $lots->sum('cantidad_totes'), 0, ',', '.') }}</span>
                     <span><strong>Total kg</strong> {{ number_format((float) $lots->sum(fn($l) => (float) ($l->peso_neto ?? 0)), 0, ',', '.') }}</span>
                 </div>
             </div>
@@ -86,7 +87,9 @@
                     <th style="width:90px;">Categoría</th>
                     <th class="nowrap" style="width:80px;">F. recepción</th>
                     <th class="right nowrap" style="width:55px;">Bins</th>
+                    <th class="right nowrap" style="width:55px;">Totes</th>
                     <th class="right nowrap" style="width:65px;">Kilos</th>
+                    <th class="right nowrap" style="width:70px;">Peso prom. env.</th>
                     <th class="nowrap" style="width:55px;">SDP</th>
                     <th style="width:150px;">Embalaje</th>
                     <th class="nowrap" style="width:70px;">Nota cal.</th>
@@ -115,7 +118,9 @@
                         <td class="wrap-any">{{ $lot->setup_color ?? '-' }}</td>
                         <td class="nowrap">{{ $lot->fecha_recepcion ? \Carbon\Carbon::parse($lot->fecha_recepcion)->format('d-m-Y') : '-' }}</td>
                         <td class="right nowrap">{{ number_format((int) $lot->cantidad_bins, 0, ',', '.') }}</td>
+                        <td class="right nowrap">{{ $lot->cantidad_totes !== null ? number_format((int) $lot->cantidad_totes, 0, ',', '.') : '-' }}</td>
                         <td class="right nowrap">{{ $lot->peso_neto !== null ? number_format((float) $lot->peso_neto, 0, ',', '.') : '-' }}</td>
+                        <td class="right nowrap">{{ $lot->peso_promedio_envase !== null ? number_format((float) $lot->peso_promedio_envase, 3, ',', '.') : '-' }}</td>
                         <td class="nowrap">{{ $lot->sdp_centrocosto ?? '-' }}</td>
                         <td class="wrap-any">
                             <div><strong>{{ $lot->c_embalaje ?? '-' }}</strong> <span class="muted">{{ $lot->n_embalaje ?? '' }}</span></div>

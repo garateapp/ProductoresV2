@@ -95,7 +95,9 @@
                     <th>Variedad / Setup</th>
                     <th>Embalaje</th>
                     <th class="right">Bins</th>
+                    <th class="right">Totes</th>
                     <th class="right">Peso Neto</th>
+                    <th class="right">Peso Prom. Envase</th>
                     <th class="right">Inicio</th>
                     <th class="right">Fin</th>
                 </tr>
@@ -134,7 +136,9 @@
                             <div class="muted">CP2: {{ $lot->cp2_cajas_por_pallet ?? '-' }}</div>
                         </td>
                         <td class="right">{{ number_format((int) $lot->cantidad_bins, 0, ',', '.') }}</td>
+                        <td class="right">{{ $lot->cantidad_totes !== null ? number_format((int) $lot->cantidad_totes, 0, ',', '.') : '-' }}</td>
                         <td class="right">{{ $lot->peso_neto !== null ? number_format((float) $lot->peso_neto, 3, ',', '.') : '-' }}</td>
+                        <td class="right">{{ $lot->peso_promedio_envase !== null ? number_format((float) $lot->peso_promedio_envase, 3, ',', '.') : '-' }}</td>
                         <td class="right">{{ $lot->inicio_estimado ? $lot->inicio_estimado->format('H:i') : '-' }}</td>
                         <td class="right">{{ $lot->fin_estimado ? $lot->fin_estimado->format('H:i') : '-' }}</td>
                     </tr>

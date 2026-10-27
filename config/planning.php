@@ -35,6 +35,16 @@ return [
     ],
 
     /**
+     * IDs de la vista V_PKG_Stock_Inventario usados para métricas de instructivo.
+     * - bins_container_id: cada fila con este contenedor cuenta como 1 bin.
+     * - totes_envase_id: envase usado para cantidad de totes y peso promedio.
+     * - totes_especie_id: especie a la que aplica el peso promedio por envase.
+     */
+    'inventory_bins_container_id' => 2734,
+    'inventory_totes_envase_id' => 3158,
+    'inventory_totes_especie_id' => 7,
+
+    /**
      * Matriz de embalajes (carozos) para sugerir c_item según:
      * especie + destino + nota calidad + variedad + color/categoría + calibre.
      *

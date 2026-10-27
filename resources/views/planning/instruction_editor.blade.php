@@ -172,6 +172,8 @@
                         <th style="width:110px;">Pulpa</th>
                         <th style="width:90px;">Huerto</th>
                         <th style="width:90px;">Kg</th>
+                        <th style="width:80px;">Totes</th>
+                        <th style="width:95px;">Peso prom.</th>
                         <th style="width:80px;">Orden</th>
                     </tr>
                     </thead>
@@ -201,6 +203,8 @@
                             <td class="wrap-any">{{ $lot['pulpa'] ?: '-' }}</td>
                             <td class="nowrap">{{ $lot['huerto'] ?: '-' }}</td>
                             <td class="right">{{ $lot['peso_neto'] !== null ? number_format((float) $lot['peso_neto'], 0, ',', '') : '-' }}</td>
+                            <td class="right">{{ ($lot['cantidad_totes'] ?? null) !== null ? number_format((int) $lot['cantidad_totes'], 0, ',', '') : '-' }}</td>
+                            <td class="right">{{ ($lot['peso_promedio_envase'] ?? null) !== null ? number_format((float) $lot['peso_promedio_envase'], 3, ',', '') : '-' }}</td>
                             <td>
                                 <div class="row-actions">
                                     <button type="button" class="move-btn" title="Subir lote" onclick="moveRow(this, -1, 'lotRows')">▲</button>
@@ -210,7 +214,7 @@
                         </tr>
                     @empty
                         <tr>
-                            <td colspan="11" class="muted">No hay lotes asignados a esta línea.</td>
+                            <td colspan="13" class="muted">No hay lotes asignados a esta línea.</td>
                         </tr>
                     @endforelse
                     </tbody>

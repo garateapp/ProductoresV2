@@ -110,8 +110,10 @@
                     <th class="nowrap" style="width:70px;">CSG</th>
                     <th style="width:85px;">Categoria</th>
                     <th class="nowrap" style="width:95px;">Fecha Recepción</th>
-                    <th class="right nowrap" style="width:60px;">Cantidad</th>
+                    <th class="right nowrap" style="width:60px;">Bins</th>
+                    <th class="right nowrap" style="width:60px;">Totes</th>
                     <th class="right nowrap" style="width:65px;">Kilos</th>
+                    <th class="right nowrap" style="width:70px;">Peso prom. env.</th>
                     <th class="nowrap" style="width:75px;">SDP</th>
                     <th style="width:120px;">Envase</th>
                     <th class="nowrap" style="width:70px;">Nota Calidad</th>
@@ -146,7 +148,9 @@
                         <td class="wrap-any">{{ $lot->categoria_origen ?? '-' }}</td>
                         <td class="nowrap">{{ $lot->fecha_recepcion ? \Carbon\Carbon::parse($lot->fecha_recepcion)->format('d-m-Y') : '-' }}</td>
                         <td class="right nowrap">{{ number_format((int) $lot->cantidad_bins, 0, ',', '.') }}</td>
+                        <td class="right nowrap">{{ $lot->cantidad_totes !== null ? number_format((int) $lot->cantidad_totes, 0, ',', '.') : '-' }}</td>
                         <td class="right nowrap">{{ $lot->peso_neto !== null ? number_format((float) $lot->peso_neto, 0, ',', '.') : '-' }}</td>
+                        <td class="right nowrap">{{ $lot->peso_promedio_envase !== null ? number_format((float) $lot->peso_promedio_envase, 3, ',', '.') : '-' }}</td>
                         <td class="nowrap">{{ $lot->sdp_centrocosto ?? '-' }}</td>
                         <td class="wrap-any">{{ $lot->envase_origen ?? '-' }}</td>
                         <td class="nowrap">{{ $lot->setup_nota_calidad ?? '-' }}</td>
@@ -161,8 +165,10 @@
                 {{-- Totales (similar a XLSX) --}}
                 <tr>
                     <td colspan="9"></td>
-                    <td class="right nowrap">0</td>
+                    <td class="right nowrap">{{ number_format((int) collect($lots)->sum('cantidad_bins'), 0, ',', '.') }}</td>
+                    <td class="right nowrap">{{ number_format((int) collect($lots)->sum('cantidad_totes'), 0, ',', '.') }}</td>
                     <td class="right nowrap">{{ number_format((float) $kilos, 0, ',', '.') }}</td>
+                    <td class="right nowrap">{{ collect($lots)->sum('cantidad_totes') > 0 ? number_format((float) $kilos / (float) collect($lots)->sum('cantidad_totes'), 3, ',', '.') : '-' }}</td>
                     <td colspan="8"></td>
                 </tr>
                 </tbody>

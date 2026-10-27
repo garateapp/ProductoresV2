@@ -1721,6 +1721,7 @@ class PackingProcessController extends Controller
                 if ($lot && $splitBins > 0 && $splitBins < (int) $lot->cantidad_bins) {
                     $originalBins = (int) $lot->cantidad_bins;
                     $originalPeso = $lot->peso_neto !== null ? (float) $lot->peso_neto : null;
+                    $originalTotes = $lot->cantidad_totes !== null ? (int) $lot->cantidad_totes : null;
 
                     $newPeso = null;
                     $remainingPeso = $originalPeso;
@@ -1728,6 +1729,17 @@ class PackingProcessController extends Controller
                         $newPeso = round($originalPeso * ($splitBins / $originalBins), 3);
                         $remainingPeso = round($originalPeso - $newPeso, 3);
                     }
+
+                    $newTotes = null;
+                    $remainingTotes = $originalTotes;
+                    if ($originalTotes !== null && $originalBins > 0) {
+                        $newTotes = (int) round($originalTotes * ($splitBins / $originalBins));
+                        $remainingTotes = $originalTotes - $newTotes;
+                    }
+
+                    $promedioEnvase = $lot->peso_promedio_envase !== null
+                        ? (float) $lot->peso_promedio_envase
+                        : ($newTotes !== null && $newTotes > 0 && $newPeso !== null ? round($newPeso / $newTotes, 3) : null);
 
                     $maxSplitIndex = (int) PackingProcessLot::query()
                         ->where('process_id', $process->id)
@@ -1742,7 +1754,9 @@ class PackingProcessController extends Controller
                     // Reduce original
                     $lot->forceFill([
                         'cantidad_bins' => $originalBins - $splitBins,
+                        'cantidad_totes' => $remainingTotes,
                         'peso_neto' => $remainingPeso,
+                        'peso_promedio_envase' => $promedioEnvase,
                     ])->save();
 
                     // Create new part (mismo proceso, otra línea/cámara).
@@ -1777,7 +1791,9 @@ class PackingProcessController extends Controller
                         'n_embalaje' => $lot->n_embalaje,
                         'cp2_cajas_por_pallet' => $lot->cp2_cajas_por_pallet,
                         'cantidad_bins' => $splitBins,
+                        'cantidad_totes' => $newTotes,
                         'peso_neto' => $newPeso,
+                        'peso_promedio_envase' => $promedioEnvase,
                         'orden' => $maxOrdenTarget + 1,
                         'inicio_estimado' => null,
                         'fin_estimado' => null,
@@ -3254,7 +3270,9 @@ class PackingProcessController extends Controller
             'n_embalaje' => $pack['n_item'] ?? null,
             'cp2_cajas_por_pallet' => $pack['cp2_cajas_por_pallet'] ?? null,
             'cantidad_bins' => (int) ($row['cantidad_bins'] ?? 0),
+            'cantidad_totes' => isset($row['cantidad_totes']) ? (int) $row['cantidad_totes'] : null,
             'peso_neto' => $row['peso_neto'] ?? null,
+            'peso_promedio_envase' => $row['peso_promedio_envase'] ?? null,
             'orden' => $maxOrden + 1,
             'inicio_estimado' => null,
             'fin_estimado' => null,
@@ -3367,7 +3385,9 @@ class PackingProcessController extends Controller
             'n_embalaje' => $pack['n_item'] ?? ($row['n_embalaje'] ?? null),
             'cp2_cajas_por_pallet' => $pack['cp2_cajas_por_pallet'] ?? null,
             'cantidad_bins' => max(1, (int) ($row['cantidad_bins'] ?? 1)),
+            'cantidad_totes' => isset($row['cantidad_totes']) ? (int) $row['cantidad_totes'] : null,
             'peso_neto' => $row['peso_neto'] ?? null,
+            'peso_promedio_envase' => $row['peso_promedio_envase'] ?? null,
             'orden' => $maxOrden + 1,
             'inicio_estimado' => null,
             'fin_estimado' => null,
@@ -4269,7 +4289,9 @@ class PackingProcessController extends Controller
                     'huerto' => (string) ($lot?->huerto ?? ''),
                     'fecha_recepcion' => $lot?->fecha_recepcion ? (string) $lot->fecha_recepcion : null,
                     'cantidad_bins' => (int) ($lot?->cantidad_bins ?? 0),
+                    'cantidad_totes' => $lot?->cantidad_totes !== null ? (int) $lot->cantidad_totes : null,
                     'peso_neto' => $lot?->peso_neto !== null ? (float) $lot->peso_neto : null,
+                    'peso_promedio_envase' => $lot?->peso_promedio_envase !== null ? (float) $lot->peso_promedio_envase : null,
                     'sdp_centrocosto' => (string) ($lot?->sdp_centrocosto ?? ''),
                     'nota_calidad' => (string) ($lot?->setup_nota_calidad ?? ''),
                     'exportadora' => (string) ($lot?->exportadora ?? ''),

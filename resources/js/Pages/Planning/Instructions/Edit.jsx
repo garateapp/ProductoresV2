@@ -252,7 +252,9 @@ function LotsTable({
   const rows = Array.isArray(lots) ? lots : []
   const hasMexico = rows.some((r) => String(r?.destino || '').trim().toUpperCase() === 'MEXICO')
   const sumBins = rows.reduce((acc, r) => acc + Number(r?.cantidad_bins || 0), 0)
+  const sumTotes = rows.reduce((acc, r) => acc + Number(r?.cantidad_totes || 0), 0)
   const sumKgs = rows.reduce((acc, r) => acc + Number(r?.peso_neto || 0), 0)
+  const promedioEnvase = sumTotes > 0 ? sumKgs / sumTotes : 0
   const canReorder = Boolean(editable && onMoveLot)
 
   return (
@@ -275,7 +277,9 @@ function LotsTable({
             <th>Fecha Recepción</th>
             <th>% Exportación</th>
             <th>Cantidad (bins)</th>
+            <th>Totes</th>
             <th>Kilos</th>
+            <th>Peso prom. env.</th>
             <th>SDP</th>
             <th>Nota Calidad</th>
             <th>Exportadora/Cliente</th>
@@ -375,7 +379,9 @@ function LotsTable({
                   : ''}
               </td>
               <td>{Number(r?.cantidad_bins || 0) ? Number(r.cantidad_bins).toLocaleString('es-CL') : ''}</td>
+              <td>{Number(r?.cantidad_totes || 0) ? Number(r.cantidad_totes).toLocaleString('es-CL') : ''}</td>
               <td>{Number(r?.peso_neto || 0) ? Math.round(Number(r.peso_neto)).toLocaleString('es-CL') : ''}</td>
+              <td>{Number(r?.peso_promedio_envase || 0) ? Number(r.peso_promedio_envase).toLocaleString('es-CL', { minimumFractionDigits: 3, maximumFractionDigits: 3 }) : ''}</td>
               <td>{r?.sdp_centrocosto || ''}</td>
               <td>{r?.nota_calidad || ''}</td>
               <td>{r?.exportadora || ''}</td>
@@ -409,7 +415,9 @@ function LotsTable({
           <tr>
             <td colSpan={(hasMexico ? 13 : 12) + (canReorder ? 1 : 0)} className="font-bold">TOTAL</td>
             <td className="font-bold">{sumBins ? sumBins.toLocaleString('es-CL') : ''}</td>
+            <td className="font-bold">{sumTotes ? sumTotes.toLocaleString('es-CL') : ''}</td>
             <td className="font-bold">{sumKgs ? Math.round(sumKgs).toLocaleString('es-CL') : ''}</td>
+            <td className="font-bold">{promedioEnvase ? promedioEnvase.toLocaleString('es-CL', { minimumFractionDigits: 3, maximumFractionDigits: 3 }) : ''}</td>
             <td colSpan={5} />
           </tr>
         </tbody>

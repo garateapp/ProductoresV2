@@ -239,7 +239,9 @@
             $meta = (is_array($metaByLineId ?? null) && $lineId > 0 && isset($metaByLineId[$lineId]) && is_array($metaByLineId[$lineId])) ? $metaByLineId[$lineId] : null;
             $version = $meta && isset($meta['version']) ? (int) $meta['version'] : null;
             $sumBins = collect($lots)->sum(fn ($r) => (int) ($r['cantidad_bins'] ?? 0));
+            $sumTotes = collect($lots)->sum(fn ($r) => (int) ($r['cantidad_totes'] ?? 0));
             $sumKgs = collect($lots)->sum(fn ($r) => (float) ($r['peso_neto'] ?? 0));
+            $promedioEnvase = $sumTotes > 0 ? $sumKgs / $sumTotes : null;
             $comments = $commentsByLots($lots);
         @endphp
 
@@ -336,7 +338,9 @@
                                 <th>Pulpa</th>
                                 <th>Fecha Recepción</th>
                                 <th>Bins</th>
+                                <th>Totes</th>
                                 <th>Kilos</th>
+                                <th>Peso prom. env.</th>
                                 <th>Exportadora</th>
 
 
@@ -380,16 +384,20 @@
                                         {{ $fmtDate($fechaRec10) !== '-' ? $fmtDate($fechaRec10) : '' }}
                                     </td>
                                     <td>{{ !empty($r['cantidad_bins']) ? number_format((float) ($r['cantidad_bins'] ?? 0), 0, ',', '.') : '' }}</td>
+                                    <td>{{ !empty($r['cantidad_totes']) ? number_format((float) ($r['cantidad_totes'] ?? 0), 0, ',', '.') : '' }}</td>
                                     <td>{{ !empty($r['peso_neto']) ? number_format(round((float) ($r['peso_neto'] ?? 0)), 0, ',', '.') : '' }}</td>
+                                    <td>{{ !empty($r['peso_promedio_envase']) ? number_format((float) ($r['peso_promedio_envase'] ?? 0), 3, ',', '.') : '' }}</td>
                                     <td>{{ (string) ($r['exportadora'] ?? '') }}</td>
 
 
                                 </tr>
                             @endforeach
                             <tr>
-                                <td colspan="13"><strong>TOTAL</strong></td>
+                                <td colspan="14"><strong>TOTAL</strong></td>
                                 <td><strong>{{ $sumBins ? number_format((float) $sumBins, 0, ',', '.') : '' }}</strong></td>
+                                <td><strong>{{ $sumTotes ? number_format((float) $sumTotes, 0, ',', '.') : '' }}</strong></td>
                                 <td><strong>{{ $sumKgs ? number_format(round((float) $sumKgs), 0, ',', '.') : '' }}</strong></td>
+                                <td><strong>{{ $promedioEnvase ? number_format((float) $promedioEnvase, 3, ',', '.') : '' }}</strong></td>
                                 <td colspan="1"></td>
                             </tr>
                             </tbody>
