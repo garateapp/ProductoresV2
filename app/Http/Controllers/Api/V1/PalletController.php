@@ -14,16 +14,18 @@ class PalletController extends Controller
 {
     private const SALIDAS_VIEW = 'V_PKG_Stock_Inventario';
 
+    /**
+     * Temporada actual y anterior: un folio puede seguir vigente aunque
+     * su temporada ya haya sido cerrada.
+     */
+    private const SALIDAS_CONNECTIONS = ['sqlsrv', 'temporada_anterior'];
+
     public function show(string $folio): JsonResponse|PalletTechnicalSheetResource
     {
         $folio = trim($folio);
 
         try {
-            $salida = DB::connection('sqlsrv')
-                ->table(self::SALIDAS_VIEW)
-                ->where('folio', $folio)
-                ->select(['folio', 'c_embalaje'])
-                ->first();
+            $salida = $this->findSalida($folio);
         } catch (\PDOException $exception) {
             report($exception);
 
@@ -66,6 +68,9 @@ class PalletController extends Controller
             })
             ->with([
                 'packaging:id,codigo,nombre',
+                'material:id,codigo,nombre',
+                'unitItems.material:id,codigo,nombre',
+                'unitItems.replacementMaterial:id,codigo,nombre',
                 'palletItems.material:id,codigo,nombre',
                 'palletItems.replacementMaterial:id,codigo,nombre',
             ])
@@ -81,8 +86,39 @@ class PalletController extends Controller
             'folio' => $folio,
             'c_embalaje' => $cEmbalaje,
             'technical_sheet_id' => $sheet->id,
-            'sheet'=> $sheet->toArray(),
+            'sheet' => $sheet->toArray(),
         ]);
+
         return new PalletTechnicalSheetResource($sheet, $folio, $cEmbalaje);
+    }
+
+    private function findSalida(string $folio): ?object
+    {
+        $successfulQueries = 0;
+        $lastException = null;
+
+        foreach (self::SALIDAS_CONNECTIONS as $connection) {
+            try {
+                $salida = DB::connection($connection)
+                    ->table(self::SALIDAS_VIEW)
+                    ->where('folio', $folio)
+                    ->select(['folio', 'c_embalaje'])
+                    ->first();
+                $successfulQueries++;
+
+                if ($salida) {
+                    return $salida;
+                }
+            } catch (\PDOException $exception) {
+                $lastException = $exception;
+                report($exception);
+            }
+        }
+
+        if ($successfulQueries === 0 && $lastException) {
+            throw $lastException;
+        }
+
+        return null;
     }
 }

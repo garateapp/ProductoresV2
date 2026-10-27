@@ -31,22 +31,36 @@ class PalletTechnicalSheetResource extends JsonResource
                     'codigo' => $this->packaging?->codigo,
                     'nombre' => $this->packaging?->nombre,
                 ],
-                'items' => $this->palletItems->map(fn ($item) => [
-                    'id' => $item->id,
-                    'material' => [
-                        'id' => $item->material?->id,
-                        'codigo' => $item->material?->codigo,
-                        'nombre' => $item->material?->nombre,
-                    ],
-                    'replacement_material' => $item->replacementMaterial ? [
-                        'id' => $item->replacementMaterial->id,
-                        'codigo' => $item->replacementMaterial->codigo,
-                        'nombre' => $item->replacementMaterial->nombre,
-                    ] : null,
-                    'cantidad_estandar' => (float) $item->cantidad_estandar,
-                    'calibre' => $item->calibre,
-                ])->values()->all(),
+                'material' => $this->material ? [
+                    'id' => $this->material->id,
+                    'codigo' => $this->material->codigo,
+                    'nombre' => $this->material->nombre,
+                ] : null,
+                'es_semielaborado' => (bool) $this->es_semielaborado,
+                'unit_items' => $this->mapItems($this->unitItems),
+                'pallet_items' => $this->mapItems($this->palletItems),
+                // Compatibilidad: antes "items" solo exponía materiales de pallet.
+                'items' => $this->mapItems($this->palletItems),
             ],
         ];
+    }
+
+    private function mapItems($items): array
+    {
+        return $items->map(fn ($item) => [
+            'id' => $item->id,
+            'material' => [
+                'id' => $item->material?->id,
+                'codigo' => $item->material?->codigo,
+                'nombre' => $item->material?->nombre,
+            ],
+            'replacement_material' => $item->replacementMaterial ? [
+                'id' => $item->replacementMaterial->id,
+                'codigo' => $item->replacementMaterial->codigo,
+                'nombre' => $item->replacementMaterial->nombre,
+            ] : null,
+            'cantidad_estandar' => (float) $item->cantidad_estandar,
+            'calibre' => $item->calibre,
+        ])->values()->all();
     }
 }
