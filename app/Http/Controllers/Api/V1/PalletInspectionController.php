@@ -16,10 +16,9 @@ class PalletInspectionController extends Controller
         $validated = $request->validated();
         Log::debug('StorePalletInspectionRequest  data', [
             'request_data' => $request->all(),
-            'validated' => $validated,
         ]);
         $inspection = DB::transaction(function () use ($validated, $request): PalletInspection {
-            //$todosCumplen = collect($validated['items'])
+            $todosCumplen = collect($validated['items'])
                 ->every(fn (array $item) => (bool) $item['cumple']);
 
             $inspection = PalletInspection::query()->create([
