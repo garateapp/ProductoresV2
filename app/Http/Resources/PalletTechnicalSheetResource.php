@@ -4,7 +4,7 @@ namespace App\Http\Resources;
 
 use Illuminate\Http\Request;
 use Illuminate\Http\Resources\Json\JsonResource;
-
+use Illuminate\Support\Facades\Log;
 class PalletTechnicalSheetResource extends JsonResource
 {
     public function __construct(
@@ -17,6 +17,10 @@ class PalletTechnicalSheetResource extends JsonResource
 
     public function toArray(Request $request): array
     {
+        Log::debug('PalletTechnicalSheetResource toArray', [
+           $request
+        ]);
+
         return [
             'folio' => $this->folio,
             'c_embalaje' => $this->cEmbalaje,
@@ -42,6 +46,7 @@ class PalletTechnicalSheetResource extends JsonResource
                 // Compatibilidad: antes "items" solo exponía materiales de pallet.
                 'items' => $this->mapItems($this->palletItems),
             ],
+            'metadata'=>Z$this->
         ];
     }
 
