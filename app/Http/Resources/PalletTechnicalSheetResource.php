@@ -46,7 +46,7 @@ class PalletTechnicalSheetResource extends JsonResource
                 // Compatibilidad: antes "items" solo exponía materiales de pallet.
                 'items' => $this->mapItems($this->palletItems),
             ],
-            'metadata'=>Z$this->
+
         ];
     }
 
