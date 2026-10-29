@@ -15,7 +15,7 @@ class StorePalletInspectionRequest extends FormRequest
     {
         return [
             'folio' => ['required', 'string'],
-            'c_embalaje' => ['required', 'string'],
+            // 'c_embalaje' => ['required', 'string'],
             'technical_sheet_id' => ['required', 'exists:inventory_technical_sheets,id'],
             'observaciones_generales' => ['nullable', 'string'],
             'items' => ['required', 'array', 'min:1'],

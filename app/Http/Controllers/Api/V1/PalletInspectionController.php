@@ -7,13 +7,17 @@ use App\Http\Requests\Api\V1\StorePalletInspectionRequest;
 use App\Models\PalletInspection;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Log;
 
 class PalletInspectionController extends Controller
 {
     public function store(StorePalletInspectionRequest $request): JsonResponse
     {
         $validated = $request->validated();
-
+        Log::debug('StorePalletInspectionRequest  data', [
+            'request_data' => $request->all(),
+            'validated' => $validated,
+        ]);
         $inspection = DB::transaction(function () use ($validated, $request): PalletInspection {
             $todosCumplen = collect($validated['items'])
                 ->every(fn (array $item) => (bool) $item['cumple']);
