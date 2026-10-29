@@ -18,7 +18,7 @@ class PalletTechnicalSheetResource extends JsonResource
     public function toArray(Request $request): array
     {
         Log::debug('PalletTechnicalSheetResource toArray', [
-           $request
+           $this
         ]);
 
         return [
