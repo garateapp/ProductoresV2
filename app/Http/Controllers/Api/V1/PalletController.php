@@ -89,7 +89,12 @@ class PalletController extends Controller
             'sheet' => $sheet->toArray(),
         ]);
 
-        return new PalletTechnicalSheetResource($sheet, $folio, $cEmbalaje);
+        return response()->json([
+            'folio' => $folio,
+            'c_embalaje' => $cEmbalaje,
+            'technical_sheet' => new PalletTechnicalSheetResource($sheet, $folio, $cEmbalaje),
+            'sheet'=>$sheet,
+        ]);
     }
 
     private function findSalida(string $folio): ?object
