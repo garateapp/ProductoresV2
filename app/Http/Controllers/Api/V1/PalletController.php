@@ -18,7 +18,7 @@ class PalletController extends Controller
      * Temporada actual y anterior: un folio puede seguir vigente aunque
      * su temporada ya haya sido cerrada.
      */
-    private const SALIDAS_CONNECTIONS = ['sqlsrv', 'temporada_anterior'];
+    private const SALIDAS_CONNECTIONS = ['sqlsrv', 'FX6_Packing_Garate_Operaciones'];
 
     public function show(string $folio): JsonResponse|PalletTechnicalSheetResource
     {
