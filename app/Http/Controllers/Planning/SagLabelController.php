@@ -35,6 +35,7 @@ class SagLabelController extends Controller
 
                 return [
                     'id' => (int) $process->id,
+                    'numproceso' => trim((string) ($process->numproceso ?? '')) ?: null,
                     'fecha' => $process->fecha?->toDateString(),
                     'especie' => (string) ($process->especie ?? ''),
                     'estado' => $process->estado?->value ?? $process->estado,
@@ -121,7 +122,7 @@ class SagLabelController extends Controller
         $shiftName = trim((string) ($process->shift?->nombre ?? ''));
         $packedDate = $process->fecha?->format('d-m-Y') ?? '-';
         $packedTime = $lot->inicio_estimado?->format('H:i') ?: ((string) ($process->shift?->hora_inicio ?? '') !== '' ? substr((string) $process->shift?->hora_inicio, 0, 5) : '-');
-        $processNumber = (string) ($process->id ?? '');
+        $processNumber = trim((string) ($process->numproceso ?? '')) ?: (string) ($process->id ?? '');
         $boxNumber = 'PROC-'.$processNumber;
         $species = $this->coalesceLabelValue([$process->especie ?? null]);
         $variety = $this->coalesceLabelValue([$lot->n_variedad ?? null]);

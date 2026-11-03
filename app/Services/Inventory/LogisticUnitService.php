@@ -46,6 +46,17 @@ class LogisticUnitService
                 $this->createStockPosition($unit);
                 $this->syncLpnQuantity($unit);
 
+                // Mantener consistente el stock de ubicación (InventoryStockLocation)
+                if ($unit->current_location_id && (float) $unit->available_quantity > 0) {
+                    $this->stockProjectionService->applyDelta(
+                        (int) $unit->material_id,
+                        (int) $unit->current_location_id,
+                        (float) $unit->available_quantity,
+                        null,
+                        true
+                    );
+                }
+
                 $units->push($unit);
             }
 

@@ -46,7 +46,13 @@ class GarcesPalletBoxService
             return $empty;
         }
 
-        $endpoint = rtrim($baseUrl, '/').'/api/PalletBoxSupplier/RegisterBoxes';
+        $endpoint = $this->endpoint();
+
+        if ($endpoint === null) {
+            Log::warning('GarcesPalletBoxService: base_url o api_key no configurados.');
+
+            return $empty;
+        }
 
         $headers = [
             'Accept' => 'application/json',
@@ -103,6 +109,87 @@ class GarcesPalletBoxService
     }
 
     /**
+     * URL de envío de Sispro (RegisterBoxes). GARCES_PALLET_BOX_BASE_URL puede venir
+     * con o sin la ruta del endpoint; se evita duplicarla.
+     */
+    public function endpoint(): ?string
+    {
+        $baseUrl = trim((string) (Config::get('services.garces_pallet_box.base_url') ?? ''));
+
+        if ($baseUrl === '') {
+            return null;
+        }
+
+        if (str_contains($baseUrl, '/api/PalletBoxSupplier/RegisterBoxes')) {
+            return rtrim($baseUrl, '/');
+        }
+
+        return rtrim($baseUrl, '/').'/api/PalletBoxSupplier/RegisterBoxes';
+    }
+
+    /**
+     * Payloads RegisterBoxes de los folios indicados, sin enviarlos y sin
+     * registrar faltantes de diccionario.
+     *
+     * @return array<int,array{folio:string,payload:array<string,mixed>}>
+     */
+    public function payloadsForFolios(array $folios): array
+    {
+        $items = [];
+
+        foreach (array_values(array_unique(array_map('trim', array_map('strval', $folios)))) as $folio) {
+            if ($folio === '') {
+                continue;
+            }
+
+            foreach ($this->buildItems($folio, false) as $item) {
+                $items[] = $item;
+            }
+        }
+
+        return $items;
+    }
+
+    /**
+     * Un solo payload RegisterBoxes con los pallets de todos los folios indicados
+     * (los folios seleccionados viajan juntos en el mismo JSON).
+     *
+     * @param  array<int,array{folio:string,payload:array<string,mixed>}>  $items
+     * @return array<string,mixed>
+     */
+    public function mergeItems(array $items): array
+    {
+        $config = Config::get('services.garces_pallet_box') ?? [];
+        $maxPallets = (int) ($config['max_pallets_per_shipment'] ?? 50);
+
+        $pallets = [];
+        $codeSubsidiary = '';
+        $codeSeason = '';
+
+        foreach ($items as $item) {
+            $payload = $item['payload'] ?? [];
+
+            if ($codeSubsidiary === '') {
+                $codeSubsidiary = (string) ($payload['codeSubsidiary'] ?? '');
+            }
+
+            if ($codeSeason === '') {
+                $codeSeason = (string) ($payload['codeSeason'] ?? '');
+            }
+
+            foreach ($payload['pallets'] ?? [] as $pallet) {
+                $pallets[] = $pallet;
+            }
+        }
+
+        return [
+            'codeSubsidiary' => $codeSubsidiary,
+            'codeSeason' => $codeSeason,
+            'pallets' => array_slice($pallets, 0, max(1, $maxPallets)),
+        ];
+    }
+
+    /**
      * Construye los payloads que se enviarían, sin enviarlos ni registrar
      * faltantes de diccionario (no produce efectos secundarios en BD).
      *
@@ -111,7 +198,6 @@ class GarcesPalletBoxService
     public function preview(?string $folio = null): array
     {
         $config = Config::get('services.garces_pallet_box') ?? [];
-        $baseUrl = (string) ($config['base_url'] ?? '');
 
         $folio = $folio !== null ? trim($folio) : null;
         $items = $this->buildItems($folio === '' ? null : $folio, false);
@@ -125,7 +211,7 @@ class GarcesPalletBoxService
         }
 
         return [
-            'endpoint' => $baseUrl !== '' ? rtrim($baseUrl, '/').'/api/PalletBoxSupplier/RegisterBoxes' : null,
+            'endpoint' => $this->endpoint(),
             'tolerance' => (float) ($config['kilos_tolerance'] ?? 0.01),
             'count' => count($items),
             'boxes' => $boxes,

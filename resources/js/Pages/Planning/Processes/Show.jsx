@@ -21,6 +21,16 @@ function statusLabel(status) {
   return value || '-'
 }
 
+function processDisplayNumber(process) {
+  const value = String(process?.numproceso ?? '').trim()
+  return value || String(process?.id ?? '')
+}
+
+function processOwnershipDisplayNumber(owner) {
+  const value = String(owner?.process_numproceso ?? '').trim()
+  return value || String(owner?.process_id ?? '')
+}
+
 function StatusPill({ status }) {
   const value = statusLabel(status)
   const map = {
@@ -921,7 +931,7 @@ export default function Show({ process, planningMode = null, lines = [], allLine
 
   const deleteProcess = () => {
     if (isLocked) return
-    if (!confirm(`¿Eliminar el proceso #${process?.id || ''}? Esta acción no se puede deshacer.`)) return
+    if (!confirm(`¿Eliminar el proceso #${processDisplayNumber(process)}? Esta acción no se puede deshacer.`)) return
     router.delete(route('planning.processes.destroy', process.id), {
       data: { especie: String(process?.especie || '').trim() || null },
       preserveScroll: true,
@@ -1128,7 +1138,7 @@ export default function Show({ process, planningMode = null, lines = [], allLine
                 {isLineDay ? (
                   <>Línea {lineDay?.line?.nombre ? String(lineDay.line.nombre) : '-'}</>
                 ) : (
-                  <>Proceso #{process.id}</>
+                  <>Proceso #{processDisplayNumber(process)}</>
                 )}
               </div>
               <div className="text-sm text-gray-600 flex flex-wrap items-center gap-2">
@@ -1602,7 +1612,7 @@ export default function Show({ process, planningMode = null, lines = [], allLine
                               {crossProcessOwnership.has(inventoryKey) ? (
                                 <span className="inline-flex items-center gap-1 rounded-full bg-orange-50 px-2 py-0.5 text-[11px] font-semibold text-orange-800 border border-orange-200">
                                   <ArrowLeftRight className="h-3 w-3" />
-                                  En Proceso N° {crossProcessOwnership.get(inventoryKey).process_id}
+                                  En Proceso N° {processOwnershipDisplayNumber(crossProcessOwnership.get(inventoryKey))}
                                 </span>
                               ) : null}
                             </div>
@@ -1704,7 +1714,7 @@ export default function Show({ process, planningMode = null, lines = [], allLine
                                 title="Mover desde otro proceso a este"
                               >
                                 <ArrowLeftRight className="mr-1 h-3.5 w-3.5" />
-                                Mover del Proc. N° {crossProcessOwnership.get(inventoryKey).process_id}
+                                Mover del Proc. N° {processOwnershipDisplayNumber(crossProcessOwnership.get(inventoryKey))}
                               </Button>
                             ) : (
                               <Button

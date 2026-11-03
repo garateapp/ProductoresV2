@@ -89,15 +89,25 @@ class TransformationController extends Controller
 
         $data = $request->validate([
             'reason' => ['required', 'string', 'min:5', 'max:500'],
+            'scope' => ['nullable', 'in:unit,production'],
         ]);
 
         try {
-            $reversalService->reverse($logisticUnit, $data['reason'], (int) $request->user()->id);
+            $production = $reversalService->reverse(
+                $logisticUnit,
+                $data['reason'],
+                (int) $request->user()->id,
+                $data['scope'] ?? 'unit',
+            );
         } catch (ValidationException $exception) {
             return back()->with('error', $this->validationMessage($exception));
         }
 
-        return back()->with('success', 'Producción revertida: los insumos fueron devueltos y el LPN de salida se cerró.');
+        $message = $production->status === 'reverted'
+            ? 'Producción revertida por completo: los insumos fueron devueltos y los LPN de salida se cerraron.'
+            : 'Pallet revertido: se devolvieron los insumos proporcionales y el LPN de salida se cerró.';
+
+        return back()->with('success', $message);
     }
 
     private function validationMessage(ValidationException $exception): string
@@ -125,13 +135,13 @@ class TransformationController extends Controller
 
             return response()->json([
                 'success' => true,
-                'availability' => $availability
+                'availability' => $availability,
             ]);
         } catch (ValidationException $e) {
             return response()->json([
                 'success' => false,
                 'message' => $e->getMessage(),
-                'errors' => $e->errors()
+                'errors' => $e->errors(),
             ], 422);
         }
     }

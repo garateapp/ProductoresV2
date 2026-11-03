@@ -101,6 +101,24 @@ class MaterialRequestController extends Controller
     {
         $locations = InventoryLocation::where('activo', true)->get(['id', 'nombre']);
         $materials = InventoryMaterial::get(['id', 'codigo', 'nombre']);
+
+        // Sincronizar stock_actual desde posiciones activas (LPN) para que se muestre en el formulario
+        $positionStocks = InventoryStockPosition::query()
+            ->whereIn('location_id', $locations->pluck('id'))
+            ->whereIn('material_id', $materials->pluck('id'))
+            ->where('quantity', '>', 0)
+            ->get(['location_id', 'material_id', 'quantity'])
+            ->groupBy(['location_id', 'material_id']);
+
+        foreach ($positionStocks as $locationId => $materialGroups) {
+            foreach ($materialGroups as $materialId => $positions) {
+                InventoryStockLocation::updateOrCreate(
+                    ['location_id' => (int) $locationId, 'material_id' => (int) $materialId],
+                    ['stock_actual' => (float) $positions->sum('quantity')]
+                );
+            }
+        }
+
         $stocks = InventoryStockLocation::query()
             ->whereIn('location_id', $locations->pluck('id'))
             ->whereIn('material_id', $materials->pluck('id'))

@@ -71,7 +71,6 @@ Route::middleware('auth')->group(function () {
     Route::resource('valores', App\Http\Controllers\ValorController::class)
         ->parameters(['valores' => 'valor'])
         ->names('valores');
-
     Route::resource('producers', App\Http\Controllers\ProducerController::class)->names('producers');
     Route::post('producers/sync-active', [App\Http\Controllers\ProducerController::class, 'syncActive'])->name('producers.sync-active');
     Route::get('producers/{producer}/dashboard', [App\Http\Controllers\ProducerController::class, 'dashboard'])->name('producers.dashboard');
@@ -435,6 +434,7 @@ Route::middleware('auth')->group(function () {
         Route::post('logistic-units/{logisticUnit}/relocate', [App\Http\Controllers\Inventory\LogisticUnitController::class, 'relocate'])->name('logistic-units.relocate');
         Route::post('logistic-units/{logisticUnit}/split', [App\Http\Controllers\Inventory\LogisticUnitController::class, 'split'])->name('logistic-units.split');
         Route::post('logistic-units/{logisticUnit}/reverse-production', [App\Http\Controllers\Inventory\TransformationController::class, 'reverse'])->name('logistic-units.reverse-production');
+        Route::post('logistic-units/{logisticUnit}/reverse-consumption', [App\Http\Controllers\Inventory\LogisticUnitController::class, 'reverseConsumption'])->name('logistic-units.reverse-consumption');
         Route::post('logistic-units/positions/{stockPosition}/transfer', [App\Http\Controllers\Inventory\LogisticUnitController::class, 'transferPosition'])->name('logistic-units.transfer-position');
         Route::post('logistic-units/bulk-spatial', [App\Http\Controllers\Inventory\LogisticUnitController::class, 'bulkSpatialUpdate'])->name('logistic-units.bulk-spatial');
         Route::put('logistic-units/{logisticUnit}', [App\Http\Controllers\Inventory\LogisticUnitController::class, 'update'])->name('logistic-units.update');
@@ -611,3 +611,4 @@ Route::middleware('auth')->group(function () {
 });
 
 require __DIR__.'/auth.php';
+

@@ -69,7 +69,7 @@ export default function Index({ auth, processes }) {
 
                     return (
                       <TableRow key={process.id}>
-                        <TableCell className="font-medium">#{process.id}</TableCell>
+                        <TableCell className="font-medium">#{process.numproceso || process.id}</TableCell>
                         <TableCell>{process.fecha || '-'}</TableCell>
                         <TableCell>{process.shift?.codigo || process.shift?.nombre || '-'}</TableCell>
                         <TableCell>{process.especie || '-'}</TableCell>

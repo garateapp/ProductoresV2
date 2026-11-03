@@ -464,20 +464,19 @@ class LoadService
 
     protected function generarNumero(string $tipoCodigo): string
     {
-        $prefijo = strtoupper($tipoCodigo);
+        $prefijo = '';//strtoupper($tipoCodigo);
 
         $ultimo = PreCoolingLoad::query()
-            ->where('numero', 'like', "{$prefijo}-%")
+            //->where('numero', 'like', "{$prefijo}-%")
             ->orderByDesc('numero')
             ->value('numero');
 
         if ($ultimo) {
-            $partes = explode('-', $ultimo);
-            $consecutivo = ((int) ($partes[1] ?? 0)) + 1;
+            $consecutivo = ((int) ($ultimo ?? 0)) + 1;
         } else {
             $consecutivo = 1;
         }
 
-        return sprintf('%s-%04d', $prefijo, $consecutivo);
+        return sprintf($consecutivo);
     }
 }

@@ -29,6 +29,7 @@ class StorePackingProcessRequest extends FormRequest
 
         $merge = [
             'especies' => $especies,
+            'numproceso' => trim((string) $this->input('numproceso', '')),
         ];
 
         if (! empty($especies) && ! $this->filled('especie')) {
@@ -41,6 +42,7 @@ class StorePackingProcessRequest extends FormRequest
     public function rules(): array
     {
         return [
+            'numproceso' => ['required', 'string', 'max:50'],
             'especie' => ['nullable', 'string', 'max:80'],
             'especies' => ['required', 'array', 'min:1'],
             'especies.*' => ['required', 'string', 'max:80', 'distinct', 'exists:especies,name'],

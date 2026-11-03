@@ -75,7 +75,11 @@ return [
         'kilos_tolerance' => (float) env('GARCES_PALLET_BOX_KILOS_TOLERANCE', 0.01),
         'code_subsidiary' => env('GARCES_PALLET_BOX_CODE_SUBSIDIARY'),
         'code_season' => env('GARCES_PALLET_BOX_CODE_SEASON'),
+        'sqlsrv_view' => env('GARCES_PALLET_BOX_SQLSRV_VIEW', 'V_PKG_Stock_Inventario'),
     ],
+
+    // El envío manual de producción (pantalla Integraciones > Folios) usa el
+    // mismo JSON y credenciales que Garces Pallet Box: config('services.garces_pallet_box').
 
     'sap_service_layer' => [
         'enabled' => filter_var(env('SAP_SL_ENABLED', false), FILTER_VALIDATE_BOOLEAN),

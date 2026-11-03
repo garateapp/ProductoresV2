@@ -12,6 +12,7 @@ class PackingProcess extends Model
     protected $table = 'processes';
 
     protected $fillable = [
+        'numproceso',
         'process_batch_id',
         'especie',
         'planning_mode',

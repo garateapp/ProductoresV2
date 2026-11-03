@@ -256,7 +256,7 @@ export default function Lines({ lines = [], especies = [] }) {
                                   <div key={g.process?.id} className="rounded border bg-white p-3">
                                     <div className="flex items-center gap-3 mb-2">
                                       <span className="text-sm font-semibold">
-                                        Proceso N° {g.process?.id}
+                                        Proceso N° {String(g.process?.numproceso || '').trim() || g.process?.id}
                                       </span>
                                       <Badge className={ESTADO_COLORS[g.process?.estado] || 'bg-gray-50 text-gray-800'}>
                                         {g.process?.estado || '-'}

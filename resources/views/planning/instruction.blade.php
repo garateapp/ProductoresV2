@@ -3,7 +3,7 @@
 <head>
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
-    <title>Instructivo - Proceso #{{ $process->id }}</title>
+    <title>Instructivo - Proceso #{{ trim((string) ($process->numproceso ?? '')) ?: $process->id }}</title>
     <style>
         :root { --ink:#111827; --muted:#6b7280; --border:#e5e7eb; --bg:#ffffff; }
         html, body { background: var(--bg); color: var(--ink); font-family: Arial, Helvetica, sans-serif; }
@@ -33,7 +33,7 @@
 <div class="wrap">
     <div class="top">
         <div>
-            <h1 class="title">Instructivo de Proceso #{{ $process->id }}</h1>
+            <h1 class="title">Instructivo de Proceso #{{ trim((string) ($process->numproceso ?? '')) ?: $process->id }}</h1>
             <div class="meta">
                 <div><strong>Especie:</strong> {{ $process->especie }} &nbsp;·&nbsp; <strong>Fecha:</strong> {{ optional($process->fecha)->format('d-m-Y') }}</div>
                 <div>

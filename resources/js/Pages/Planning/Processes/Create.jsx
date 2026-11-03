@@ -34,6 +34,7 @@ export default function Create({ especies = [], shifts = [], lines = [], default
   const initialShiftId = defaults?.shift_id ? String(defaults.shift_id) : (shifts?.[0]?.id ? String(shifts[0].id) : '')
 
   const { data, setData, post, processing, errors } = useForm({
+    numproceso: String(defaults?.numproceso || ''),
     especies: initialEspecies,
     especie: initialEspecie,
     planning_mode: initialPlanningMode,
@@ -142,7 +143,18 @@ export default function Create({ especies = [], shifts = [], lines = [], default
               {!errors.especies && speciesItemError && <div className="px-4 pb-3 text-sm text-red-600">{speciesItemError}</div>}
             </div>
 
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+            <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+              <div>
+                <Label>Número de proceso</Label>
+                <Input
+                  type="text"
+                  value={data.numproceso}
+                  onChange={(e) => setData('numproceso', e.target.value)}
+                  placeholder="Ej: 123"
+                />
+                {errors.numproceso && <div className="text-sm text-red-600 mt-1">{errors.numproceso}</div>}
+              </div>
+
               <div>
                 <Label>Tipo</Label>
                 <Select value={String(data.planning_mode || 'normal')} onValueChange={(v) => setData('planning_mode', String(v || 'normal'))}>

@@ -24,6 +24,7 @@ export default function IntegrationsMenu() {
         <DropdownMenuItem asChild><Link href={route('integrations.garces.dictionary.index')} className="w-full">Diccionario Garces</Link></DropdownMenuItem>
         <DropdownMenuItem asChild><Link href={route('integrations.garces.catalog.index')} className="w-full">Catálogo Garces</Link></DropdownMenuItem>
         <DropdownMenuItem asChild><Link href={route('integrations.garces.defaults.index')} className="w-full">Defaults Pallet Garces</Link></DropdownMenuItem>
+        <DropdownMenuItem asChild><Link href={route('integrations.garces.folios.index')} className="w-full">Enviar Folios a Garces</Link></DropdownMenuItem>
         <DropdownMenuItem asChild><Link href={route('integrations.failures.index')} className="w-full">Fallos</Link></DropdownMenuItem>
         <DropdownMenuItem asChild><Link href={route('integrations.simulator.index')} className="w-full">Simulador</Link></DropdownMenuItem>
 

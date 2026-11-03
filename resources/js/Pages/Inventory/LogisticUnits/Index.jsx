@@ -31,6 +31,8 @@ import {
   createLogisticUnitLabelData,
   generateLogisticUnitLabelZPL,
   generateMaterialLabelZPL,
+  generateLogisticUnitLabelBixolon,
+  generateMaterialLabelBixolon,
 } from './logisticUnitLabel'
 import { splitEvenly } from './logisticUnitSplit'
 import qz from 'qz-tray'
@@ -51,6 +53,7 @@ export default function InventoryLogisticUnits({ units, materials = [], location
   const [availableLpns, setAvailableLpns] = useState({ loading: false, data: [] })
   const [printers, setPrinters] = useState([])
   const [selectedPrinter, setSelectedPrinter] = useState(() => window.localStorage?.getItem('inventory.zplPrinter') || '')
+  const [bixolonName, setBixolonName] = useState(() => window.localStorage?.getItem('inventory.bixolonPrinter') || window.localStorage?.getItem('inventory.zplPrinter') || 'Printer1')
 
   const [editModal, setEditModal] = useState({ open: false, unit: null })
   const [spatialTarget, setSpatialTarget] = useState('single')
@@ -530,7 +533,8 @@ const addInput = async (lpnCode) => {
     })
   }
 
-  const [revertModal, setRevertModal] = useState({ open: false, unit: null, reason: '' })
+  const [revertModal, setRevertModal] = useState({ open: false, unit: null, reason: '', scope: 'unit' })
+  const [reverseConsumptionModal, setReverseConsumptionModal] = useState({ open: false, unit: null, reason: '' })
 
   const openRevertModal = (unit) => {
     const rev = unit.production_reversal || {}
@@ -538,7 +542,7 @@ const addInput = async (lpnCode) => {
       toast.error(rev.reason || 'Este LPN no se puede revertir.')
       return
     }
-    setRevertModal({ open: true, unit, reason: '' })
+    setRevertModal({ open: true, unit, reason: '', scope: 'unit' })
   }
 
   const submitRevert = (e) => {
@@ -551,10 +555,11 @@ const addInput = async (lpnCode) => {
 
     router.post(route('inventory.logistic-units.reverse-production', revertModal.unit.id), {
       reason: revertModal.reason,
+      scope: revertModal.scope,
     }, {
       preserveScroll: true,
       onSuccess: (page) => {
-        setRevertModal({ open: false, unit: null, reason: '' })
+        setRevertModal({ open: false, unit: null, reason: '', scope: 'unit' })
         const flashError = page?.props?.flash?.error
         if (flashError) {
           toast.error(flashError)
@@ -568,6 +573,44 @@ const addInput = async (lpnCode) => {
       },
     })
   }
+
+  const openReverseConsumptionModal = (unit) => {
+    const rev = unit.consumption_reversal || {}
+    if (!rev.reversible) {
+      toast.error(rev.reason || 'Este LPN no tiene consumo por revertir.')
+      return
+    }
+    setReverseConsumptionModal({ open: true, unit, reason: '' })
+  }
+
+  const submitReverseConsumption = (e) => {
+    e.preventDefault()
+    if (!reverseConsumptionModal.unit) return
+    if (!reverseConsumptionModal.reason || reverseConsumptionModal.reason.trim().length < 5) {
+      toast.error('Ingresa un motivo (mínimo 5 caracteres).')
+      return
+    }
+
+    router.post(route('inventory.logistic-units.reverse-consumption', reverseConsumptionModal.unit.id), {
+      reason: reverseConsumptionModal.reason,
+    }, {
+      preserveScroll: true,
+      onSuccess: (page) => {
+        setReverseConsumptionModal({ open: false, unit: null, reason: '' })
+        const flashError = page?.props?.flash?.error
+        if (flashError) {
+          toast.error(flashError)
+          return
+        }
+        toast.success(page?.props?.flash?.success || 'Consumo revertido.')
+      },
+      onError: (errors) => {
+        const msg = Object.values(errors).join(', ')
+        toast.error(msg || 'Error al revertir el consumo.')
+      },
+    })
+  }
+
   const [lastSuggestedLpn, setLastSuggestedLpn] = useState('')
 
   const toggleExpand = (id) => {
@@ -869,8 +912,40 @@ const addInput = async (lpnCode) => {
       return
     }
 
-    const zpl = generateLabelZpl(labelModal)
     const copies = labelCopies
+
+    if (typeof window.clearBuffer === 'function' && typeof window.drawDeviceFont === 'function' && typeof window.requestPrint === 'function') {
+      try {
+        const printerName = (bixolonName || '').trim() || selectedPrinter || window.localStorage?.getItem('inventory.bixolonPrinter') || window.localStorage?.getItem('inventory.zplPrinter') || 'Printer1'
+        if (labelModal.labelType === 'semielaborado') {
+          generateLogisticUnitLabelBixolon(labelModal, printerName, (result) => {
+            if (result) {
+              toast.success(result.includes(':') ? result.split(':').slice(1).join(':').trim() || 'Impresión enviada (Bixolon)' : result)
+            } else {
+              toast.success('Impresión enviada (Bixolon)')
+            }
+          })
+        } else {
+          generateMaterialLabelBixolon(labelModal, printerName, (result) => {
+            if (result) {
+              toast.success(result.includes(':') ? result.split(':').slice(1).join(':').trim() || 'Impresión enviada (Bixolon)' : result)
+            } else {
+              toast.success('Impresión enviada (Bixolon)')
+            }
+          })
+        }
+        if (printerName) {
+          window.localStorage?.setItem('inventory.bixolonPrinter', printerName)
+          setBixolonName(printerName)
+        }
+        return
+      } catch (err) {
+        console.error('Error printing with Bixolon:', err)
+        toast.error(err.message || 'No se pudo imprimir con Bixolon.')
+      }
+    }
+
+    const zpl = generateLabelZpl(labelModal)
 
     try {
       const printer = await printWithQz(zpl, copies)
@@ -1688,6 +1763,11 @@ const addInput = async (lpnCode) => {
                             <Undo2 className="h-4 w-4 mr-1" /> Revertir producción
                           </Button>
                         )}
+                        {(unit.consumption_reversal?.reversible) && (
+                          <Button variant="outline" size="sm" className="text-sky-700 border-sky-200 hover:bg-sky-50" onClick={(e) => { e.stopPropagation(); openReverseConsumptionModal(unit); }}>
+                            <RotateCcw className="h-4 w-4 mr-1" /> Revertir consumo
+                          </Button>
+                        )}
                         <Button variant="outline" size="sm" disabled={unit.status !== 'active'} onClick={(e) => { e.stopPropagation(); openFullTransfer(unit); }}>
                           <MoveHorizontal className="h-4 w-4 mr-1" /> Traslado LPN
                         </Button>
@@ -1887,13 +1967,25 @@ const addInput = async (lpnCode) => {
             </div>
           </div>
           <div className="px-4 pb-2">
-            <Label>Impresora QZ Tray</Label>
+            <Label>Nombre lógico Bixolon</Label>
+            <Input
+              value={bixolonName}
+              onChange={(e) => {
+                setBixolonName(e.target.value)
+                window.localStorage?.setItem('inventory.bixolonPrinter', e.target.value)
+              }}
+              placeholder="Ej: Printer1"
+            />
+            <p className="text-xs text-muted-foreground mt-1">Usa el nombre exacto configurado en Bixolon Web Print Service.</p>
+          </div>
+          <div className="px-4 pb-2">
+            <Label>Impresora QZ Tray (opcional)</Label>
             <select
               value={selectedPrinter}
               onChange={(e) => handlePrinterChange(e.target.value)}
               className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background file:border-0 file:bg-transparent file:text-sm file:font-medium placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50"
             >
-              <option value="">-- Auto-detectar --</option>
+              <option value="">-- Sin usar --</option>
               {printers.map((printer) => (
                 <option key={printer} value={printer}>{printer}</option>
               ))}
@@ -1913,7 +2005,7 @@ const addInput = async (lpnCode) => {
           <DialogFooter>
             <Button type="button" variant="ghost" onClick={() => setLabelModal({ ...labelModal, open: false })}>Cerrar</Button>
             <Button type="button" onClick={printCurrentLabel}>
-              <Printer className="h-4 w-4 mr-1" /> Imprimir (ZPL/QZ Tray)
+              <Printer className="h-4 w-4 mr-1" /> Imprimir (Bixolon / ZPL/QZ Tray)
             </Button>
           </DialogFooter>
         </DialogContent>
@@ -2337,16 +2429,51 @@ const addInput = async (lpnCode) => {
         </DialogContent>
       </Dialog>
 
-      <Dialog open={revertModal.open} onOpenChange={(val) => setRevertModal({ open: val, unit: null, reason: '' })}>
+      <Dialog open={revertModal.open} onOpenChange={(val) => setRevertModal({ open: val, unit: null, reason: '', scope: 'unit' })}>
         <DialogContent className="sm:max-w-md">
           <DialogHeader>
             <DialogTitle>Revertir producción de semielaborado</DialogTitle>
             <DialogDescription>
-              Se devolverán los insumos consumidos desde los LPN originales y el LPN <strong>{revertModal.unit?.license_plate_number}</strong> se cerrará.
+              Se devolverán los insumos consumidos desde los LPN originales y se cerrarán los LPN de salida.
               Esta acción queda registrada en el historial.
             </DialogDescription>
           </DialogHeader>
           <form onSubmit={submitRevert} className="space-y-4">
+            {(revertModal.unit?.production_reversal?.batch?.is_split && revertModal.unit?.production_reversal?.batch?.reversible) && (
+              <div className="space-y-2 rounded-md border p-3">
+                <Label>Alcance de la reversión</Label>
+                <label className="flex items-start gap-2 text-sm">
+                  <input
+                    type="radio"
+                    name="revert-scope"
+                    className="mt-1"
+                    checked={revertModal.scope === 'unit'}
+                    onChange={() => setRevertModal({ ...revertModal, scope: 'unit' })}
+                  />
+                  <span>
+                    <span className="font-medium">Solo este pallet</span>
+                    <span className="block text-xs text-muted-foreground">
+                      Devuelve la parte proporcional de insumos y cierra {revertModal.unit?.license_plate_number}.
+                    </span>
+                  </span>
+                </label>
+                <label className="flex items-start gap-2 text-sm">
+                  <input
+                    type="radio"
+                    name="revert-scope"
+                    className="mt-1"
+                    checked={revertModal.scope === 'production'}
+                    onChange={() => setRevertModal({ ...revertModal, scope: 'production' })}
+                  />
+                  <span>
+                    <span className="font-medium">Lote completo</span>
+                    <span className="block text-xs text-muted-foreground">
+                      Revierte los {revertModal.unit?.production_reversal?.batch?.unit_count} pallets activos y devuelve el 100% de los insumos.
+                    </span>
+                  </span>
+                </label>
+              </div>
+            )}
             <div className="space-y-2">
               <Label>Motivo de reversión *</Label>
               <Input
@@ -2358,8 +2485,63 @@ const addInput = async (lpnCode) => {
               <p className="text-xs text-muted-foreground">Mínimo 5 caracteres.</p>
             </div>
             <DialogFooter>
-              <Button type="button" variant="ghost" onClick={() => setRevertModal({ open: false, unit: null, reason: '' })}>Cancelar</Button>
-              <Button type="submit" className="bg-amber-600 hover:bg-amber-700">Revertir producción</Button>
+              <Button type="button" variant="ghost" onClick={() => setRevertModal({ open: false, unit: null, reason: '', scope: 'unit' })}>Cancelar</Button>
+              <Button type="submit" className="bg-amber-600 hover:bg-amber-700">
+                {revertModal.scope === 'production' ? 'Revertir lote completo' : 'Revertir este pallet'}
+              </Button>
+            </DialogFooter>
+          </form>
+        </DialogContent>
+      </Dialog>
+
+      <Dialog open={reverseConsumptionModal.open} onOpenChange={(val) => { if (!val) setReverseConsumptionModal({ open: false, unit: null, reason: '' }) }}>
+        <DialogContent className="sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle>Revertir consumo del LPN</DialogTitle>
+            <DialogDescription>
+              Se devolverá el material consumido desde este pallet y el LPN volverá a quedar disponible
+              en la bodega donde se consumió. La acción queda registrada en la trazabilidad.
+            </DialogDescription>
+          </DialogHeader>
+          <form onSubmit={submitReverseConsumption} className="space-y-4">
+            <div className="rounded-md border bg-muted/40 px-3 py-2 text-sm">
+              <div className="flex justify-between">
+                <span className="text-muted-foreground">LPN</span>
+                <span className="font-mono font-medium">{reverseConsumptionModal.unit?.license_plate_number}</span>
+              </div>
+              <div className="mt-1 flex justify-between">
+                <span className="text-muted-foreground">Material</span>
+                <span>{reverseConsumptionModal.unit?.material ? `${reverseConsumptionModal.unit.material.codigo} · ${reverseConsumptionModal.unit.material.nombre}` : '-'}</span>
+              </div>
+              <div className="mt-1 flex justify-between">
+                <span className="text-muted-foreground">Cantidad a revertir</span>
+                <span className="font-bold">{Number(reverseConsumptionModal.unit?.consumption_reversal?.quantity || 0).toLocaleString('es-CL', { maximumFractionDigits: 4 })}</span>
+              </div>
+            </div>
+            {(reverseConsumptionModal.unit?.consumption_reversal?.consumptions?.length > 0) && (
+              <div className="space-y-1 rounded-md border px-3 py-2 text-xs">
+                <p className="font-semibold uppercase tracking-wide text-muted-foreground">Movimientos de consumo</p>
+                {reverseConsumptionModal.unit.consumption_reversal.consumptions.map((consumption) => (
+                  <div key={consumption.allocation_id} className="flex justify-between gap-2">
+                    <span className="font-mono">{consumption.folio || `#${consumption.movement_id}`}</span>
+                    <span>{Number(consumption.quantity).toLocaleString('es-CL', { maximumFractionDigits: 4 })}</span>
+                  </div>
+                ))}
+              </div>
+            )}
+            <div className="space-y-2">
+              <Label>Motivo de la reversión *</Label>
+              <Input
+                value={reverseConsumptionModal.reason}
+                onChange={(e) => setReverseConsumptionModal({ ...reverseConsumptionModal, reason: e.target.value })}
+                placeholder="Ej: Pallet no consumido por error de digitación"
+                autoFocus
+              />
+              <p className="text-xs text-muted-foreground">Mínimo 5 caracteres.</p>
+            </div>
+            <DialogFooter>
+              <Button type="button" variant="ghost" onClick={() => setReverseConsumptionModal({ open: false, unit: null, reason: '' })}>Cancelar</Button>
+              <Button type="submit" className="bg-sky-600 hover:bg-sky-700">Revertir consumo</Button>
             </DialogFooter>
           </form>
         </DialogContent>
@@ -2374,3 +2556,4 @@ InventoryLogisticUnits.layout = (page) => (
     header={<h2 className="font-semibold text-xl text-gray-800 leading-tight">Inventario · Pallets / LPN</h2>}
   />
 )
+

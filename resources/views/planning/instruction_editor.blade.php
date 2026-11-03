@@ -89,7 +89,7 @@
                 <div class="sub">Edita Turno, Observaciones, Calibres, Pedido y embalajes para esta línea. Al guardar se crea una nueva versión del instructivo.</div>
             </div>
             <div class="sub">
-                Proceso #{{ $process->id }}
+                Proceso #{{ trim((string) ($process->numproceso ?? '')) ?: $process->id }}<br>
                 <span class="badge">Línea #{{ $lineId }}</span>
             </div>
         </div>

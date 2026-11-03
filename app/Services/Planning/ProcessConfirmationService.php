@@ -296,6 +296,7 @@ class ProcessConfirmationService
 
                 $exportadora = $exportadorasByLot[(string) $n] ?? null;
                 $newProcessPayload = [
+                    'numproceso' => $process->numproceso,
                     'process_batch_id' => $process->process_batch_id,
                     'especie' => (string) $process->especie,
                     'exportadora' => $exportadora,

@@ -13,7 +13,6 @@ class SqlServerReader
      * Se cruzan con las que realmente existen en la vista configurada.
      */
     private const CABECERA_COLUMNS = [
-        'id_g_produccion',
         'folio',
         'fecha_produccion',
         'id_especie',
@@ -51,7 +50,7 @@ class SqlServerReader
 
     public function viewCabecera(): string
     {
-        return (string) config('services.termo.sqlsrv_view', 'V_PKG_Produccion_Salidas_XXX');
+        return (string) config('services.garces_pallet_box.sqlsrv_view', 'V_PKG_Stock_Inventario');
     }
 
     /**
@@ -92,6 +91,11 @@ class SqlServerReader
 
         $groupByClause = implode(', ', $groupBy);
 
+        // id_g_produccion no existe en todas las vistas (p. ej. V_PKG_Stock_Inventario),
+        // así que se ordena por la primera columna de orden disponible.
+        $orderColumn = $this->orderColumn($view);
+        $orderClause = $orderColumn !== null ? "ORDER BY MAX({$orderColumn}) DESC" : '';
+
         try {
             if ($folios !== []) {
                 $folios = array_values(array_unique(array_map(fn ($f) => trim((string) $f), $folios)));
@@ -104,7 +108,7 @@ class SqlServerReader
                       FROM {$view}
                      WHERE folio IN ({$placeholders})
                      GROUP BY $groupByClause
-                     ORDER BY MAX(id_g_produccion) DESC
+                     $orderClause
                     SQL,
                     $folios
                 );
@@ -115,7 +119,7 @@ class SqlServerReader
                            $aggSelect
                       FROM {$view}
                      GROUP BY $groupByClause
-                     ORDER BY MAX(id_g_produccion) DESC
+                     $orderClause
                     SQL
                 );
             }
@@ -200,6 +204,29 @@ class SqlServerReader
         }
 
         return collect($rows)->filter(fn ($r) => ! empty($r->folio))->values();
+    }
+
+    /**
+     * Primera columna de orden que existe en la vista.
+     */
+    private function orderColumn(string $view): ?string
+    {
+        foreach (['id_g_produccion', 'id_pkg_stock_det', 'id_pkg_stock'] as $candidate) {
+            try {
+                $rows = DB::connection($this->connection())->select(
+                    'SELECT TOP 1 COLUMN_NAME FROM INFORMATION_SCHEMA.COLUMNS WHERE TABLE_NAME = ? AND COLUMN_NAME = ?',
+                    [$view, $candidate]
+                );
+            } catch (\Throwable) {
+                return null;
+            }
+
+            if ($rows !== []) {
+                return $candidate;
+            }
+        }
+
+        return null;
     }
 
     /**

@@ -81,6 +81,11 @@ function lotDisplayLabel(lot) {
   return lot?.n_g_recepcion ? String(lot.n_g_recepcion) : '-'
 }
 
+function processDisplayNumber(process) {
+  const value = String(process?.numproceso ?? '').trim()
+  return value || String(process?.id ?? '')
+}
+
 function getManualLineOrder(process, lineId) {
   const map = process?.manual_line_order || {}
   const raw = map?.[String(lineId)] ?? map?.[Number(lineId)]
@@ -288,7 +293,7 @@ function LineGroupGantt({ group, onDelete, onMoveOrder, onSaveOrder, onResetOrde
                           </Button>
                         </span>
                       ) : null}
-                      <span className="font-semibold">#{p.id}</span>
+                      <span className="font-semibold">#{processDisplayNumber(p)}</span>
                       <StatusBadge status={status} />
                     </div>
                     <div className="text-[11px] text-gray-600 truncate">{p.especie}</div>
@@ -305,7 +310,7 @@ function LineGroupGantt({ group, onDelete, onMoveOrder, onSaveOrder, onResetOrde
                             {label}
                         </span>
                         <span className="text-[11px] font-semibold whitespace-nowrap">
-                          #{p?.id || ''}
+                          #{processDisplayNumber(p)}
                         </span>
                         <span className="text-[11px] text-gray-700 whitespace-nowrap">
                           Lotes {lotsLabel}
@@ -326,7 +331,7 @@ function LineGroupGantt({ group, onDelete, onMoveOrder, onSaveOrder, onResetOrde
                         <Button
                           variant="destructive"
                           size="sm"
-                          onClick={() => onDelete?.(p?.id)}
+                          onClick={() => onDelete?.(p?.id, processDisplayNumber(p))}
                           disabled={!p?.id}
                         >
                           Eliminar
@@ -359,10 +364,10 @@ export default function Index({ processes, filters }) {
   const { data, setData, get } = useForm({
     especie: filters?.especie ?? '',
   })
-  const handleDeleteProcess = (processId) => {
+  const handleDeleteProcess = (processId, processNumber) => {
     const id = Number(processId)
     if (!Number.isFinite(id) || id <= 0) return
-    if (!confirm(`¿Eliminar el proceso #${id}? Esta acción no se puede deshacer.`)) return
+    if (!confirm(`¿Eliminar el proceso #${processNumber || id}? Esta acción no se puede deshacer.`)) return
     router.delete(route('planning.processes.destroy', id), {
       data: { especie: String(data.especie || '').trim() || null },
       preserveScroll: true,
@@ -767,7 +772,7 @@ export default function Index({ processes, filters }) {
                                         </Button>
                                       </span>
                                     ) : null}
-                                    <span>#{p.id}</span>
+                                    <span>#{processDisplayNumber(p)}</span>
                                   </div>
                                 </TableCell>
                                 <TableCell>
@@ -836,7 +841,7 @@ export default function Index({ processes, filters }) {
                                     <Link href={route('planning.processes.show', p.id)}>
                                       <Button variant="outline" size="sm">Editar</Button>
                                     </Link>
-                                    <Button variant="destructive" size="sm" onClick={() => handleDeleteProcess(p.id)}>
+                                    <Button variant="destructive" size="sm" onClick={() => handleDeleteProcess(p.id, processDisplayNumber(p))}>
                                       Eliminar
                                     </Button>
                                     {(p.estado?.value ?? p.estado) === 'CONFIRMADO' ? (

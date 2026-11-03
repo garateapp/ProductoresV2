@@ -19,6 +19,7 @@ use App\Http\Controllers\Integrations\MappingSetController;
 use App\Http\Controllers\Integrations\MappingItemController;
 use App\Http\Controllers\Integrations\GarcesDictionaryController;
 use App\Http\Controllers\Integrations\GarcesCatalogController;
+use App\Http\Controllers\Integrations\GarcesFolioController;
 use App\Http\Controllers\Integrations\GarcesPalletDefaultController;
 use Illuminate\Support\Facades\Route;
 
@@ -78,6 +79,10 @@ Route::middleware(['auth'])->prefix('integrations')->name('integrations.')->grou
         Route::post('catalog', [GarcesCatalogController::class, 'store'])->name('catalog.store');
         Route::put('catalog/{catalog}', [GarcesCatalogController::class, 'update'])->name('catalog.update');
         Route::delete('catalog/{catalog}', [GarcesCatalogController::class, 'destroy'])->name('catalog.destroy');
+
+        Route::get('folios', [GarcesFolioController::class, 'index'])->name('folios.index');
+        Route::post('folios/preview', [GarcesFolioController::class, 'preview'])->name('folios.preview');
+        Route::post('folios/sync', [GarcesFolioController::class, 'sync'])->name('folios.sync');
 
         Route::get('defaults', [GarcesPalletDefaultController::class, 'index'])->name('defaults.index');
         Route::post('defaults', [GarcesPalletDefaultController::class, 'store'])->name('defaults.store');

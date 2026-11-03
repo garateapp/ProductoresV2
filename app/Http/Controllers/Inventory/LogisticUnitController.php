@@ -17,6 +17,7 @@ use App\Models\InventoryTechnicalSheet;
 use App\Models\InventoryWasteReason;
 use App\Models\InventoryWasteType;
 use App\Notifications\InventoryTransferDispatchedNotification;
+use App\Services\Inventory\ConsumptionReversalService;
 use App\Services\Inventory\LogisticUnitService;
 use App\Services\Inventory\LotService;
 use App\Services\Inventory\MovementService;
@@ -33,7 +34,7 @@ class LogisticUnitController extends Controller
 {
     use AuthorizesInventory;
 
-    public function index(Request $request, LogisticUnitService $logisticUnitService, LotService $lotService, SemiFinishedProductionReversalService $reversalService): Response
+    public function index(Request $request, LogisticUnitService $logisticUnitService, LotService $lotService, SemiFinishedProductionReversalService $reversalService, ConsumptionReversalService $consumptionReversalService): Response
     {
         $this->authorizeInventory($request);
 
@@ -89,10 +90,14 @@ class LogisticUnitController extends Controller
 
         $user = $request->user();
         $reversalStatuses = $reversalService->statusForUnits($units->getCollection(), $user);
+        $consumptionStatuses = $consumptionReversalService->statusForUnits($units->getCollection());
 
         $units = $units->through(fn (InventoryLogisticUnit $unit): array => array_merge(
             $this->unitPayload($unit),
-            ['production_reversal' => $reversalStatuses[(int) $unit->id] ?? ['production' => null, 'reversible' => false, 'reason' => null]],
+            [
+                'production_reversal' => $reversalStatuses[(int) $unit->id] ?? ['production' => null, 'reversible' => false, 'reason' => null],
+                'consumption_reversal' => $consumptionStatuses[(int) $unit->id] ?? ['reversible' => false, 'reason' => null, 'quantity' => 0, 'consumptions' => []],
+            ],
         ));
 
         $materials = InventoryMaterial::query()
@@ -578,6 +583,35 @@ class LogisticUnitController extends Controller
         }
 
         return back()->with('success', 'Traslado parcial registrado y dejado en tránsito para recepción.');
+    }
+
+    /**
+     * Revierte el consumo de un LPN de insumo (no semielaborado): devuelve la
+     * cantidad consumida a la posición de stock del pallet y lo reactiva.
+     */
+    public function reverseConsumption(Request $request, InventoryLogisticUnit $logisticUnit, ConsumptionReversalService $consumptionReversalService): RedirectResponse
+    {
+        $this->authorizeInventory($request);
+
+        $data = $request->validate([
+            'reason' => ['required', 'string', 'min:5', 'max:500'],
+        ]);
+
+        try {
+            $result = $consumptionReversalService->reverse(
+                $logisticUnit,
+                (string) $data['reason'],
+                (int) $request->user()->id,
+            );
+        } catch (ValidationException $exception) {
+            return back()->with('error', $this->validationMessage($exception));
+        }
+
+        return back()->with(
+            'success',
+            'Consumo revertido: se devolvieron '.number_format($result['quantity'], 2, ',', '.')
+            .' unidades al LPN '.$result['unit']->license_plate_number.'.',
+        );
     }
 
     private function validationMessage(ValidationException $exception): string

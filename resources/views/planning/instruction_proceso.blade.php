@@ -3,7 +3,7 @@
 <head>
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
-    <title>Instructivo - Proceso #{{ $process->id }}</title>
+    <title>Instructivo - Proceso #{{ trim((string) ($process->numproceso ?? '')) ?: $process->id }}</title>
     <style>
         :root { --ink:#111827; --muted:#6b7280; --border:#e5e7eb; --bg:#ffffff; --head:#f3f4f6; }
         html, body { background: var(--bg); color: var(--ink); font-family: Arial, Helvetica, sans-serif; }
@@ -66,7 +66,7 @@
             <div class="sheet-header">
                 <div class="line">{{ $lineName }}</div>
                 <div class="sub">
-                    <span><strong>Proceso #</strong> {{ $process->id }}</span>
+                    <span><strong>Proceso #</strong> {{ trim((string) ($process->numproceso ?? '')) ?: $process->id }}</span>
                     <span><strong>Lotes</strong> {{ $lots->count() }}</span>
                     <span><strong>Total bins</strong> {{ number_format((int) $lots->sum('cantidad_bins'), 0, ',', '.') }}</span>
                     <span><strong>Total totes</strong> {{ number_format((int) $lots->sum('cantidad_totes'), 0, ',', '.') }}</span>

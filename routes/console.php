@@ -46,11 +46,6 @@ Schedule::command('tinker --execute="Artisan::call(\'reports:reception-daily-sum
     ->dailyAt('15:00')
     ->description('Envia resumen de recepciones enviadas (15:00).');
 
-Schedule::command('sync:produccion-garces')
-    ->everyFiveMinutes()
-    ->withoutOverlapping()
-    ->description('Envia produccion nueva a Garces Fruits cada 5 minutos');
-
 Schedule::command('sync:pallet-box')
     ->everyFiveMinutes()
     ->withoutOverlapping()

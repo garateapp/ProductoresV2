@@ -156,7 +156,7 @@ class ProductionController extends Controller
 
                 return [
                     'id' => $process->id,
-                    'label' => 'Proceso #'.$process->id.(! empty($labelParts) ? ' · '.implode(' · ', $labelParts) : ''),
+                    'label' => 'Proceso #'.(trim((string) ($process->numproceso ?? '')) ?: $process->id).(! empty($labelParts) ? ' · '.implode(' · ', $labelParts) : ''),
                     'fecha' => $date,
                     'turno' => $shift,
                     'especie' => $species,

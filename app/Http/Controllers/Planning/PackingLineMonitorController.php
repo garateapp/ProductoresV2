@@ -102,7 +102,7 @@ class PackingLineMonitorController extends Controller
         if (! empty($processIds)) {
             $lotsByLine = PackingProcessLot::query()
                 ->whereIn('process_id', $processIds)
-                ->with(['process:id,especie,exportadora,estado,pedidos,fecha,shift_id', 'packingLine:id,nombre,tipo'])
+                ->with(['process:id,numproceso,especie,exportadora,estado,pedidos,fecha,shift_id', 'packingLine:id,nombre,tipo'])
                 ->get()
                 ->groupBy('packing_line_id');
         }
@@ -169,7 +169,7 @@ class PackingLineMonitorController extends Controller
 
                     return [
                         'process_id' => (int) ($p?->id ?? 0),
-                        'process_number' => (string) ((int) ($p?->id ?? 0)),
+                        'process_number' => trim((string) ($p?->numproceso ?? '')) ?: (string) ((int) ($p?->id ?? 0)),
                         'estado' => $p?->estado?->value ?? (string) ($p?->estado ?? ''),
                         'especie' => (string) ($p?->especie ?? ''),
                         'exportadora' => is_string($p?->exportadora) ? (string) $p->exportadora : null,

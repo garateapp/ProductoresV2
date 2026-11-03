@@ -432,6 +432,7 @@ class PackingProcessController extends Controller
                 }
 
                 $payload = [
+                    'numproceso' => (string) $request->input('numproceso'),
                     'especie' => $especie,
                     'exportadora' => null, // se completa desde Recepción al confirmar (1 lote = 1 proceso)
                     'fecha' => $request->date('fecha'),
@@ -495,8 +496,8 @@ class PackingProcessController extends Controller
                     } elseif ($vals->count() > 1) {
                         $process->setAttribute('exportadora', 'VARIAS');
                     }
-                  
-                
+
+
                 }
             } catch (\Throwable) {
                 // noop
@@ -817,7 +818,7 @@ class PackingProcessController extends Controller
                 ->where('p.id', '!=', $process->id)
                 ->whereIn('p.estado', ['BORRADOR', 'CONFLICTO'])
                 ->select('pl.id as lot_id', 'pl.n_g_recepcion', 'pl.source_type', 'pl.source_key', 'pl.packing_line_id',
-                    'p.id as process_id', 'p.estado as process_estado', 'p.fecha as process_fecha')
+                    'p.id as process_id', 'p.numproceso as process_numproceso', 'p.estado as process_estado', 'p.fecha as process_fecha')
                 ->get();
             $crossProcessOwnership = $crossProcessRows;
         } catch (\Throwable) {
@@ -843,6 +844,7 @@ class PackingProcessController extends Controller
             if ($owner) {
                 $item['assigned_to_process'] = [
                     'process_id' => (int) $owner->process_id,
+                    'process_numproceso' => $owner->process_numproceso ?? null,
                     'process_estado' => (string) $owner->process_estado,
                     'lot_id' => (int) $owner->lot_id,
                     'process_fecha' => $owner->process_fecha ?? null,
@@ -1059,14 +1061,14 @@ class PackingProcessController extends Controller
     {
         $this->authorizePlanning($request);
 
-        $processId = (int) $process->id;
+        $processNumber = trim((string) ($process->numproceso ?? '')) ?: (string) $process->id;
         $process->delete();
 
         return redirect()
             ->route('planning.processes.index', [
                 'especie' => trim((string) $request->input('especie', '')) ?: null,
             ])
-            ->with('success', "Proceso #{$processId} eliminado correctamente.");
+            ->with('success', "Proceso #{$processNumber} eliminado correctamente.");
     }
 
     public function updateLineOrder(Request $request)
