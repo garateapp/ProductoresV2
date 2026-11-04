@@ -333,7 +333,7 @@ class GarcesProduccionFolioService
         if ($folios !== []) {
             $query->whereIn('folio', $folios);
         }
-        $query->where('id_exportadora',4373)
+        $query->where('id_exportadora',4373);
         if ($term = trim((string) ($filters['q'] ?? ''))) {
             $query->where('folio', 'like', "%{$term}%");
         }
