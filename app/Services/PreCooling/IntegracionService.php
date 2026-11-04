@@ -61,14 +61,14 @@ class IntegracionService
         $missing = [];
 
         foreach ($load->folios as $folio) {
-            $sqlsrv = $this->buscarEnVista((string) $folio->folio);
+            $numeroFolio = trim((string) $folio->folio);
+            $sqlsrv = $this->buscarEnVista($numeroFolio);
 
             if ($sqlsrv === null) {
-                $missing[] = (string) $folio->folio;
-                continue;
+                $missing[] = $numeroFolio;
+            } else {
+                $found[] = $numeroFolio;
             }
-
-            $found[] = (string) $folio->folio;
 
             $detalles[] = $this->buildFolio($load, $folio, $sqlsrv);
         }
@@ -111,28 +111,29 @@ class IntegracionService
         ];
     }
 
-    protected function buildFolio(PreCoolingLoad $load, $folio, array $sqlsrv): array
+    protected function buildFolio(PreCoolingLoad $load, $folio, ?array $sqlsrv): array
     {
+        $sqlsrv ??= [];
 
         return [
             'preColdNumber' => $load->numero,
             'sinkNumber' => (string) $folio->folio,
-            'codeSpecies' => $sqlsrv['codeSpecies'],
-            'codeExtSpecies' => $sqlsrv['codeExtSpecies'],
-            'nameSpecies' => $sqlsrv['nameSpecies'],
-            'codeVariety' => $sqlsrv['codeVariety'],
-            'nameVariety' => $sqlsrv['nameVariety'],
-            'codeExtVariety' => $sqlsrv['codeExtVariety'],
-            'codeContainer' => $sqlsrv['codeContainer'],
+            'codeSpecies' => $sqlsrv['codeSpecies'] ?? null,
+            'codeExtSpecies' => $sqlsrv['codeExtSpecies'] ?? null,
+            'nameSpecies' => $sqlsrv['nameSpecies'] ?? $folio->especie,
+            'codeVariety' => $sqlsrv['codeVariety'] ?? null,
+            'nameVariety' => $sqlsrv['nameVariety'] ?? $folio->variedad,
+            'codeExtVariety' => $sqlsrv['codeExtVariety'] ?? null,
+            'codeContainer' => $sqlsrv['codeContainer'] ?? null,
             'codeIntegrationContainer' => null,
-            'codePackaging' => $sqlsrv['codePackaging'],
-            'codeLabel' => $sqlsrv['codeLabel'],
+            'codePackaging' => $sqlsrv['codePackaging'] ?? null,
+            'codeLabel' => $sqlsrv['codeLabel'] ?? null,
             'band' => $this->band($folio->banda),
             'position' => $this->toInt($folio->posicion),
             'height' => $this->toInt($folio->altura),
             'level' => $this->toInt($folio->nivel),
-            'quantityContainer' => $sqlsrv['quantityContainer'],
-            'weight' => $sqlsrv['weight'],
+            'quantityContainer' => $sqlsrv['quantityContainer'] ?? $this->toInt($folio->cajas),
+            'weight' => $sqlsrv['weight'] ?? null,
             'isReprocessing' => (int) $load->tipo_proceso_id === 1,
             'vigency' => true,
             'temperatureByType' => $folio->temperature_by_type,
