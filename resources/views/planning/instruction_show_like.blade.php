@@ -5,51 +5,35 @@
     <meta name="viewport" content="width=device-width, initial-scale=1">
     <title>Instructivo</title>
     <style>
-        :root { --ink:#111827; --muted:#6b7280; --border:#e5e7eb; --bg:#f8fafc; --white:#ffffff; }
+        :root { --ink:#111827; --muted:#6b7280; --border:#e5e7eb; --bg:#ffffff; --white:#ffffff; --slate:#f8fafc; --green:#166534; }
         * { box-sizing: border-box; }
-        html, body { margin:0; padding:0; background: var(--bg); color: var(--ink); font-family: Arial, Helvetica, sans-serif; }
-        .page { padding: 14px; }
-        .head { display:flex; align-items:flex-start; justify-content:space-between; gap:12px; margin-bottom:12px; }
+        html, body { margin:0; padding:0; background: var(--bg); color: var(--ink); font-family: Arial, Helvetica, sans-serif; font-size: 11px; }
+        .page { padding: 12px; }
+        .head { display:flex; align-items:flex-start; justify-content:space-between; gap:12px; margin-bottom:10px; }
         .head-title { font-size:16px; font-weight: 900; margin:0; }
-        .head-sub { margin-top:4px; font-size: 14px; color: var(--muted); }
+        .head-sub { margin-top:4px; font-size: 13px; color: var(--muted); }
         .status { margin-top:8px; display:inline-flex; border:1px solid var(--border); border-radius:999px; padding:4px 10px; font-size:11px; font-weight:700; background:#f8fafc; color:#334155; }
 
-        .card { border:1px solid var(--border); border-radius:12px; background: var(--white); margin-top:12px; overflow:hidden; }
-        .card-head { padding:12px 14px; border-bottom:1px solid var(--border); background: linear-gradient(90deg,#fff,#f8fafc); }
-        .card-title { font-size:12px; font-weight:800; margin:0; }
-        .card-sub { margin-top:6px; font-size:10px; color: var(--muted); }
-        .card-body { padding:12px 14px 16px 14px; }
+        .card { border:1px solid var(--border); border-radius:10px; background: var(--white); margin-top:12px; overflow:hidden; }
+        .card-head { padding:10px 14px; border-bottom:1px solid var(--border); background: #f8fafc; }
+        .card-title { font-size:12px; font-weight:800; margin:0; color: var(--ink); }
+        .card-sub { margin-top:4px; font-size:10px; color: var(--muted); }
+        .card-body { padding:10px 14px 14px 14px; }
 
-        .instructionDoc h1 { font-size:14px; margin:0 0 8px 0; font-weight:900; }
-        .instructionDoc h2 { font-size:14px; margin:18px 0 8px 0; font-weight:900; }
-        .table-wrap {
-            overflow:auto;
-            border:1px solid #ddd;
-            border-radius:10px;
-            padding:10px;
-            background:#fff;
-            word-wrap:break-word;
-            overflow-wrap:anywhere;
-        }
+        .instructionDoc h1 { font-size:16px; margin:0 0 8px 0; font-weight:900; color: var(--ink); }
+        .instructionDoc h2 { font-size:13px; margin:16px 0 6px 0; font-weight:900; color: var(--ink); }
+        .table-wrap { overflow:auto; border:1px solid var(--border); border-radius:8px; padding:8px; background:#fff; }
         table { border-collapse:collapse; width:max-content; min-width:100%; }
-        th, td {
-            border:1px solid var(--border);
-            padding:6px 10px;
-            vertical-align:top;
-            white-space:pre-wrap;
-            word-break:break-word;
-            overflow-wrap:anywhere;
-            font-size:12px;
-        }
-        th { position:sticky; top:0; background:#f7f7f7; font-weight:800; }
-        tr:nth-child(even) td { background:#fcfcfc; }
+        th, td { border:1px solid var(--border); padding:5px 8px; vertical-align:top; white-space:pre-wrap; word-break:break-word; overflow-wrap:anywhere; font-size:10.5px; }
+        th { position:sticky; top:0; background:#e5e7eb; font-weight:800; color: var(--ink); }
+        tr:nth-child(even) td { background:#fafafa; }
         .meta-grid { display:grid; grid-template-columns:repeat(6,minmax(0,1fr)); gap:8px; margin:10px 0; }
-        .meta-box { border:1px solid var(--border); border-radius:10px; padding:8px 10px; background:#fff; }
-        .meta-label { font-size:12px; color:var(--muted); margin-bottom:2px; }
+        .meta-box { border:1px solid var(--border); border-radius:8px; padding:8px 10px; background:#fff; }
+        .meta-label { font-size:10px; color:var(--muted); margin-bottom:2px; font-weight:700; }
         .meta-value { font-weight:900; color:var(--ink); font-size:11px; }
-        .small { font-size:12px; color:#4b5563; margin-top:2px; }
+        .small { font-size:10px; color:#4b5563; margin-top:2px; }
         .comments-title { font-weight:700; }
-        .comments-line { margin-top:4px; font-size:11px; color:#374151; }
+        .comments-line { margin-top:4px; font-size:10px; color:#374151; }
         .font-bold { font-weight:700; }
 
         .status-borrador { background:#f1f5f9; color:#1e293b; border-color:#e2e8f0; }
@@ -60,7 +44,7 @@
         .status-default { background:#f8fafc; color:#334155; border-color:#e2e8f0; }
 
         @media (max-width: 900px) { .meta-grid { grid-template-columns:repeat(2,minmax(0,1fr)); } }
-        @page { margin: 6mm; size: A4 landscape; }
+        @page { margin: 8mm; size: A4 landscape; }
         @media print {
             html, body { background:#fff; }
             .page { padding:0; }
@@ -69,62 +53,19 @@
             .head-sub { font-size: 10px; }
             .status { margin-top: 4px; padding: 2px 8px; font-size: 9px; }
             .card { overflow:visible; margin-top:8px; }
-            .card-head { padding:8px 10px; }
+            .card-head { padding:8px 10px; background:#e5e7eb; }
+            .card-title { font-size: 11px; }
             .card-body { padding:8px 10px 10px 10px; }
-            .table-wrap { overflow:visible !important; padding:2px; border:none; }
-            .process-lots-table {
-                width:100% !important;
-                min-width:0 !important;
-                table-layout:fixed;
-            }
-            .process-lots-table th,
-            .process-lots-table td {
-                font-size:10px;
-                line-height:1.15;
-                padding:2px 3px;
-                white-space:normal;
-                word-break:break-word;
-                overflow-wrap:anywhere;
-            }
-            .process-lots-table th { position:static; top:0; background:#2f631e; font-weight:600;color:#fff; }
-            .process-lots-table .small { font-size:10px; }
-            .process-lots-table th:nth-child(1), .process-lots-table td:nth-child(1) { width: 6%; }
-            .process-lots-table th:nth-child(2), .process-lots-table td:nth-child(2) { width: 4%; }
-            .process-lots-table th:nth-child(3), .process-lots-table td:nth-child(3) { width: 7%; }
-            .process-lots-table th:nth-child(4), .process-lots-table td:nth-child(4) { width: 11%; }
-            .process-lots-table th:nth-child(5), .process-lots-table td:nth-child(5) { width: 4%; }
-            .process-lots-table th:nth-child(6), .process-lots-table td:nth-child(6) { width: 4%; }
-            .process-lots-table th:nth-child(7), .process-lots-table td:nth-child(7) { width: 4%; }
-            .process-lots-table th:nth-child(8), .process-lots-table td:nth-child(8) { width: 4%; }
-            .process-lots-table th:nth-child(9), .process-lots-table td:nth-child(9) { width: 4%; }
-            .process-lots-table th:nth-child(10), .process-lots-table td:nth-child(10) { width: 4%; }
-            .process-lots-table th:nth-child(11), .process-lots-table td:nth-child(11) { width: 8%; }
-            .process-lots-table th:nth-child(12), .process-lots-table td:nth-child(12) { width: 6%; }
-            .process-lots-table th:nth-child(13), .process-lots-table td:nth-child(13) { width: 7%; }
-            .process-lots-table th:nth-child(14), .process-lots-table td:nth-child(14) { width: 4%; }
-            .process-lots-table th:nth-child(15), .process-lots-table td:nth-child(15) { width: 4%; }
-            .process-lots-table th:nth-child(16), .process-lots-table td:nth-child(16) { width: 11%; }
-            .packaging-table {
-                width:100% !important;
-                min-width:0 !important;
-                max-width:100% !important;
-                table-layout:fixed;
-            }
-            .packaging-table th,
-            .packaging-table td {
-                font-size:10px;
-                line-height:1.05;
-                padding:1px 2px;
-                white-space:normal;
-                word-break:break-word;
-                overflow-wrap:anywhere;
-                max-width:0;
-                hyphens:auto;
-            }
-            .packaging-table th {
-                position:static;
-            }
-
+            .table-wrap { overflow:visible !important; padding:4px; border:none; }
+            .instructionDoc h1 { font-size: 13px; margin:0 0 6px 0; }
+            .instructionDoc h2 { font-size: 11.5px; margin:12px 0 5px 0; }
+            table { width:100% !important; min-width:0 !important; table-layout:fixed; }
+            th { background:#2f631e !important; color:#fff !important; position:static !important; }
+            th, td { font-size:9px; line-height:1.15; padding:3px 5px; white-space:normal; word-break:break-word; overflow-wrap:anywhere; }
+            tr:nth-child(even) td { background:#fff; }
+            .meta-box { font-size:9px; }
+            .meta-label { font-size:8.5px; }
+            .meta-value { font-size:9.5px; }
         }
     </style>
 </head>
