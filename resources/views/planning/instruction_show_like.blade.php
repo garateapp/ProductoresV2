@@ -224,6 +224,7 @@
     <div class="head">
         <div>
             <h1 class="head-title">Instructivo</h1>
+
             <div class="head-sub">{{ $fmtDate((string) ($process['fecha'] ?? '')) }} · {{ $shiftLabel }}</div>
             <div class="status {{ $statusToneClass }}">{{ $status !== '' ? $status : '-' }}</div>
         </div>
@@ -295,55 +296,38 @@
                             <div class="meta-value">{{ (string) (($s['pedidosLabel'] ?? '') !== '' ? $s['pedidosLabel'] : '-') }}</div>
                         </div>
                     </div>
-
                     <h2>Procesos / lotes</h2>
                     <div class="table-wrap">
                         <table class="process-lots-table">
-                            <colgroup>
-                                <col style="width:6%">
-                                <col style="width:4%">
-                                <col style="width:7%">
-                                <col style="width:11%">
-                                <col style="width:4%">
-                                <col style="width:4%">
-                                <col style="width:4%">
-                                <col style="width:4%">
-                                <col style="width:4%">
-                                <col style="width:4%">
-                                <col style="width:8%">
-                                <col style="width:8%">
-                                <col style="width:6%">
-                                <col style="width:7%">
-                                <col style="width:4%">
-                                <col style="width:4%">
-                                <col style="width:8%">
-
-                            </colgroup>
                             <thead>
                             <tr>
-                                <th>Horario Proceso</th>
-                                <th>N° Proceso/ Lote</th>
-                                {{-- <th>Lote</th> --}}
+                                <th>Hr Inicio Proceso</th>
+                                <th>Hr Término Proceso</th>
+                                <th>N° Proceso</th>
+                                <th>Lote</th>
                                 <th>Tipo Proceso</th>
-                                {{-- <th>Variedad Original</th> --}}
-                                <th>Productor</th>
+                                <th>Variedad Original</th>
+                                <th>Productor Real</th>
                                 <th>CSG</th>
-                                <th>SDP</th>
-                                <th>Huerto</th>
                                 <th>Categoria</th>
-                                <th>% Exp</th>
-                                <th>Nota</th>
-                                <th>Variedad</th>
-                                <th>Variedad Rotulada</th>
+                                @php
+                                    $hasMexico = collect($lots)->first(function ($r) {
+                                        return strtoupper(trim((string) ($r['destino'] ?? ''))) === 'MEXICO';
+                                    }) !== null;
+                                @endphp
+                                @if($hasMexico) <th>Huerto</th> @endif
                                 <th>Pulpa</th>
                                 <th>Fecha Recepción</th>
-                                <th>Bins</th>
+                                <th>% Exp</th>
+                                <th>Cantidad (bins)</th>
                                 <th>Totes</th>
                                 <th>Kilos</th>
                                 <th>Peso prom. env.</th>
-                                <th>Exportadora</th>
-
-
+                                <th>SDP</th>
+                                <th>Nota Calidad</th>
+                                <th>Exportadora/Cliente</th>
+                                <th>Variedad Rotulada</th>
+                                <th>Hrs Estimadas</th>
                             </tr>
                             </thead>
                             <tbody>
@@ -351,30 +335,30 @@
                                 @php
                                     $sourceType = strtolower(trim((string) ($r['source_type'] ?? '')));
                                     $isRepack = $sourceType === 'reembalaje';
+                                    $lote = $isRepack
+                                        ? trim((string) (($r['source_key'] ?? '') !== '' ? $r['source_key'] : ($r['n_g_recepcion'] ?? '')))
+                                        : trim((string) ($r['n_g_recepcion'] ?? ''));
                                 @endphp
                                 <tr>
-                                    <td>{{ $fmtTime((string) ($r['inicio'] ?? '')) }} - {{ $fmtTime((string) ($r['fin'] ?? '')) }}
-                                    </td>
-                                    {{-- <td>{{ (string) ($r['process_id'] ?? '') }}</td> --}}
+                                    <td>{{ $fmtTime((string) ($r['inicio'] ?? '')) }}</td>
+                                    <td>{{ $fmtTime((string) ($r['fin'] ?? '')) }}</td>
+                                    <td>{{ (string) ($r['numproceso'] ?? '') }}</td>
                                     <td>
                                         @if($isRepack)
-                                            Folio {{ (string) (($r['source_key'] ?? '') !== '' ? $r['source_key'] : ($r['n_g_recepcion'] ?? '')) }}
-                                            <div class="small">N° Proceso {{ (string) ($r['source_n_g_proceso'] ?? '-') }} · Lote {{ (string) (($r['source_lote'] ?? '') !== '' ? $r['source_lote'] : ($r['n_g_recepcion'] ?? '-')) }}</div>
+                                            <strong>Folio {{ $lote }}</strong>
+                                            <div class="small">N° Proceso {{ (string) ($r['numproceso'] ?? '-') }} · Lote {{ (string) (($r['source_lote'] ?? '') !== '' ? $r['source_lote'] : ($r['n_g_recepcion'] ?? '-')) }}</div>
                                         @else
-                                            {{ (string) ($r['n_g_recepcion'] ?? '') }}
+                                            {{ $lote }}
                                         @endif
                                     </td>
                                     <td>{{ (string) (($r['tipo_proceso'] ?? '') !== '' ? $r['tipo_proceso'] : 'Normal') }}</td>
-                                    {{-- <td>{{ (string) ($r['variedad_original'] ?? '') }}</td> --}}
-                                    <td>{{ (string) ($r['productor_real'] ?? '') }}</td>
-                                    <td>{{ (string) ($r['csg_productor'] ?? '') }}</td>
-                                    <td>{{ (string) ($r['sdp_centrocosto'] ?? '') }}</td>
-                                    <td>{{ strtoupper(trim((string) ($r['destino'] ?? ''))) === 'MEXICO' ? (string) ($r['huerto'] ?? '') : '' }}</td>
-                                    <td>{{ (string) (($r['categoria_origen'] ?? '') !== '' ? $r['categoria_origen'] : 'Cat 1') }}</td>
-                                    <td>{{ $fmtPercent($r['porcentaje_exportacion'] ?? null) }}</td>
-                                    <td>{{ (string) ($r['nota_calidad'] ?? '') }}</td>
                                     <td>{{ (string) ($r['variedad_original'] ?? '') }}</td>
-                                    <td>{{ (string) ($r['n_variedad'] ?? '') }}</td>
+                                    <td>{{ (string) (($r['productor_real'] ?? '') !== '' ? $r['productor_real'] : ($r['n_productor'] ?? '')) }}</td>
+                                    <td>{{ (string) ($r['csg_productor'] ?? '') }}</td>
+                                    <td>{{ (string) (($r['categoria_origen'] ?? '') !== '' ? $r['categoria_origen'] : 'Cat 1') }}</td>
+                                    @if($hasMexico)
+                                        <td>{{ strtoupper(trim((string) ($r['destino'] ?? ''))) === 'MEXICO' ? (string) ($r['huerto'] ?? '') : '' }}</td>
+                                    @endif
                                     <td>{{ (string) ($r['pulpa'] ?? '') }}</td>
                                     <td>
                                         @php
@@ -383,27 +367,29 @@
                                         @endphp
                                         {{ $fmtDate($fechaRec10) !== '-' ? $fmtDate($fechaRec10) : '' }}
                                     </td>
+                                    <td>{{ $fmtPercent($r['porcentaje_exportacion'] ?? null) }}</td>
                                     <td>{{ !empty($r['cantidad_bins']) ? number_format((float) ($r['cantidad_bins'] ?? 0), 0, ',', '.') : '' }}</td>
                                     <td>{{ !empty($r['cantidad_totes']) ? number_format((float) ($r['cantidad_totes'] ?? 0), 0, ',', '.') : '' }}</td>
                                     <td>{{ !empty($r['peso_neto']) ? number_format(round((float) ($r['peso_neto'] ?? 0)), 0, ',', '.') : '' }}</td>
                                     <td>{{ !empty($r['peso_promedio_envase']) ? number_format((float) ($r['peso_promedio_envase'] ?? 0), 3, ',', '.') : '' }}</td>
+                                    <td>{{ (string) ($r['sdp_centrocosto'] ?? '') }}</td>
+                                    <td>{{ (string) ($r['nota_calidad'] ?? '') }}</td>
                                     <td>{{ (string) ($r['exportadora'] ?? '') }}</td>
-
-
+                                    <td>{{ (string) ($r['n_variedad'] ?? '') }}</td>
+                                    <td>{{ ($fmtTime((string) ($r['inicio'] ?? '')) && $fmtTime((string) ($r['fin'] ?? ''))) ? '' : '' }}</td>
                                 </tr>
                             @endforeach
                             <tr>
-                                <td colspan="14"><strong>TOTAL</strong></td>
+                                <td colspan="{{ $hasMexico ? 13 : 12 }}"><strong>TOTAL</strong></td>
                                 <td><strong>{{ $sumBins ? number_format((float) $sumBins, 0, ',', '.') : '' }}</strong></td>
                                 <td><strong>{{ $sumTotes ? number_format((float) $sumTotes, 0, ',', '.') : '' }}</strong></td>
                                 <td><strong>{{ $sumKgs ? number_format(round((float) $sumKgs), 0, ',', '.') : '' }}</strong></td>
                                 <td><strong>{{ $promedioEnvase ? number_format((float) $promedioEnvase, 3, ',', '.') : '' }}</strong></td>
-                                <td colspan="1"></td>
+                                <td colspan="5"></td>
                             </tr>
                             </tbody>
                         </table>
                     </div>
-
                     <h2>Destino + Embalajes</h2>
                     <div class="table-wrap">
                         <table class="packaging-table">

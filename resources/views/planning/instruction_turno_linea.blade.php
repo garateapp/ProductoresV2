@@ -134,7 +134,7 @@
                     @endphp
                     <tr>
                         <td class="nowrap">{{ $start ? $start->format('H:i:s') : '-' }}</td>
-                        <td class="nowrap">{{ $lot->process_id }}</td>
+                        <td class="nowrap">{{ $lot->numproceso }}</td>
                         <td class="nowrap">
                             <strong>{{ $lot->n_g_recepcion }}</strong>
                             @if(($lot->split_index ?? 1) > 1)

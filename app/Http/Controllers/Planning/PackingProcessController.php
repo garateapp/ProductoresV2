@@ -2351,6 +2351,7 @@ class PackingProcessController extends Controller
                 $lot->setAttribute('instruction_inicio', $start);
                 $lot->setAttribute('instruction_fin', $end);
                 $lot->setAttribute('instruction_bins_por_hora', $binsPorHora);
+                $lot->setAttribute('numproceso', (string) ($lot->process?->numproceso ?? ''));
 
                 $destino = trim((string) ($lot->destino ?? ''));
                 $destKey = $destino !== '' ? mb_strtoupper($destino) : '-';
@@ -4254,6 +4255,7 @@ class PackingProcessController extends Controller
                 $lots[] = [
                     'id' => (int) ($lot?->id ?? 0),
                     'process_id' => (int) ($lot?->process_id ?? 0),
+                    'numproceso' => (string) ($lot?->getAttribute('numproceso') ?: $lot?->process?->numproceso ?? ''),
                     'orden' => (int) ($lot?->orden ?? 0),
                     'packing_line_id' => (int) ($lot?->packing_line_id ?? 0),
                     'especie' => (string) ($lot?->process?->especie ?? ''),
