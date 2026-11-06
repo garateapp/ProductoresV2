@@ -298,7 +298,7 @@ class GarcesPalletBoxService
                         'folio' => $item['folio'],
                         'fechaTarja' => $this->formatDate($item['fecha_produccion'] ?? null),
                         'tipoTarja' => (string) $tipoTarja,
-                        'especie' => 21,//$translated['especie'] ?? (string) ($cab->id_especie ?? ($cab->c_especie ?? '')),
+                        'especie' => "21",//$translated['especie'] ?? (string) ($cab->id_especie ?? ($cab->c_especie ?? '')),
                         'variedad' => $translated['variedad'] ?? (string) ($cab->id_variedad ?? ($cab->c_variedad ?? '')),
                         'envase' => explode('-', $cab->c_embalaje ?? '')[1] ?? '',
                         'embalaje' => $translated['embalaje'] ?? (string) ($cab->c_embalaje ?? ($cab->c_embalaje ?? '')),
