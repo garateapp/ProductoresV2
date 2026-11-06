@@ -261,7 +261,32 @@ class GarcesPalletBoxService
 
         $codigoBarra = trim((string) ($cab->folio ?? $item['folio']));
         $translated = $this->translatePallet($item, $recordMissing);
-
+        $tipoTarja = '1';
+        $folioUpper = strtoupper($codigoBarra);
+        switch (true) {
+            case str_ends_with($folioUpper, 'T'):
+                $tipoTarja = '2'; // saldo
+                break;
+            case ctype_digit($codigoBarra):
+                $tipoTarja = '1'; // folio numérico
+                break;
+            default:
+                $tipoTarja = '1';
+                break;
+        }
+        $tipoPallet = '4';
+        $folioUpper = strtoupper($codigoBarra);
+        switch (true) {
+            case str_ends_with($folioUpper, 'T'):
+                $tipoTarja = '7'; // saldo
+                break;
+            case ctype_digit($codigoBarra):
+                $tipoTarja = '4'; // folio numérico
+                break;
+            default:
+                $tipoTarja = '9';
+                break;
+        }
         return [
 
                 'codeSubsidiary' => (string) (($config['code_subsidiary'] ?? null) ?: ($defaults['subsidiary_garces'] ?? ($cab->id_empresa ?? ($cab->c_exportadora ?? '')))),
@@ -272,7 +297,7 @@ class GarcesPalletBoxService
                     'header' => [
                         'folio' => $item['folio'],
                         'fechaTarja' => $this->formatDate($item['fecha_produccion'] ?? null),
-                        'tipoTarja' => (string) ($defaults['tipo_tarja'] ?? ''),
+                        'tipoTarja' => (string) $tipoTarja,
                         'especie' => 21,//$translated['especie'] ?? (string) ($cab->id_especie ?? ($cab->c_especie ?? '')),
                         'variedad' => $translated['variedad'] ?? (string) ($cab->id_variedad ?? ($cab->c_variedad ?? '')),
                         'envase' => explode('-', $cab->c_embalaje ?? '')[1] ?? '',
@@ -281,7 +306,7 @@ class GarcesPalletBoxService
                         'tipoFruta' => (string) ($defaults['tipo_fruta'] ?? '1'),
                         'tipoPallet' => (string) ($defaults['tipo_pallet'] ?? '4'),
                         'categoria' => $translated['categoria'] ?? (string) ($cab->id_categoria ?? ($cab->c_categoria ?? '')),
-                        'isExport' => $isExportDefault,
+                        'isExport' => $cab->id_categoria==4?0:1,
                         'cajasTotal' => $item['cantidad_cajas'],
                         'kilosTotal' => round((float) $item['peso_neto_total'], 3),
                     ],
