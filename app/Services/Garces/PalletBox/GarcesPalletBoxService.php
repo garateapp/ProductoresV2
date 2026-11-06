@@ -300,7 +300,7 @@ class GarcesPalletBoxService
                         'tipoTarja' => (string) $tipoTarja,
                         'especie' => "21",//$translated['especie'] ?? (string) ($cab->id_especie ?? ($cab->c_especie ?? '')),
                         'variedad' => $translated['variedad'] ?? (string) ($cab->id_variedad ?? ($cab->c_variedad ?? '')),
-                        'envase' => explode('-', $cab->c_embalaje ?? '')[1] ?? '',
+                        'envase' => explode('-', $cab->c_embalaje ?? '')[1] ?? $cab->c_envase??'',
                         'embalaje' => $translated['embalaje'] ?? (string) ($cab->c_embalaje ?? ($cab->c_embalaje ?? '')),
                         'etiqueta' => $translated['etiqueta'] ?? (string) ($cab->id_etiqueta ?? ($cab->c_etiqueta ?? '')),
                         'tipoFruta' => (string) ($defaults['tipo_fruta'] ?? '1'),
