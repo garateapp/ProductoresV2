@@ -141,6 +141,31 @@ export default function Index({ folios, filters, config = {}, sourceError = null
     }
   };
 
+  const exportExcel = async () => {
+    if (selected.length === 0) return;
+
+    try {
+      const response = await window.axios.post(
+        route('integrations.garces.folios.export-excel'),
+        { folios: selected },
+        { responseType: 'blob' }
+      );
+
+      const url = window.URL.createObjectURL(new Blob([response.data]));
+      const link = document.createElement('a');
+      link.href = url;
+      link.download = response.headers['content-disposition']?.match(/filename="(.+)"/)?.[1] || 'Folios_Garces.xlsx';
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+      window.URL.revokeObjectURL(url);
+    } catch (e) {
+      const data = e.response?.data;
+      const detail = data && typeof data === 'object' ? (data.message || JSON.stringify(data)) : e.message;
+      window.alert(`No se pudo exportar Excel: ${detail}`);
+    }
+  };
+
   const selectedCajas = rows
     .filter((row) => selected.includes(row.folio))
     .reduce((total, row) => total + Number(row.cajas || 0), 0);
@@ -238,6 +263,9 @@ export default function Index({ folios, filters, config = {}, sourceError = null
             </Button>
             <Button onClick={send} disabled={sendDisabled}>
               {sending ? 'Enviando…' : `Enviar seleccionados${selected.length ? ` (${selected.length})` : ''}`}
+            </Button>
+            <Button variant="outline" onClick={exportExcel} disabled={selected.length === 0}>
+              Exportar Excel
             </Button>
           </div>
         </CardHeader>

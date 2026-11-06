@@ -37,7 +37,7 @@ class SqlServerReader
         'id_altura',
         'cantidad',
         'peso_neto',
-
+        'Nota_Calidad',
         'id_exportadora',
         'c_exportadora',
         'n_exportadora',
@@ -165,7 +165,9 @@ class SqlServerReader
                            '' AS clasificacion,
                            d.id_categoria AS categoria,
                            d.id_etiqueta AS etiqueta,
-                           d.folio
+                           d.folio,
+                           d.nota_calidad,
+                           d.n_g_recepcion
                       FROM V_PKG_Cajas AS c
                       INNER JOIN V_PKG_Stock_Inventario AS d ON c.id_pkg_stock_det = d.id_pkg_stock_det
                      WHERE c.folio IN ({$placeholders})
@@ -190,7 +192,9 @@ class SqlServerReader
                            '' AS clasificacion,
                            d.id_categoria AS categoria,
                            d.id_etiqueta AS etiqueta,
-                           c.folio
+                           d.folio,
+                           d.nota_calidad,
+                           d.n_g_recepcion
                       FROM V_PKG_Cajas AS c
                       INNER JOIN V_PKG_Stock_Inventario AS d ON c.id_pkg_stock_det = d.id_pkg_stock_det
                     SQL

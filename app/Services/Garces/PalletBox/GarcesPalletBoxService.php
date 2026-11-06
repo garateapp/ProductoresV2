@@ -5,6 +5,7 @@ namespace App\Services\Garces\PalletBox;
 use App\Services\Garces\GarcesCodeDictionaryService;
 use Illuminate\Support\Facades\Config;
 use Illuminate\Support\Facades\Http;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Carbon;
 
@@ -16,7 +17,10 @@ class GarcesPalletBoxService
         private readonly SqlServerReader $reader,
         private readonly SyncState $state
     ) {}
-
+       public function connection(): string
+    {
+        return (string) config('services.termo.auto_consumption.conexion', 'sqlsrv');
+    }
     /**
      * @return array{sent:int,rejected:int,errors:int,details:array<int,mixed>}
      */
@@ -278,13 +282,16 @@ class GarcesPalletBoxService
         $folioUpper = strtoupper($codigoBarra);
         switch (true) {
             case str_ends_with($folioUpper, 'T'):
-                $tipoTarja = '7'; // saldo
+                $tipoTarja = '2'; // saldo
+                $tipoPallet='7';
                 break;
             case ctype_digit($codigoBarra):
-                $tipoTarja = '4'; // folio numérico
+                $tipoTarja = '1'; // folio numérico
+                $tipoPallet='4';
                 break;
             default:
-                $tipoTarja = '9';
+                $tipoTarja = '';
+                $tipoPallet='9';
                 break;
         }
         return [
@@ -304,7 +311,7 @@ class GarcesPalletBoxService
                         'embalaje' => $translated['embalaje'] ?? (string) ($cab->c_embalaje ?? ($cab->c_embalaje ?? '')),
                         'etiqueta' => $translated['etiqueta'] ?? (string) ($cab->id_etiqueta ?? ($cab->c_etiqueta ?? '')),
                         'tipoFruta' => (string) ($defaults['tipo_fruta'] ?? '1'),
-                        'tipoPallet' => (string) ($defaults['tipo_pallet'] ?? '4'),
+                        'tipoPallet' => (string) $tipoPallet,
                         'categoria' => $translated['categoria'] ?? (string) ($cab->id_categoria ?? ($cab->c_categoria ?? '')),
                         'isExport' => $cab->id_categoria==4?0:1,
                         'cajasTotal' => $item['cantidad_cajas'],
@@ -318,7 +325,16 @@ class GarcesPalletBoxService
 
     private function mapBoxes(array $detalles, bool $recordMissing = true): array
     {
+        $conn = $this->connection();
         $result = [];
+        $nota_calidad='';
+
+             $nota_calidad = DB::connection($conn)->table('V_PKG_Recepcion_FG')
+                 ->where('numero_g_recepcion', $detalles[0]->n_g_recepcion)
+                 ->select('nota_calidad')
+                 ->first();
+
+
 
         foreach ($detalles as $det) {
             $ncaja = is_object($det) ? ($det->idCaja ?? ($det->ncaja ?? ($det->id_pkg_stock_cajas ?? ($det->NumeroCaja ?? '')))) : ($det['idCaja'] ?? ($det['ncaja'] ?? ($det['id_pkg_stock_cajas'] ?? ($det['NumeroCaja'] ?? ''))));
@@ -332,7 +348,7 @@ class GarcesPalletBoxService
             $variedadComercialRaw = is_object($det) ? ($det->variedadComercial ?? ($det->id_variedad ?? '')) : ($det['variedadComercial'] ?? ($det['id_variedad'] ?? ''));
             $fechaEmbalaje = is_object($det) ? ($det->fechaEmbalaje ?? ($det->fecha_produccion ?? '')) : ($det['fechaEmbalaje'] ?? ($det['fecha_produccion'] ?? ''));
             $calibreRaw = is_object($det) ? ($det->calibre ?? ($det->c_calibre ?? '')) : ($det['calibre'] ?? ($det['id_calibre'] ?? ''));
-            $clasificacion = is_object($det) ? ($det->clasificacion ?? '') : ($det['clasificacion'] ?? '');
+            $clasificacion = is_object($det) ? ($det->nota_calidad ?? $nota_calidad) : ($det['nota_calidad'] ?? '');
             $categoriaRaw = is_object($det) ? ($det->categoria ?? ($det->id_categoria ?? '')) : ($det['categoria'] ?? ($det['id_categoria'] ?? ''));
             $etiquetaRaw = is_object($det) ? ($det->etiqueta ?? ($det->id_etiqueta ?? '')) : ($det['etiqueta'] ?? ($det['id_etiqueta'] ?? ''));
 
