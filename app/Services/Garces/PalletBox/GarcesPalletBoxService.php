@@ -349,7 +349,7 @@ class GarcesPalletBoxService
                         'tipoFruta' => (string) ($defaults['tipo_fruta'] ?? '1'),
                         'tipoPallet' => (string) $tipoPallet,
                         'categoria' => $translated['categoria'] ?? (string) ($cab->id_categoria ?? ($cab->c_categoria ?? '')),
-                        'isExport' => $cab->id_categoria==1?1:0,
+                        'isExport' => $translated['categoria'] ?? (string) ($cab->id_categoria ?? ($cab->c_categoria ?? ''))==1?1:0,
                         'cajasTotal' => $cajasTotal,
                         'kilosTotal' => round((float) $kilosTotal, 3),
                     ],
