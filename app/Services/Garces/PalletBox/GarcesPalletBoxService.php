@@ -243,14 +243,46 @@ class GarcesPalletBoxService
         }
 
         $detalles = $this->reader->getDetalles($folios->all())->take($maxBoxes);
-        $normalized = collect($this->normalizer->normalize($cabeceras, $detalles))->take($maxPallets);
+        $normalized = collect($this->normalizer->normalize($cabeceras, $detalles));
+
+        // Un solo header por folio: si hay múltiples registros de cabecera para
+        // el mismo folio, se combinan todos los detalles bajo ese header.
+        $grouped = $normalized->groupBy(fn ($item) => (string) ($item['folio'] ?? ''));
 
         $items = [];
 
-        foreach ($normalized as $item) {
+        foreach ($grouped as $folioKey => $folioItems) {
+            $first = $folioItems->first();
+            if (! $first) {
+                continue;
+            }
+
+            $allDetalles = [];
+            foreach ($folioItems as $folioItem) {
+                foreach ($folioItem['detalles'] ?? [] as $det) {
+                    $allDetalles[] = $det;
+                }
+            }
+
+            $combined = [
+                'folio' => $folioKey,
+                'fecha_produccion' => $first['fecha_produccion'],
+                'especie_interna' => $first['especie_interna'],
+                'variedad_interna' => $first['variedad_interna'],
+                'cantidad_cajas' => $first['cantidad_cajas'],
+                'peso_neto_total' => $first['peso_neto_total'],
+                'subsidiary' => $first['subsidiary'],
+                'season' => $first['season'],
+                'code_subsidiary' => $first['code_subsidiary'],
+                'code_season' => $first['code_season'],
+                'defaults' => $first['defaults'],
+                'cabecera' => $first['cabecera'],
+                'detalles' => $allDetalles,
+            ];
+
             $items[] = [
-                'folio' => (string) $item['folio'],
-                'payload' => $this->buildPayload($item, $isExportDefault, $tolerance, $recordMissing),
+                'folio' => $folioKey,
+                'payload' => $this->buildPayload($combined, $isExportDefault, $tolerance, $recordMissing),
             ];
         }
 

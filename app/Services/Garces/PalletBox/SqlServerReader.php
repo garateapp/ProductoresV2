@@ -167,7 +167,8 @@ class SqlServerReader
                            d.id_etiqueta AS etiqueta,
                            d.folio,
                            d.nota_calidad,
-                           d.n_g_recepcion
+                           d.n_g_recepcion,
+                           d.recepciones_trazabilidad
                       FROM V_PKG_Cajas AS c
                       INNER JOIN V_PKG_Stock_Inventario AS d ON c.id_pkg_stock_det = d.id_pkg_stock_det
                      WHERE c.folio IN ({$placeholders})
