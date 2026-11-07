@@ -364,12 +364,7 @@ class GarcesPalletBoxService
         $conn = $this->connection();
         $result = [];
         $nota_calidad='';
-            if($detalles && count($detalles)>0 && isset($detalles[0]->n_g_recepcion)){
-                $nota_calidad = DB::connection($conn)->table('V_PKG_Recepcion_FG')
-                 ->where('numero_g_recepcion', $detalles[0]->n_g_recepcion)
-                 ->select('nota_calidad')
-                 ->first();
-            }
+
             //  $nota_calidad = DB::connection($conn)->table('V_PKG_Recepcion_FG')
             //      ->where('numero_g_recepcion', $detalles[0]->n_g_recepcion)
             //      ->select('nota_calidad')
@@ -382,6 +377,10 @@ class GarcesPalletBoxService
             $peso = is_object($det) ? ($det->kilos ?? ($det->Peso_medido ?? ($det->peso_medido ?? ($det->PesoMedido ?? 0)))) : ($det['kilos'] ?? ($det['Peso_medido'] ?? ($det['peso_medido'] ?? ($det['PesoMedido'] ?? 0))));
             $lote = is_object($det) ? ($det->recepciones_trazabilidad ??  ''):'';
             $lote = trim(explode(',', (string) $lote)[0]);
+             $nota_calidad = DB::connection($conn)->table('V_PKG_Recepcion_FG')
+                 ->where('numero_g_recepcion', $detalles[0]->n_g_recepcion)
+                 ->select('nota_calidad')
+                 ->first();
             $numeroProceso = is_object($det) ? ($det->numeroProceso ?? ($det->n_g_proceso ?? '')) : ($det['numeroProceso'] ?? ($det['n_g_proceso'] ?? ''));
             $productorReal = is_object($det) ? ($det->productorReal ?? ($det->c_productor_original ?? '')) : ($det['productorReal'] ?? ($det['c_productor_original'] ?? ''));
             $productor = is_object($det) ? ($det->productor ?? ($det->c_productor ?? '')) : ($det['productor'] ?? ($det['c_productor'] ?? ''));
