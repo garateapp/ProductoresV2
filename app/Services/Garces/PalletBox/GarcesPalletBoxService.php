@@ -257,12 +257,10 @@ class GarcesPalletBoxService
                 continue;
             }
 
-            $allDetalles = [];
-            foreach ($folioItems as $folioItem) {
-                foreach ($folioItem['detalles'] ?? [] as $det) {
-                    $allDetalles[] = $det;
-                }
-            }
+            // Un solo header por folio. Los detalles ya vienen agrupados por folio
+            // en el Normalizer, así que se toman de una sola cabecera para evitar
+            // duplicar cajas cuando getCabeceras devuelve varios registros del mismo folio.
+            $allDetalles = $first['detalles'] ?? [];
 
             $combined = [
                 'folio' => $folioKey,
