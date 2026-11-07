@@ -375,7 +375,7 @@ class GarcesPalletBoxService
         foreach ($detalles as $det) {
             $ncaja = is_object($det) ? ($det->idCaja ?? ($det->ncaja ?? ($det->id_pkg_stock_cajas ?? ($det->NumeroCaja ?? '')))) : ($det['idCaja'] ?? ($det['ncaja'] ?? ($det['id_pkg_stock_cajas'] ?? ($det['NumeroCaja'] ?? ''))));
             $peso = is_object($det) ? ($det->kilos ?? ($det->Peso_medido ?? ($det->peso_medido ?? ($det->PesoMedido ?? 0)))) : ($det['kilos'] ?? ($det['Peso_medido'] ?? ($det['peso_medido'] ?? ($det['PesoMedido'] ?? 0))));
-            $lote = is_object($det) ? ($det->recepciones_trazabilidad ??  '');
+            $lote = is_object($det) ? ($det->recepciones_trazabilidad ??  ''):'';
             $lote = trim(explode(',', (string) $lote)[0]);
             $numeroProceso = is_object($det) ? ($det->numeroProceso ?? ($det->n_g_proceso ?? '')) : ($det['numeroProceso'] ?? ($det['n_g_proceso'] ?? ''));
             $productorReal = is_object($det) ? ($det->productorReal ?? ($det->c_productor_original ?? '')) : ($det['productorReal'] ?? ($det['c_productor_original'] ?? ''));
