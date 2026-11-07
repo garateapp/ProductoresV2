@@ -364,11 +364,16 @@ class GarcesPalletBoxService
         $conn = $this->connection();
         $result = [];
         $nota_calidad='';
-
-             $nota_calidad = DB::connection($conn)->table('V_PKG_Recepcion_FG')
+            if($detalles && count($detalles)>0 && isset($detalles[0]->n_g_recepcion)){
+                $nota_calidad = DB::connection($conn)->table('V_PKG_Recepcion_FG')
                  ->where('numero_g_recepcion', $detalles[0]->n_g_recepcion)
                  ->select('nota_calidad')
                  ->first();
+            }
+            //  $nota_calidad = DB::connection($conn)->table('V_PKG_Recepcion_FG')
+            //      ->where('numero_g_recepcion', $detalles[0]->n_g_recepcion)
+            //      ->select('nota_calidad')
+            //      ->first();
 
 
 
