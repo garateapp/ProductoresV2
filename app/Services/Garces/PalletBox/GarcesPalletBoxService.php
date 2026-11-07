@@ -294,6 +294,12 @@ class GarcesPalletBoxService
                 $tipoPallet='9';
                 break;
         }
+        // Un solo header con todas las cajas de los registros del folio/tarja.
+        $mappedBoxes = $this->mapBoxes($item['detalles'] ?? [], $recordMissing);
+        $cajasTotal = count($mappedBoxes);
+        $kilosTotal = array_reduce($mappedBoxes, static function ($acc, $box) {
+            return $acc + (float) ($box['kilos'] ?? 0);
+        }, 0.0);
         return [
 
                 'codeSubsidiary' => (string) (($config['code_subsidiary'] ?? null) ?: ($defaults['subsidiary_garces'] ?? ($cab->id_empresa ?? ($cab->c_exportadora ?? '')))),
@@ -314,10 +320,10 @@ class GarcesPalletBoxService
                         'tipoPallet' => (string) $tipoPallet,
                         'categoria' => $translated['categoria'] ?? (string) ($cab->id_categoria ?? ($cab->c_categoria ?? '')),
                         'isExport' => $cab->id_categoria==4?0:1,
-                        'cajasTotal' => $item['cantidad_cajas'],
-                        'kilosTotal' => round((float) $item['peso_neto_total'], 3),
+                        'cajasTotal' => $cajasTotal,
+                        'kilosTotal' => round((float) $kilosTotal, 3),
                     ],
-                    'detail' => $this->mapBoxes($item['detalles'] ?? [], $recordMissing),
+                    'detail' => $mappedBoxes,
                 ],
             ],
         ];
