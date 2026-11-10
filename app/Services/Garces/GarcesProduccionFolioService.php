@@ -298,11 +298,11 @@ class GarcesProduccionFolioService
                     min(n_productor) as productor,
                     min(n_variedad) as variedad,
                     min(id_especie) as especie,
-                    max(CASE WHEN CHARINDEX(CHAR(44), CAST(n_calibre AS NVARCHAR(200))) > 0
-                        THEN LEFT(CAST(n_calibre AS NVARCHAR(200)), CHARINDEX(CHAR(44), CAST(n_calibre AS NVARCHAR(200))) - 1)
-                        ELSE CAST(n_calibre AS NVARCHAR(200)) END) as calibre,
-                    min(CAST(n_categoria AS NVARCHAR(200))) as categoria,
-                    min(CAST(n_embalaje AS NVARCHAR(200))) as embalaje,
+                    max(CASE WHEN CHARINDEX(CHAR(44), n_calibre) > 0
+                        THEN SUBSTRING(n_calibre, 1, CHARINDEX(CHAR(44), n_calibre) - 1)
+                        ELSE n_calibre END) as calibre,
+                    max(n_categoria) as categoria,
+                    max(n_embalaje) as embalaje,
                     NULL as envase,
                     sum(cantidad) as cajas,
                     sum(peso_neto) as kilos'
