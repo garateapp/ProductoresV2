@@ -46,11 +46,11 @@ Schedule::command('tinker --execute="Artisan::call(\'reports:reception-daily-sum
     ->dailyAt('15:00')
     ->description('Envia resumen de recepciones enviadas (15:00).');
 
-Schedule::command('sync:pallet-box')
-    ->everyFiveMinutes()
-    ->withoutOverlapping()
-    ->when(fn () => filter_var(config('services.garces_pallet_box.enabled', true), FILTER_VALIDATE_BOOLEAN))
-    ->description('Sincroniza carga de pallets por caja con Garces cada 5 minutos');
+// Schedule::command('sync:pallet-box')
+//     ->everyFiveMinutes()
+//     ->withoutOverlapping()
+//     ->when(fn () => filter_var(config('services.garces_pallet_box.enabled', true), FILTER_VALIDATE_BOOLEAN))
+//     ->description('Sincroniza carga de pallets por caja con Garces cada 5 minutos');
 
 Schedule::command('inventory:auto-consume')
     ->everyFiveMinutes()
