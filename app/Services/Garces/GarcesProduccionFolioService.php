@@ -65,6 +65,10 @@ class GarcesProduccionFolioService
                     'productor' => $row->productor !== null ? (string) $row->productor : null,
                     'variedad' => $row->variedad !== null ? (string) $row->variedad : null,
                     'especie' => $row->especie !== null ? (string) $row->especie : null,
+                    'calibre' => $row->calibre !== null ? (string) $row->calibre : null,
+                    'categoria' => $row->categoria !== null ? (string) $row->categoria : null,
+                    'embalaje' => $row->embalaje !== null ? (string) $row->embalaje : null,
+                    'envase' => $row->envase !== null ? (string) $row->envase : null,
                     'cajas' => (float) $row->cajas,
                     'kilos' => (float) $row->kilos,
                     'enviado' => $envio?->status === GarcesProduccionEnvio::STATUS_SENT,
@@ -294,6 +298,10 @@ class GarcesProduccionFolioService
                     min(n_productor) as productor,
                     min(n_variedad) as variedad,
                     min(id_especie) as especie,
+                    min(calibre) as calibre,
+                    min(categoria) as categoria,
+                    min(embalaje) as embalaje,
+                    min(envase) as envase,
                     sum(cantidad) as cajas,
                     sum(peso_neto) as kilos'
                 )
