@@ -321,6 +321,7 @@ export default function Index({ folios, filters, config = {}, sourceError = null
                 <TableHead>Categoría</TableHead>
                 <TableHead>Embalaje</TableHead>
                 <TableHead>Envase</TableHead>
+                <TableHead>Etiqueta</TableHead>
                 <TableHead className="text-right">Cajas</TableHead>
                 <TableHead className="text-right">Kilos</TableHead>
                 <TableHead>Estado</TableHead>
@@ -329,7 +330,7 @@ export default function Index({ folios, filters, config = {}, sourceError = null
             <TableBody>
               {rows.length === 0 && (
                 <TableRow>
-                  <TableCell colSpan={13} className="text-center text-muted-foreground">
+                  <TableCell colSpan={14} className="text-center text-muted-foreground">
                     No hay folios para los filtros seleccionados.
                   </TableCell>
                 </TableRow>
@@ -354,6 +355,7 @@ export default function Index({ folios, filters, config = {}, sourceError = null
                   <TableCell>{row.categoria || '—'}</TableCell>
                   <TableCell>{row.embalaje || '—'}</TableCell>
                   <TableCell>{row.envase || '—'}</TableCell>
+                  <TableCell>{row.etiqueta || '—'}</TableCell>
                   <TableCell className="text-right">{formatNumber(row.cajas, 0)}</TableCell>
                   <TableCell className="text-right">{formatNumber(row.kilos)}</TableCell>
                   <TableCell>

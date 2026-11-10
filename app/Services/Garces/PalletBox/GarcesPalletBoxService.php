@@ -327,6 +327,18 @@ class GarcesPalletBoxService
         // Un solo header con todas las cajas de los registros del folio/tarja.
         $mappedBoxes = $this->mapBoxes($item['detalles'] ?? [], $recordMissing);
         $cajasTotal = count($mappedBoxes);
+        $isExport=1;
+        switch($cab->id_categoria){
+            case 4:
+                $isExport=1;
+                break;
+            case 5:
+                $isExport=1;
+                break;
+            default:
+                $isExport=2;
+                break;
+        }
         $kilosTotal = array_reduce($mappedBoxes, static function ($acc, $box) {
             return $acc + (float) ($box['kilos'] ?? 0);
         }, 0.0);
@@ -349,7 +361,7 @@ class GarcesPalletBoxService
                         'tipoFruta' => (string) ($defaults['tipo_fruta'] ?? '1'),
                         'tipoPallet' => (string) $tipoPallet,
                         'categoria' => $translated['categoria'] ?? (string) ($cab->id_categoria ?? ($cab->c_categoria ?? '')),
-                        'isExport' => $translated['categoria'] ?? (string) ($cab->id_categoria ?? ($cab->c_categoria ?? ''))==1?1:2,
+                        'isExport' => $isExport,
                         'cajasTotal' => $cajasTotal,
                         'kilosTotal' => round((float) $kilosTotal, 3),
                     ],
