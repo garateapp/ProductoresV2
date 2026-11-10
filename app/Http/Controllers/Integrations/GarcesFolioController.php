@@ -235,6 +235,18 @@ class GarcesFolioController extends Controller
         $data = $service->availableFolios(['folios' => $folios, 'estado' => ''], GarcesProduccionFolioService::MAX_FOLIOS);
         $rows = $data->getCollection()->values()->all();
 
+        $spreadsheet = new Spreadsheet();
+
+        // Hoja 1: Consolidado
+        $sheet1 = $spreadsheet->getActiveSheet();
+        $sheet1->setTitle('Consolidado');
+
+        $headers1 = [
+            'FOLIO', 'FECHA_PROCESO', 'N_PROCESO', 'PRODUCTOR', 'VARIEDAD', 'ESPECIE',
+            'CALIBRE', 'CATEGORIA', 'EMBALAJE', 'ENVASSE', 'CAJAS_TOTAL', 'KILOS_TOTAL', 'PALLETS', 'CAJAS_DETALLE',
+        ];
+        $sheet1->fromArray($headers1, null, 'A1');
+
         $items = $palletBox->payloadsForFolios($folios);
         $detailsByFolio = [];
         foreach ($items as $item) {
@@ -265,18 +277,6 @@ class GarcesFolioController extends Controller
                 }
             }
         }
-
-        $spreadsheet = new Spreadsheet();
-
-        // Hoja 1: Consolidado
-        $sheet1 = $spreadsheet->getActiveSheet();
-        $sheet1->setTitle('Consolidado');
-
-        $headers1 = [
-            'FOLIO', 'FECHA_PROCESO', 'N_PROCESO', 'PRODUCTOR', 'VARIEDAD', 'ESPECIE',
-            'CALIBRE', 'CATEGORIA', 'EMBALAJE', 'ENVASSE', 'CAJAS_TOTAL', 'KILOS_TOTAL', 'PALLETS', 'CAJAS_DETALLE',
-        ];
-        $sheet1->fromArray($headers1, null, 'A1');
 
         $row1 = 2;
         foreach ($rows as $r) {
@@ -312,51 +312,46 @@ class GarcesFolioController extends Controller
             $sheet1->getColumnDimension($col)->setAutoSize(true);
         }
 
-        // Hoja 2: Detalle
+        // Hoja 2: Estado de envío por folio (sin detalle de cajas)
         $sheet2 = $spreadsheet->createSheet();
-        $sheet2->setTitle('Detalle');
+        $sheet2->setTitle('Estado Envio');
 
         $headers2 = [
-            'FOLIO', 'N_PROCESO', 'FECHA_PROCESO', 'CAJA_ID', 'KILOS', 'LOTE', 'PRODUCTOR_REAL',
-            'PRODUCTOR', 'VARIEDAD_REAL', 'VARIEDAD_COMERCIAL', 'CALIBRE', 'CATEGORIA', 'ETIQUETA',
-            'FECHA_EMBALAJE', 'CLASIFICACION', 'CAJAS_TOTAL', 'KILOS_TOTAL', 'EMBALAJE', 'ENVASSE',
+            'FOLIO', 'FECHA_PROCESO', 'N_PROCESO', 'PRODUCTOR', 'VARIEDAD', 'ESPECIE',
+            'CALIBRE', 'CATEGORIA', 'EMBALAJE', 'ENVASSE', 'CAJAS', 'KILOS', 'ENVIADO', 'FECHA_ENVIO',
         ];
         $sheet2->fromArray($headers2, null, 'A1');
 
         $row2 = 2;
-        foreach ($detailsByFolio as $folio => $folioDetails) {
-            foreach ($folioDetails as $d) {
-                $sheet2->setCellValue("A{$row2}", $folio);
-                $sheet2->setCellValue("B{$row2}", $d['numero_proceso'] ?? '');
-                $sheet2->setCellValue("C{$row2}", $d['fecha_proceso'] ?? '');
-                $sheet2->setCellValue("D{$row2}", $d['idCaja'] ?? $d['ncaja'] ?? $d['NumeroCaja'] ?? '');
-                $sheet2->setCellValue("E{$row2}", (float) ($d['kilos'] ?? $d['Peso_medido'] ?? $d['peso_medido'] ?? $d['PesoMedido'] ?? 0));
-                $sheet2->setCellValue("F{$row2}", $d['lote'] ?? '');
-                $sheet2->setCellValue("G{$row2}", $d['productor_real'] ?? '');
-                $sheet2->setCellValue("H{$row2}", $d['productor'] ?? '');
-                $sheet2->setCellValue("I{$row2}", $d['variedad_real'] ?? '');
-                $sheet2->setCellValue("J{$row2}", $d['variedad_comercial'] ?? '');
-                $sheet2->setCellValue("K{$row2}", $d['calibre'] ?? '');
-                $sheet2->setCellValue("L{$row2}", $d['categoria'] ?? '');
-                $sheet2->setCellValue("M{$row2}", $d['etiqueta'] ?? '');
-                $sheet2->setCellValue("N{$row2}", $d['fechaEmbalaje'] ?? '');
-                $sheet2->setCellValue("O{$row2}", $d['clasificacion'] ?? $d['nota_calidad'] ?? '');
-                $sheet2->setCellValue("P{$row2}", (float) ($d['cajas_total'] ?? 0));
-                $sheet2->setCellValue("Q{$row2}", (float) ($d['kilos_total'] ?? 0));
-                $sheet2->setCellValue("R{$row2}", $d['embalaje'] ?? '');
-                $sheet2->setCellValue("S{$row2}", $d['envase'] ?? '');
-                $row2++;
-            }
+        foreach ($rows as $r) {
+            $enviado = (bool) ($r['enviado'] ?? false);
+            $fechaEnvio = $r['envio']['sent_at'] ?? null;
+
+            $sheet2->setCellValue("A{$row2}", $r['folio'] ?? '');
+            $sheet2->setCellValue("B{$row2}", $r['fecha_proceso'] ?? '');
+            $sheet2->setCellValue("C{$row2}", $r['numero_proceso'] ?? '');
+            $sheet2->setCellValue("D{$row2}", $r['productor'] ?? '');
+            $sheet2->setCellValue("E{$row2}", $r['variedad'] ?? '');
+            $sheet2->setCellValue("F{$row2}", $r['especie'] ?? '');
+            $sheet2->setCellValue("G{$row2}", $r['calibre'] ?? '');
+            $sheet2->setCellValue("H{$row2}", $r['categoria'] ?? '');
+            $sheet2->setCellValue("I{$row2}", $r['embalaje'] ?? '');
+            $sheet2->setCellValue("J{$row2}", $r['envase'] ?? '');
+            $sheet2->setCellValue("K{$row2}", (float) ($r['cajas'] ?? 0));
+            $sheet2->setCellValue("L{$row2}", (float) ($r['kilos'] ?? 0));
+            $sheet2->setCellValue("M{$row2}", $enviado ? 'SI' : 'NO');
+            $sheet2->setCellValue("N{$row2}", $fechaEnvio ? \Carbon\Carbon::parse($fechaEnvio)->format('d/m/Y H:i:s') : '');
+            $row2++;
         }
 
         if ($row2 === 2) {
-            $sheet2->setCellValue("A2", 'Sin detalle de cajas.');
+            $sheet2->setCellValue("A2", 'Sin folios.');
         }
 
         $endRow2 = $row2 - 1;
-        $sheet2->getStyle("A1:S{$endRow2}")->getFont()->setBold(true);
-        $sheet2->getStyle("A1:S1")->getFill()->setFillType(Fill::FILL_SOLID)->getStartColor()->setRGB('D9D9D9');
-        foreach (range('A', 'S') as $col) {
+        $sheet2->getStyle("A1:N{$endRow2}")->getFont()->setBold(true);
+        $sheet2->getStyle("A1:N1")->getFill()->setFillType(Fill::FILL_SOLID)->getStartColor()->setRGB('D9D9D9');
+        foreach (range('A', 'N') as $col) {
             $sheet2->getColumnDimension($col)->setAutoSize(true);
         }
 
