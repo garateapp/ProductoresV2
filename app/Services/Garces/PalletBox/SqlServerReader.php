@@ -107,7 +107,7 @@ class SqlServerReader
                            $aggSelect
                       FROM {$view}
                      WHERE folio IN ({$placeholders})
-                     AND  creacion_tipo in ('PRN', 'RPL')
+                     AND  creacion_tipo in ('PRN', 'RPL','REI')
                      GROUP BY $groupByClause
                      $orderClause
                     SQL,
