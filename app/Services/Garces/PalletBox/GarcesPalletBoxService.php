@@ -376,11 +376,11 @@ class GarcesPalletBoxService
             $ncaja = is_object($det) ? ($det->idCaja ?? ($det->ncaja ?? ($det->id_pkg_stock_cajas ?? ($det->NumeroCaja ?? '')))) : ($det['idCaja'] ?? ($det['ncaja'] ?? ($det['id_pkg_stock_cajas'] ?? ($det['NumeroCaja'] ?? ''))));
             $peso = is_object($det) ? ($det->kilos ?? ($det->Peso_medido ?? ($det->peso_medido ?? ($det->PesoMedido ?? 0)))) : ($det['kilos'] ?? ($det['Peso_medido'] ?? ($det['peso_medido'] ?? ($det['PesoMedido'] ?? 0))));
             $lote = is_object($det) ? ($det->n_g_recepcion ??  ''):'';
-            $lote = trim((string) $lote);
-             $nota_calidad = DB::connection($conn)->table('V_PKG_Recepcion_FG')
-                 ->where('numero_g_recepcion', $detalles[0]->n_g_recepcion)
-                 ->select('nota_calidad')
-                 ->first();
+            $lote = trim(explode(',', (string) $lote)[0]);
+            $nota_calidad = DB::connection($conn)->table('V_PKG_Recepcion_FG')
+                ->where('numero_g_recepcion', $lote)
+                ->select('nota_calidad')
+                ->first();
             $numeroProceso = is_object($det) ? ($det->numeroProceso ?? ($det->n_g_proceso ?? '')) : ($det['numeroProceso'] ?? ($det['n_g_proceso'] ?? ''));
             $productorReal = is_object($det) ? ($det->productorReal ?? ($det->c_productor_original ?? '')) : ($det['productorReal'] ?? ($det['c_productor_original'] ?? ''));
             $productor = is_object($det) ? ($det->productor ?? ($det->c_productor ?? '')) : ($det['productor'] ?? ($det['c_productor'] ?? ''));
