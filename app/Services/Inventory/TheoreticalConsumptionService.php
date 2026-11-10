@@ -23,6 +23,16 @@ class TheoreticalConsumptionService
 
     public function preview(int $packagingId, string $date, float $boxes, float $pallets, ?int $productionId = null, ?array $calibres = null, ?array $boxesByCalibre = null, ?array $palletsByCalibre = null): array
     {
+        Log::info('Calculating theoretical consumption', [
+            'packaging_id' => $packagingId,
+            'date' => $date,
+            'boxes' => $boxes,
+            'pallets' => $pallets,
+            'production_id' => $productionId,
+            'calibres' => $calibres,
+            'boxes_by_calibre' => $boxesByCalibre,
+            'pallets_by_calibre' => $palletsByCalibre,
+        ]);
         $sheet = InventoryTechnicalSheet::query()
             ->with(['unitItems.material.unit', 'unitItems.material.service', 'palletItems.material.unit', 'palletItems.material.service', 'packaging'])
             ->where('packaging_id', $packagingId)
