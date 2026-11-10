@@ -437,8 +437,20 @@ export default function Index({ folios, filters, config = {}, sourceError = null
                 )}
 
                 {(dryRun.result.missing_folios || []).length > 0 && (
-                  <div className="rounded border border-slate-300 bg-slate-50 px-4 py-3 text-sm text-slate-700">
-                    Sin datos de producción: {(dryRun.result.missing_folios || []).join(', ')}
+                  <div className="rounded border border-red-300 bg-red-50 px-4 py-3 text-sm text-red-800">
+                    Sin datos de producción (no se generó payload): {(dryRun.result.missing_folios || []).join(', ')}
+                  </div>
+                )}
+
+                {(dryRun.result.folios_without_boxes || []).length > 0 && (
+                  <div className="rounded border border-amber-300 bg-amber-50 px-4 py-3 text-sm text-amber-900">
+                    Sin cajas en el origen (payload vacío para estos folios): {(dryRun.result.folios_without_boxes || []).join(', ')}
+                  </div>
+                )}
+
+                {!dryRun.result.payload && ((dryRun.result.missing_folios || []).length > 0 || (dryRun.result.folios_without_boxes || []).length > 0) && (
+                  <div className="rounded border border-red-300 bg-red-50 px-4 py-3 text-sm text-red-800">
+                    No se generó ningún payload. Revisa los folios listados arriba.
                   </div>
                 )}
 
@@ -481,7 +493,7 @@ export default function Index({ folios, filters, config = {}, sourceError = null
                     </Button>
                   </div>
 
-                  {!dryRun.result.payload && <p className="text-sm text-red-700">No se generó ningún payload.</p>}
+                  {!dryRun.result.payload && !((dryRun.result.missing_folios || []).length > 0 || (dryRun.result.folios_without_boxes || []).length > 0) && <p className="text-sm text-red-700">No se generó ningún payload.</p>}
 
                   {dryRun.result.payload && (
                     <pre className="max-h-96 overflow-auto rounded bg-slate-950 p-3 text-xs text-slate-100">
