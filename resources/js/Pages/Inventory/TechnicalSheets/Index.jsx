@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
 import { router, useForm, usePage } from '@inertiajs/react'
 import { ChevronDown, ChevronUp, Copy, ImagePlus, Trash2 } from 'lucide-react'
 import AuthenticatedLayout from '@/Layouts/AuthenticatedLayout'
@@ -114,6 +114,20 @@ export default function InventoryTechnicalSheets({ sheets = [], packagings = [],
   const cloneForm = useForm({})
   const packagingOptions = packagings.map((item) => ({ value: String(item.id), label: `${item.codigo} · ${item.nombre}` }))
   const materialOptions = materials.map((item) => ({ value: String(item.id), label: `${item.codigo} · ${item.nombre}` }))
+  const semielaboradoByMaterial = useMemo(() => {
+    const map = {}
+    sheets.forEach((sheet) => {
+      if (sheet.es_semielaborado && sheet.material) {
+        map[String(sheet.material.id)] = {
+          unit_items: sheet.unit_items || [],
+          pallet_items: sheet.pallet_items || [],
+        }
+      }
+    })
+    return map
+  }, [sheets])
+
+  const [semielaboradoTooltip, setSemielaboradoTooltip] = useState(null)
   const labelOptions = labels.map((item) => ({
     value: String(item.id),
     label: item.service_name ? `${item.codigo} · ${item.nombre} (${item.service_name})` : `${item.codigo} · ${item.nombre}`,
@@ -374,7 +388,16 @@ export default function InventoryTechnicalSheets({ sheets = [], packagings = [],
                   {data.es_semielaborado ? (
                     <>
                       <Label>Material semielaborado</Label>
-                      <SearchableSelect options={materialOptions} value={materialOptions.find((item) => item.value === String(data.material_id)) || null} onChange={(option) => setData('material_id', option?.value || '')} placeholder="Selecciona material" />
+                      <div className="flex items-center gap-2">
+                        <SearchableSelect options={materialOptions} value={materialOptions.find((item) => item.value === String(data.material_id)) || null} onChange={(option) => {
+                          const id = option?.value || ''
+                          setData('material_id', id)
+                          setSemielaboradoTooltip(id && semielaboradoByMaterial[id] ? semielaboradoByMaterial[id] : null)
+                        }} placeholder="Selecciona material" />
+                        {semielaboradoTooltip && (
+                          <Button type="button" variant="outline" size="sm" onClick={() => setSemielaboradoTooltip(null)}>Ver composición</Button>
+                        )}
+                      </div>
                       <FieldError message={errors.material_id} />
                     </>
                   ) : (
@@ -454,6 +477,38 @@ export default function InventoryTechnicalSheets({ sheets = [], packagings = [],
               <Button type="submit" disabled={processing}>{processing ? 'Guardando...' : editing ? 'Actualizar ficha' : 'Crear ficha'}</Button>
             </div>
           </form>
+
+          {semielaboradoTooltip && (
+            <div className="rounded-lg border border-blue-200 bg-blue-50 p-4 mb-4">
+              <div className="flex items-start gap-2 mb-2">
+                <span className="text-blue-600 font-semibold">Composición del semielaborado:</span>
+                <Button type="button" variant="outline" size="sm" onClick={() => setSemielaboradoTooltip(null)}>Cerrar</Button>
+              </div>
+              {semielaboradoTooltip.unit_items.length > 0 && (
+                <div className="mb-3">
+                  <div className="text-xs font-medium text-blue-700 mb-1">Por unidad:</div>
+                  <div className="space-y-1 text-sm">
+                    {semielaboradoTooltip.unit_items.map((item, i) => (
+                      <div key={`unit-${item.material_id}-${i}`}>{item.label} {item.replacement_label ? `(o ${item.replacement_label})` : ''}: {Number(item.cantidad_estandar).toLocaleString('es-CL')}{item.calibre ? ` [${item.calibre}]` : ''}</div>
+                    ))}
+                  </div>
+                </div>
+              )}
+              {semielaboradoTooltip.pallet_items.length > 0 && (
+                <div>
+                  <div className="text-xs font-medium text-blue-700 mb-1">Por pallet:</div>
+                  <div className="space-y-1 text-sm">
+                    {semielaboradoTooltip.pallet_items.map((item, i) => (
+                      <div key={`pallet-${item.material_id}-${i}`}>{item.label} {item.replacement_label ? `(o ${item.replacement_label})` : ''}: {Number(item.cantidad_estandar).toLocaleString('es-CL')}{item.calibre ? ` [${item.calibre}]` : ''}</div>
+                    ))}
+                  </div>
+                </div>
+              )}
+              {!semielaboradoTooltip.unit_items.length && !semielaboradoTooltip.pallet_items.length && (
+                <div className="text-sm text-blue-600">Sin materiales definidos.</div>
+              )}
+            </div>
+          )}
 
           <div className="space-y-3">
             {sheets.map((sheet) => (

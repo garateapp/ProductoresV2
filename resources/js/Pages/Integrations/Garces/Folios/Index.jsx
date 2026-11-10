@@ -288,6 +288,9 @@ export default function Index({ folios, filters, config = {}, sourceError = null
                 <TableHead>N° proceso</TableHead>
                 <TableHead>Productor</TableHead>
                 <TableHead>Variedad</TableHead>
+                <TableHead>Calibre</TableHead>
+                <TableHead>Categoría</TableHead>
+                <TableHead>Embalaje</TableHead>
                 <TableHead className="text-right">Cajas</TableHead>
                 <TableHead className="text-right">Kilos</TableHead>
                 <TableHead>Estado</TableHead>
@@ -296,7 +299,7 @@ export default function Index({ folios, filters, config = {}, sourceError = null
             <TableBody>
               {rows.length === 0 && (
                 <TableRow>
-                  <TableCell colSpan={9} className="text-center text-muted-foreground">
+                  <TableCell colSpan={12} className="text-center text-muted-foreground">
                     No hay folios para los filtros seleccionados.
                   </TableCell>
                 </TableRow>
@@ -317,6 +320,9 @@ export default function Index({ folios, filters, config = {}, sourceError = null
                   <TableCell>{row.numero_proceso || '—'}</TableCell>
                   <TableCell>{row.productor || '—'}</TableCell>
                   <TableCell>{row.variedad || '—'}</TableCell>
+                  <TableCell>{row.calibre || '—'}</TableCell>
+                  <TableCell>{row.categoria || '—'}</TableCell>
+                  <TableCell>{row.embalaje || '—'}</TableCell>
                   <TableCell className="text-right">{formatNumber(row.cajas, 0)}</TableCell>
                   <TableCell className="text-right">{formatNumber(row.kilos)}</TableCell>
                   <TableCell>
