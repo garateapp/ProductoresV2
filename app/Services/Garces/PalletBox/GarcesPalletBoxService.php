@@ -139,6 +139,7 @@ class GarcesPalletBoxService
      */
     public function payloadsForFolios(array $folios): array
     {
+        
         $items = [];
 
         foreach (array_values(array_unique(array_map('trim', array_map('strval', $folios)))) as $folio) {
@@ -150,7 +151,7 @@ class GarcesPalletBoxService
                 $items[] = $item;
             }
         }
-
+        Log::info('GarcesPalletBoxService: payloadsForFolios', ['folios' => $items]);
         return $items;
     }
 
@@ -227,7 +228,8 @@ class GarcesPalletBoxService
      * @return array<int,array{folio:string,payload:array<string,mixed>}>
      */
     private function buildItems(?string $folio, bool $recordMissing): array
-    {
+    { 
+       
         $config = Config::get('services.garces_pallet_box') ?? [];
 
         $maxPallets = (int) ($config['max_pallets_per_shipment'] ?? 50);
@@ -241,7 +243,7 @@ class GarcesPalletBoxService
         if ($folios->isEmpty()) {
             return [];
         }
-
+      
         $detalles = $this->reader->getDetalles($folios->all())->take($maxBoxes);
         $normalized = collect($this->normalizer->normalize($cabeceras, $detalles));
 
@@ -289,6 +291,7 @@ class GarcesPalletBoxService
 
     private function buildPayload(array $item, int $isExportDefault, float $tolerance, bool $recordMissing = true): array
     {
+       
         $cab = $item['cabecera'] ?? (object) [];
         $defaults = $item['defaults'] ?? [];
         $config = Config::get('services.garces_pallet_box') ?? [];
@@ -312,8 +315,15 @@ class GarcesPalletBoxService
         $folioUpper = strtoupper($codigoBarra);
         switch (true) {
             case str_ends_with($folioUpper, 'T'):
-                $tipoTarja = '2'; // saldo
+                if($cab->id_categoria==12){
+                    $tipoPallet='9';
+                    $tipoTarja='';
+                }else{
+                   $tipoTarja = '2'; // saldo
                 $tipoPallet='7';
+                }
+                
+                
                 break;
             case ctype_digit($codigoBarra):
                 $tipoTarja = '1'; // folio numérico
@@ -324,6 +334,7 @@ class GarcesPalletBoxService
                 $tipoPallet='9';
                 break;
         }
+        
         // Un solo header con todas las cajas de los registros del folio/tarja.
         $mappedBoxes = $this->mapBoxes($item['detalles'] ?? [], $recordMissing);
         $cajasTotal = count($mappedBoxes);
@@ -335,10 +346,14 @@ class GarcesPalletBoxService
             case 5:
                 $isExport=1;
                 break;
+            case 12:
+                $isExport=1;
+                break;
             default:
                 $isExport=2;
                 break;
         }
+     
         $kilosTotal = array_reduce($mappedBoxes, static function ($acc, $box) {
             return $acc + (float) ($box['kilos'] ?? 0);
         }, 0.0);
