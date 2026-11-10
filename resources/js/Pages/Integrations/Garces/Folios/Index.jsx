@@ -53,7 +53,7 @@ export default function Index({ folios, filters, config = {}, sourceError = null
     q: filters?.q || '',
     desde: filters?.desde || '',
     hasta: filters?.hasta || '',
-    estado: filters?.estado || 'pendientes',
+    estado: filters?.estado ?? 'pendientes',
   });
   const [selected, setSelected] = useState([]);
   const [sending, setSending] = useState(false);
@@ -167,12 +167,13 @@ export default function Index({ folios, filters, config = {}, sourceError = null
   };
 
   const exportReporteExcel = async () => {
-    if (selected.length === 0) return;
+    const folioList = rows.map((row) => row.folio);
+    if (folioList.length === 0) return;
 
     try {
       const response = await window.axios.post(
         route('integrations.garces.folios.export-reporte-excel'),
-        { folios: selected },
+        { folios: folioList },
         { responseType: 'blob' }
       );
 
@@ -292,7 +293,7 @@ export default function Index({ folios, filters, config = {}, sourceError = null
             <Button variant="outline" onClick={exportExcel} disabled={selected.length === 0}>
               Exportar Excel
             </Button>
-            <Button variant="outline" onClick={exportReporteExcel} disabled={selected.length === 0}>
+            <Button variant="outline" onClick={exportReporteExcel}>
               Exportar Reporte Excel
             </Button>
           </div>
