@@ -209,6 +209,62 @@ class SqlServerReader
             return collect();
         }
 
+        $detalles = collect($rows)->filter(fn ($r) => ! empty($r->folio))->values();
+
+        if ($detalles->isEmpty() && $folios !== []) {
+            $detalles = $this->getDetallesFallback($folios);
+        }
+
+        return $detalles;
+    }
+
+    /**
+     * @return Collection<int,object>
+     */
+    public function getDetallesFallback(array $folios = []): Collection
+    {
+        if ($folios === []) {
+            return collect();
+        }
+
+        $conn = $this->connection();
+        $folios = array_values(array_unique(array_map(fn ($f) => trim((string) $f), $folios)));
+        $placeholders = implode(',', array_fill(0, count($folios), '?'));
+
+        try {
+            $rows = DB::connection($conn)->select(
+                <<<SQL
+                SELECT TOP 500
+                       CAST(LEFT(d.folio, LEN(d.folio) - CASE WHEN RIGHT(d.folio, 1) = 'T' THEN 1 ELSE 0 END) AS NVARCHAR(100)) AS idCaja,
+                       d.n_g_proceso AS numeroProceso,
+                       d.recepciones_trazabilidad AS lote,
+                       d.c_productor_original AS productorReal,
+                       d.c_productor AS productor,
+                       d.id_variedad AS variedadReal,
+                       d.id_variedad AS variedadComercial,
+                       d.fecha_produccion AS fechaEmbalaje,
+                       d.c_calibre AS calibre,
+                       1 AS cajas,
+                       d.peso_std_embalaje AS kilos,
+                       '' AS clasificacion,
+                       d.id_categoria AS categoria,
+                       d.id_etiqueta AS etiqueta,
+                       d.folio,
+                       d.nota_calidad,
+                       d.n_g_recepcion
+                  FROM V_PKG_Stock_Inventario AS d
+                 WHERE d.folio IN ({$placeholders})
+                SQL,
+                $folios
+            );
+        } catch (\Throwable $e) {
+            Log::error('GARCES_PALLETBOX_SQLSRV_DET_FALLBACK', [
+                'error' => $e->getMessage(),
+            ]);
+
+            return collect();
+        }
+
         return collect($rows)->filter(fn ($r) => ! empty($r->folio))->values();
     }
 
