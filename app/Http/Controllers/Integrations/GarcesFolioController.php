@@ -108,113 +108,106 @@ class GarcesFolioController extends Controller
         $tipoTarja = function (string $folio): int {
             $upper = strtoupper($folio);
             if (str_ends_with($upper, 'T')) {
-                return 2; // saldo
+                return 2;
             }
             if (ctype_digit($folio)) {
-                return 1; // folio numérico
+                return 1;
             }
             return 1;
         };
 
-        $tipoPallet = function (int $tipoTarja): int {
-            return $tipoTarja === 2 ? 7 : 4;
-        };
-
         $spreadsheet = new Spreadsheet();
-        $sheet = $spreadsheet->getActiveSheet();
-        $sheet->setTitle('Folios Garces');
 
-        $headers = [
-            'NUM_PROCESO', 'DESTINO_TARJA', 'TARJA', 'FECHA_TARJA', 'TIPO_TARJA',
-            'ESPECIE', 'ENVASE', 'EMBALAJE', 'TIPO_FRUTA', 'TIPO_PALLET',
-            'ALTURA', 'PLU', 'CAJAS_TOTAL', 'KILOS_TOTAL', 'LOTE',
-            'PRODUCTOR_REAL', 'PRODUCTOR_COMERCIAL', 'SITIO_PRO',
-            'VARIEDAD_REAL', 'VARIEDAD_COMERCIAL', 'FEC_EMBALAJE', 'CALIBRE',
-            'CAJAS', 'KILOS', 'CLASIFICACION', 'CATEGORIA', 'ETIQUETA',
+        // Hoja 1: Consolidado
+        $sheet1 = $spreadsheet->getActiveSheet();
+        $sheet1->setTitle('Consolidado');
+
+        $headers1 = [
+            'FOLIO', 'FECHA_PROCESO', 'N_PROCESO', 'PRODUCTOR', 'VARIEDAD', 'ESPECIE',
+            'CALIBRE', 'CATEGORIA', 'EMBALAJE', 'ENVASSE', 'CAJAS_TOTAL', 'KILOS_TOTAL', 'PALLETS', 'CAJAS_DETALLE',
         ];
-        $sheet->fromArray($headers, null, 'A1');
+        $sheet1->fromArray($headers1, null, 'A1');
 
-        $row = 2;
+        $row1 = 2;
         foreach ($rows as $r) {
             $folio = (string) ($r['folio'] ?? '');
-            $tt = $tipoTarja($folio);
-            $tp = $tipoPallet($tt);
-            $fecha = $r['fecha_proceso'] ?? '';
-            $fechaExcel = $fecha !== '' ? \Carbon\Carbon::parse($fecha)->format('d/m/Y') : '';
-            $fechaTexto = $fechaExcel;
-            $cajasTot = (float) ($r['cajas'] ?? 0);
-            $kilosTot = (float) ($r['kilos'] ?? 0);
             $folioDetails = $detailsByFolio[$folio] ?? [];
+            $first = $folioDetails[0] ?? [];
+            $pallets = count(array_unique(array_column($folioDetails, 'numero_proceso')));
+            $cajasDetalle = count($folioDetails);
+            $cajasTot = (float) ($first['cajas_total'] ?? ($r['cajas'] ?? 0));
+            $kilosTot = (float) ($first['kilos_total'] ?? ($r['kilos'] ?? 0));
 
-            if (empty($folioDetails)) {
-                $sheet->setCellValue("A{$row}", $r['numero_proceso'] ?? '');
-                $sheet->setCellValue("B{$row}", '1');
-                $sheet->setCellValue("C{$row}", $folio);
-                $sheet->setCellValue("D{$row}", $fechaExcel);
-                $sheet->setCellValue("E{$row}", $tt);
-                $sheet->setCellValue("F{$row}", $r['especie'] ?? '');
-                $sheet->setCellValue("G{$row}", '');
-                $sheet->setCellValue("H{$row}", '');
-                $sheet->setCellValue("I{$row}", '1');
-                $sheet->setCellValue("J{$row}", $tp);
-                $sheet->setCellValue("K{$row}", '');
-                $sheet->setCellValue("L{$row}", '1');
-                $sheet->setCellValue("M{$row}", $cajasTot);
-                $sheet->setCellValue("N{$row}", $kilosTot);
-                $sheet->setCellValue("O{$row}", '');
-                $sheet->setCellValue("P{$row}", $r['productor'] ?? '');
-                $sheet->setCellValue("Q{$row}", $r['productor'] ?? '');
-                $sheet->setCellValue("R{$row}", '1');
-                $sheet->setCellValue("S{$row}", $r['variedad'] ?? '');
-                $sheet->setCellValue("T{$row}", $r['variedad'] ?? '');
-                $sheet->setCellValue("U{$row}", $fechaTexto);
-                $sheet->setCellValue("V{$row}", '');
-                $sheet->setCellValue("W{$row}", $cajasTot);
-                $sheet->setCellValue("X{$row}", $kilosTot);
-                $sheet->setCellValue("Y{$row}", '');
-                $sheet->setCellValue("Z{$row}", $r['variedad_original'] ?? '');
-                $sheet->setCellValue("AA{$row}", '');
-                $row++;
-            } else {
-                foreach ($folioDetails as $d) {
-                    $cajasDet = (float) ($d['cajas_total'] ?? $d['cantidad'] ?? 1);
-                    $kilosDet = (float) ($d['kilos_total'] ?? $d['peso_neto'] ?? 0);
-                    $sheet->setCellValue("A{$row}", $d['numero_proceso'] ?? $r['numero_proceso'] ?? '');
-                    $sheet->setCellValue("B{$row}", '1');
-                    $sheet->setCellValue("C{$row}", $folio);
-                    $sheet->setCellValue("D{$row}", $d['fecha_proceso'] ?? $fechaExcel);
-                    $sheet->setCellValue("E{$row}", $tt);
-                    $sheet->setCellValue("F{$row}", $d['especie'] ?? $r['especie'] ?? '');
-                    $sheet->setCellValue("G{$row}", $d['envase'] ?? '');
-                    $sheet->setCellValue("H{$row}", $d['embalaje'] ?? '');
-                    $sheet->setCellValue("I{$row}", '1');
-                    $sheet->setCellValue("J{$row}", $tp);
-                    $sheet->setCellValue("K{$row}", '');
-                    $sheet->setCellValue("L{$row}", '1');
-                    $sheet->setCellValue("M{$row}", $cajasDet > 0 ? $cajasDet : 1);
-                    $sheet->setCellValue("N{$row}", $kilosDet > 0 ? $kilosDet : 0);
-                    $sheet->setCellValue("O{$row}", '');
-                    $sheet->setCellValue("P{$row}", $d['productor_real'] ?? $d['productor'] ?? $r['productor'] ?? '');
-                    $sheet->setCellValue("Q{$row}", $d['productor_real'] ?? $d['productor'] ?? $r['productor'] ?? '');
-                    $sheet->setCellValue("R{$row}", '1');
-                    $sheet->setCellValue("S{$row}", $d['variedad_real'] ?? $d['variedad_comercial'] ?? $r['variedad'] ?? '');
-                    $sheet->setCellValue("T{$row}", $d['variedad_comercial'] ?? $d['variedad_real'] ?? $r['variedad'] ?? '');
-                    $sheet->setCellValue("U{$row}", $fechaTexto);
-                    $sheet->setCellValue("V{$row}", $d['calibre'] ?? '');
-                    $sheet->setCellValue("W{$row}", $cajasTot);
-                    $sheet->setCellValue("X{$row}", $kilosTot);
-                    $sheet->setCellValue("Y{$row}", '');
-                    $sheet->setCellValue("Z{$row}", $d['categoria'] ?? '');
-                    $sheet->setCellValue("AA{$row}", $d['etiqueta'] ?? '');
-                    $row++;
-                }
+            $sheet1->setCellValue("A{$row1}", $folio);
+            $sheet1->setCellValue("B{$row1}", $r['fecha_proceso'] ?? '');
+            $sheet1->setCellValue("C{$row1}", $r['numero_proceso'] ?? $first['numero_proceso'] ?? '');
+            $sheet1->setCellValue("D{$row1}", $r['productor'] ?? $first['productor'] ?? '');
+            $sheet1->setCellValue("E{$row1}", $r['variedad'] ?? $first['variedad_real'] ?? $first['variedad_comercial'] ?? '');
+            $sheet1->setCellValue("F{$row1}", $r['especie'] ?? $first['especie'] ?? '');
+            $sheet1->setCellValue("G{$row1}", $first['calibre'] ?? '');
+            $sheet1->setCellValue("H{$row1}", $first['categoria'] ?? '');
+            $sheet1->setCellValue("I{$row1}", $first['embalaje'] ?? '');
+            $sheet1->setCellValue("J{$row1}", $first['envase'] ?? '');
+            $sheet1->setCellValue("K{$row1}", $cajasTot);
+            $sheet1->setCellValue("L{$row1}", $kilosTot);
+            $sheet1->setCellValue("M{$row1}", $pallets);
+            $sheet1->setCellValue("N{$row1}", $cajasDetalle);
+            $row1++;
+        }
+
+        $endRow1 = $row1 - 1;
+        $sheet1->getStyle("A1:N{$endRow1}")->getFont()->setBold(true);
+        $sheet1->getStyle("A1:N1")->getFill()->setFillType(Fill::FILL_SOLID)->getStartColor()->setRGB('D9D9D9');
+        foreach (range('A', 'N') as $col) {
+            $sheet1->getColumnDimension($col)->setAutoSize(true);
+        }
+
+        // Hoja 2: Detalle
+        $sheet2 = $spreadsheet->createSheet();
+        $sheet2->setTitle('Detalle');
+
+        $headers2 = [
+            'FOLIO', 'N_PROCESO', 'FECHA_PROCESO', 'CAJA_ID', 'KILOS', 'LOTE', 'PRODUCTOR_REAL',
+            'PRODUCTOR', 'VARIEDAD_REAL', 'VARIEDAD_COMERCIAL', 'CALIBRE', 'CATEGORIA', 'ETIQUETA',
+            'FECHA_EMBALAJE', 'CLASIFICACION', 'CAJAS_TOTAL', 'KILOS_TOTAL', 'EMBALAJE', 'ENVASSE',
+        ];
+        $sheet2->fromArray($headers2, null, 'A1');
+
+        $row2 = 2;
+        foreach ($detailsByFolio as $folio => $folioDetails) {
+            foreach ($folioDetails as $d) {
+                $sheet2->setCellValue("A{$row2}", $folio);
+                $sheet2->setCellValue("B{$row2}", $d['numero_proceso'] ?? '');
+                $sheet2->setCellValue("C{$row2}", $d['fecha_proceso'] ?? '');
+                $sheet2->setCellValue("D{$row2}", $d['idCaja'] ?? $d['ncaja'] ?? $d['NumeroCaja'] ?? '');
+                $sheet2->setCellValue("E{$row2}", (float) ($d['kilos'] ?? $d['Peso_medido'] ?? $d['peso_medido'] ?? $d['PesoMedido'] ?? 0));
+                $sheet2->setCellValue("F{$row2}", $d['lote'] ?? '');
+                $sheet2->setCellValue("G{$row2}", $d['productor_real'] ?? '');
+                $sheet2->setCellValue("H{$row2}", $d['productor'] ?? '');
+                $sheet2->setCellValue("I{$row2}", $d['variedad_real'] ?? '');
+                $sheet2->setCellValue("J{$row2}", $d['variedad_comercial'] ?? '');
+                $sheet2->setCellValue("K{$row2}", $d['calibre'] ?? '');
+                $sheet2->setCellValue("L{$row2}", $d['categoria'] ?? '');
+                $sheet2->setCellValue("M{$row2}", $d['etiqueta'] ?? '');
+                $sheet2->setCellValue("N{$row2}", $d['fechaEmbalaje'] ?? '');
+                $sheet2->setCellValue("O{$row2}", $d['clasificacion'] ?? $d['nota_calidad'] ?? '');
+                $sheet2->setCellValue("P{$row2}", (float) ($d['cajas_total'] ?? 0));
+                $sheet2->setCellValue("Q{$row2}", (float) ($d['kilos_total'] ?? 0));
+                $sheet2->setCellValue("R{$row2}", $d['embalaje'] ?? '');
+                $sheet2->setCellValue("S{$row2}", $d['envase'] ?? '');
+                $row2++;
             }
         }
 
-        $sheet->getStyle('A1:AA1')->getFont()->setBold(true);
-        $sheet->getStyle('A1:AA1')->getFill()->setFillType(Fill::FILL_SOLID)->getStartColor()->setRGB('D9D9D9');
-        foreach (range('A', 'AA') as $col) {
-            $sheet->getColumnDimension($col)->setAutoSize(true);
+        if ($row2 === 2) {
+            $sheet2->setCellValue("A2", 'Sin detalle de cajas.');
+        }
+
+        $endRow2 = $row2 - 1;
+        $sheet2->getStyle("A1:S{$endRow2}")->getFont()->setBold(true);
+        $sheet2->getStyle("A1:S1")->getFill()->setFillType(Fill::FILL_SOLID)->getStartColor()->setRGB('D9D9D9');
+        foreach (range('A', 'S') as $col) {
+            $sheet2->getColumnDimension($col)->setAutoSize(true);
         }
 
         $writer = new Xlsx($spreadsheet);
