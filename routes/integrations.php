@@ -84,6 +84,7 @@ Route::middleware(['auth'])->prefix('integrations')->name('integrations.')->grou
         Route::post('folios/preview', [GarcesFolioController::class, 'preview'])->name('folios.preview');
         Route::post('folios/sync', [GarcesFolioController::class, 'sync'])->name('folios.sync');
         Route::post('folios/export-excel', [GarcesFolioController::class, 'exportExcel'])->name('folios.export-excel');
+        Route::post('folios/export-reporte-excel', [GarcesFolioController::class, 'exportReporteExcel'])->name('folios.export-reporte-excel');
 
         Route::get('defaults', [GarcesPalletDefaultController::class, 'index'])->name('defaults.index');
         Route::post('defaults', [GarcesPalletDefaultController::class, 'store'])->name('defaults.store');
