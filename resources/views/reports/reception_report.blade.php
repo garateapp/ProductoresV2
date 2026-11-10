@@ -1321,7 +1321,7 @@
 
             $solubleSolids = $solubleSolids ?? [];
             $hideLegacyFirmnessCharts = ($averageFirmness['mode'] ?? null) === 'lb_brix';
-
+             $sobrecalibrePercentage =0;
             $precalibrePercentage =
                 (float) (optional(
                     optional(optional($recepcion->calidad)->detalles)

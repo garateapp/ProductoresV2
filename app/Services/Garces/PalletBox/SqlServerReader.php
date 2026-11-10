@@ -235,7 +235,7 @@ class SqlServerReader
             $rows = DB::connection($conn)->select(
                 <<<SQL
                 SELECT TOP 500
-                       CAST(LEFT(d.folio, LEN(d.folio) - CASE WHEN RIGHT(d.folio, 1) = 'T' THEN 1 ELSE 0 END) AS NVARCHAR(100)) AS idCaja,
+                       LEFT(d.folio, LEN(d.folio) - 1) AS idCaja,
                        d.n_g_proceso AS numeroProceso,
                        d.recepciones_trazabilidad AS lote,
                        d.c_productor_original AS productorReal,
