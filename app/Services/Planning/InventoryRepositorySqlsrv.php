@@ -100,10 +100,10 @@ class InventoryRepositorySqlsrv
         }
 
         if (! empty($filters['fecha_from'])) {
-            $query->whereRaw($fechaRecepcionExpr.' >= ?', [(string) $filters['fecha_from']]);
+            $query->whereRaw('fecha_recepcion'.' >= ?', [(string) $filters['fecha_from']]);
         }
         if (! empty($filters['fecha_to'])) {
-            $query->whereRaw($fechaRecepcionExpr.' <= ?', [(string) $filters['fecha_to']]);
+            $query->whereRaw('fecha_recepcion'.' <= ?', [(string) $filters['fecha_to']]);
         }
 
         // Filtros opcionales (si existen en tu vista)
