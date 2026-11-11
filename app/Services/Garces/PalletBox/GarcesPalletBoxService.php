@@ -357,6 +357,15 @@ class GarcesPalletBoxService
         $kilosTotal = array_reduce($mappedBoxes, static function ($acc, $box) {
             return $acc + (float) ($box['kilos'] ?? 0);
         }, 0.0);
+        $envase='';
+        $embalaje='';
+        if(str_contains($cab->c_embalaje,'-')){
+            $envase=explode('-', $cab->c_embalaje)[1] ?? $cab->c_envase??'' ;
+            $embalaje=explode('-', $cab->c_embalaje)[0] ?? $cab->c_envase??'' ;
+        }else{
+            $envase=$cab->c_envase??'';
+            $embalaje=$cab->c_embalaje??'';
+        }
         return [
 
                 'codeSubsidiary' => (string) (($config['code_subsidiary'] ?? null) ?: ($defaults['subsidiary_garces'] ?? ($cab->id_empresa ?? ($cab->c_exportadora ?? '')))),
@@ -370,8 +379,8 @@ class GarcesPalletBoxService
                         'tipoTarja' => (string) $tipoTarja,
                         'especie' => "21",//$translated['especie'] ?? (string) ($cab->id_especie ?? ($cab->c_especie ?? '')),
                         'variedad' => $translated['variedad'] ?? (string) ($cab->id_variedad ?? ($cab->c_variedad ?? '')),
-                        'envase' => explode('-', $cab->c_embalaje)[1] ?? $cab->c_envase??'' ,
-                        'embalaje' => explode('-', $cab->c_embalaje)[0] ?? $cab->c_envase??'' ,//$translated['embalaje'] ?? (string) ($cab->c_embalaje ?? ($cab->c_embalaje ?? '')),
+                        'envase' => $envase,
+                        'embalaje' => $embalaje,
                         'etiqueta' => $translated['etiqueta'] ?? (string) ($cab->id_etiqueta ?? ($cab->c_etiqueta ?? '')),
                         'tipoFruta' => (string) ($defaults['tipo_fruta'] ?? '1'),
                         'tipoPallet' => (string) $tipoPallet,
