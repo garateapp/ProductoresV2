@@ -69,7 +69,7 @@ class GarcesProduccionFolioService
                     'categoria' => $row->categoria !== null ? (string) $row->categoria : null,
                     'embalaje' => $row->embalaje !== null ? (string) $row->embalaje : null,
                     'etiqueta' => $row->etiqueta !== null ? (string) $row->etiqueta : null,
-                    'envase' => $row->embalaje !== null ? (string) $row->embalaje : null,
+                    'envase' => $row->envase !== null ? (string) $row->envase : null,
                     'cajas' => (float) $row->cajas,
                     'kilos' => (float) $row->kilos,
                     'enviado' => $envio?->status === GarcesProduccionEnvio::STATUS_SENT,
@@ -303,7 +303,7 @@ class GarcesProduccionFolioService
                     max(n_categoria) as categoria,
                     max(n_embalaje) as embalaje,
                     max(n_etiqueta) as etiqueta,
-                    max(n_embalaje) as envase,
+                    max(c_embalaje) as envase,
                     sum(cantidad) as cajas,
                     sum(peso_neto) as kilos'
                 )
