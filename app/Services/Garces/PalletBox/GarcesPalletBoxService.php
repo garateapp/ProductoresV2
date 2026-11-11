@@ -317,7 +317,7 @@ class GarcesPalletBoxService
             case str_ends_with($folioUpper, 'T'):
                 if($cab->id_categoria==12){
                     $tipoPallet='9';
-                    $tipoTarja='';
+                    $tipoTarja='6';
                 }else{
                    $tipoTarja = '2'; // saldo
                 $tipoPallet='7';
@@ -329,8 +329,15 @@ class GarcesPalletBoxService
                 $tipoTarja = '1'; // folio numérico
                 $tipoPallet='4';
                 break;
+             case str_ends_with($folioUpper, 'C'):
+
+               
+                $tipoTarja = '1'; // folio numérico
+                $tipoPallet='4';
+               
+                break;
             default:
-                $tipoTarja = '';
+                $tipoTarja = '6';
                 $tipoPallet='9';
                 break;
         }
