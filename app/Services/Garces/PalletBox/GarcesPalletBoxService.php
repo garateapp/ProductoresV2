@@ -408,12 +408,7 @@ class GarcesPalletBoxService
         $result = [];
         $nota_calidad='';
 
-            //  $nota_calidad = DB::connection($conn)->table('V_PKG_Recepcion_FG')
-            //      ->where('numero_g_recepcion', $detalles[0]->n_g_recepcion)
-            //      ->select('nota_calidad')
-            //      ->first();
-
-
+        
 
         foreach ($detalles as $det) {
             $ncaja = is_object($det) ? ($det->idCaja ?? ($det->ncaja ?? ($det->id_pkg_stock_cajas ?? ($det->NumeroCaja ?? '')))) : ($det['idCaja'] ?? ($det['ncaja'] ?? ($det['id_pkg_stock_cajas'] ?? ($det['NumeroCaja'] ?? ''))));

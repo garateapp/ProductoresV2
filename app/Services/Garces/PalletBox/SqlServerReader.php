@@ -22,7 +22,7 @@ class SqlServerReader
         'id_embalaje',
         'c_embalaje',
         'n_embalaje',
-
+        'c_envase',
         'id_contenedor',
         'c_contenedor',
         'n_contenedor',
@@ -30,7 +30,6 @@ class SqlServerReader
         'c_categoria',
         'n_categoria',
         't_categoria',
-
         'id_etiqueta',
         'c_etiqueta',
         'n_etiqueta',
@@ -234,26 +233,30 @@ class SqlServerReader
         try {
             $rows = DB::connection($conn)->select(
                 <<<SQL
-                SELECT TOP 500
-                       LEFT(d.folio, LEN(d.folio) - 1) AS idCaja,
-                       d.n_g_proceso AS numeroProceso,
-                       d.recepciones_trazabilidad AS lote,
-                       d.c_productor_original AS productorReal,
-                       d.c_productor AS productor,
-                       d.id_variedad AS variedadReal,
-                       d.id_variedad AS variedadComercial,
-                       d.fecha_produccion AS fechaEmbalaje,
-                       d.c_calibre AS calibre,
-                       1 AS cajas,
-                       d.peso_std_embalaje AS kilos,
-                       '' AS clasificacion,
-                       d.id_categoria AS categoria,
-                       d.id_etiqueta AS etiqueta,
-                       d.folio,
-                       d.nota_calidad,
-                       d.n_g_recepcion
-                  FROM V_PKG_Stock_Inventario AS d
-                 WHERE d.folio IN ({$placeholders})
+                SELECT * FROM (
+                    SELECT
+                           LEFT(d.folio, LEN(d.folio) - 1) AS idCaja,
+                           d.n_g_proceso AS numeroProceso,
+                           d.recepciones_trazabilidad AS lote,
+                           d.c_productor_original AS productorReal,
+                           d.c_productor AS productor,
+                           d.id_variedad AS variedadReal,
+                           d.id_variedad AS variedadComercial,
+                           d.fecha_produccion AS fechaEmbalaje,
+                           d.c_calibre AS calibre,
+                           1 AS cajas,
+                           d.peso_neto AS kilos,
+                           '' AS clasificacion,
+                           d.id_categoria AS categoria,
+                           d.id_etiqueta AS etiqueta,
+                           d.folio,
+                           d.nota_calidad,
+                           d.n_g_recepcion,
+                           ROW_NUMBER() OVER (PARTITION BY d.folio ORDER BY d.fecha_produccion DESC) AS rn
+                      FROM V_PKG_Stock_Inventario AS d
+                     WHERE d.folio IN ({$placeholders})
+                ) t
+                WHERE t.rn = 1
                 SQL,
                 $folios
             );
