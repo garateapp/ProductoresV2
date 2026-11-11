@@ -69,7 +69,7 @@ class GarcesProduccionFolioService
                     'categoria' => $row->categoria !== null ? (string) $row->categoria : null,
                     'embalaje' => $row->embalaje !== null ? (string) $row->embalaje : null,
                     'etiqueta' => $row->etiqueta !== null ? (string) $row->etiqueta : null,
-                    'envase' => explode('-',$row->envase)[1] !== null ? (string) explode('-',$row->envase)[1] : null,
+                    'envase' => explode('-',$row->embalaje)[1] !== null ? (string) explode('-',$row->embalaje)[1] : null,
                     'cajas' => (float) $row->cajas,
                     'kilos' => (float) $row->kilos,
                     'enviado' => $envio?->status === GarcesProduccionEnvio::STATUS_SENT,
