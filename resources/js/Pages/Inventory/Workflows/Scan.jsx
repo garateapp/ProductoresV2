@@ -471,6 +471,18 @@ export default function InventoryScanWorkflow({ wasteReasons = [], wasteTypes = 
       return
     }
 
+    const missingPositionCode = transferForm.data.logistic_unit_codes.find((code) => {
+      const positions = transferReferenceByCode[code]?.unit?.positions || []
+      const item = transferForm.data.transfer_items.find((current) => current.logistic_unit_code === code)
+
+      return positions.length > 1 && !item?.position_id
+    })
+
+    if (missingPositionCode) {
+      transferForm.setError('transfer_items', `Debes seleccionar la posición que estás moviendo para el pallet ${missingPositionCode}.`)
+      return
+    }
+
     transferForm.clearErrors('destination_location_id', 'transfer_items')
     transferForm.post(route('inventory.workflows.transfer'), {
       preserveScroll: true,
@@ -570,6 +582,17 @@ export default function InventoryScanWorkflow({ wasteReasons = [], wasteTypes = 
 
     if (!instantForm.data.destination_location_id) {
       instantForm.setError('destination_location_id', 'Debes seleccionar la ubicación destino.')
+      return
+    }
+
+    const missingPositionCode = instantForm.data.logistic_unit_codes.find((code) => {
+      const positions = instantReferences[code]?.unit?.positions || []
+      const item = instantForm.data.transfer_items.find((i) => i.logistic_unit_code === code)
+      return positions.length > 1 && !item?.position_id
+    })
+
+    if (missingPositionCode) {
+      instantForm.setError('transfer_items', `Debes seleccionar la posición que estás moviendo para el pallet ${missingPositionCode}.`)
       return
     }
 

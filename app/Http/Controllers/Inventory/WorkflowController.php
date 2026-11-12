@@ -142,7 +142,6 @@ class WorkflowController extends Controller{
             if (Schema::hasTable('inventory_stock_positions')) {
                 $positions = InventoryStockPosition::query()
                     ->where('logistic_unit_id', $unit->id)
-                    ->where('location_id', $origin->id)
                     ->where('quantity', '>', 0)
                     ->orderBy('id')
                     ->get();
