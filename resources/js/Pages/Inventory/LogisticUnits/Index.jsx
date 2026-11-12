@@ -54,6 +54,7 @@ export default function InventoryLogisticUnits({ units, materials = [], location
   const [printers, setPrinters] = useState([])
   const [selectedPrinter, setSelectedPrinter] = useState(() => window.localStorage?.getItem('inventory.zplPrinter') || '')
   const [bixolonName, setBixolonName] = useState(() => window.localStorage?.getItem('inventory.bixolonPrinter') || window.localStorage?.getItem('inventory.zplPrinter') || 'Printer1')
+  const [printMode, setPrintMode] = useState(() => window.localStorage?.getItem('inventory.printMode') || 'auto')
 
   const [editModal, setEditModal] = useState({ open: false, unit: null })
   const [spatialTarget, setSpatialTarget] = useState('single')
@@ -914,35 +915,117 @@ const addInput = async (lpnCode) => {
 
     const copies = labelCopies
 
-    if (typeof window.clearBuffer === 'function' && typeof window.drawDeviceFont === 'function' && typeof window.requestPrint === 'function') {
+    if (printMode === 'bixolon') {
       try {
-        const printerName = (bixolonName || '').trim() || selectedPrinter || window.localStorage?.getItem('inventory.bixolonPrinter') || window.localStorage?.getItem('inventory.zplPrinter') || 'Printer1'
-        if (labelModal.labelType === 'semielaborado') {
-          generateLogisticUnitLabelBixolon(labelModal, printerName, (result) => {
-            if (result) {
-              toast.success(result.includes(':') ? result.split(':').slice(1).join(':').trim() || 'Impresión enviada (Bixolon)' : result)
-            } else {
-              toast.success('Impresión enviada (Bixolon)')
+        const printerName = (bixolonName || '').trim() || 'Printer1'
+
+        await new Promise((resolve, reject) => {
+          const timer = setTimeout(() => reject(new Error('Tiempo de espera agotado conectando con Bixolon.')), 5000)
+
+          if (!(
+            typeof window.clearBuffer === 'function' &&
+            typeof window.drawDeviceFont === 'function' &&
+            typeof window.requestPrint === 'function'
+          )) {
+            clearTimeout(timer)
+            reject(new Error('Bixolon Web Print SDK no disponible en el navegador.'))
+            return
+          }
+
+          const onResult = (result) => {
+            clearTimeout(timer)
+            if (result && result.error) {
+              reject(new Error(result.error || 'Error de Bixolon.'))
+              return
             }
-          })
-        } else {
-          generateMaterialLabelBixolon(labelModal, printerName, (result) => {
-            if (result) {
-              toast.success(result.includes(':') ? result.split(':').slice(1).join(':').trim() || 'Impresión enviada (Bixolon)' : result)
-            } else {
-              toast.success('Impresión enviada (Bixolon)')
-            }
-          })
-        }
-        if (printerName) {
-          window.localStorage?.setItem('inventory.bixolonPrinter', printerName)
-          setBixolonName(printerName)
-        }
+            toast.success(result ? (result.includes(':') ? result.split(':').slice(1).join(':').trim() : result) : 'Impresión enviada (Bixolon)')
+            window.localStorage?.setItem('inventory.bixolonPrinter', printerName)
+            setBixolonName(printerName)
+            resolve(true)
+          }
+
+          if (labelModal.labelType === 'semielaborado') {
+            generateLogisticUnitLabelBixolon(labelModal, printerName, onResult)
+          } else {
+            generateMaterialLabelBixolon(labelModal, printerName, onResult)
+          }
+        })
         return
       } catch (err) {
         console.error('Error printing with Bixolon:', err)
         toast.error(err.message || 'No se pudo imprimir con Bixolon.')
+        return
       }
+    }
+
+    if (printMode === 'zebra') {
+      try {
+        const zpl = generateLabelZpl(labelModal)
+        const printer = await printWithQz(zpl, copies)
+        toast.success(`Etiqueta enviada a ${printer} (${copies} copia${copies > 1 ? 's' : ''})`)
+        return
+      } catch (err) {
+        console.error('Error printing with QZ:', err)
+        toast.error(err.message || 'No se pudo imprimir con QZ Tray.')
+        alert(`${err.message || 'No se pudo imprimir con QZ Tray.'}\n\nSe abrirá la vista previa.`)
+        openPrintPreview()
+        return
+      }
+    }
+
+    // printMode === 'auto': intenta Bixolon con timeout, si falla usa QZ Tray
+    try {
+      const printerName = (bixolonName || '').trim() || selectedPrinter || window.localStorage?.getItem('inventory.bixolonPrinter') || window.localStorage?.getItem('inventory.zplPrinter') || 'Printer1'
+
+      const bixolonOk = await new Promise((resolve) => {
+        const timer = setTimeout(() => resolve(false), 3000)
+
+        if (!(
+          typeof window.clearBuffer === 'function' &&
+          typeof window.drawDeviceFont === 'function' &&
+          typeof window.requestPrint === 'function'
+        )) {
+          clearTimeout(timer)
+          resolve(false)
+          return
+        }
+
+        try {
+          const onResult = (result) => {
+            clearTimeout(timer)
+            if (result && result.error) {
+              resolve(false)
+              return
+            }
+            if (result) {
+              toast.success(result.includes(':') ? result.split(':').slice(1).join(':').trim() || 'Impresión enviada (Bixolon)' : result)
+            } else {
+              toast.success('Impresión enviada (Bixolon)')
+            }
+            if (printerName) {
+              window.localStorage?.setItem('inventory.bixolonPrinter', printerName)
+              setBixolonName(printerName)
+            }
+            resolve(true)
+          }
+
+          if (labelModal.labelType === 'semielaborado') {
+            generateLogisticUnitLabelBixolon(labelModal, printerName, onResult)
+          } else {
+            generateMaterialLabelBixolon(labelModal, printerName, onResult)
+          }
+        } catch (err) {
+          clearTimeout(timer)
+          console.error('Error printing with Bixolon:', err)
+          resolve(false)
+        }
+      })
+
+      if (bixolonOk) {
+        return
+      }
+    } catch (err) {
+      console.error('Error printing with Bixolon:', err)
     }
 
     const zpl = generateLabelZpl(labelModal)
@@ -1964,6 +2047,41 @@ const addInput = async (lpnCode) => {
                   </div>
                 </div>
               )}
+            </div>
+          </div>
+          <div className="px-4 pb-2">
+            <Label>Modo de impresión</Label>
+            <div className="flex items-center gap-2">
+              <input
+                type="radio"
+                value="auto"
+                checked={printMode === 'auto'}
+                onChange={(e) => {
+                  setPrintMode(e.target.value)
+                  window.localStorage?.setItem('inventory.printMode', e.target.value)
+                }}
+              />
+              <Label className="ml-1 text-xs cursor-pointer">Auto (Bixolon → QZ)</Label>
+              <input
+                type="radio"
+                value="bixolon"
+                checked={printMode === 'bixolon'}
+                onChange={(e) => {
+                  setPrintMode(e.target.value)
+                  window.localStorage?.setItem('inventory.printMode', e.target.value)
+                }}
+              />
+              <Label className="ml-1 text-xs cursor-pointer">Bixolon</Label>
+              <input
+                type="radio"
+                value="zebra"
+                checked={printMode === 'zebra'}
+                onChange={(e) => {
+                  setPrintMode(e.target.value)
+                  window.localStorage?.setItem('inventory.printMode', e.target.value)
+                }}
+              />
+              <Label className="ml-1 text-xs cursor-pointer">Zebra (QZ Tray)</Label>
             </div>
           </div>
           <div className="px-4 pb-2">
