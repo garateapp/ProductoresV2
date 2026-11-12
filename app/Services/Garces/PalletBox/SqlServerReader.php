@@ -244,7 +244,7 @@ class SqlServerReader
                            d.id_variedad AS variedadComercial,
                            d.fecha_produccion AS fechaEmbalaje,
                            d.c_calibre AS calibre,
-                           1 AS cajas,
+                           d.cantidad AS cajas,
                            d.peso_neto AS kilos,
                            '' AS clasificacion,
                            d.id_categoria AS categoria,
