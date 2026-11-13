@@ -587,6 +587,11 @@ export default function InventoryMovements({ movements, movementTypes = [], move
                               )}
                             </div>
                           )) : null}
+                          {movement.transfer_units?.length && movement.transfer_units.reduce((sum, u) => sum + Number(u.quantity || 0), 0) > 0 && (
+                            <div className="mt-2 text-xs font-medium text-slate-700 border-t border-slate-200 pt-1">
+                              Total en planta: {movement.transfer_units.reduce((sum, u) => sum + Number(u.quantity || 0), 0).toLocaleString('es-CL')}
+                            </div>
+                          )}
                         </div>
                       </TableCell>
                       <TableCell>
@@ -594,11 +599,11 @@ export default function InventoryMovements({ movements, movementTypes = [], move
                         {movement.receipt_hash ? <div className="mt-1 text-[10px] text-gray-500">{movement.receipt_hash.slice(0, 16)}...</div> : null}
                       </TableCell>
                       <TableCell className="text-right">
-                        <div className="flex justify-end gap-2">
+                        <div className="flex flex-col gap-1 items-end justify-end">
                           {movement.estado === 'borrador' && <Button type="button" size="sm" onClick={() => applyMovement(movement.id)}>Aplicar</Button>}
                           {movement.estado === 'aplicado' && movement.destino && !movement.transfer_units?.length && <Button type="button" variant="outline" size="sm" onClick={() => confirmMovement(movement.id)}>Confirmar</Button>}
                           {movement.estado === 'aplicado' && (movement.transfer_units || []).filter((unit) => unit.status === 'in_transit').map((unit) => (
-                            <div key={unit.id} className="flex gap-2">
+                            <div key={unit.id} className="flex flex-col gap-1 mb-1">
                               <Button type="button" variant="outline" size="sm" onClick={() => confirmTransferUnit(movement.id, unit.id)}>
                                 Recibir {unit.license_plate_number || `#${unit.id}`}
                               </Button>

@@ -1280,15 +1280,15 @@ class InventoryTransactionService
         $movedQuantity = 0.0;
 
         foreach ($snapshots as $snapshot) {
+            if ($this->transferUnitAlreadyAtDestination($transferUnit)) {
+                break;
+            }
+
             $position = InventoryStockPosition::query()
                 ->lockForUpdate()
                 ->find($snapshot['position_id'] ?? null);
 
             if ($position && (int) $position->location_id !== (int) $transferUnit->origin_location_id) {
-                if ($alreadyAtDestination) {
-                    continue;
-                }
-
                 $position = null;
             }
 
@@ -1304,13 +1304,16 @@ class InventoryTransactionService
             }
 
             if (! $position) {
-                if ($alreadyAtDestination) {
+                $destinationHasPosition = InventoryStockPosition::query()
+                    ->where('logistic_unit_id', $transferUnit->logistic_unit_id)
+                    ->where('location_id', $transferUnit->destination_location_id)
+                    ->exists();
+
+                if ($destinationHasPosition || $this->transferUnitAlreadyAtDestination($transferUnit)) {
                     continue;
                 }
 
-                throw ValidationException::withMessages([
-                    'transfer_unit_ids' => 'No fue posible resolver las posiciones despachadas para confirmar la recepción.',
-                ]);
+                continue;
             }
 
             $quantity = (float) ($snapshot['quantity'] ?? 0);
