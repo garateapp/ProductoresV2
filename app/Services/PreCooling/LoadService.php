@@ -262,16 +262,30 @@ class LoadService
         ?float $temperaturaAmbienteCamara,
         array $temperaturasFolios,
         User $usuario,
+        array $foliosSeleccionados = [],
     ): PreCoolingLoad
     {
-        return DB::transaction(function () use ($loadId, $fechaHoraFin, $camaraId, $ubicaciones, $temperaturaAmbienteTunel, $temperaturaAmbienteCamara, $temperaturasFolios, $usuario) {
+        return DB::transaction(function () use ($loadId, $fechaHoraFin, $camaraId, $ubicaciones, $temperaturaAmbienteTunel, $temperaturaAmbienteCamara, $temperaturasFolios, $usuario, $foliosSeleccionados) {
             $load = PreCoolingLoad::query()->lockForUpdate()->findOrFail($loadId);
 
             if ($load->estado !== 'iniciado') {
                 throw ValidationException::withMessages(['estado' => 'Solo las cargas INICIADAS pueden salir del túnel.']);
             }
 
-            $folioIds = array_values(array_unique(array_map('intval', array_keys($ubicaciones))));
+            $camara = PreCoolingCamara::query()->lockForUpdate()->findOrFail($camaraId);
+
+            if (! $camara->activo) {
+                throw ValidationException::withMessages(['camara_id' => 'La cámara está inactiva.']);
+            }
+
+            $esTransito = $camara->tipo === 'planta_libre';
+
+            // En modo tránsito, los folio IDs vienen de foliosSeleccionados (ubicaciones está vacío)
+            if ($esTransito && empty($ubicaciones)) {
+                $folioIds = array_values(array_unique(array_map('intval', array_keys($foliosSeleccionados))));
+            } else {
+                $folioIds = array_values(array_unique(array_map('intval', array_keys($ubicaciones))));
+            }
             if ($folioIds === []) {
                 throw ValidationException::withMessages(['folios' => 'Debe seleccionar al menos un folio para la salida.']);
             }
@@ -286,51 +300,63 @@ class LoadService
                 throw ValidationException::withMessages(['folios' => 'Uno o más folios no pertenecen al proceso o ya registraron su salida.']);
             }
 
-            $camara = PreCoolingCamara::query()->lockForUpdate()->findOrFail($camaraId);
-
-            if (! $camara->activo) {
-                throw ValidationException::withMessages(['camara_id' => 'La cámara está inactiva.']);
-            }
-
-            foreach ($folios as $folio) {
-                $ubic = $ubicaciones[$folio->id];
-                $this->validarSlotCamara($camara, $ubic['banda'], $ubic['fila'], $ubic['columna'], $ubic['altura'], $ubic['nivel']);
-            }
-
-            $ubicacionesUsadas = [];
-            foreach ($folios as $folio) {
-                $ubic = $ubicaciones[$folio->id];
-                $key = implode('|', [$ubic['banda'], $ubic['fila'], $ubic['columna'], $ubic['altura'], $ubic['nivel']]);
-                if (isset($ubicacionesUsadas[$key])) {
-                    throw ValidationException::withMessages(["ubicaciones.{$folio->id}" => 'Dos folios de la carga no pueden compartir la misma ubicación en la cámara.']);
+            if (! $esTransito) {
+                foreach ($folios as $folio) {
+                    $ubic = $ubicaciones[$folio->id];
+                    $this->validarSlotCamara($camara, $ubic['banda'], $ubic['fila'], $ubic['columna'], $ubic['altura'], $ubic['nivel']);
                 }
-                $ubicacionesUsadas[$key] = true;
+
+                $ubicacionesUsadas = [];
+                foreach ($folios as $folio) {
+                    $ubic = $ubicaciones[$folio->id];
+                    $key = implode('|', [$ubic['banda'], $ubic['fila'], $ubic['columna'], $ubic['altura'], $ubic['nivel']]);
+                    if (isset($ubicacionesUsadas[$key])) {
+                        throw ValidationException::withMessages(["ubicaciones.{$folio->id}" => 'Dos folios de la carga no pueden compartir la misma ubicación en la cámara.']);
+                    }
+                    $ubicacionesUsadas[$key] = true;
+                }
             }
 
             foreach ($folios as $folio) {
-                $ubic = $ubicaciones[$folio->id];
+                $ubic = $ubicaciones[$folio->id] ?? [];
+
+                $saldoExistente = PreCoolingSaldo::query()
+                    ->where('load_folio_id', $folio->id)
+                    ->first();
+
+                $datosSaldo = [
+                    'camara_id' => $camaraId,
+                    'banda' => $esTransito ? null : ($ubic['banda'] ?? null),
+                    'fila' => $esTransito ? null : ($ubic['fila'] ?? null),
+                    'columna' => $esTransito ? null : ($ubic['columna'] ?? null),
+                    'altura' => $esTransito ? null : ($ubic['altura'] ?? null),
+                    'nivel' => $esTransito ? null : ($ubic['nivel'] ?? null),
+                    'folio' => $folio->folio,
+                    'tipo_proceso_id' => $load->tipo_proceso_id,
+                    'cajas' => $folio->cajas,
+                    'pallets' => $folio->pallets,
+                    'especie' => $folio->especie,
+                    'variedad' => $folio->variedad,
+                    'productor' => $folio->productor,
+                    'usuario_id' => $usuario->id,
+                ];
 
                 try {
-                    PreCoolingSaldo::create([
-                        'load_folio_id' => $folio->id,
-                        'camara_id' => $camaraId,
-                        'banda' => $ubic['banda'],
-                        'fila' => $ubic['fila'],
-                        'columna' => $ubic['columna'],
-                        'altura' => $ubic['altura'],
-                        'nivel' => $ubic['nivel'],
-                        'folio' => $folio->folio,
-                        'tipo_proceso_id' => $load->tipo_proceso_id,
-                        'cajas' => $folio->cajas,
-                        'pallets' => $folio->pallets,
-                        'especie' => $folio->especie,
-                        'variedad' => $folio->variedad,
-                        'productor' => $folio->productor,
-                        'usuario_id' => $usuario->id,
-                    ]);
+                    if ($saldoExistente) {
+                        $saldoExistente->update($datosSaldo);
+                    } else {
+                        PreCoolingSaldo::create($datosSaldo);
+                    }
                 } catch (QueryException $e) {
                     if ($this->esViolacionUnica($e)) {
-                        throw ValidationException::withMessages(["ubicaciones.{$folio->id}" => "La ubicación {$ubic['banda']}/{$ubic['fila']}/{$ubic['columna']}/{$ubic['altura']}/{$ubic['nivel']} ya está ocupada en la cámara."]);
+                        $ubicacionStr = implode('/', array_filter([
+                            $ubic['banda'] ?? null,
+                            $ubic['fila'] ?? null,
+                            $ubic['columna'] ?? null,
+                            $ubic['altura'] ?? null,
+                            $ubic['nivel'] ?? null,
+                        ]));
+                        throw ValidationException::withMessages(["ubicaciones.{$folio->id}" => "La ubicación ({$ubicacionStr}) ya está ocupada en la cámara."]);
                     }
                     throw $e;
                 }

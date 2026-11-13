@@ -426,7 +426,8 @@ export default function Index({ folios, filters, config = {}, sourceError = null
                   <p className="text-muted-foreground">{dryRun.result.message}</p>
                   <p className="text-xs text-muted-foreground">
                     Endpoint: {dryRun.result.endpoint || 'no configurado'} · Servicio{' '}
-                    {dryRun.result.enabled ? 'habilitado' : 'deshabilitado'} · Generado {dryRun.generatedAt}
+                    {dryRun.result.enabled ? 'habilitado' : 'deshabilitado'} · Generado {dryRun.generatedAt}{' '}
+                    · JSON creado {dryRun.result.json_created_at || '—'} ({dryRun.result.json_generated_ms || '—'} ms)
                   </p>
                   <p className="text-xs text-muted-foreground">Folios: {(dryRun.result.folios || []).join(', ')}</p>
                 </div>

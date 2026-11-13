@@ -96,6 +96,8 @@ class MatrizController extends Controller
                 'id' => $camara->id,
                 'codigo' => $camara->codigo,
                 'nombre' => $camara->nombre,
+                'tipo' => $camara->tipo,
+                'activo' => $camara->activo,
                 'parametros' => $camara->parametrosPorDimension(),
             ])
             ->values();

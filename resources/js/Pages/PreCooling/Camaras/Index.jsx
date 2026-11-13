@@ -35,7 +35,7 @@ const VACIOS = {
   fila_central_dcha: ['3'],
   fila_derecha: ['4'],
   columna: ['1', '2', '3'],
-  altura: [],
+  altura: ['1'],
   nivel: ['1'],
 }
 

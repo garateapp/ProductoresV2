@@ -49,6 +49,7 @@ export default function SalidaDialog({ load, camaras, onClose }) {
   })
 
   const camara = camaras.find((c) => String(c.id) === String(form.data.camara_id))
+  const esTransito = camara?.tipo === 'planta_libre'
   const parametros = camara?.parametros || { banda: [], fila: [], columna: [], altura: [], nivel: [] }
 
   const handleCamaraChange = (value) => {
@@ -91,7 +92,9 @@ export default function SalidaDialog({ load, camaras, onClose }) {
 
     form.transform((data) => ({
       ...data,
-      ubicaciones: Object.fromEntries(seleccionados.map((folio) => [folio.id, data.ubicaciones[folio.id] || {}])),
+      ubicaciones: esTransito
+        ? {}
+        : Object.fromEntries(seleccionados.map((folio) => [folio.id, data.ubicaciones[folio.id] || {}])),
       temperaturas_folios: Object.fromEntries(seleccionados.map((folio) => [folio.id, data.temperaturas_folios[folio.id] || {}])),
     }))
     form.post(route('prefrio.loads.salir', load.id), {
@@ -179,6 +182,11 @@ export default function SalidaDialog({ load, camaras, onClose }) {
 
           {camara ? (
             <div className="space-y-2 max-h-72 overflow-y-auto pr-1">
+              {esTransito && (
+                <div className="rounded border border-blue-200 bg-blue-50 px-4 py-3 text-sm text-blue-900 mb-3">
+                  Cámara de tránsito (planta libre): sin asignación de estiba. Los folios salen sin ubicación específica.
+                </div>
+              )}
               {load.folios.map((f) => {
                 const ubic = form.data.ubicaciones[f.id] || {}
                 const seleccionado = Boolean(form.data.folios_seleccionados[f.id])
@@ -200,26 +208,28 @@ export default function SalidaDialog({ load, camaras, onClose }) {
                     </div>
                     {seleccionado && (
                       <>
-                    <div className="grid grid-cols-2 sm:grid-cols-5 gap-2">
-                      {DIMENSIONES.map((dim) => (
-                        <div key={dim}>
-                          <Label className="text-xs capitalize">{dim}</Label>
-                          <Select value={ubic[dim] || ''} onValueChange={(v) => setUbicacion(f.id, dim, v)}>
-                            <SelectTrigger>
-                              <SelectValue placeholder="—" />
-                            </SelectTrigger>
-                            <SelectContent>
-                              {optionsForDimension(dim, ubic).map((val) => (
-                                <SelectItem key={val} value={val}>
-                                  {val}
-                                </SelectItem>
-                              ))}
-                            </SelectContent>
-                          </Select>
-                        </div>
-                      ))}
-                    </div>
-                    <div className="mt-3 grid grid-cols-2 gap-2 border-t pt-3">
+                        {!esTransito && (
+                          <div className="grid grid-cols-2 sm:grid-cols-5 gap-2">
+                            {DIMENSIONES.map((dim) => (
+                              <div key={dim}>
+                                <Label className="text-xs capitalize">{dim}</Label>
+                                <Select value={ubic[dim] || ''} onValueChange={(v) => setUbicacion(f.id, dim, v)}>
+                                  <SelectTrigger>
+                                    <SelectValue placeholder="—" />
+                                  </SelectTrigger>
+                                  <SelectContent>
+                                    {optionsForDimension(dim, ubic).map((val) => (
+                                      <SelectItem key={val} value={val}>
+                                        {val}
+                                      </SelectItem>
+                                    ))}
+                                  </SelectContent>
+                                </Select>
+                              </div>
+                            ))}
+                          </div>
+                        )}
+                        <div className="mt-3 grid grid-cols-2 gap-2 border-t pt-3">
                       <div>
                         <Label className="text-xs">T° final interna (°C)</Label>
                         <Input

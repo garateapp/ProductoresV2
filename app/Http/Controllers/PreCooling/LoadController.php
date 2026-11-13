@@ -6,6 +6,7 @@ use App\Http\Controllers\Controller;
 use App\Http\Controllers\PreCooling\Concerns\AuthorizesPreCooling;
 use App\Models\PreCoolingLoad;
 use App\Models\PreCoolingLoadFolio;
+use App\Models\PreCoolingCamara;
 use App\Services\PreCooling\FolioProvider;
 use App\Services\PreCooling\LoadService;
 use Illuminate\Support\Facades\Validator;
@@ -193,12 +194,13 @@ class LoadController extends Controller
         $data = $request->validate([
             'fecha_hora_fin' => 'required|date',
             'camara_id' => 'required|integer|exists:pre_cooling_camaras,id',
-            'ubicaciones' => 'required|array|min:1',
-            'ubicaciones.*.banda' => 'required|string|max:50',
-            'ubicaciones.*.fila' => 'required|string|max:50',
-            'ubicaciones.*.columna' => 'required|string|max:50',
-            'ubicaciones.*.altura' => 'required|string|max:50',
-            'ubicaciones.*.nivel' => 'required|string|max:50',
+            'ubicaciones' => 'nullable|array',
+            'ubicaciones.*.banda' => 'nullable|string|max:50',
+            'ubicaciones.*.fila' => 'nullable|string|max:50',
+            'ubicaciones.*.columna' => 'nullable|string|max:50',
+            'ubicaciones.*.altura' => 'nullable|string|max:50',
+            'ubicaciones.*.nivel' => 'nullable|string|max:50',
+            'folios_seleccionados' => 'nullable|array',
             'temperatura_ambiente_tunel_salida' => 'nullable|numeric|between:-50,100',
             'temperatura_ambiente_camara_salida' => 'nullable|numeric|between:-50,100',
             'temperaturas_folios' => 'nullable|array',
@@ -206,15 +208,30 @@ class LoadController extends Controller
             'temperaturas_folios.*.temperatura_final_externa' => 'nullable|numeric|between:-50,100',
         ]);
 
+        $camara = PreCoolingCamara::query()->findOrFail((int) $data['camara_id']);
+        $esTransito = $camara->tipo === 'planta_libre';
+
+        if (! $esTransito) {
+            $request->validate([
+                'ubicaciones' => 'required|array|min:1',
+                'ubicaciones.*.banda' => 'required|string|max:50',
+                'ubicaciones.*.fila' => 'required|string|max:50',
+                'ubicaciones.*.columna' => 'required|string|max:50',
+                'ubicaciones.*.altura' => 'required|string|max:50',
+                'ubicaciones.*.nivel' => 'required|string|max:50',
+            ]);
+        }
+
         $this->loadService->salir(
             $load->id,
             $data['fecha_hora_fin'],
             (int) $data['camara_id'],
-            $data['ubicaciones'],
+            $data['ubicaciones'] ?? [],
             $data['temperatura_ambiente_tunel_salida'] ?? null,
             $data['temperatura_ambiente_camara_salida'] ?? null,
             $data['temperaturas_folios'] ?? [],
             $request->user(),
+            $data['folios_seleccionados'] ?? [],
         );
 
         return back()->with('success', 'Salida de folios registrada correctamente.');

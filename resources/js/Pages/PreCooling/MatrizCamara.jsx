@@ -48,7 +48,16 @@ export default function MatrizCamara({ camaras, camara, parametros, saldos, tipo
   const [assignmentTarget, setAssignmentTarget] = useState(null)
   const [assignmentMode, setAssignmentMode] = useState('manual')
   const [retiringSaldo, setRetiringSaldo] = useState(null)
+  const [trasladoTarget, setTrasladoTarget] = useState(null)
   const assignmentForm = useForm({
+    camara_id: '',
+    banda: '',
+    fila: '',
+    columna: '',
+    altura: '',
+    nivel: '',
+  })
+  const trasladoForm = useForm({
     camara_id: '',
     banda: '',
     fila: '',
@@ -163,6 +172,31 @@ export default function MatrizCamara({ camaras, camara, parametros, saldos, tipo
     assignmentForm.patch(route('prefrio.saldos.update', saldoId), {
       preserveScroll: true,
       onSuccess: () => setAssignmentTarget(null),
+    })
+  }
+
+  const openTraslado = (saldo) => {
+    setDetailItems([])
+    setTrasladoTarget(saldo)
+    trasladoForm.clearErrors()
+    trasladoForm.setData({
+      camara_id: '',
+      banda: '',
+      fila: '',
+      columna: '',
+      altura: '',
+      nivel: '',
+    })
+  }
+
+  const submitTraslado = (event) => {
+    event.preventDefault()
+    const saldoId = trasladoTarget?.id
+    if (!saldoId) return
+
+    trasladoForm.patch(route('prefrio.saldos.update', saldoId), {
+      preserveScroll: true,
+      onSuccess: () => setTrasladoTarget(null),
     })
   }
 
@@ -395,7 +429,11 @@ export default function MatrizCamara({ camaras, camara, parametros, saldos, tipo
                     </TableHeader>
                     <TableBody>
                       {saldos.map((s) => (
-                        <TableRow key={s.id}>
+                        <TableRow
+                          key={s.id}
+                          onClick={() => setDetailItems([s])}
+                          className="hover:bg-sky-50 cursor-pointer transition-colors"
+                        >
                           <TableCell className="font-mono text-xs">
                             {s.banda}/{isRackable ? positionLabel(s.banda, s.fila) : s.fila}/{s.columna}/{s.altura}
                           </TableCell>
@@ -436,7 +474,7 @@ export default function MatrizCamara({ camaras, camara, parametros, saldos, tipo
                       <div>
                         <p className="font-mono text-base font-bold text-gray-900">{saldo.folio}</p>
                         <p className="text-xs text-gray-500">
-                          {saldo.banda}/{positionLabel(saldo.banda, saldo.fila)}/{saldo.columna}/{saldo.altura}/{saldo.nivel}
+                          {!saldo.banda ? 'Sin ubicación (tránsito)' : `${saldo.banda}/${positionLabel(saldo.banda, saldo.fila)}/${saldo.columna}/${saldo.altura}/${saldo.nivel}`}
                         </p>
                       </div>
                       <Badge>{saldo.tipo_proceso || 'Sin proceso'}</Badge>
@@ -469,19 +507,31 @@ export default function MatrizCamara({ camaras, camara, parametros, saldos, tipo
                     )}
 
                     <div className="mt-4 flex flex-wrap justify-end gap-2">
-                      <Button
-                        type="button"
-                        size="sm"
-                        variant="secondary"
-                        onClick={() => openAssignment({
-                          banda: saldo.banda,
-                          fila: saldo.fila,
-                          columna: saldo.columna,
-                          altura: saldo.altura,
-                        }, saldo)}
-                      >
-                        <Move className="mr-1.5 h-3.5 w-3.5" /> Cambiar nivel
-                      </Button>
+                      {!saldo.banda && (
+                        <Button
+                          type="button"
+                          size="sm"
+                          variant="secondary"
+                          onClick={() => openTraslado(saldo)}
+                        >
+                          <Move className="mr-1.5 h-3.5 w-3.5" /> Trasladar a otra cámara
+                        </Button>
+                      )}
+                      {saldo.banda && (
+                        <Button
+                          type="button"
+                          size="sm"
+                          variant="secondary"
+                          onClick={() => openAssignment({
+                            banda: saldo.banda,
+                            fila: saldo.fila,
+                            columna: saldo.columna,
+                            altura: saldo.altura,
+                          }, saldo)}
+                        >
+                          <Move className="mr-1.5 h-3.5 w-3.5" /> Cambiar nivel
+                        </Button>
+                      )}
                       <Button
                         type="button"
                         size="sm"
@@ -661,6 +711,134 @@ export default function MatrizCamara({ camaras, camara, parametros, saldos, tipo
                     {activeAssignmentForm.processing
                       ? 'Guardando…'
                       : assignmentMode === 'manual' ? 'Ingresar folio' : 'Asignar posición'}
+                  </Button>
+                </DialogFooter>
+              </form>
+            </DialogContent>
+          </Dialog>
+
+          <Dialog open={Boolean(trasladoTarget)} onOpenChange={(open) => !open && setTrasladoTarget(null)}>
+            <DialogContent className="max-h-[90vh] max-w-lg overflow-y-auto">
+              <form onSubmit={submitTraslado}>
+                <DialogHeader>
+                  <DialogTitle>Trasladar folio a otra cámara</DialogTitle>
+                  <DialogDescription>
+                    Mueva el folio {trasladoTarget?.folio} de la cámara de tránsito a una cámara con ubicación asignada.
+                  <br />
+                    Folio: <span className="font-mono font-bold">{trasladoTarget?.folio}</span>
+                  </DialogDescription>
+                </DialogHeader>
+
+                <div className="space-y-4 py-5">
+                  <div>
+                    <Label htmlFor="traslado-camara" className="mb-1 block">Cámara destino *</Label>
+                    <Select
+                      id="traslado-camara"
+                      value={trasladoForm.data.camara_id}
+                      onValueChange={(value) => trasladoForm.setData('camara_id', value)}
+                    >
+                      <SelectTrigger>
+                        <SelectValue placeholder="Seleccione cámara destino" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {camaras.map((c) => (
+                          <SelectItem key={c.id} value={String(c.id)} disabled={!c.activo}>
+                            {c.codigo} · {c.nombre} ({c.tipo})
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                    {trasladoForm.errors.camara_id && (
+                      <p className="mt-1 text-xs text-red-500">{trasladoForm.errors.camara_id}</p>
+                    )}
+                  </div>
+
+                  <div className="grid grid-cols-2 gap-3">
+                    <div>
+                      <Label htmlFor="traslado-banda" className="mb-1 block">Banda *</Label>
+                      <Input
+                        id="traslado-banda"
+                        value={trasladoForm.data.banda}
+                        onChange={(e) => trasladoForm.setData('banda', e.target.value)}
+                        placeholder="Izquierda"
+                      />
+                      {trasladoForm.errors.banda && (
+                        <p className="mt-1 text-xs text-red-500">{trasladoForm.errors.banda}</p>
+                      )}
+                    </div>
+                    <div>
+                      <Label htmlFor="traslado-fila" className="mb-1 block">Fila *</Label>
+                      <Input
+                        id="traslado-fila"
+                        value={trasladoForm.data.fila}
+                        onChange={(e) => trasladoForm.setData('fila', e.target.value)}
+                        placeholder="1"
+                      />
+                      {trasladoForm.errors.fila && (
+                        <p className="mt-1 text-xs text-red-500">{trasladoForm.errors.fila}</p>
+                      )}
+                    </div>
+                  </div>
+
+                  <div className="grid grid-cols-3 gap-3">
+                    <div>
+                      <Label htmlFor="traslado-columna" className="mb-1 block">Columna *</Label>
+                      <Input
+                        id="traslado-columna"
+                        value={trasladoForm.data.columna}
+                        onChange={(e) => trasladoForm.setData('columna', e.target.value)}
+                        placeholder="1"
+                      />
+                      {trasladoForm.errors.columna && (
+                        <p className="mt-1 text-xs text-red-500">{trasladoForm.errors.columna}</p>
+                      )}
+                    </div>
+                    <div>
+                      <Label htmlFor="traslado-altura" className="mb-1 block">Altura *</Label>
+                      <Input
+                        id="traslado-altura"
+                        value={trasladoForm.data.altura}
+                        onChange={(e) => trasladoForm.setData('altura', e.target.value)}
+                        placeholder="1"
+                      />
+                      {trasladoForm.errors.altura && (
+                        <p className="mt-1 text-xs text-red-500">{trasladoForm.errors.altura}</p>
+                      )}
+                    </div>
+                    <div>
+                      <Label htmlFor="traslado-nivel" className="mb-1 block">Nivel *</Label>
+                      <Input
+                        id="traslado-nivel"
+                        value={trasladoForm.data.nivel}
+                        onChange={(e) => trasladoForm.setData('nivel', e.target.value)}
+                        placeholder="1"
+                      />
+                      {trasladoForm.errors.nivel && (
+                        <p className="mt-1 text-xs text-red-500">{trasladoForm.errors.nivel}</p>
+                      )}
+                    </div>
+                  </div>
+
+                  <p className="text-xs text-gray-500">
+                    Los valores deben coincidir con la parametrización de la cámara destino.
+                  </p>
+                </div>
+
+                <DialogFooter>
+                  <Button type="button" variant="secondary" onClick={() => setTrasladoTarget(null)}>
+                    Cancelar
+                  </Button>
+                  <Button
+                    type="submit"
+                    disabled={trasladoForm.processing ||
+                      !trasladoForm.data.camara_id ||
+                      !trasladoForm.data.banda ||
+                      !trasladoForm.data.fila ||
+                      !trasladoForm.data.columna ||
+                      !trasladoForm.data.altura ||
+                      !trasladoForm.data.nivel}
+                  >
+                    {trasladoForm.processing ? 'Trasladando…' : 'Trasladar'}
                   </Button>
                 </DialogFooter>
               </form>
