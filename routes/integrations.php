@@ -83,6 +83,7 @@ Route::middleware(['auth'])->prefix('integrations')->name('integrations.')->grou
         Route::get('folios', [GarcesFolioController::class, 'index'])->name('folios.index');
         Route::post('folios/preview', [GarcesFolioController::class, 'preview'])->name('folios.preview');
         Route::post('folios/sync', [GarcesFolioController::class, 'sync'])->name('folios.sync');
+        Route::post('folios/{folio}/sync', [GarcesFolioController::class, 'syncSingle'])->name('folios.sync-single');
         Route::post('folios/export-excel', [GarcesFolioController::class, 'exportExcel'])->name('folios.export-excel');
         Route::post('folios/export-reporte-excel', [GarcesFolioController::class, 'exportReporteExcel'])->name('folios.export-reporte-excel');
 

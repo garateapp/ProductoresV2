@@ -25,6 +25,8 @@ class GarcesProduccionEnvio extends Model
         'last_error',
         'user_id',
         'sent_at',
+        'json_enviado',
+        'respuesta_api',
     ];
 
     protected $casts = [
@@ -34,6 +36,8 @@ class GarcesProduccionEnvio extends Model
         'attempts' => 'integer',
         'cajas' => 'float',
         'kilos' => 'float',
+        'json_enviado' => 'array',
+        'respuesta_api' => 'array',
     ];
 
     public function user(): BelongsTo

@@ -220,6 +220,65 @@ class GarcesProduccionFolioService
         ];
     }
 
+    public function syncSingleFolio(string $folio, ?int $userId = null): array
+    {
+        $folios = $this->normalizeFolios([$folio]);
+
+        if ($folios->isEmpty()) {
+            return ['folio' => $folio, 'status' => 'error', 'json_enviado' => null, 'respuesta_api' => null, 'error' => 'Folio inválido.'];
+        }
+
+        if (! $this->isEnabled()) {
+            return ['folio' => $folio, 'status' => 'disabled', 'json_enviado' => null, 'respuesta_api' => null, 'error' => 'Servicio deshabilitado.'];
+        }
+
+        $endpoint = $this->endpoint();
+
+        if ($endpoint === '') {
+            return ['folio' => $folio, 'status' => 'error', 'json_enviado' => null, 'respuesta_api' => null, 'error' => 'Endpoint de Garces no configurado.'];
+        }
+
+        $items = $this->palletBox->payloadsForFolios($folios->all());
+
+        if ($items === []) {
+            return ['folio' => $folio, 'status' => 'error', 'json_enviado' => null, 'respuesta_api' => null, 'error' => 'No se encontraron datos de producción para el folio.'];
+        }
+
+        $payload = $this->palletBox->mergeItems($items);
+        $jsonEnviado = json_encode($payload, JSON_UNESCAPED_UNICODE | JSON_PRETTY_PRINT);
+        $stats = $this->folioStats($items);
+        $detail = $stats['details'][0] ?? null;
+
+        $response = $this->sendPayload($endpoint, $payload);
+        $ok = $response['ok'];
+        $body = $response['body'] ?? null;
+
+        $this->recordEnvio(
+            folio: $folio,
+            numeroProceso: $detail['numero_proceso'] ?? null,
+            fechaProceso: $detail['fecha_proceso'] ?? null,
+            records: $detail['boxes'] ?? 0,
+            cajas: $detail['cajas'] ?? 0.0,
+            kilos: $detail['kilos'] ?? 0.0,
+            sent: $ok,
+            error: $ok ? null : ($response['error'] ?? null),
+            userId: $userId,
+            jsonEnviado: $jsonEnviado,
+            respuestaApi: $ok ? $body : null,
+        );
+
+        $status = $ok ? 'sent' : 'failed';
+
+        return [
+            'folio' => $folio,
+            'status' => $status,
+            'message' => $ok ? 'Folio enviado.' : ($response['error'] ?? 'Error al enviar.'),
+            'json_enviado' => $jsonEnviado,
+            'respuesta_api' => $ok ? $body : null,
+            'error' => $ok ? null : ($response['error'] ?? null),
+        ];
+    }
+
     /**
      * Totales por folio a partir de los payloads generados.
      *
@@ -398,13 +457,13 @@ class GarcesProduccionFolioService
                 'error' => $e->getMessage(),
             ]);
 
-            return ['ok' => false, 'error' => $e->getMessage()];
+            return ['ok' => false, 'error' => $e->getMessage(), 'body' => null];
         }
 
         $body = $response->json() ?? [];
 
         if (($body['isSucess'] ?? false) || ($body['isSuccess'] ?? false)) {
-            return ['ok' => true, 'error' => null];
+            return ['ok' => true, 'error' => null, 'body' => $body];
         }
 
         $error = $response->successful()
@@ -417,7 +476,7 @@ class GarcesProduccionFolioService
             'body' => mb_substr($response->body(), 0, 1000),
         ]);
 
-        return ['ok' => false, 'error' => $error];
+        return ['ok' => false, 'error' => $error, 'body' => $body];
     }
 
     protected function recordEnvio(
@@ -430,6 +489,8 @@ class GarcesProduccionFolioService
         bool $sent,
         ?string $error,
         ?int $userId,
+        ?string $jsonEnviado = null,
+        ?string $respuestaApi = null,
     ): void {
         $envio = GarcesProduccionEnvio::firstOrNew(['folio' => $folio]);
 
@@ -444,6 +505,8 @@ class GarcesProduccionFolioService
             'last_error' => $sent ? null : mb_substr((string) $error, 0, 1000),
             'user_id' => $userId,
             'sent_at' => $sent ? now() : $envio->sent_at,
+            'json_enviado' => $jsonEnviado,
+            'respuesta_api' => $respuestaApi,
         ]);
 
         $envio->save();

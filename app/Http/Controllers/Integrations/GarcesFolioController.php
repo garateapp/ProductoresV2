@@ -56,6 +56,11 @@ class GarcesFolioController extends Controller
             ->with('garces_sync', $result);
     }
 
+    public function syncSingle(Request $request, string $folio, GarcesProduccionFolioService $service)
+    {
+        return response()->json($service->syncSingleFolio($folio, $request->user()?->id));
+    }
+
     private function validateFolios(Request $request): array
     {
         return $request->validate([

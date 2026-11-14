@@ -1,4 +1,4 @@
-import React, { useMemo, useState } from 'react';
+import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { router, usePage } from '@inertiajs/react';
 import AuthenticatedLayout from '@/Layouts/AuthenticatedLayout';
 import GarcesPagination from '@/Components/Garces/GarcesPagination';
@@ -57,7 +57,16 @@ export default function Index({ folios, filters, config = {}, sourceError = null
   });
   const [selected, setSelected] = useState([]);
   const [sending, setSending] = useState(false);
+  const [log, setLog] = useState([]);
   const [dryRun, setDryRun] = useState({ open: false, loading: false, error: null, result: null, generatedAt: null });
+  const [logOpen, setLogOpen] = useState(false);
+  const logContainerRef = useRef(null);
+
+  useEffect(() => {
+    if (logContainerRef.current) {
+      logContainerRef.current.scrollTop = logContainerRef.current.scrollHeight;
+    }
+  }, [log]);
 
   const rows = folios?.data || [];
   const selectableRows = useMemo(() => rows.filter((row) => !row.enviado), [rows]);
@@ -77,25 +86,50 @@ export default function Index({ folios, filters, config = {}, sourceError = null
     setSelected(allSelected ? [] : selectableRows.map((row) => row.folio));
   };
 
-  const send = () => {
+  const send = async () => {
     if (selected.length === 0) return;
 
-    const preview = selected.slice(0, 10).join('\n');
     const ok = window.confirm(
-      `¿Enviar ${selected.length} folio(s) a Garces?\n\n${preview}${selected.length > 10 ? '\n…' : ''}`
+      `¿Enviar ${selected.length} folio(s) individualmente a Garces?`
     );
     if (!ok) return;
 
     setSending(true);
-    router.post(
-      SYNC_URL,
-      { folios: selected },
-      {
-        preserveScroll: true,
-        onSuccess: () => setSelected([]),
-        onFinish: () => setSending(false),
+    setLog([]);
+    setLogOpen(true);
+    setSelected([]);
+
+    for (const folio of selected) {
+      setLog((prev) => [...prev, { folio, status: 'sending' }]);
+
+      try {
+        const response = await window.axios.post(route('integrations.garces.folios.sync-single', { folio }));
+        const data = response.data;
+
+        if (data.status === 'sent' || data.status === 'completed') {
+          setLog((prev) => prev.map((item) =>
+            item.folio === folio
+              ? { ...item, status: 'sent', response: data.respuesta_api, json: data.json_enviado }
+              : item
+          ));
+        } else {
+          setLog((prev) => prev.map((item) =>
+            item.folio === folio
+              ? { ...item, status: 'failed', error: data.error || data.message || 'Error', json: data.json_enviado }
+              : item
+          ));
+        }
+      } catch (e) {
+        const data = e.response?.data;
+        setLog((prev) => prev.map((item) =>
+          item.folio === folio
+            ? { ...item, status: 'failed', error: (data && data.message) || e.message || 'Error de red', json: null }
+            : item
+        ));
       }
-    );
+    }
+
+    setSending(false);
   };
 
   const runDryRun = async () => {
@@ -379,6 +413,120 @@ export default function Index({ folios, filters, config = {}, sourceError = null
           <GarcesPagination links={folios?.links} />
         </CardContent>
       </Card>
+
+      {log.length > 0 && !logOpen && (
+        <Button
+          onClick={() => setLogOpen(true)}
+          className="fixed bottom-4 right-4 z-[60] bg-red-600 text-white px-4 py-2 rounded-lg shadow-lg hover:bg-red-700 transition-colors flex items-center gap-2"
+        >
+          <span className="text-sm">Ver log de envío</span>
+          {log.filter((i) => i.status === 'failed').length > 0 && (
+            <span className="bg-white text-red-600 rounded-full px-1.5 py-0.5 text-xs font-bold">
+              {log.filter((i) => i.status === 'failed').length}
+            </span>
+          )}
+        </Button>
+      )}
+
+      <div
+        className={`fixed inset-0 z-40 bg-black/40 ${logOpen ? 'flex' : 'hidden'}`}
+        onClick={() => setLogOpen(false)}
+      />
+      <div
+        className={`fixed inset-y-0 right-0 z-50 w-full max-w-md p-4 bg-background border-l shadow-2xl transform transition-transform duration-300 ease-in-out ${
+          logOpen ? 'translate-x-0' : 'translate-x-full'
+        } flex flex-col`}
+        onClick={(e) => e.stopPropagation()}
+      >
+        <div className="flex items-center justify-between mb-4">
+          <div>
+            <h2 className="text-lg font-semibold">Log de envío</h2>
+            <p className="text-xs text-muted-foreground">
+              {log.filter((i) => i.status === 'sent').length} de {log.length} enviado(s)
+            </p>
+          </div>
+          <Button size="sm" variant="ghost" onClick={() => setLogOpen(false)}>
+            Cerrar
+          </Button>
+        </div>
+
+        <div
+          ref={logContainerRef}
+          className="flex-1 overflow-y-auto space-y-2 pb-4"
+        >
+          {log.length === 0 && (
+            <p className="text-sm text-muted-foreground text-center">Sin envíos en esta sesión.</p>
+          )}
+          {log.map((item) => (
+            <div key={item.folio} className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 p-3 rounded border">
+              <div className="space-y-1">
+                <div className="text-sm font-medium">{item.folio}</div>
+                <div className="text-xs text-muted-foreground">{new Date().toLocaleString('es-CL')}</div>
+              </div>
+              <div className="flex items-center gap-2">
+                {item.status === 'sending' && (
+                  <div className="flex items-center gap-1.5 px-2 py-0.5 rounded bg-amber-100 text-amber-800 text-xs font-semibold animate-pulse">
+                    <span className="relative flex h-3 w-3">
+                      <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-amber-400 opacity-75"></span>
+                      <span className="relative inline-flex rounded-full h-3 w-3 bg-amber-600"></span>
+                    </span>
+                    Enviando…
+                  </div>
+                )}
+                {item.status === 'sent' && (
+                  <span className="px-2 py-0.5 rounded bg-green-100 text-green-800 text-xs font-semibold">Enviado</span>
+                )}
+                {item.status === 'failed' && (
+                  <span className="px-2 py-0.5 rounded bg-red-100 text-red-800 text-xs font-semibold">Falló</span>
+                )}
+                {(item.status === 'failed' || item.status === 'sent') && (
+                  <Button
+                    size="sm"
+                    variant="outline"
+                    onClick={() =>
+                      setLog((prev) =>
+                        prev.map((i) =>
+                          i.folio === item.folio ? { ...i, showDetails: !i.showDetails } : i
+                        )
+                      )
+                    }
+                  >
+                    {item.showDetails ? 'Ocultar detalles' : item.status === 'failed' ? 'Ver detalles' : 'Ver respuesta'}
+                  </Button>
+                )}
+              </div>
+              {item.showDetails && (
+                <div className="mt-2 p-3 rounded border bg-slate-50 space-y-2 w-full">
+                  <div className="flex items-center justify-between gap-2">
+                    <span className="text-xs font-semibold">
+                      {item.status === 'failed' ? 'JSON enviado' : 'Respuesta de la API'}
+                    </span>
+                    <Button
+                      size="sm"
+                      variant="outline"
+                      onClick={() => copyJson(item.status === 'failed' ? item.json : item.response)}
+                    >
+                      Copiar
+                    </Button>
+                  </div>
+                  <pre
+                    className={`max-h-64 overflow-auto p-2 text-xs rounded ${
+                      item.status === 'failed'
+                        ? 'bg-red-50 border-red-200 text-red-900'
+                        : 'bg-green-50 border-green-200 text-green-900'
+                    }`}
+                  >
+                    {JSON.stringify(item.status === 'failed' ? item.json : item.response, null, 2)}
+                  </pre>
+                  {item.status === 'failed' && item.error && (
+                    <div className="text-xs font-semibold text-red-800">Error de la API: {item.error}</div>
+                  )}
+                </div>
+              )}
+            </div>
+          ))}
+        </div>
+      </div>
 
       <Dialog open={dryRun.open} onOpenChange={(open) => setDryRun((prev) => ({ ...prev, open }))}>
         <DialogContent className="max-h-[92vh] overflow-hidden p-0 sm:max-w-4xl">
