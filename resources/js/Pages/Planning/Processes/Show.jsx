@@ -2012,21 +2012,23 @@ export default function Show({ process, planningMode = null, lines = [], allLine
                                           ))}
                                         </select>
 
-                                        <select
+                                        <input
+                                          list={`destino-list-${lot.id}`}
                                           className={`rounded border px-2 py-1 text-xs ${!isLocked && String(lot?.destino || '').trim() === '' ? 'border-red-300 bg-red-50' : ''}`}
-                                          value={lot?.destino ? String(lot.destino) : ''}
+                                          value={lot?.destino || ''}
                                           onChange={(e) => {
                                             const v = String(e.target.value || '').trim()
                                             setLot(lot.id, { destino: v ? v : null })
                                           }}
                                           disabled={isLocked}
                                           title="Destino (obligatorio antes de confirmar)"
-                                        >
-                                          <option value="">Destino…</option>
+                                          placeholder="Destino…"
+                                        />
+                                        <datalist id={`destino-list-${lot.id}`}>
                                           {(destinosAvailable || []).map((d) => (
                                             <option key={String(d)} value={String(d)}>{String(d)}</option>
                                           ))}
-                                        </select>
+                                        </datalist>
 
                                         <div className="flex items-start gap-2">
                                           <Button
