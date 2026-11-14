@@ -490,7 +490,7 @@ class GarcesProduccionFolioService
         ?string $error,
         ?int $userId,
         ?string $jsonEnviado = null,
-        ?string $respuestaApi = null,
+        ?array $respuestaApi = null,
     ): void {
         $envio = GarcesProduccionEnvio::firstOrNew(['folio' => $folio]);
 
