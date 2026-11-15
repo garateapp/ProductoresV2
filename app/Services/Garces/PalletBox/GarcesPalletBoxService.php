@@ -326,8 +326,14 @@ class GarcesPalletBoxService
                 
                 break;
             case ctype_digit($codigoBarra):
-                $tipoTarja = '1'; // folio numérico
+                if($cab->id_categoria==49){
+                $tipoTarja = '2'; // folio numérico
                 $tipoPallet='4';
+                }
+                else{
+                    $tipoTarja = '2'; // folio numérico
+                    $tipoPallet='4';
+                }
                 break;
              case str_ends_with($folioUpper, 'C'):
 
