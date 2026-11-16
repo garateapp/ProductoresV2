@@ -139,7 +139,7 @@ class GarcesPalletBoxService
      */
     public function payloadsForFolios(array $folios): array
     {
-        
+
         $items = [];
 
         foreach (array_values(array_unique(array_map('trim', array_map('strval', $folios)))) as $folio) {
@@ -228,8 +228,8 @@ class GarcesPalletBoxService
      * @return array<int,array{folio:string,payload:array<string,mixed>}>
      */
     private function buildItems(?string $folio, bool $recordMissing): array
-    { 
-       
+    {
+
         $config = Config::get('services.garces_pallet_box') ?? [];
 
         $maxPallets = (int) ($config['max_pallets_per_shipment'] ?? 50);
@@ -243,7 +243,7 @@ class GarcesPalletBoxService
         if ($folios->isEmpty()) {
             return [];
         }
-      
+
         $detalles = $this->reader->getDetalles($folios->all())->take($maxBoxes);
         $normalized = collect($this->normalizer->normalize($cabeceras, $detalles));
 
@@ -291,7 +291,7 @@ class GarcesPalletBoxService
 
     private function buildPayload(array $item, int $isExportDefault, float $tolerance, bool $recordMissing = true): array
     {
-       
+
         $cab = $item['cabecera'] ?? (object) [];
         $defaults = $item['defaults'] ?? [];
         $config = Config::get('services.garces_pallet_box') ?? [];
@@ -322,8 +322,8 @@ class GarcesPalletBoxService
                    $tipoTarja = '2'; // saldo
                 $tipoPallet='7';
                 }
-                
-                
+
+
                 break;
             case ctype_digit($codigoBarra):
                 if($cab->id_categoria==49){
@@ -331,23 +331,23 @@ class GarcesPalletBoxService
                 $tipoPallet='4';
                 }
                 else{
-                    $tipoTarja = '2'; // folio numérico
+                    $tipoTarja = '1'; // folio numérico
                     $tipoPallet='4';
                 }
                 break;
              case str_ends_with($folioUpper, 'C'):
 
-               
+
                 $tipoTarja = '1'; // folio numérico
                 $tipoPallet='4';
-               
+
                 break;
             default:
                 $tipoTarja = '6';
                 $tipoPallet='9';
                 break;
         }
-        
+
         // Un solo header con todas las cajas de los registros del folio/tarja.
         $mappedBoxes = $this->mapBoxes($item['detalles'] ?? [], $recordMissing);
         $cajasTotal = count($mappedBoxes);
@@ -366,7 +366,7 @@ class GarcesPalletBoxService
                 $isExport=2;
                 break;
         }
-     
+
         $kilosTotal = array_reduce($mappedBoxes, static function ($acc, $box) {
             return $acc + (float) ($box['kilos'] ?? 0);
         }, 0.0);
@@ -414,7 +414,7 @@ class GarcesPalletBoxService
         $result = [];
         $nota_calidad='';
 
-        
+
 
         foreach ($detalles as $det) {
             $ncaja = is_object($det) ? ($det->idCaja ?? ($det->ncaja ?? ($det->id_pkg_stock_cajas ?? ($det->NumeroCaja ?? '')))) : ($det['idCaja'] ?? ($det['ncaja'] ?? ($det['id_pkg_stock_cajas'] ?? ($det['NumeroCaja'] ?? ''))));
