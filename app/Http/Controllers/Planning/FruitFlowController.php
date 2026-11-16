@@ -34,7 +34,7 @@ class FruitFlowController extends Controller
             'especie' => $request->query('especie', ''),
             'variedad' => $request->query('variedad', ''),
             // Anchor (día dentro de la "semana actual"). Matriz muestra: semana anterior, actual y siguiente.
-            'anchor' => $request->query('anchor', now()->toDateString()),
+            'anchor' => $this->parseAnchorDate($request->query('anchor')),
             'producer_q' => $request->query('producer_q', ''),
             'only_active_producers' => $request->boolean('only_active_producers', true),
         ];
@@ -54,5 +54,19 @@ class FruitFlowController extends Controller
             'filters' => $filters,
             'matrix' => $matrix,
         ]);
+    }
+
+    private function parseAnchorDate(?string $value): string
+    {
+        if ($value === null || trim($value) === '') {
+            return now()->toDateString();
+        }
+
+        $parsed = \Carbon\Carbon::createFromFormat('Y-m-d', trim($value));
+        if (! $parsed) {
+            return now()->toDateString();
+        }
+
+        return $parsed->toDateString();
     }
 }

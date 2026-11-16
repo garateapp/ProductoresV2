@@ -2060,7 +2060,7 @@ class PackingProcessController extends Controller
      */
     private function buildInstructionLineSheets(PackingProcess $process, string $date, int $shiftId, ?array $lineIds = null, array $overridesByLineId = []): array
     {
-        $process->loadMissing(['shift', 'lots:process_id,packing_line_id']);
+        $process->loadMissing(['shift', 'lots:process_id,packing_line_id,numproceso,porcentaje_exportacion']);
 
         // Instructivo por proceso: solo incluye el proceso solicitado.
         $processIds = collect([(int) $process->id]);
@@ -2351,7 +2351,7 @@ class PackingProcessController extends Controller
                 $lot->setAttribute('instruction_inicio', $start);
                 $lot->setAttribute('instruction_fin', $end);
                 $lot->setAttribute('instruction_bins_por_hora', $binsPorHora);
-                $lot->setAttribute('numproceso', (string) ($lot->process?->numproceso ?? ''));
+                $lot->setAttribute('numproceso', (string) ($lot->numproceso ?? ''));
 
                 $destino = trim((string) ($lot->destino ?? ''));
                 $destKey = $destino !== '' ? mb_strtoupper($destino) : '-';
@@ -2932,6 +2932,8 @@ class PackingProcessController extends Controller
             'rows.*.pedido' => ['nullable', 'string', 'max:500'],
         ]);
 
+        Log::debug('Instruction update lots payload', $data['lots'] ?? []);
+
         $lineId = (int) $data['line_id'];
         $reason = trim((string) $data['change_reason']);
         $speciesFilter = trim((string) ($data['species'] ?? ''));
@@ -3112,6 +3114,8 @@ class PackingProcessController extends Controller
                     $numProc = trim((string) ($row['numproceso'] ?? ''));
                     $payload['numproceso'] = $numProc !== '' ? $numProc : null;
                 }
+
+                Log::debug('Instruction update lot save', ['lot_id' => $lot->id, 'payload' => $payload]);
 
                 $lot->forceFill($payload)->save();
                 $updatedLotsCount++;
@@ -3855,7 +3859,7 @@ class PackingProcessController extends Controller
     {
         $this->authorizePlanning($request);
 
-        $process->load(['shift', 'lots:process_id,packing_line_id']);
+        $process->load(['shift', 'lots:process_id,packing_line_id,numproceso,porcentaje_exportacion']);
 
         // Instructivo por proceso: solo muestra el proceso solicitado.
         $date = $process->fecha ? Carbon::parse($process->fecha)->toDateString() : now()->toDateString();
@@ -4272,6 +4276,7 @@ class PackingProcessController extends Controller
             }
 
             $lots = [];
+            Log::info($sheet['lots']);
             foreach (($sheet['lots'] ?? []) as $lot) {
                 /** @var PackingProcessLot|mixed $lot */
                 $start = $lot?->getAttribute('instruction_inicio') ?: ($lot?->inicio_estimado ?? null);

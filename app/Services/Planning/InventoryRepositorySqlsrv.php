@@ -100,10 +100,10 @@ class InventoryRepositorySqlsrv
         }
 
         if (! empty($filters['fecha_from'])) {
-            $query->whereRaw('fecha_recepcion'.' >= ?', [(string) $filters['fecha_from']]);
+            $query->whereRaw($fechaRecepcionExpr . ' >= ?', [(string) $filters['fecha_from']]);
         }
         if (! empty($filters['fecha_to'])) {
-            $query->whereRaw('fecha_recepcion'.' <= ?', [(string) $filters['fecha_to']]);
+            $query->whereRaw($fechaRecepcionExpr . ' <= ?', [(string) $filters['fecha_to']]);
         }
 
         // Filtros opcionales (si existen en tu vista)
@@ -209,7 +209,7 @@ class InventoryRepositorySqlsrv
             ')
             ->groupBy('n_g_recepcion')
             ->orderByDesc('antiguedad')
-            ->orderBy('fecha_recepcion')
+            ->orderBy('n_g_recepcion')
             ->limit($limit)
             ->get();
 

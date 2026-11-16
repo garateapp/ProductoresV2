@@ -125,6 +125,7 @@ function LotsTable({ lots }) {
               <td>{fmtTime(r?.inicio) || ''}</td>
               <td>{fmtTime(r?.fin) || ''}</td>
               <td>{r?.numproceso || ''}</td>
+              {console.log('source_type:', r)}
               <td>
                 {String(r?.source_type || '').trim().toLowerCase() === 'reembalaje'
                   ? `Folio ${String(r?.source_key || r?.n_g_recepcion || '')}`
