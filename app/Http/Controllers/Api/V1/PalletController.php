@@ -45,7 +45,19 @@ class PalletController extends Controller
                 'message' => 'Folio no registrado en salidas de producción.',
             ], 404);
         }
+        $variedad='';
+        $productor='';
+        $calibre='';
+        $categoria='';
+        $fecha_embalaje=''
+        foreach($salida as $item){
+            $variedad.=$item->n_variedad.", ";
+            $productor.=$item->n_productor.", ";
+            $calibre.=$item->n_calibre.", ";
+            $categoria.=$item->n_categoria.", ";
+            $fecha_embalaje.=$item->fecha_produccion_sf.", ";
 
+        }
         $cEmbalaje = trim((string) $salida->c_embalaje);
 
         $packaging = InventoryPackaging::query()
@@ -93,6 +105,11 @@ class PalletController extends Controller
             'folio' => $folio,
             'c_embalaje' => $cEmbalaje,
             'technical_sheet' => new PalletTechnicalSheetResource($sheet, $folio, $cEmbalaje),
+            'variedad'=>$variedad,
+            'productor'=>$productor,
+            'calibre'=>$calibre,
+            'categoria'=>$categoria,
+            'fecha_embalaje'=>$fecha_embalaje,
             'sheet'=>$sheet,
         ]);
     }
