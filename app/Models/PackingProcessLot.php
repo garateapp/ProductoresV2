@@ -62,6 +62,8 @@ class PackingProcessLot extends Model
         'inicio_estimado',
         'fin_estimado',
         'estado',
+        'numproceso',
+        'porcentaje_exportacion',
     ];
 
     protected $casts = [

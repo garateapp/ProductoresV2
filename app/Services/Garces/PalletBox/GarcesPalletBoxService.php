@@ -337,8 +337,7 @@ class GarcesPalletBoxService
                 break;
              case str_ends_with($folioUpper, 'C'):
 
-
-                $tipoTarja = '1'; // folio numérico
+                $tipoTarja = '1';
                 $tipoPallet='4';
 
                 break;

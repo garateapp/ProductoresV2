@@ -46,40 +46,40 @@ class PalletController extends Controller
             ], 404);
         }
        $variedades = [];
-$productores = [];
-$calibres = [];
-$categorias = [];
-$fechas_embalaje = [];
+        $productores = [];
+        $calibres = [];
+        $categorias = [];
+        $fechas_embalaje = [];
 
-foreach ($salida as $item) {
-    // Formatear fecha a DD-MM-YYYY
-    $fecha_formateada = !empty($item->fecha_produccion_sf) 
-        ? date('d-m-Y', strtotime($item->fecha_produccion_sf)) 
-        : '';
+        foreach ($salida as $item) {
+            // Formatear fecha a DD-MM-YYYY
+            $fecha_formateada = !empty($item->fecha_produccion_sf)
+                ? date('d-m-Y', strtotime($item->fecha_produccion_sf))
+                : '';
 
-    if (!empty($item->n_variedad)) {
-        $variedades[] = $item->n_variedad;
-    }
-    if (!empty($item->n_productor)) {
-        $productores[] = $item->n_productor;
-    }
-    if (!empty($item->n_calibre)) {
-        $calibres[] = $item->n_calibre;
-    }
-    if (!empty($item->n_categoria)) {
-        $categorias[] = $item->n_categoria;
-    }
-    if (!empty($fecha_formateada)) {
-        $fechas_embalaje[] = $fecha_formateada;
-    }
-}
+            if (!empty($item->n_variedad)) {
+                $variedades[] = $item->n_variedad;
+            }
+            if (!empty($item->n_productor)) {
+                $productores[] = $item->n_productor;
+            }
+            if (!empty($item->n_calibre)) {
+                $calibres[] = $item->n_calibre;
+            }
+            if (!empty($item->n_categoria)) {
+                $categorias[] = $item->n_categoria;
+            }
+            if (!empty($fecha_formateada)) {
+                $fechas_embalaje[] = $fecha_formateada;
+            }
+        }
 
-// Eliminar duplicados y unir con ", " (sin dejar una coma sobrante al final)
-$variedad       = implode(', ', array_unique($variedades));
-$productor      = implode(', ', array_unique($productores));
-$calibre        = implode(', ', array_unique($calibres));
-$categoria      = implode(', ', array_unique($categorias));
-$fecha_embalaje = implode(', ', array_unique($fechas_embalaje));
+        // Eliminar duplicados y unir con ", " (sin dejar una coma sobrante al final)
+        $variedad       = implode(', ', array_unique($variedades));
+        $productor      = implode(', ', array_unique($productores));
+        $calibre        = implode(', ', array_unique($calibres));
+        $categoria      = implode(', ', array_unique($categorias));
+        $fecha_embalaje = implode(', ', array_unique($fechas_embalaje));
         $cEmbalaje = trim((string) $salida[0]->c_embalaje);
 
         $packaging = InventoryPackaging::query()
