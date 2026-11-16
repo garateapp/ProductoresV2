@@ -46,6 +46,7 @@ class UpdatePackingProcessLotsRequest extends FormRequest
             'lots.*.extra_packagings.*.cp2_cajas_por_pallet' => ['nullable', 'integer', 'min:1'],
             'lots.*.extra_packagings.*.indications' => ['nullable', 'string', 'max:1000'],
             'lots.*.extra_packagings.*.destino' => ['nullable', 'string', 'max:60'],
+            'lots.*.sispro' => ['nullable', 'string', 'max:100'],
 
             // Eliminar lotes
             'remove_ids' => ['nullable', 'array'],

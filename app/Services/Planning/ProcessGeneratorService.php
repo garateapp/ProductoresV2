@@ -289,6 +289,7 @@ class ProcessGeneratorService
                         'destino' => isset($candidate['destino']) && trim((string) $candidate['destino']) !== ''
                             ? trim((string) $candidate['destino'])
                             : null,
+                        'sispro' => $candidate['referencias_recepcion'] ?? null,
                         // Embalaje sugerido por matriz (si hay match); siempre editable en UI.
                         'c_embalaje' => $cEmbalaje,
                         'n_embalaje' => $nEmbalaje,

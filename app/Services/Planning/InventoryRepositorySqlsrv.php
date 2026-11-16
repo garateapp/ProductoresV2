@@ -204,7 +204,8 @@ class InventoryRepositorySqlsrv
                 max(N_Tratamiento) as n_tratamiento,
 
                 max(fecha_validacion) as fecha_validacion,
-                max(Estado_Recepcion) as estado_recepcion
+                max(Estado_Recepcion) as estado_recepcion,
+                max(referencias_recepcion) as lote_sispro
             ')
             ->groupBy('n_g_recepcion')
             ->orderByDesc('antiguedad')

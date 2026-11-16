@@ -2907,6 +2907,10 @@ class PackingProcessController extends Controller
             'lots.*.n_variedad' => ['nullable', 'string', 'max:120'],
             'lots.*.pulpa' => ['nullable', 'string', 'max:120'],
             'lots.*.huerto' => ['nullable', 'string', 'in:Tipo A,Tipo B,Tipo C,Tipo C*'],
+            'lots.*.sispro' => ['nullable', 'string', 'max:100'],
+            'lots.*.nota_calidad' => ['nullable', 'string', 'max:40'],
+            'lots.*.porcentaje_exportacion' => ['nullable', 'numeric', 'between:0,100'],
+            'lots.*.numproceso' => ['nullable', 'string', 'max:50'],
             // Orden visible de la tabla "Procesos / lotes" (ids en el orden enviado).
             'lots_order' => ['nullable', 'array'],
             'lots_order.*' => ['integer', 'min:1'],
@@ -3063,6 +3067,7 @@ class PackingProcessController extends Controller
                 $nVariedad = trim((string) ($row['n_variedad'] ?? ''));
                 $pulpa = trim((string) ($row['pulpa'] ?? ''));
                 $huerto = trim((string) ($row['huerto'] ?? ''));
+                $sispro = trim((string) ($row['sispro'] ?? ''));
                 $destino = trim((string) ($lot->destino ?? ''));
 
                 // Normalización de tipo de proceso para persistencia consistente.
@@ -3091,6 +3096,21 @@ class PackingProcessController extends Controller
                     $payload['huerto'] = $isMexico && in_array($huerto, ['Tipo A', 'Tipo B', 'Tipo C', 'Tipo C*'], true)
                         ? $huerto
                         : null;
+                }
+                if (Schema::hasColumn('process_lots', 'sispro')) {
+                    $payload['sispro'] = $sispro !== '' ? $sispro : null;
+                }
+                if (Schema::hasColumn('process_lots', 'setup_nota_calidad')) {
+                    $notaCalidad = trim((string) ($row['nota_calidad'] ?? ''));
+                    $payload['setup_nota_calidad'] = $notaCalidad !== '' ? $notaCalidad : null;
+                }
+                if (Schema::hasColumn('process_lots', 'porcentaje_exportacion')) {
+                    $porc = $row['porcentaje_exportacion'] ?? null;
+                    $payload['porcentaje_exportacion'] = is_numeric($porc) ? (float) $porc : null;
+                }
+                if (Schema::hasColumn('process_lots', 'numproceso')) {
+                    $numProc = trim((string) ($row['numproceso'] ?? ''));
+                    $payload['numproceso'] = $numProc !== '' ? $numProc : null;
                 }
 
                 $lot->forceFill($payload)->save();
@@ -3268,6 +3288,7 @@ class PackingProcessController extends Controller
             'sdp_centrocosto' => $row['sdp_centrocosto'] ?? null,
             'envase_origen' => $row['n_embalaje'] ?? null,
             'altura_origen' => $row['n_altura'] ?? null,
+            'sispro' => $row['referencias_recepcion'] ?? null,
             // Embalaje sugerido por matriz (si hay match); siempre editable en UI.
             'c_embalaje' => $pack['c_item'] ?? null,
             'n_embalaje' => $pack['n_item'] ?? null,
@@ -3297,6 +3318,9 @@ class PackingProcessController extends Controller
         }
         if (Schema::hasColumn('process_lots', 'huerto')) {
             $newLotData['huerto'] = null;
+        }
+        if (Schema::hasColumn('process_lots', 'sispro')) {
+            $newLotData['sispro'] = $row['referencias_recepcion'] ?? null;
         }
         if (Schema::hasColumn('process_lots', 'source_snapshot')) {
             $newLotData['source_snapshot'] = [
@@ -3384,6 +3408,7 @@ class PackingProcessController extends Controller
             'envase_origen' => $row['n_embalaje'] ?? null,
             'altura_origen' => $row['n_altura'] ?? null,
             'destino' => isset($row['destino']) && trim((string) $row['destino']) !== '' ? trim((string) $row['destino']) : null,
+            'sispro' => $row['referencias_recepcion'] ?? null,
             'c_embalaje' => $pack['c_item'] ?? ($row['c_embalaje'] ?? null),
             'n_embalaje' => $pack['n_item'] ?? ($row['n_embalaje'] ?? null),
             'cp2_cajas_por_pallet' => $pack['cp2_cajas_por_pallet'] ?? null,
@@ -4269,11 +4294,12 @@ class PackingProcessController extends Controller
                     'source_n_embalaje' => (string) ($lot?->source_n_embalaje ?? ''),
                     'source_categoria' => (string) ($lot?->source_categoria ?? ''),
                     'destino' => (string) ($lot?->destino ?? ''),
-                    'porcentaje_exportacion' => (function () use ($lot, $exportableByNg) {
-                        $ng = trim((string) ($lot?->n_g_recepcion ?? ''));
-                        return $ng !== '' && array_key_exists($ng, $exportableByNg)
-                            ? (float) $exportableByNg[$ng]
-                            : null;
+                    'porcentaje_exportacion' => (function () use ($lot) {
+                        $porc = $lot?->porcentaje_exportacion;
+                        if ($porc !== null && $porc !== '') {
+                            return (float) $porc;
+                        }
+                        return null;
                     })(),
                     'tipo_proceso' => (string) (($lot?->tipo_proceso ?? '') !== '' ? $lot->tipo_proceso : 'Normal'),
                     'variedad_original' => (string) ($lot?->variedad_original ?? ''),
@@ -4291,6 +4317,7 @@ class PackingProcessController extends Controller
                         return $key !== '' ? (string) ($pulpaByVariedad[$key] ?? '') : '';
                     })(),
                     'huerto' => (string) ($lot?->huerto ?? ''),
+                    'sispro' => (string) ($lot?->sispro ?? ''),
                     'fecha_recepcion' => $lot?->fecha_recepcion ? (string) $lot->fecha_recepcion : null,
                     'cantidad_bins' => (int) ($lot?->cantidad_bins ?? 0),
                     'cantidad_totes' => $lot?->cantidad_totes !== null ? (int) $lot->cantidad_totes : null,

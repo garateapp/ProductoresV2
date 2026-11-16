@@ -267,6 +267,7 @@ function LotsTable({
             <th>Hr Término Proceso</th>
             <th>N° Proceso</th>
             <th>Lote</th>
+            <th>Sispro</th>
             <th>Tipo Proceso</th>
             <th>Variedad Original</th>
             <th>Productor Real</th>
@@ -306,7 +307,17 @@ function LotsTable({
               ) : null}
               <td>{fmtTime(r?.inicio) || ''}</td>
               <td>{fmtTime(r?.fin) || ''}</td>
-              <td>{r?.process_id || ''}</td>
+              <td>
+                {editable ? (
+                  <Input
+                    className={`w-full rounded border px-2 py-1 text-xs ${rowErrors?.numproceso ? 'border-red-500 bg-red-50' : ''}`}
+                    value={String(r?.numproceso || '')}
+                    onChange={(e) => onUpdateLot?.(r?.id, { numproceso: String(e.target.value || '') })}
+                    placeholder="N° Proceso"
+                  />
+                ) : (r?.numproceso || '')}
+                {rowErrors?.numproceso ? <div className="mt-1 text-[10px] text-red-600">{rowErrors.numproceso}</div> : null}
+              </td>
               <td>
                 {String(r?.source_type || '').trim().toLowerCase() === 'reembalaje'
                   ? `Folio ${String(r?.source_key || r?.n_g_recepcion || '')}`
@@ -319,6 +330,17 @@ function LotsTable({
                 {rowHasError ? (
                   <div className="mt-1 text-[10px] font-semibold text-red-600">Fila {idx + 1} con errores</div>
                 ) : null}
+              </td>
+              <td>
+                {editable ? (
+                  <Input
+                    className={`w-full rounded border px-2 py-1 text-xs ${rowErrors?.sispro ? 'border-red-500 bg-red-50' : ''}`}
+                    value={String(r?.sispro || '')}
+                    onChange={(e) => onUpdateLot?.(r?.id, { sispro: String(e.target.value || '') })}
+                    placeholder="Sispro"
+                  />
+                ) : (r?.sispro || '')}
+                {rowErrors?.sispro ? <div className="mt-1 text-[10px] text-red-600">{rowErrors.sispro}</div> : null}
               </td>
               <td>
                 {editable ? (
@@ -374,16 +396,35 @@ function LotsTable({
               <td>{r?.pulpa || ''}</td>
               <td>{r?.fecha_recepcion ? fmtDate(String(r.fecha_recepcion).slice(0, 10)) : ''}</td>
               <td>
-                {r?.porcentaje_exportacion !== null && r?.porcentaje_exportacion !== undefined
-                  ? `${Number(r.porcentaje_exportacion).toLocaleString('es-CL', { minimumFractionDigits: 0, maximumFractionDigits: 2 })}%`
-                  : ''}
+                {editable ? (
+                  <Input
+                    className={`w-full rounded border px-2 py-1 text-xs ${rowErrors?.porcentaje_exportacion ? 'border-red-500 bg-red-50' : ''}`}
+                    type="number"
+                    min="0"
+                    max="100"
+                    step="0.01"
+                    value={String(r?.porcentaje_exportacion ?? '')}
+                    onChange={(e) => onUpdateLot?.(r?.id, { porcentaje_exportacion: String(e.target.value || '') })}
+                  />
+                ) : `${Number(r.porcentaje_exportacion).toLocaleString('es-CL', { minimumFractionDigits: 0, maximumFractionDigits: 2 })}%`}
+                {rowErrors?.porcentaje_exportacion ? <div className="mt-1 text-[10px] text-red-600">{rowErrors.porcentaje_exportacion}</div> : null}
               </td>
               <td>{Number(r?.cantidad_bins || 0) ? Number(r.cantidad_bins).toLocaleString('es-CL') : ''}</td>
               <td>{Number(r?.cantidad_totes || 0) ? Number(r.cantidad_totes).toLocaleString('es-CL') : ''}</td>
               <td>{Number(r?.peso_neto || 0) ? Math.round(Number(r.peso_neto)).toLocaleString('es-CL') : ''}</td>
               <td>{Number(r?.peso_promedio_envase || 0) ? Number(r.peso_promedio_envase).toLocaleString('es-CL', { minimumFractionDigits: 3, maximumFractionDigits: 3 }) : ''}</td>
               <td>{r?.sdp_centrocosto || ''}</td>
-              <td>{r?.nota_calidad || ''}</td>
+              <td>
+                {editable ? (
+                  <Input
+                    className={`w-full rounded border px-2 py-1 text-xs ${rowErrors?.nota_calidad ? 'border-red-500 bg-red-50' : ''}`}
+                    value={String(r?.nota_calidad || '')}
+                    onChange={(e) => onUpdateLot?.(r?.id, { nota_calidad: String(e.target.value || '') })}
+                    placeholder="Nota calidad"
+                  />
+                ) : (r?.nota_calidad || '')}
+                {rowErrors?.nota_calidad ? <div className="mt-1 text-[10px] text-red-600">{rowErrors.nota_calidad}</div> : null}
+              </td>
               <td>{r?.exportadora || ''}</td>
               <td>
                 {editable ? (
@@ -413,7 +454,7 @@ function LotsTable({
             )
           })}
           <tr>
-            <td colSpan={(hasMexico ? 13 : 12) + (canReorder ? 1 : 0)} className="font-bold">TOTAL</td>
+            <td colSpan={(hasMexico ? 14 : 13) + (canReorder ? 1 : 0)} className="font-bold">TOTAL</td>
             <td className="font-bold">{sumBins ? sumBins.toLocaleString('es-CL') : ''}</td>
             <td className="font-bold">{sumTotes ? sumTotes.toLocaleString('es-CL') : ''}</td>
             <td className="font-bold">{sumKgs ? Math.round(sumKgs).toLocaleString('es-CL') : ''}</td>
@@ -539,6 +580,8 @@ export default function Edit({
       n_variedad: String(l?.n_variedad || ''),
       pulpa: String(l?.pulpa || ''),
       huerto: String(l?.huerto || ''),
+      sispro: String(l?.sispro || ''),
+      numproceso: String(l?.numproceso || ''),
     }))
   }, [lots])
 
@@ -583,6 +626,8 @@ export default function Edit({
     shift_id: Number(shift?.id || 0),
     pedidos: String(sheet?.pedidosLabel || '').trim() === '-' ? '' : String(sheet?.pedidosLabel || ''),
     species: String(sheet?.speciesLabel || '').toUpperCase() === 'VARIAS' ? '' : String(sheet?.speciesLabel || ''),
+    porcentaje_exportacion: String(sheet?.porcentaje_exportacion || ''),
+    nota_calidad: String(sheet?.nota_calidad || ''),
     lots: initialLots,
     rows: initialRows,
   })
@@ -832,6 +877,28 @@ export default function Edit({
                 <div className="meta-box">
                   <div className="meta-label">Kilos</div>
                   <div className="meta-value">{Number(sheet?.kilos || 0) ? Math.round(Number(sheet.kilos)).toLocaleString('es-CL') : '0'}</div>
+                </div>
+                <div className="meta-box">
+                  <div className="meta-label">% Exportación</div>
+                  <input
+                    type="number"
+                    min="0"
+                    max="100"
+                    step="0.01"
+                    value={data.porcentaje_exportacion ?? ''}
+                    onChange={(e) => setData('porcentaje_exportacion', e.target.value)}
+                    className="w-full border border-gray-300 rounded px-2 py-1 text-sm bg-white"
+                  />
+                </div>
+                <div className="meta-box">
+                  <div className="meta-label">Nota Calidad</div>
+                  <input
+                    type="text"
+                    value={data.nota_calidad ?? ''}
+                    onChange={(e) => setData('nota_calidad', e.target.value)}
+                    placeholder="Nota calidad"
+                    className="w-full border border-gray-300 rounded px-2 py-1 text-sm bg-white"
+                  />
                 </div>
                 <div className="meta-box" style={{ gridColumn: 'span 6' }}>
                   <div className="meta-label">Pedidos</div>

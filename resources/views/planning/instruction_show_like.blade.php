@@ -251,6 +251,7 @@
                                 <th style="width:4%">Hr Término Proceso</th>
                                 <th style="width:5%">N° Proceso</th>
                                 <th style="width:6%">Lote</th>
+                                <th style="width:6%">Sispro</th>
                                 <th style="width:4%">Tipo Proceso</th>
                                 <th style="width:3%">Variedad Original</th>
                                 <th style="width:6%">Productor Real</th>
@@ -289,9 +290,10 @@
                                             <strong>Folio {{ $lote }}</strong>
                                             <div class="small">N° Proceso {{ (string) ($r['source_n_g_proceso'] ?? '-') }} · Lote {{ (string) (($r['source_lote'] ?? '') !== '' ? $r['source_lote'] : ($r['n_g_recepcion'] ?? '-')) }}</div>
                                         @else
-                                            {{ $lote }}
-                                        @endif
+                                        {{ $lote }}
+                                    @endif
                                     </td>
+                                    <td>{{ (string) ($r['sispro'] ?? '') }}</td>
                                     <td>{{ (string) (($r['tipo_proceso'] ?? '') !== '' ? $r['tipo_proceso'] : 'Normal') }}</td>
                                     <td>{{ (string) ($r['variedad_original'] ?? '') }}</td>
                                     <td>{{ (string) (($r['productor_real'] ?? '') !== '' ? $r['productor_real'] : ($r['n_productor'] ?? '')) }}</td>
@@ -321,7 +323,7 @@
                                 </tr>
                             @endforeach
                             <tr>
-                                <td colspan="{{ $hasMexico ? 13 : 12 }}"><strong>TOTAL</strong></td>
+                                <td colspan="{{ $hasMexico ? 14 : 13 }}"><strong>TOTAL</strong></td>
                                 <td><strong>{{ $sumBins ? number_format((float) $sumBins, 0, ',', '.') : '' }}</strong></td>
                                 <td><strong>{{ $sumTotes ? number_format((float) $sumTotes, 0, ',', '.') : '' }}</strong></td>
                                 <td><strong>{{ $sumKgs ? number_format(round((float) $sumKgs), 0, ',', '.') : '' }}</strong></td>

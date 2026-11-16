@@ -98,6 +98,7 @@ function LotsTable({ lots }) {
             <th>Hr Término Proceso</th>
             <th>N° Proceso</th>
             <th>Lote</th>
+            <th>Sispro</th>
             <th>Tipo Proceso</th>
             <th>Variedad Original</th>
             <th>Productor Real</th>
@@ -134,6 +135,7 @@ function LotsTable({ lots }) {
                   </div>
                 ) : null}
               </td>
+              <td>{r?.sispro || ''}</td>
               <td>{r?.tipo_proceso || 'Normal'}</td>
               <td>{r?.variedad_original || ''}</td>
               <td>{r?.productor_real || ''}</td>
@@ -159,7 +161,7 @@ function LotsTable({ lots }) {
             </tr>
           ))}
           <tr>
-            <td colSpan={hasMexico ? 13 : 12} className="font-bold">TOTAL</td>
+            <td colSpan={hasMexico ? 14 : 13} className="font-bold">TOTAL</td>
             <td className="font-bold">{sumBins ? sumBins.toLocaleString('es-CL') : ''}</td>
             <td className="font-bold">{sumTotes ? sumTotes.toLocaleString('es-CL') : ''}</td>
             <td className="font-bold">{sumKgs ? Math.round(sumKgs).toLocaleString('es-CL') : ''}</td>
