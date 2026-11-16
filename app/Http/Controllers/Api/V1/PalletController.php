@@ -40,7 +40,7 @@ class PalletController extends Controller
             ], 500);
         }
 
-        if (! $salida) {
+        if (!$salida) {
             return response()->json([
                 'message' => 'Folio no registrado en salidas de producción.',
             ], 404);
@@ -49,8 +49,16 @@ class PalletController extends Controller
         $productor='';
         $calibre='';
         $categoria='';
-        $fecha_embalaje=''
+        $fecha_embalaje='';
+        Log::info('PalletController@show', [
+            'folio' => $folio,
+            'salida' => $salida,
+        ]);
         foreach($salida as $item){
+             Log::info('PalletController@show', [
+
+            'item' => $item
+        ]);
             $variedad.=$item->n_variedad.", ";
             $productor.=$item->n_productor.", ";
             $calibre.=$item->n_calibre.", ";
@@ -58,7 +66,7 @@ class PalletController extends Controller
             $fecha_embalaje.=$item->fecha_produccion_sf.", ";
 
         }
-        $cEmbalaje = trim((string) $salida->c_embalaje);
+        $cEmbalaje = trim((string) $salida[0]->c_embalaje);
 
         $packaging = InventoryPackaging::query()
             ->where('codigo', $cEmbalaje)
@@ -124,8 +132,8 @@ class PalletController extends Controller
                 $salida = DB::connection($connection)
                     ->table(self::SALIDAS_VIEW)
                     ->where('folio', $folio)
-                    ->select(['folio', 'c_embalaje'])
-                    ->first();
+                    ->select(['folio', 'c_embalaje','n_variedad','n_productor','n_calibre','n_categoria','fecha_produccion_sf'])
+                    ->get();
                 $successfulQueries++;
 
                 if ($salida) {
