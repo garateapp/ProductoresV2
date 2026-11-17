@@ -514,12 +514,7 @@ class AutoConsumptionService
             return $mapping->location;
         }
 
-        return InventoryLocation::query()
-            ->where('tipo', 'produccion')
-            ->where('activo', true)
-            ->orderBy('sort_order')
-            ->orderBy('id')
-            ->first();
+        return null;
     }
 
     private function isTemporal(array $folio): bool

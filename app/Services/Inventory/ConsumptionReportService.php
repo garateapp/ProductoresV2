@@ -3,6 +3,7 @@
 namespace App\Services\Inventory;
 
 use App\Models\InventoryManualConsumption;
+use App\Models\InventoryTechnicalSheet;
 use Illuminate\Support\Facades\DB;
 
 class ConsumptionReportService
@@ -53,6 +54,9 @@ class ConsumptionReportService
             'origin_location_id' => trim((string) ($filters['origin_location_id'] ?? '')),
             'tipo_folio' => trim((string) ($filters['tipo_folio'] ?? '')),
             'incluir_mermas' => filter_var($filters['incluir_mermas'] ?? true, FILTER_VALIDATE_BOOLEAN),
+            'embalaje_codigo' => trim((string) ($filters['embalaje_codigo'] ?? '')),
+            'embalaje_nombre' => trim((string) ($filters['embalaje_nombre'] ?? '')),
+            'etiqueta' => trim((string) ($filters['etiqueta'] ?? '')),
             'q' => trim((string) ($filters['q'] ?? '')),
         ];
     }
@@ -268,6 +272,289 @@ class ConsumptionReportService
                 'gran_total' => round($normal + $temporal + $manual + $merma, 4),
             ];
         })->all());
+    }
+
+    /**
+     * @param  array<string, mixed>  $filters
+     * @return list<array<string, mixed>>
+     */
+    public function materialPackagingRows(array $filters): array
+    {
+        $filters = $this->normalizeFilters($filters);
+
+        $query = $this->baseMaterialQuery($filters);
+
+        if ($filters['date_from'] !== '') {
+            $query->whereDate('m.fecha_movimiento', '>=', $filters['date_from']);
+        }
+
+        if ($filters['date_to'] !== '') {
+            $query->whereDate('m.fecha_movimiento', '<=', $filters['date_to']);
+        }
+
+        if ($filters['material_id'] !== '') {
+            $query->where('d.material_id', (int) $filters['material_id']);
+        }
+
+        if ($filters['embalaje_codigo'] !== '') {
+            $like = '%'.$filters['embalaje_codigo'].'%';
+            $query->where('pkg.codigo', 'like', $like);
+        }
+
+        if ($filters['embalaje_nombre'] !== '') {
+            $like = '%'.$filters['embalaje_nombre'].'%';
+            $query->where('pkg.nombre', 'like', $like);
+        }
+
+        if ($filters['etiqueta'] !== '') {
+            $like = '%'.$filters['etiqueta'].'%';
+            $query->where(function ($inner) use ($like): void {
+                $inner->where('lbl.codigo', 'like', $like)
+                    ->orWhere('lbl.nombre', 'like', $like);
+            });
+        }
+
+        if ($filters['q'] !== '') {
+            $like = '%'.$filters['q'].'%';
+            $query->where(function ($inner) use ($like): void {
+                $inner->where('mat.codigo', 'like', $like)
+                    ->orWhere('mat.nombre', 'like', $like)
+                    ->orWhere('mat.descripcion', 'like', $like)
+                    ->orWhere('pkg.codigo', 'like', $like)
+                    ->orWhere('pkg.nombre', 'like', $like)
+                    ->orWhere('lbl.codigo', 'like', $like)
+                    ->orWhere('lbl.nombre', 'like', $like);
+            });
+        }
+
+        $rows = $query
+            ->select([
+                'mat.id as material_id',
+                'mat.codigo as material_codigo',
+                'mat.nombre as material_nombre',
+                'mat.descripcion as material_descripcion',
+                'mat.tipo_material as material_tipo_material',
+                'pkg.codigo as embalaje_codigo',
+                'pkg.nombre as embalaje_nombre',
+                'lbl.codigo as etiqueta_codigo',
+                'lbl.nombre as etiqueta_nombre',
+                DB::raw('SUM(d.cantidad) as cantidad_consumida'),
+            ])
+            ->groupBy(
+                'mat.id', 'mat.codigo', 'mat.nombre', 'mat.descripcion', 'mat.tipo_material',
+                'pkg.codigo', 'pkg.nombre',
+                'lbl.codigo', 'lbl.nombre'
+            )
+            ->orderBy('mat.codigo')
+            ->get();
+
+        $accumulator = [];
+
+        foreach ($rows as $row) {
+            $materialId = (int) $row->material_id;
+            $cantidad = round((float) $row->cantidad_consumida, 4);
+
+            if ($cantidad <= 0) {
+                continue;
+            }
+
+            $this->expandMaterial(
+                $materialId,
+                (string) $row->material_codigo,
+                (string) $row->material_nombre,
+                (string) $row->material_descripcion,
+                (string) $row->material_tipo_material,
+                $cantidad,
+                (string) ($row->embalaje_codigo ?: '-'),
+                (string) ($row->embalaje_nombre ?: '-'),
+                (string) ($row->etiqueta_codigo ?: ($row->etiqueta_nombre ?: '-')),
+                $accumulator,
+                0
+            );
+        }
+
+        $expanded = array_values($accumulator);
+        usort($expanded, fn (array $a, array $b) => strcmp($a['material_codigo'], $b['material_codigo']));
+
+        return $expanded;
+    }
+
+    /**
+     * @param  int  $materialId
+     * @param  string  $codigo
+     * @param  string  $nombre
+     * @param  string  $descripcion
+     * @param  string  $tipoMaterial
+     * @param  float  $cantidad
+     * @param  string  $embalajeCodigo
+     * @param  string  $embalajeNombre
+     * @param  string  $etiqueta
+     * @param  array<string, mixed>  $accumulator
+     * @param  int  $depth
+     * @return void
+     */
+    private function expandMaterial(
+        int $materialId,
+        string $codigo,
+        string $nombre,
+        string $descripcion,
+        string $tipoMaterial,
+        float $cantidad,
+        string $embalajeCodigo,
+        string $embalajeNombre,
+        string $etiqueta,
+        array &$accumulator,
+        int $depth
+    ): void {
+        if ($depth > 20) {
+            return;
+        }
+
+        $isSemi = strtolower(trim($tipoMaterial)) === 'semielaborado';
+
+        if (! $isSemi) {
+            $key = $codigo.'|'.$embalajeCodigo.'|'.$etiqueta;
+
+            if (! isset($accumulator[$key])) {
+                $accumulator[$key] = [
+                    'material_codigo' => $codigo,
+                    'material_nombre' => $nombre,
+                    'material_descripcion' => $descripcion,
+                    'embalaje_codigo' => $embalajeCodigo,
+                    'embalaje_nombre' => $embalajeNombre,
+                    'etiqueta' => $etiqueta,
+                    'material_es_semielaborado' => false,
+                    'material_original_codigo' => '',
+                    'material_original_nombre' => '',
+                    'cantidad_consumida' => 0.0,
+                ];
+            }
+
+            $accumulator[$key]['cantidad_consumida'] = round((float) $accumulator[$key]['cantidad_consumida'] + $cantidad, 4);
+
+            return;
+        }
+
+        $sheet = InventoryTechnicalSheet::query()
+            ->where('material_id', $materialId)
+            ->where('activo', true)
+            ->first();
+
+        if (! $sheet) {
+            $key = $codigo.'|'.$embalajeCodigo.'|'.$etiqueta;
+
+            if (! isset($accumulator[$key])) {
+                $accumulator[$key] = [
+                    'material_codigo' => $codigo,
+                    'material_nombre' => $nombre,
+                    'material_descripcion' => $descripcion,
+                    'embalaje_codigo' => $embalajeCodigo,
+                    'embalaje_nombre' => $embalajeNombre,
+                    'etiqueta' => $etiqueta,
+                    'material_es_semielaborado' => true,
+                    'material_original_codigo' => '',
+                    'material_original_nombre' => '',
+                    'cantidad_consumida' => 0.0,
+                ];
+            }
+
+            $accumulator[$key]['cantidad_consumida'] = round((float) $accumulator[$key]['cantidad_consumida'] + $cantidad, 4);
+
+            return;
+        }
+
+        $items = $sheet->unitItems()->where('material_id', '>', 0)->get();
+
+        if ($items->isEmpty()) {
+            $key = $codigo.'|'.$embalajeCodigo.'|'.$etiqueta;
+
+            if (! isset($accumulator[$key])) {
+                $accumulator[$key] = [
+                    'material_codigo' => $codigo,
+                    'material_nombre' => $nombre,
+                    'material_descripcion' => $descripcion,
+                    'embalaje_codigo' => $embalajeCodigo,
+                    'embalaje_nombre' => $embalajeNombre,
+                    'etiqueta' => $etiqueta,
+                    'material_es_semielaborado' => true,
+                    'material_original_codigo' => '',
+                    'material_original_nombre' => '',
+                    'cantidad_consumida' => 0.0,
+                ];
+            }
+
+            $accumulator[$key]['cantidad_consumida'] = round((float) $accumulator[$key]['cantidad_consumida'] + $cantidad, 4);
+
+            return;
+        }
+
+        $totalEstandar = $items->sum(fn ($it) => (float) $it->cantidad_estandar);
+
+        if ($totalEstandar <= 0) {
+            $key = $codigo.'|'.$embalajeCodigo.'|'.$etiqueta;
+
+            if (! isset($accumulator[$key])) {
+                $accumulator[$key] = [
+                    'material_codigo' => $codigo,
+                    'material_nombre' => $nombre,
+                    'material_descripcion' => $descripcion,
+                    'embalaje_codigo' => $embalajeCodigo,
+                    'embalaje_nombre' => $embalajeNombre,
+                    'etiqueta' => $etiqueta,
+                    'material_es_semielaborado' => true,
+                    'material_original_codigo' => '',
+                    'material_original_nombre' => '',
+                    'cantidad_consumida' => 0.0,
+                ];
+            }
+
+            $accumulator[$key]['cantidad_consumida'] = round((float) $accumulator[$key]['cantidad_consumida'] + $cantidad, 4);
+
+            return;
+        }
+
+        foreach ($items as $item) {
+            $componente = $item->material;
+
+            if (! $componente) {
+                continue;
+            }
+
+            $factor = $totalEstandar > 0 ? (float) $item->cantidad_estandar / $totalEstandar : 0;
+            $cantidadComponente = round($cantidad * $factor, 4);
+
+            if ($cantidadComponente <= 0) {
+                continue;
+            }
+
+            $this->expandMaterial(
+                (int) $componente->id,
+                (string) $componente->codigo,
+                (string) $componente->nombre,
+                (string) ($componente->descripcion ?: ''),
+                (string) ($componente->tipo_material ?? ''),
+                $cantidadComponente,
+                $embalajeCodigo,
+                $embalajeNombre,
+                $etiqueta,
+                $accumulator,
+                $depth + 1
+            );
+        }
+    }
+
+    private function baseMaterialQuery(array $filters)
+    {
+        return DB::table('inventory_movement_details as d')
+            ->join('inventory_movements as m', 'm.id', '=', 'd.movement_id')
+            ->join('inventory_movement_types as t', 't.id', '=', 'm.movement_type_id')
+            ->join('inventory_materials as mat', 'mat.id', '=', 'd.material_id')
+            ->leftJoin('inventory_technical_sheets as ts', 'ts.material_id', '=', 'mat.id')
+            ->leftJoin('inventory_packagings as pkg', 'pkg.id', '=', 'ts.packaging_id')
+            ->leftJoin('inventory_labels as lbl', 'lbl.id', '=', 'ts.etiqueta_id')
+            ->whereIn('m.estado', ['aplicado', 'confirmado'])
+            ->where('d.cantidad', '>', 0)
+            ->where('t.codigo', 'CONSUMO');
     }
 
     /**

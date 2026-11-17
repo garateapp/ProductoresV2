@@ -534,6 +534,9 @@ Route::middleware('auth')->group(function () {
         Route::get('consumption-reports/export-csv', [App\Http\Controllers\Inventory\ConsumptionReportController::class, 'exportCsv'])->name('consumption-reports.export-csv');
         Route::get('consumption-reports/export-pdf', [App\Http\Controllers\Inventory\ConsumptionReportController::class, 'exportPdf'])->name('consumption-reports.export-pdf');
 
+        Route::get('consumption-reports/materiales', [App\Http\Controllers\Inventory\ConsumptionReportController::class, 'consumptionByMaterial'])->name('consumption-reports.materiales');
+        Route::get('consumption-reports/materiales/export-excel', [App\Http\Controllers\Inventory\ConsumptionReportController::class, 'exportMaterialExcel'])->name('consumption-reports.materiales.export-excel');
+
         Route::get('manual-consumptions', [App\Http\Controllers\Inventory\ManualConsumptionController::class, 'index'])->name('manual-consumptions.index');
         Route::post('manual-consumptions', [App\Http\Controllers\Inventory\ManualConsumptionController::class, 'store'])->name('manual-consumptions.store');
         Route::post('manual-consumptions/{consumption}/retry', [App\Http\Controllers\Inventory\ManualConsumptionController::class, 'retry'])->name('manual-consumptions.retry');

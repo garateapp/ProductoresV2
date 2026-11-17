@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers\Inventory;
 
+use App\Exports\ConsumptionMaterialPackagingExport;
 use App\Http\Controllers\Controller;
 use App\Http\Controllers\Inventory\Concerns\AuthorizesInventory;
 use App\Models\InventoryLocation;
@@ -12,6 +13,7 @@ use Carbon\Carbon;
 use Illuminate\Http\Request;
 use Inertia\Inertia;
 use Inertia\Response;
+use Maatwebsite\Excel\Facades\Excel;
 use Spatie\Browsershot\Browsershot;
 
 class ConsumptionReportController extends Controller
@@ -139,6 +141,48 @@ class ConsumptionReportController extends Controller
         } catch (\Throwable $e) {
             abort(500, 'No se pudo generar el PDF del reporte. '.$e->getMessage());
         }
+    }
+
+    public function consumptionByMaterial(Request $request): Response
+    {
+        $this->authorizeInventory($request);
+
+        $filters = $this->readMaterialFilters($request);
+        $rows = $this->service->materialPackagingRows($filters);
+
+        return Inertia::render('Inventory/ConsumptionReports/ConsumptionByMaterial', [
+            'filters' => $filters,
+            'rows' => $rows,
+            'materials' => InventoryMaterial::query()->where('activo', true)->orderBy('nombre')->get(['id', 'codigo', 'nombre']),
+        ]);
+    }
+
+    public function exportMaterialExcel(Request $request)
+    {
+        $this->authorizeInventory($request);
+
+        $filters = $this->readMaterialFilters($request);
+        $rows = $this->service->materialPackagingRows($filters);
+
+        $filename = 'consumo-material-embalaje-'.($filters['date_from'] ?: 'rango').'.xlsx';
+
+        return Excel::download(new ConsumptionMaterialPackagingExport($rows), $filename);
+    }
+
+    /**
+     * @return array<string, mixed>
+     */
+    private function readMaterialFilters(Request $request): array
+    {
+        return [
+            'date_from' => trim((string) $request->input('date_from', '')),
+            'date_to' => trim((string) $request->input('date_to', '')),
+            'material_id' => trim((string) $request->input('material_id', '')),
+            'embalaje_codigo' => trim((string) $request->input('embalaje_codigo', '')),
+            'embalaje_nombre' => trim((string) $request->input('embalaje_nombre', '')),
+            'etiqueta' => trim((string) $request->input('etiqueta', '')),
+            'q' => trim((string) $request->input('q', '')),
+        ];
     }
 
     /**

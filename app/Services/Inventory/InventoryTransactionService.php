@@ -2,6 +2,7 @@
 
 namespace App\Services\Inventory;
 
+use App\Models\InventoryConsumptionOrigin;
 use App\Models\InventoryLogisticUnit;
 use App\Models\InventoryMovement;
 use App\Models\InventoryMovementAllocation;
@@ -52,6 +53,28 @@ class InventoryTransactionService
             $metadata = (array) $movement->metadata;
             $allowNegativeStock = (bool) Arr::get($metadata, 'allow_negative_stock', false);
             $positionPairsToSync = [];
+
+            if (Arr::get($metadata, 'workflow') === 'auto_consumption') {
+                $linea = trim((string) (Arr::get($metadata, 'n_linea_proceso') ?? ''));
+                $turno = trim((string) (Arr::get($metadata, 'n_turno') ?? ''));
+
+                if ($linea !== '') {
+                    $mapping = InventoryConsumptionOrigin::query()
+                        ->where('linea', $linea)
+                        ->where('turno', $turno === '' ? '' : $turno)
+                        ->where('activo', true)
+                        ->with('location')
+                        ->first();
+
+                    if ($mapping && $mapping->location) {
+                        $movement->forceFill(['origin_location_id' => $mapping->location->id])->save();
+                    } else {
+                        throw ValidationException::withMessages([
+                            'movement' => 'No existe origen de consumo configurado para la línea '.$linea.' y turno '.$turno.'.',
+                        ]);
+                    }
+                }
+            }
 
             foreach ($movement->details as $detail) {
                 $position = $this->resolveStockPosition($detail);
