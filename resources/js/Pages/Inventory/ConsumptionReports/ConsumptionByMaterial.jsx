@@ -124,6 +124,7 @@ export default function ConsumptionByMaterialIndex({
             <Table>
               <TableHeader>
                 <TableRow>
+                  <TableHead>Servicio</TableHead>
                   <TableHead>Código material</TableHead>
                   <TableHead>Nombre material</TableHead>
                   <TableHead className="text-right">Cantidad consumida</TableHead>
@@ -136,7 +137,8 @@ export default function ConsumptionByMaterialIndex({
               </TableHeader>
               <TableBody>
                 {rows.map((row) => (
-                  <TableRow key={`${row.material_codigo}-${row.embalaje_codigo}-${row.etiqueta}`}>
+                  <TableRow key={`${row.material_codigo}-${row.embalaje_codigo}-${row.etiqueta}-${row.service_name}`}>
+                    <TableCell className="font-mono text-xs text-slate-500">{row.service_name || '-'}</TableCell>
                     <TableCell className="font-mono text-xs text-slate-500">{row.material_codigo}</TableCell>
                     <TableCell>{row.material_nombre}</TableCell>
                     <TableCell className="text-right font-semibold">{number(row.cantidad_consumida)}</TableCell>
@@ -149,7 +151,7 @@ export default function ConsumptionByMaterialIndex({
                 ))}
                 {!rows.length ? (
                   <TableRow>
-                    <TableCell colSpan={8} className="py-8 text-center text-sm text-slate-500">
+                    <TableCell colSpan={9} className="py-8 text-center text-sm text-slate-500">
                       Sin datos para los filtros seleccionados.
                     </TableCell>
                   </TableRow>

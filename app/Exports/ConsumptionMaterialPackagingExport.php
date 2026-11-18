@@ -23,6 +23,7 @@ class ConsumptionMaterialPackagingExport implements FromCollection, WithHeadings
     public function headings(): array
     {
         return [
+            'Servicio',
             'Código material',
             'Nombre material',
             'Cantidad consumida',
@@ -39,6 +40,7 @@ class ConsumptionMaterialPackagingExport implements FromCollection, WithHeadings
         $esSemi = (bool) ($row['material_es_semielaborado'] ?? false);
 
         return [
+            (string) ($row['service_name'] ?? ''),
             (string) $row['material_codigo'],
             (string) $row['material_nombre'],
             number_format((float) $row['cantidad_consumida'], 4, ',', '.'),

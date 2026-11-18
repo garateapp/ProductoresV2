@@ -334,15 +334,18 @@ class ConsumptionReportService
                 'mat.nombre as material_nombre',
                 'mat.descripcion as material_descripcion',
                 'mat.tipo_material as material_tipo_material',
-                'pkg.codigo as embalaje_codigo',
-                'pkg.nombre as embalaje_nombre',
+                's.name as service_name',
+                DB::raw('COALESCE(pkg_ts.codigo, pkg_p.codigo) as embalaje_codigo'),
+                DB::raw('COALESCE(pkg_ts.nombre, pkg_p.nombre) as embalaje_nombre'),
                 'lbl.codigo as etiqueta_codigo',
                 'lbl.nombre as etiqueta_nombre',
                 DB::raw('SUM(d.cantidad) as cantidad_consumida'),
             ])
             ->groupBy(
                 'mat.id', 'mat.codigo', 'mat.nombre', 'mat.descripcion', 'mat.tipo_material',
-                'pkg.codigo', 'pkg.nombre',
+                's.name',
+                DB::raw('COALESCE(pkg_ts.codigo, pkg_p.codigo)'),
+                DB::raw('COALESCE(pkg_ts.nombre, pkg_p.nombre)'),
                 'lbl.codigo', 'lbl.nombre'
             )
             ->orderBy('mat.codigo')
@@ -364,6 +367,7 @@ class ConsumptionReportService
                 (string) $row->material_nombre,
                 (string) $row->material_descripcion,
                 (string) $row->material_tipo_material,
+                (string) ($row->service_name ?: ''),
                 $cantidad,
                 (string) ($row->embalaje_codigo ?: '-'),
                 (string) ($row->embalaje_nombre ?: '-'),
@@ -399,6 +403,7 @@ class ConsumptionReportService
         string $nombre,
         string $descripcion,
         string $tipoMaterial,
+        string $serviceName,
         float $cantidad,
         string $embalajeCodigo,
         string $embalajeNombre,
@@ -413,13 +418,14 @@ class ConsumptionReportService
         $isSemi = strtolower(trim($tipoMaterial)) === 'semielaborado';
 
         if (! $isSemi) {
-            $key = $codigo.'|'.$embalajeCodigo.'|'.$etiqueta;
+            $key = $codigo.'|'.$embalajeCodigo.'|'.$etiqueta.'|'.$serviceName;
 
             if (! isset($accumulator[$key])) {
                 $accumulator[$key] = [
                     'material_codigo' => $codigo,
                     'material_nombre' => $nombre,
                     'material_descripcion' => $descripcion,
+                    'service_name' => $serviceName,
                     'embalaje_codigo' => $embalajeCodigo,
                     'embalaje_nombre' => $embalajeNombre,
                     'etiqueta' => $etiqueta,
@@ -441,13 +447,14 @@ class ConsumptionReportService
             ->first();
 
         if (! $sheet) {
-            $key = $codigo.'|'.$embalajeCodigo.'|'.$etiqueta;
+            $key = $codigo.'|'.$embalajeCodigo.'|'.$etiqueta.'|'.$serviceName;
 
             if (! isset($accumulator[$key])) {
                 $accumulator[$key] = [
                     'material_codigo' => $codigo,
                     'material_nombre' => $nombre,
                     'material_descripcion' => $descripcion,
+                    'service_name' => $serviceName,
                     'embalaje_codigo' => $embalajeCodigo,
                     'embalaje_nombre' => $embalajeNombre,
                     'etiqueta' => $etiqueta,
@@ -466,13 +473,14 @@ class ConsumptionReportService
         $items = $sheet->unitItems()->where('material_id', '>', 0)->get();
 
         if ($items->isEmpty()) {
-            $key = $codigo.'|'.$embalajeCodigo.'|'.$etiqueta;
+            $key = $codigo.'|'.$embalajeCodigo.'|'.$etiqueta.'|'.$serviceName;
 
             if (! isset($accumulator[$key])) {
                 $accumulator[$key] = [
                     'material_codigo' => $codigo,
                     'material_nombre' => $nombre,
                     'material_descripcion' => $descripcion,
+                    'service_name' => $serviceName,
                     'embalaje_codigo' => $embalajeCodigo,
                     'embalaje_nombre' => $embalajeNombre,
                     'etiqueta' => $etiqueta,
@@ -491,13 +499,14 @@ class ConsumptionReportService
         $totalEstandar = $items->sum(fn ($it) => (float) $it->cantidad_estandar);
 
         if ($totalEstandar <= 0) {
-            $key = $codigo.'|'.$embalajeCodigo.'|'.$etiqueta;
+            $key = $codigo.'|'.$embalajeCodigo.'|'.$etiqueta.'|'.$serviceName;
 
             if (! isset($accumulator[$key])) {
                 $accumulator[$key] = [
                     'material_codigo' => $codigo,
                     'material_nombre' => $nombre,
                     'material_descripcion' => $descripcion,
+                    'service_name' => $serviceName,
                     'embalaje_codigo' => $embalajeCodigo,
                     'embalaje_nombre' => $embalajeNombre,
                     'etiqueta' => $etiqueta,
@@ -533,6 +542,7 @@ class ConsumptionReportService
                 (string) $componente->nombre,
                 (string) ($componente->descripcion ?: ''),
                 (string) ($componente->tipo_material ?? ''),
+                $serviceName,
                 $cantidadComponente,
                 $embalajeCodigo,
                 $embalajeNombre,
@@ -549,8 +559,14 @@ class ConsumptionReportService
             ->join('inventory_movements as m', 'm.id', '=', 'd.movement_id')
             ->join('inventory_movement_types as t', 't.id', '=', 'm.movement_type_id')
             ->join('inventory_materials as mat', 'mat.id', '=', 'd.material_id')
+            ->leftJoin('services as s', 's.id', '=', 'mat.service_id')
+            ->leftJoin('inventory_productions as p', function ($join) {
+                $join->on('p.id', '=', 'm.referencia_id')
+                    ->where('m.referencia_tipo', '=', 'production');
+            })
             ->leftJoin('inventory_technical_sheets as ts', 'ts.material_id', '=', 'mat.id')
-            ->leftJoin('inventory_packagings as pkg', 'pkg.id', '=', 'ts.packaging_id')
+            ->leftJoin('inventory_packagings as pkg_ts', 'pkg_ts.id', '=', 'ts.packaging_id')
+            ->leftJoin('inventory_packagings as pkg_p', 'pkg_p.id', '=', 'p.packaging_id')
             ->leftJoin('inventory_labels as lbl', 'lbl.id', '=', 'ts.etiqueta_id')
             ->whereIn('m.estado', ['aplicado', 'confirmado'])
             ->where('d.cantidad', '>', 0)
