@@ -8,6 +8,7 @@ use App\Http\Controllers\Inventory\Concerns\AuthorizesInventory;
 use App\Models\InventoryLocation;
 use App\Models\InventoryMaterial;
 use App\Models\Service;
+use App\Services\Inventory\AutoConsumptionService;
 use App\Services\Inventory\ConsumptionReportService;
 use Carbon\Carbon;
 use Illuminate\Http\Request;
@@ -20,8 +21,10 @@ class ConsumptionReportController extends Controller
 {
     use AuthorizesInventory;
 
-    public function __construct(private readonly ConsumptionReportService $service)
-    {
+    public function __construct(
+        private readonly ConsumptionReportService $service,
+        private readonly AutoConsumptionService $autoConsumeService,
+    ) {
     }
 
     public function index(Request $request): Response
@@ -167,6 +170,32 @@ class ConsumptionReportController extends Controller
         $filename = 'consumo-material-embalaje-'.($filters['date_from'] ?: 'rango').'.xlsx';
 
         return Excel::download(new ConsumptionMaterialPackagingExport($rows), $filename);
+    }
+
+    public function runAutoConsume(Request $request)
+    {
+        $this->authorizeInventory($request);
+
+        $limit = max(1, (int) $request->input('limit', 200));
+        $dryRun = (bool) $request->boolean('dry_run', false);
+        $folio = $request->input('folio', null);
+
+        $results = $this->autoConsumeService->run($limit, $folio, $dryRun);
+
+        $applied = collect($results)->where('estado', 'aplicado')->count();
+        $borrador = collect($results)->where('estado', 'borrador')->count();
+        $rejected = collect($results)->whereNotIn('estado', ['aplicado', 'borrador'])->count();
+
+        return response()->json([
+            'results' => $results,
+            'summary' => [
+                'applied' => $applied,
+                'borrador' => $borrador,
+                'rejected' => $rejected,
+                'total' => count($results),
+            ],
+            'dry_run' => $dryRun,
+        ]);
     }
 
     /**

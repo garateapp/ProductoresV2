@@ -247,14 +247,14 @@
                         <table class="process-lots-table" style="table-layout:fixed; width:100%">
                             <thead>
                             <tr>
-                                <th style="width:4%">Hr Inicio Proceso</th>
-                                <th style="width:4%">Hr Término Proceso</th>
+                                <th style="width:3%">Hr Inicio Proceso</th>
+                                <th style="width:3%">Hr Término Proceso</th>
                                 <th style="width:5%">N° Proceso</th>
                                 <th style="width:6%">Lote</th>
                                 <th style="width:6%">Sispro</th>
                                 <th style="width:4%">Tipo Proceso</th>
                                 <th style="width:3%">Variedad Original</th>
-                                <th style="width:6%">Productor Real</th>
+                                <th style="width:7%">Productor Real</th>
                                 <th style="width:4%">CSG</th>
                                 <th style="width:4.5%">Categoria</th>
                                 @if($hasMexico) <th style="width:3.5%">Huerto</th> @endif
@@ -267,7 +267,7 @@
                                 <th style="width:7%">Peso prom. env.</th>
                                 <th style="width:4%">SDP</th>
                                 <th style="width:4%">Nota Calidad</th>
-                                <th style="width:7%">Exportadora/Cliente</th>
+                                <th style="width:9%">Exportadora/Cliente</th>
                                 <th style="width:3%">Variedad<br>Rotulada</th>
                                 <th style="width:8%">Hrs Estimadas</th>
                             </tr>
