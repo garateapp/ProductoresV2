@@ -296,6 +296,10 @@ class ConsumptionReportService
             $query->where('d.material_id', (int) $filters['material_id']);
         }
 
+        if ($filters['service_id'] !== '') {
+            $query->where('mat.service_id', (int) $filters['service_id']);
+        }
+
         if ($filters['embalaje_codigo'] !== '') {
             $like = '%'.$filters['embalaje_codigo'].'%';
             $query->where('pkg.codigo', 'like', $like);

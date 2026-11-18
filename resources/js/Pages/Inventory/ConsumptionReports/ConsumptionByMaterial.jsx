@@ -15,10 +15,12 @@ export default function ConsumptionByMaterialIndex({
   filters = {},
   rows = [],
   materials = [],
+  services = [],
 }) {
   const [filterData, setFilterData] = useState({
     date_from: filters.date_from || '',
     date_to: filters.date_to || '',
+    service_id: filters.service_id || '',
     material_id: filters.material_id || '',
     embalaje_codigo: filters.embalaje_codigo || '',
     embalaje_nombre: filters.embalaje_nombre || '',
@@ -32,6 +34,7 @@ export default function ConsumptionByMaterialIndex({
   const [showAutoConsumeResults, setShowAutoConsumeResults] = useState(false)
 
   const materialOptions = materials.map((item) => ({ value: String(item.id), label: `${item.codigo} · ${item.nombre}` }))
+  const serviceOptions = services.map((item) => ({ value: String(item.id), label: item.name }))
 
   const setField = (field, value) => setFilterData((current) => ({ ...current, [field]: value }))
 
@@ -44,6 +47,7 @@ export default function ConsumptionByMaterialIndex({
     const next = {
       date_from: '',
       date_to: '',
+      service_id: '',
       material_id: '',
       embalaje_codigo: '',
       embalaje_nombre: '',
@@ -121,6 +125,15 @@ export default function ConsumptionByMaterialIndex({
             <div>
               <Label>Hasta</Label>
               <Input type="date" value={filterData.date_to} onChange={(e) => setField('date_to', e.target.value)} />
+            </div>
+            <div className="md:col-span-2">
+              <Label>Servicio</Label>
+              <SearchableSelect
+                options={serviceOptions}
+                value={serviceOptions.find((item) => item.value === String(filterData.service_id)) || null}
+                onChange={(option) => setField('service_id', option?.value || '')}
+                placeholder="Todos los servicios"
+              />
             </div>
             <div className="md:col-span-2">
               <Label>Material</Label>

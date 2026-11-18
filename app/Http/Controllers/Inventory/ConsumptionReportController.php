@@ -157,6 +157,7 @@ class ConsumptionReportController extends Controller
             'filters' => $filters,
             'rows' => $rows,
             'materials' => InventoryMaterial::query()->where('activo', true)->orderBy('nombre')->get(['id', 'codigo', 'nombre']),
+            'services' => Service::query()->orderBy('name')->get(['id', 'name']),
         ]);
     }
 
@@ -165,7 +166,7 @@ class ConsumptionReportController extends Controller
         $this->authorizeInventory($request);
 
         $filters = $this->readMaterialFilters($request);
-        $rows = $this->service->materialPackagingRows($filters);
+        $rows = collect($this->service->materialPackagingRows($filters));
 
         $filename = 'consumo-material-embalaje-'.($filters['date_from'] ?: 'rango').'.xlsx';
 
@@ -206,6 +207,7 @@ class ConsumptionReportController extends Controller
         return [
             'date_from' => trim((string) $request->input('date_from', '')),
             'date_to' => trim((string) $request->input('date_to', '')),
+            'service_id' => trim((string) $request->input('service_id', '')),
             'material_id' => trim((string) $request->input('material_id', '')),
             'embalaje_codigo' => trim((string) $request->input('embalaje_codigo', '')),
             'embalaje_nombre' => trim((string) $request->input('embalaje_nombre', '')),
