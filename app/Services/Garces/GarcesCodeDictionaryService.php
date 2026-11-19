@@ -39,6 +39,18 @@ class GarcesCodeDictionaryService
     private const CACHE_TTL_HOURS = 6;
 
     /**
+     * Tipos que requieren mapeo obligatorio. Si no existe mapping, se lanza
+     * una excepción para evitar enviar datos incorrectos a la API de Garces.
+     *
+     * @var array<int,string>
+     */
+    private const STRICT_TYPES = [
+        self::TYPE_CATEGORIA,
+        self::TYPE_ETIQUETA,
+        self::TYPE_VARIEDAD,
+    ];
+
+    /**
      * @return array<int,string>
      */
     public static function types(): array
@@ -70,8 +82,13 @@ class GarcesCodeDictionaryService
     public function translate(string $tipo, string|array|null $clave, ?string $referenceDate = null): ?string
     {
         $candidates = $this->candidateKeys($clave);
+        $valor = $this->canonicalValue($clave);
 
         if ($candidates === []) {
+            if (in_array($tipo, self::STRICT_TYPES, true)) {
+                throw new \RuntimeException("No existe id mapeado con Garces para el tipo '{$tipo}' (valor: '{$valor}').");
+            }
+
             return null;
         }
 
@@ -94,6 +111,10 @@ class GarcesCodeDictionaryService
 
                 return $row['garces'];
             }
+        }
+
+        if (in_array($tipo, self::STRICT_TYPES, true)) {
+            throw new \RuntimeException("No existe id mapeado con Garces para el tipo '{$tipo}' (valor: '{$valor}').");
         }
 
         return null;
