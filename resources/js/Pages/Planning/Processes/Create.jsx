@@ -1,5 +1,5 @@
-import React, { useEffect, useMemo, useRef } from 'react'
-import { Link, useForm, usePage } from '@inertiajs/react'
+import React, { useCallback, useEffect, useMemo, useRef } from 'react'
+import { Link, router, useForm, usePage } from '@inertiajs/react'
 import AuthenticatedLayout from '@/Layouts/AuthenticatedLayout'
 import { Card, CardContent, CardHeader, CardTitle } from '@/Components/ui/card'
 import { Button } from '@/Components/ui/button'
@@ -46,6 +46,27 @@ export default function Create({ especies = [], shifts = [], lines = [], default
 
   const lastAutoSpeciesKeyRef = useRef(null)
 
+  const handleNumprocesoChange = (e) => {
+    setData('numproceso', e.target.value)
+  }
+
+  const loadNextNumproceso = useCallback(async () => {
+    console.log('loadNextNumproceso: ejecutando')
+    try {
+      const url = route('planning.processes.next-numproceso')
+      console.log('loadNextNumproceso: url=', url)
+      const res = await fetch(url, { credentials: 'same-origin', headers: { Accept: 'application/json' } })
+      console.log('loadNextNumproceso: status=', res.status, res.statusText)
+      const json = await res.json()
+      console.log('loadNextNumproceso: json=', json)
+      if (json?.next) {
+        setData('numproceso', String(json.next))
+      }
+    } catch (e) {
+      console.error('loadNextNumproceso: error=', e)
+    }
+  }, [])
+
   const speciesItemError = useMemo(() => {
     const entries = Object.entries(errors || {})
     const row = entries.find(([key]) => key.startsWith('especies.'))
@@ -79,6 +100,9 @@ export default function Create({ especies = [], shifts = [], lines = [], default
     setData('included_packing_line_ids', all)
     lastAutoSpeciesKeyRef.current = selectedSpeciesKey
   }, [selectedSpeciesKey, linesForSpecies, setData])
+  useEffect(() => {
+    loadNextNumproceso()
+  }, [loadNextNumproceso])
 
   const submit = (e) => {
     e.preventDefault()
@@ -149,7 +173,7 @@ export default function Create({ especies = [], shifts = [], lines = [], default
                 <Input
                   type="text"
                   value={data.numproceso}
-                  onChange={(e) => setData('numproceso', e.target.value)}
+                  onChange={handleNumprocesoChange}
                   placeholder="Ej: 123"
                 />
                 {errors.numproceso && <div className="text-sm text-red-600 mt-1">{errors.numproceso}</div>}

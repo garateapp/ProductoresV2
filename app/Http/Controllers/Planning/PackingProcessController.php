@@ -157,6 +157,7 @@ class PackingProcessController extends Controller
                     'process_id',
                     'packing_line_id',
                     'orden',
+                    'numproceso',
                     'n_g_recepcion',
                     'n_productor',
                     'n_variedad',
@@ -260,6 +261,7 @@ class PackingProcessController extends Controller
                 $lineLotsByProcess[$processId][$lineId][] = [
                     'id' => (int) $lot->id,
                     'orden' => (int) ($lot->orden ?? 0),
+                    'numproceso' => $lot->numproceso ?: null,
                     'n_g_recepcion' => $lot->n_g_recepcion ?: null,
                     'producer' => $lot->n_productor ?: null,
                     'variedad' => $lot->n_variedad ?: null,
@@ -343,6 +345,20 @@ class PackingProcessController extends Controller
             'processes' => $processes,
             'filters' => $request->only(['especie']),
         ]);
+    }
+
+    public function nextNumproceso(Request $request)
+    {
+        $this->authorizePlanning($request);
+        Log::info('nextNumproceso llegó');
+        $max = DB::table('process_lots')
+            ->whereNotNull('numproceso')
+            ->where('numproceso', '!=', '')
+            ->max(DB::raw('CAST(numproceso AS UNSIGNED)'));
+
+        $next = (int) $max + 1;
+
+        return response()->json(['next' => (string) $next]);
     }
 
     public function create(Request $request)

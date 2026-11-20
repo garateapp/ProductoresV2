@@ -339,6 +339,7 @@ Route::middleware('auth')->group(function () {
 
         Route::get('processes', [App\Http\Controllers\Planning\PackingProcessController::class, 'index'])->name('processes.index');
         Route::get('processes/create', [App\Http\Controllers\Planning\PackingProcessController::class, 'create'])->name('processes.create');
+        Route::get('processes/next-numproceso', [App\Http\Controllers\Planning\PackingProcessController::class, 'nextNumproceso'])->name('processes.next-numproceso');
         Route::post('processes', [App\Http\Controllers\Planning\PackingProcessController::class, 'store'])->name('processes.store');
         Route::get('processes/{process}', [App\Http\Controllers\Planning\PackingProcessController::class, 'show'])->name('processes.show');
 

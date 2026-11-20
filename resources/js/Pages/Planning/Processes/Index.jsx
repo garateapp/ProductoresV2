@@ -77,6 +77,11 @@ function getProcessLineLots(process, lineId) {
   return []
 }
 
+function getProcessLineKilos(process, lineId) {
+  const map = process?.line_times || {}
+   const slot = (map?.[String(lineId)] ?? map?.[Number(lineId)]) || null
+  return Number((slot && slot.kilos !== null && slot.kilos !== undefined) ? slot.kilos : 0)
+}
 function lotDisplayLabel(lot) {
   return lot?.n_g_recepcion ? String(lot.n_g_recepcion) : '-'
 }
@@ -84,6 +89,17 @@ function lotDisplayLabel(lot) {
 function processDisplayNumber(process) {
   const value = String(process?.numproceso ?? '').trim()
   return value || String(process?.id ?? '')
+}
+
+function processDisplayNumbersForLine(process, lineId) {
+  const lots = getProcessLineLots(process, lineId)
+  const values = Array.from(new Set(
+    (lots || [])
+      .map((lot) => String(lot?.numproceso ?? '').trim())
+      .filter(Boolean)
+  ))
+  if (values.length > 1) return values
+  return [processDisplayNumber(process)]
 }
 
 function getManualLineOrder(process, lineId) {
@@ -293,7 +309,9 @@ function LineGroupGantt({ group, onDelete, onMoveOrder, onSaveOrder, onResetOrde
                           </Button>
                         </span>
                       ) : null}
-                      <span className="font-semibold">#{processDisplayNumber(p)}</span>
+                      <span className="font-semibold">
+                        {processDisplayNumbersForLine(p, lineId).map((num) => `#${num}`).join(', ')}
+                      </span>
                       <StatusBadge status={status} />
                     </div>
                     <div className="text-[11px] text-gray-600 truncate">{p.especie}</div>
@@ -310,7 +328,7 @@ function LineGroupGantt({ group, onDelete, onMoveOrder, onSaveOrder, onResetOrde
                             {label}
                         </span>
                         <span className="text-[11px] font-semibold whitespace-nowrap">
-                          #{processDisplayNumber(p)}
+                          {processDisplayNumbersForLine(p, lineId).map((num) => `#${num}`).join(', ')}
                         </span>
                         <span className="text-[11px] text-gray-700 whitespace-nowrap">
                           Lotes {lotsLabel}
@@ -732,6 +750,7 @@ export default function Index({ processes, filters }) {
                               <TableHead>Proceso</TableHead>
                               <TableHead>Productor / Variedad</TableHead>
                               <TableHead>Especie</TableHead>
+                              <TableHead className="text-right">Kilos</TableHead>
                               <TableHead>Estado</TableHead>
                               <TableHead className="text-right">Acciones</TableHead>
                             </TableRow>
@@ -772,7 +791,9 @@ export default function Index({ processes, filters }) {
                                         </Button>
                                       </span>
                                     ) : null}
-                                    <span>#{processDisplayNumber(p)}</span>
+                                    <span>
+                                      {processDisplayNumbersForLine(p, g.lineId).map((num) => `#${num}`).join(', ')}
+                                    </span>
                                   </div>
                                 </TableCell>
                                 <TableCell>
@@ -833,6 +854,9 @@ export default function Index({ processes, filters }) {
                                   })()}
                                 </TableCell>
                                 <TableCell>{p.especie}</TableCell>
+                                <TableCell className="text-right">
+                                  {Number(getProcessLineKilos(p, g.lineId)).toLocaleString('es-CL', { minimumFractionDigits: 0, maximumFractionDigits: 2 })} kg
+                                </TableCell>
                                 <TableCell>
                                   <StatusBadge status={p.estado?.value ?? p.estado} />
                                 </TableCell>
@@ -859,6 +883,13 @@ export default function Index({ processes, filters }) {
                                 </TableCell>
                               </TableRow>
                             ))}
+                            <TableRow className="bg-gray-50 font-semibold">
+                              <TableCell colSpan={3} className="text-right">Total línea:</TableCell>
+                              <TableCell className="text-right">
+                                {g.processes.reduce((sum, p) => sum + getProcessLineKilos(p, g.lineId), 0).toLocaleString('es-CL', { minimumFractionDigits: 0, maximumFractionDigits: 2 })} kg
+                              </TableCell>
+                              <TableCell colSpan={2} />
+                            </TableRow>
                           </TableBody>
                         </Table>
                       </div>
