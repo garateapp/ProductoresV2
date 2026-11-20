@@ -32,6 +32,9 @@ class ConsumptionMaterialPackagingExport implements FromCollection, WithHeadings
             'Código embalaje',
             'Nombre embalaje',
             'Etiqueta',
+            'Línea',
+            'Bodega',
+            'Turno',
         ];
     }
 
@@ -49,6 +52,9 @@ class ConsumptionMaterialPackagingExport implements FromCollection, WithHeadings
             (string) $row['embalaje_codigo'],
             (string) $row['embalaje_nombre'],
             (string) $row['etiqueta'],
+            (string) ($row['linea'] ?? '-'),
+            (string) ($row['bodega'] ?? '-'),
+            (string) ($row['turno'] ?? '-'),
         ];
     }
 

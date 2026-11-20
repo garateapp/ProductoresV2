@@ -343,6 +343,9 @@ class ConsumptionReportService
                 DB::raw('COALESCE(pkg_ts.nombre, pkg_p.nombre) as embalaje_nombre'),
                 'lbl.codigo as etiqueta_codigo',
                 'lbl.nombre as etiqueta_nombre',
+                'p.linea as linea',
+                'p.turno as turno',
+                'ol.nombre as bodega',
                 DB::raw('SUM(d.cantidad) as cantidad_consumida'),
             ])
             ->groupBy(
@@ -350,7 +353,8 @@ class ConsumptionReportService
                 's.name',
                 DB::raw('COALESCE(pkg_ts.codigo, pkg_p.codigo)'),
                 DB::raw('COALESCE(pkg_ts.nombre, pkg_p.nombre)'),
-                'lbl.codigo', 'lbl.nombre'
+                'lbl.codigo', 'lbl.nombre',
+                'p.linea', 'p.turno', 'ol.nombre'
             )
             ->orderBy('mat.codigo')
             ->get();
@@ -376,6 +380,9 @@ class ConsumptionReportService
                 (string) ($row->embalaje_codigo ?: '-'),
                 (string) ($row->embalaje_nombre ?: '-'),
                 (string) ($row->etiqueta_codigo ?: ($row->etiqueta_nombre ?: '-')),
+                (string) ($row->linea ?: '-'),
+                (string) ($row->turno ?: '-'),
+                (string) ($row->bodega ?: '-'),
                 $accumulator,
                 0
             );
@@ -412,6 +419,9 @@ class ConsumptionReportService
         string $embalajeCodigo,
         string $embalajeNombre,
         string $etiqueta,
+        string $linea,
+        string $turno,
+        string $bodega,
         array &$accumulator,
         int $depth
     ): void {
@@ -433,6 +443,9 @@ class ConsumptionReportService
                     'embalaje_codigo' => $embalajeCodigo,
                     'embalaje_nombre' => $embalajeNombre,
                     'etiqueta' => $etiqueta,
+                    'linea' => $linea,
+                    'turno' => $turno,
+                    'bodega' => $bodega,
                     'material_es_semielaborado' => false,
                     'material_original_codigo' => '',
                     'material_original_nombre' => '',
@@ -462,6 +475,9 @@ class ConsumptionReportService
                     'embalaje_codigo' => $embalajeCodigo,
                     'embalaje_nombre' => $embalajeNombre,
                     'etiqueta' => $etiqueta,
+                    'linea' => $linea,
+                    'turno' => $turno,
+                    'bodega' => $bodega,
                     'material_es_semielaborado' => true,
                     'material_original_codigo' => '',
                     'material_original_nombre' => '',
@@ -488,6 +504,9 @@ class ConsumptionReportService
                     'embalaje_codigo' => $embalajeCodigo,
                     'embalaje_nombre' => $embalajeNombre,
                     'etiqueta' => $etiqueta,
+                    'linea' => $linea,
+                    'turno' => $turno,
+                    'bodega' => $bodega,
                     'material_es_semielaborado' => true,
                     'material_original_codigo' => '',
                     'material_original_nombre' => '',
@@ -514,6 +533,9 @@ class ConsumptionReportService
                     'embalaje_codigo' => $embalajeCodigo,
                     'embalaje_nombre' => $embalajeNombre,
                     'etiqueta' => $etiqueta,
+                    'linea' => $linea,
+                    'turno' => $turno,
+                    'bodega' => $bodega,
                     'material_es_semielaborado' => true,
                     'material_original_codigo' => '',
                     'material_original_nombre' => '',
@@ -551,6 +573,9 @@ class ConsumptionReportService
                 $embalajeCodigo,
                 $embalajeNombre,
                 $etiqueta,
+                $linea,
+                $turno,
+                $bodega,
                 $accumulator,
                 $depth + 1
             );
@@ -564,6 +589,7 @@ class ConsumptionReportService
             ->join('inventory_movement_types as t', 't.id', '=', 'm.movement_type_id')
             ->join('inventory_materials as mat', 'mat.id', '=', 'd.material_id')
             ->leftJoin('services as s', 's.id', '=', 'mat.service_id')
+            ->leftJoin('inventory_locations as ol', 'ol.id', '=', 'm.origin_location_id')
             ->leftJoin('inventory_productions as p', function ($join) {
                 $join->on('p.id', '=', 'm.referencia_id')
                     ->where('m.referencia_tipo', '=', 'production');

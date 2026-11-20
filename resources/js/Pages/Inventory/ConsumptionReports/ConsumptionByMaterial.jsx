@@ -259,6 +259,9 @@ export default function ConsumptionByMaterialIndex({
                   <TableHead>Código embalaje</TableHead>
                   <TableHead>Nombre embalaje</TableHead>
                   <TableHead>Etiqueta</TableHead>
+                  <TableHead>Línea</TableHead>
+                  <TableHead>Bodega</TableHead>
+                  <TableHead>Turno</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
@@ -273,11 +276,14 @@ export default function ConsumptionByMaterialIndex({
                     <TableCell className="font-mono text-xs">{row.embalaje_codigo}</TableCell>
                     <TableCell>{row.embalaje_nombre}</TableCell>
                     <TableCell className="font-mono text-xs">{row.etiqueta}</TableCell>
+                    <TableCell className="font-mono text-xs">{row.linea || '-'}</TableCell>
+                    <TableCell className="font-mono text-xs">{row.bodega || '-'}</TableCell>
+                    <TableCell className="font-mono text-xs">{row.turno || '-'}</TableCell>
                   </TableRow>
                 ))}
                 {!rows.length ? (
                   <TableRow>
-                    <TableCell colSpan={9} className="py-8 text-center text-sm text-slate-500">
+                    <TableCell colSpan={12} className="py-8 text-center text-sm text-slate-500">
                       Sin datos para los filtros seleccionados.
                     </TableCell>
                   </TableRow>
