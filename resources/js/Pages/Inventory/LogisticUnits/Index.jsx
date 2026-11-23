@@ -945,9 +945,9 @@ const addInput = async (lpnCode) => {
           }
 
           if (labelModal.labelType === 'semielaborado') {
-            generateLogisticUnitLabelBixolon(labelModal, printerName, onResult)
+            generateLogisticUnitLabelBixolon(labelModal, printerName, onResult, copies)
           } else {
-            generateMaterialLabelBixolon(labelModal, printerName, onResult)
+            generateMaterialLabelBixolon(labelModal, printerName, onResult, copies)
           }
         })
         return
@@ -1010,9 +1010,9 @@ const addInput = async (lpnCode) => {
           }
 
           if (labelModal.labelType === 'semielaborado') {
-            generateLogisticUnitLabelBixolon(labelModal, printerName, onResult)
+            generateLogisticUnitLabelBixolon(labelModal, printerName, onResult, copies)
           } else {
-            generateMaterialLabelBixolon(labelModal, printerName, onResult)
+            generateMaterialLabelBixolon(labelModal, printerName, onResult, copies)
           }
         } catch (err) {
           clearTimeout(timer)
