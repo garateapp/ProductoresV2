@@ -1141,6 +1141,45 @@ const addInput = async (lpnCode) => {
     return labels.filter((label) => (label.lpn || '').toUpperCase() >= from)
   }
 
+  const printLotWithBixolon = async (labels, copies) => {
+    const printerName = (bixolonName || '').trim() || 'Printer1'
+
+    for (const label of labels) {
+      await new Promise((resolve, reject) => {
+        const timer = setTimeout(() => reject(new Error('Tiempo de espera agotado conectando con Bixolon.')), 5000)
+
+        if (!(
+          typeof window.clearBuffer === 'function' &&
+          typeof window.drawDeviceFont === 'function' &&
+          typeof window.requestPrint === 'function'
+        )) {
+          clearTimeout(timer)
+          reject(new Error('Bixolon Web Print SDK no disponible en el navegador.'))
+          return
+        }
+
+        const onResult = (result) => {
+          clearTimeout(timer)
+          if (result && result.error) {
+            reject(new Error(result.error || 'Error de Bixolon.'))
+            return
+          }
+          resolve(true)
+        }
+
+        if (label.labelType === 'semielaborado') {
+          generateLogisticUnitLabelBixolon(label, printerName, onResult, copies)
+        } else {
+          generateMaterialLabelBixolon(label, printerName, onResult, copies)
+        }
+      })
+    }
+
+    window.localStorage?.setItem('inventory.bixolonPrinter', printerName)
+    setBixolonName(printerName)
+    return printerName
+  }
+
   const printLotLabels = async () => {
     const { unit } = lotModal
     const labels = getFilteredLotLabels()
@@ -1151,8 +1190,25 @@ const addInput = async (lpnCode) => {
 
     setPrintingLot(unit.lot_code)
 
+    const copies = getLotCopies()
+
     try {
-      const copies = getLotCopies()
+      if (printMode === 'bixolon') {
+        const printer = await printLotWithBixolon(labels, copies)
+        toast.success(`Lote ${unit.lot_code}: ${labels.length} LPN × ${copies} copia${copies > 1 ? 's' : ''} enviadas a ${printer} (Bixolon)`)
+        return
+      }
+
+      if (printMode === 'auto') {
+        try {
+          const printer = await printLotWithBixolon(labels, copies)
+          toast.success(`Lote ${unit.lot_code}: ${labels.length} LPN × ${copies} copia${copies > 1 ? 's' : ''} enviadas a ${printer} (Bixolon)`)
+          return
+        } catch (err) {
+          console.error('Error printing lot with Bixolon:', err)
+        }
+      }
+
       const zplAll = labels
         .flatMap((label) => Array(copies).fill(generateLabelZpl(label)))
 
@@ -1162,7 +1218,7 @@ const addInput = async (lpnCode) => {
     } catch (err) {
       console.error('Error imprimiendo lote:', err)
 
-      toast.error(err.message || 'No se pudo imprimir el lote con QZ Tray.')
+      toast.error(err.message || 'No se pudo imprimir el lote.')
 
       previewLotLabels()
     } finally {
@@ -2160,7 +2216,56 @@ const addInput = async (lpnCode) => {
           )}
 
           <div>
-            <Label>Impresora QZ Tray</Label>
+            <Label>Modo de impresión</Label>
+            <div className="flex items-center gap-2">
+              <input
+                type="radio"
+                value="auto"
+                checked={printMode === 'auto'}
+                onChange={(e) => {
+                  setPrintMode(e.target.value)
+                  window.localStorage?.setItem('inventory.printMode', e.target.value)
+                }}
+              />
+              <Label className="ml-1 text-xs cursor-pointer">Auto (Bixolon → QZ)</Label>
+              <input
+                type="radio"
+                value="bixolon"
+                checked={printMode === 'bixolon'}
+                onChange={(e) => {
+                  setPrintMode(e.target.value)
+                  window.localStorage?.setItem('inventory.printMode', e.target.value)
+                }}
+              />
+              <Label className="ml-1 text-xs cursor-pointer">Bixolon</Label>
+              <input
+                type="radio"
+                value="zebra"
+                checked={printMode === 'zebra'}
+                onChange={(e) => {
+                  setPrintMode(e.target.value)
+                  window.localStorage?.setItem('inventory.printMode', e.target.value)
+                }}
+              />
+              <Label className="ml-1 text-xs cursor-pointer">Zebra (QZ Tray)</Label>
+            </div>
+          </div>
+
+          <div>
+            <Label>Nombre lógico Bixolon</Label>
+            <Input
+              value={bixolonName}
+              onChange={(e) => {
+                setBixolonName(e.target.value)
+                window.localStorage?.setItem('inventory.bixolonPrinter', e.target.value)
+              }}
+              placeholder="Ej: Printer1"
+            />
+            <p className="text-xs text-muted-foreground mt-1">Usa el nombre exacto configurado en Bixolon Web Print Service.</p>
+          </div>
+
+          <div>
+            <Label>Impresora QZ Tray (opcional)</Label>
             <select
               value={selectedPrinter}
               onChange={(e) => handlePrinterChange(e.target.value)}
@@ -2204,7 +2309,7 @@ const addInput = async (lpnCode) => {
             </Button>
             <Button type="button" variant="ghost" onClick={() => { setLotModal({ open: false, unit: null, labels: [], loading: false }); setLotStartFrom('') }}>Cerrar</Button>
             <Button type="button" onClick={printLotLabels} disabled={lotModal.loading || !getFilteredLotLabels().length}>
-              <Printer className="h-4 w-4 mr-1" /> Imprimir (ZPL/QZ Tray)
+              <Printer className="h-4 w-4 mr-1" /> Imprimir (Bixolon / ZPL/QZ Tray)
             </Button>
           </DialogFooter>
         </DialogContent>
