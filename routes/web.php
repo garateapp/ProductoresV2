@@ -48,6 +48,8 @@ Route::get('/dashboard', function () {
 
 Route::get('/admin/dashboard', [AdminDashboardController::class, 'index'])->middleware(['auth', 'verified'])->name('admin.dashboard');
 
+Route::get('/planning/movil', [App\Http\Controllers\Planning\MobilePlanningController::class, 'index'])->name('planning.mobile.index');
+
 Route::middleware('auth')->group(function () {
     Route::get('/profile', [ProfileController::class, 'edit'])->name('profile.edit');
     Route::patch('/profile', [ProfileController::class, 'update'])->name('profile.update');
