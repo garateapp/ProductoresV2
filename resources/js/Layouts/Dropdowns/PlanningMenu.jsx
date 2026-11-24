@@ -24,6 +24,11 @@ export default function PlanningMenu() {
           </Link>
         </DropdownMenuItem>
         <DropdownMenuItem asChild>
+          <Link href={route("planning.fruit-inventory.index")} className="w-full">
+            Existencias de fruta
+          </Link>
+        </DropdownMenuItem>
+        <DropdownMenuItem asChild>
           <Link href={route("planning.processes.index")} className="w-full">
             Procesos
           </Link>

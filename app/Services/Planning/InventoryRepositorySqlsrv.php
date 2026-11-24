@@ -84,14 +84,14 @@ class InventoryRepositorySqlsrv
             $query->where('n_g_recepcion', trim((string) $filters['n_g_recepcion']));
         }
 
-        if (! empty($filters['especie'])) {
-            // En esta vista el campo es `n_especie` (no `especie`)
-            $query->where('n_especie', (string) $filters['especie']);
+        $especies = $this->normalizeFilterValues($filters['especie'] ?? null);
+        if ($especies !== []) {
+            $query->whereIn('n_especie', $especies);
         }
 
-        if (! empty($filters['variedad'])) {
-            // En esta vista el campo es `n_variedad` (no `variedad`)
-            $query->where('n_variedad', (string) $filters['variedad']);
+        $variedades = $this->normalizeFilterValues($filters['variedad'] ?? null);
+        if ($variedades !== []) {
+            $query->whereIn('n_variedad', $variedades);
         }
 
         if (! empty($filters['q'])) {
@@ -104,6 +104,14 @@ class InventoryRepositorySqlsrv
         }
         if (! empty($filters['fecha_to'])) {
             $query->whereRaw($fechaRecepcionExpr . ' <= ?', [(string) $filters['fecha_to']]);
+        }
+
+        $exportadoras = $this->normalizeFilterValues($filters['exportadora'] ?? null);
+        if ($exportadoras !== []) {
+            $query->where(function ($w) use ($exportadoras) {
+                $w->whereIn('n_exportadora', $exportadoras)
+                    ->orWhereIn('c_exportadora', $exportadoras);
+            });
         }
 
         // Filtros opcionales (si existen en tu vista)
@@ -532,6 +540,34 @@ class InventoryRepositorySqlsrv
         ];
     }
 
+    public function getInventoryFilterOptions(): array
+    {
+        $base = $this->connection()
+            ->table('V_PKG_Stock_Inventario')
+            ->where('id_empresa', 1)
+            ->where('creacion_tipo', 'RFG');
+
+        $values = function (string $column, int $limit) use ($base): array {
+            return (clone $base)
+                ->whereNotNull($column)
+                ->distinct()
+                ->orderBy($column)
+                ->limit($limit)
+                ->pluck($column)
+                ->map(fn ($v) => trim((string) $v))
+                ->filter(fn ($v) => $v !== '')
+                ->unique()
+                ->values()
+                ->all();
+        };
+
+        return [
+            'especies' => $values('n_especie', 200),
+            'variedades' => $values('n_variedad', 400),
+            'exportadoras' => $values('n_exportadora', 300),
+        ];
+    }
+
     /**
      * Resumen de stock (existencias) por especie/variedad.
      *
@@ -580,6 +616,25 @@ class InventoryRepositorySqlsrv
             'cantidad_bins' => (float) ($row->cantidad_bins ?? 0),
             'peso_neto' => (float) ($row->peso_neto ?? 0),
         ]);
+    }
+
+    private function normalizeFilterValues(mixed $values): array
+    {
+        if ($values === null || $values === '') {
+            return [];
+        }
+
+        if (! is_array($values)) {
+            $values = [$values];
+        }
+
+        return collect($values)
+            ->flatMap(fn ($value) => preg_split('/\s*,\s*/', (string) $value) ?: [])
+            ->map(fn ($value) => trim($value))
+            ->filter()
+            ->unique()
+            ->values()
+            ->all();
     }
 
     private function buildCantidadBinsExpression(): string

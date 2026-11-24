@@ -321,6 +321,7 @@ Route::middleware('auth')->group(function () {
     // Planificación de Proceso (Packing)
     Route::prefix('planning')->name('planning.')->group(function () {
         Route::get('fruit-flow', [App\Http\Controllers\Planning\FruitFlowController::class, 'index'])->name('fruit-flow.index');
+        Route::get('fruit-inventory', [App\Http\Controllers\Planning\FruitInventoryController::class, 'index'])->name('fruit-inventory.index');
         Route::get('service-estimations', [App\Http\Controllers\Planning\ServiceEstimationController::class, 'index'])->name('service-estimations.index');
         Route::post('service-estimations', [App\Http\Controllers\Planning\ServiceEstimationController::class, 'store'])->name('service-estimations.store');
         Route::patch('service-estimations/{estimation_biweekly_version}/rows/{estimation_biweekly_row}', [App\Http\Controllers\Planning\ServiceEstimationController::class, 'updateRow'])->name('service-estimations.rows.update');
