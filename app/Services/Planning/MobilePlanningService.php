@@ -10,8 +10,10 @@ use Illuminate\Support\Collection;
 
 class MobilePlanningService
 {
-    public function __construct(private readonly InventoryRepositorySqlsrv $inventory)
-    {
+    public function __construct(
+        private readonly InventoryRepositorySqlsrv $inventory,
+        private readonly ProcessProgressSqlsrvService $progress,
+    ) {
     }
 
     public function build(array $filters = []): array
@@ -23,6 +25,7 @@ class MobilePlanningService
         $exportadoras = $this->values($filters['exportadora'] ?? null);
         $estado = $this->estado($filters['estado'] ?? null);
 
+        $avances = $this->progress->currentByProcess();
         $planificados = $this->plannedRows($fecha, $variedades, $lineas, $turnos, $exportadoras);
         $plannedNgs = $planificados
             ->pluck('n_g_recepcion')
@@ -30,8 +33,31 @@ class MobilePlanningService
             ->unique()
             ->values()
             ->all();
+        $stockNgs = $this->inventory->getStockNumbers($plannedNgs)
+            ->map(fn ($value) => trim((string) $value))
+            ->filter()
+            ->values()
+            ->all();
 
-        $disponibles = $this->availableRows($fecha, $variedades, $exportadoras, $plannedNgs);
+        $planificados = $planificados->map(function (array $fila) use ($stockNgs, $avances): array {
+            $ng = trim((string) ($fila['n_g_recepcion'] ?? ''));
+            $fila['estado'] = in_array($ng, $stockNgs, true) ? 'Planificado' : 'Procesado';
+
+            $avance = $avances[ProcessProgressSqlsrvService::normalizeProcessNumber($fila['numproceso'] ?? '')] ?? null;
+            $fila['procesando'] = $avance !== null;
+            $fila['porcentaje_avance'] = $avance['porcentaje_avance'] ?? null;
+            $fila['avance'] = $avance;
+
+            return $fila;
+        });
+        $disponibles = $this->availableRows($fecha, $variedades, $exportadoras, $plannedNgs)
+            ->map(function (array $fila): array {
+                $fila['procesando'] = false;
+                $fila['porcentaje_avance'] = null;
+                $fila['avance'] = null;
+
+                return $fila;
+            });
         $planificados = $this->applyEstado($planificados, $estado, true);
         $disponibles = $this->applyEstado($disponibles, $estado, false);
         $filas = $planificados->concat($disponibles)->values();
@@ -233,8 +259,15 @@ class MobilePlanningService
                                 return $fila['planned'] ? $fila['numproceso'] : 'Sin proceso';
                             })
                             ->map(function (Collection $procesoRows, string $proceso) {
+                                $avance = $procesoRows->firstWhere('planned', true)['avance'] ?? null;
+
                                 return [
                                     'proceso' => $proceso,
+                                    'procesando' => $avance !== null,
+                                    'avance' => $avance,
+                                    'porcentaje_avance' => $avance['porcentaje_avance'] ?? null,
+                                    'kilos_planificados' => $avance['kilos_planificados'] ?? 0.0,
+                                    'kilos_vaciados' => $avance['kilos_vaciados'] ?? 0.0,
                                     'lotes' => $procesoRows->count(),
                                     'kilos' => round((float) $procesoRows->sum('peso_neto'), 3),
                                     'bins' => (int) $procesoRows->sum('cantidad_bins'),
@@ -246,12 +279,14 @@ class MobilePlanningService
                                         ->all(),
                                 ];
                             })
-                            ->sort(fn (array $a, array $b) => $this->compareGroupLabels($a['proceso'], $b['proceso'], 'Sin proceso'))
+                            ->sort(fn (array $a, array $b) => $this->comparePriority($a, $b)
+                                ?: $this->compareGroupLabels($a['proceso'], $b['proceso'], 'Sin proceso'))
                             ->values()
                             ->all();
 
                         return [
                             'linea' => $linea,
+                            'procesando' => collect($procesos)->contains('procesando', true),
                             'lotes' => $lineaRows->count(),
                             'kilos' => round((float) $lineaRows->sum('peso_neto'), 3),
                             'bins' => (int) $lineaRows->sum('cantidad_bins'),
@@ -260,12 +295,14 @@ class MobilePlanningService
                             'procesos' => $procesos,
                         ];
                     })
-                    ->sort(fn (array $a, array $b) => $this->compareGroupLabels($a['linea'], $b['linea'], 'Sin línea'))
+                    ->sort(fn (array $a, array $b) => $this->comparePriority($a, $b)
+                        ?: $this->compareGroupLabels($a['linea'], $b['linea'], 'Sin línea'))
                     ->values()
                     ->all();
 
                 return [
                     'turno' => $turno,
+                    'procesando' => collect($lineas)->contains('procesando', true),
                     'lotes' => $turnoRows->count(),
                     'kilos' => round((float) $turnoRows->sum('peso_neto'), 3),
                     'bins' => (int) $turnoRows->sum('cantidad_bins'),
@@ -274,9 +311,18 @@ class MobilePlanningService
                     'lineas' => $lineas,
                 ];
             })
-            ->sort(fn (array $a, array $b) => $this->compareGroupLabels($a['turno'], $b['turno'], 'Sin turno'))
+            ->sort(fn (array $a, array $b) => $this->comparePriority($a, $b)
+                ?: $this->compareGroupLabels($a['turno'], $b['turno'], 'Sin turno'))
             ->values()
             ->all();
+    }
+
+    private function comparePriority(array $a, array $b): int
+    {
+        $aPriority = ! empty($a['procesando']) ? 0 : 1;
+        $bPriority = ! empty($b['procesando']) ? 0 : 1;
+
+        return $aPriority <=> $bPriority;
     }
 
     private function compareGroupLabels(mixed $a, mixed $b, string $empty): int

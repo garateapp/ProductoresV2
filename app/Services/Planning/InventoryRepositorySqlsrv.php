@@ -21,6 +21,28 @@ class InventoryRepositorySqlsrv
         return DB::connection($this->seasons->connection());
     }
 
+    public function getStockNumbers(array $numbers): Collection
+    {
+        $numbers = collect($numbers)
+            ->map(fn ($value) => trim((string) $value))
+            ->filter()
+            ->unique()
+            ->values()
+            ->all();
+
+        if ($numbers === []) {
+            return collect();
+        }
+
+        return $this->connection()
+            ->table('V_PKG_Stock_Inventario')
+            ->where('id_empresa', 1)
+            ->where('creacion_tipo', 'RFG')
+            ->whereIn('n_g_recepcion', $numbers)
+            ->distinct()
+            ->pluck('n_g_recepcion');
+    }
+
     /**
      * Convierte campos fecha que a veces vienen como NVARCHAR en la vista (con formatos mixtos)
      * a DATE de forma segura (sin reventar por valores inválidos).

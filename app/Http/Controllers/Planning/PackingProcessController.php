@@ -2095,7 +2095,7 @@ class PackingProcessController extends Controller
     private function getInstructionOverridesForProcess(PackingProcess $process, string $date, int $shiftId, int $lineId): array
     {
         $versions = PlanningInstructionVersion::query()
-            ->where('fecha', $date)
+            ->whereDate('fecha', $date)
             ->where('shift_id', $shiftId)
             ->where('packing_line_id', $lineId)
             ->orderByDesc('version')
@@ -2519,7 +2519,6 @@ class PackingProcessController extends Controller
 
             $lineId = (int) ($lineLots->first()?->packing_line_id ?? 0);
 
-            // Filas agregadas manualmente en el editor: viven solo como override del instructivo.
             foreach (($effectiveOverridesByLineId[$lineId] ?? []) as $overrideKey => $override) {
                 if (! is_array($override) || ! empty($override['_hidden'])) {
                     continue;

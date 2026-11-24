@@ -42,10 +42,13 @@ function FilterSelect({ label, value, options, onChange, allLabel }) {
 function LotCard({ fila }) {
   const [open, setOpen] = useState(false)
   const planned = Boolean(fila.planned)
+  const procesado = fila.estado === 'Procesado'
 
   return (
     <article
-      className={`rounded-xl border bg-white p-3 shadow-sm ${planned ? 'border-red-200' : 'border-gray-200'}`}
+      className={`rounded-xl border bg-white p-3 shadow-sm ${
+        procesado ? 'border-amber-200' : planned ? 'border-red-200' : 'border-gray-200'
+      }`}
     >
       <div className="flex items-start justify-between gap-2">
         <div>
@@ -56,7 +59,11 @@ function LotCard({ fila }) {
         </div>
         <span
           className={`shrink-0 rounded-full px-2 py-1 text-[11px] font-semibold ${
-            planned ? 'bg-red-50 text-red-700' : 'bg-emerald-50 text-emerald-700'
+            procesado
+              ? 'bg-amber-50 text-amber-700'
+              : planned
+                ? 'bg-red-50 text-red-700'
+                : 'bg-emerald-50 text-emerald-700'
           }`}
         >
           {fila.estado}
@@ -245,13 +252,39 @@ export default function MobilePlanningIndex({ filters = {}, options = {}, grupos
                           {linea.procesos.map((proceso) => (
                             <div key={`${turno.turno}-${linea.linea}-${proceso.proceso}`}>
                               <div className="mb-2 flex items-center justify-between gap-2">
-                                <div className="text-xs font-semibold text-gray-800">
-                                  {proceso.proceso === 'Sin proceso' ? 'Sin proceso' : `Proceso ${proceso.proceso}`}
+                                <div className="flex items-center gap-2">
+                                  <span className="text-xs font-semibold text-gray-800">
+                                    {proceso.proceso === 'Sin proceso' ? 'Sin proceso' : `Proceso ${proceso.proceso}`}
+                                  </span>
+                                  {proceso.procesando ? (
+                                    <span className="rounded-full bg-emerald-50 px-2 py-0.5 text-[10px] font-semibold text-emerald-700">
+                                      En proceso
+                                    </span>
+                                  ) : null}
                                 </div>
                                 <div className="text-right text-[11px] text-gray-500">
                                   {formatNumber(proceso.kilos, 3)} kg · {formatNumber(proceso.bins)} bins
                                 </div>
                               </div>
+                              {proceso.procesando ? (
+                                <div className="mb-2 rounded-lg bg-emerald-50 p-2">
+                                  <div className="mb-1 flex items-center justify-between text-[11px] text-emerald-800">
+                                    <span>Avance</span>
+                                    <span className="font-bold">{formatNumber(proceso.porcentaje_avance, 1)}%</span>
+                                  </div>
+                                  <div className="h-2 w-full overflow-hidden rounded-full bg-emerald-100">
+                                    <div
+                                      className="h-full rounded-full bg-emerald-600"
+                                      style={{
+                                        width: `${Math.min(100, Math.max(0, Number(proceso.porcentaje_avance || 0)))}%`,
+                                      }}
+                                    />
+                                  </div>
+                                  <div className="mt-1 text-[10px] text-emerald-700">
+                                    {formatNumber(proceso.kilos_vaciados, 3)} / {formatNumber(proceso.kilos_planificados, 3)} kg
+                                  </div>
+                                </div>
+                              ) : null}
                               <div className="space-y-2">
                                 {proceso.filas.map((fila) => (
                                   <LotCard key={String(fila.clave)} fila={fila} />
