@@ -12,7 +12,7 @@ class ProcessProgressSqlsrvService
     public function currentByProcess(): array
     {
         try {
-            $rows = DB::connection('sqlsrv')->select(
+            $rows = DB::connection('unitec')->select(
                 'SELECT ProcessoCodice as numero_proceso,
                         PartitaInizio as inicio,
                         UnitaPianificate as kilos_planificados,
