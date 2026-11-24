@@ -26,6 +26,26 @@ class MobilePlanningService
         $estado = $this->estado($filters['estado'] ?? null);
 
         $avances = $this->progress->currentByProcess();
+        $numerosLocales = PackingProcessLot::query()
+            ->whereHas('process', fn ($query) => $query->whereDate('fecha', $fecha))
+            ->whereNotNull('numproceso')
+            ->pluck('numproceso')
+            ->map(fn ($value) => ProcessProgressSqlsrvService::normalizeProcessNumber($value))
+            ->filter()
+            ->unique()
+            ->values()
+            ->all();
+        $enCurso = collect($avances)
+            ->reject(fn (array $avance, $numero) => in_array((string) $numero, $numerosLocales, true))
+            ->map(fn (array $avance): array => [
+                'numero_proceso' => (string) ($avance['numero_proceso'] ?? ''),
+                'inicio' => (string) ($avance['inicio'] ?? ''),
+                'porcentaje_avance' => (float) ($avance['porcentaje_avance'] ?? 0),
+                'kilos_planificados' => (float) ($avance['kilos_planificados'] ?? 0),
+                'kilos_vaciados' => (float) ($avance['kilos_vaciados'] ?? 0),
+            ])
+            ->values()
+            ->all();
         $planificados = $this->plannedRows($fecha, $variedades, $lineas, $turnos, $exportadoras);
         $plannedNgs = $planificados
             ->pluck('n_g_recepcion')
@@ -64,6 +84,7 @@ class MobilePlanningService
 
         return [
             'detalle' => $filas->all(),
+            'en_curso' => $enCurso,
             'grupos' => $this->groupRows($filas),
             'resumen' => $this->resumen($planificados, $disponibles),
             'options' => [
@@ -131,9 +152,9 @@ class MobilePlanningService
                         if ($fechaRecepcion !== null && method_exists($fechaRecepcion, 'toDateString')) {
                             $fechaRecepcion = $fechaRecepcion->toDateString();
                         }
-                        $numproceso = trim((string) ($process->numproceso ?? ''));
+                        $numproceso = trim((string) ($lot->numproceso ?? ''));
                         if ($numproceso === '') {
-                            $numproceso = '#'.$process->id;
+                            $numproceso = '#'.$lot->id;
                         }
 
                         return [

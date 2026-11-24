@@ -44,6 +44,7 @@ class MobilePlanningController extends Controller
                 'turnos' => $data['options']['turnos'] ?? [],
             ],
             'detalle' => $data['detalle'] ?? [],
+            'en_curso' => $data['en_curso'] ?? [],
             'grupos' => $data['grupos'] ?? [],
             'resumen' => $data['resumen'] ?? [],
         ]);
