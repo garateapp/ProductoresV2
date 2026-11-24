@@ -61,6 +61,10 @@ function normalizeText(value) {
     .toLowerCase()
 }
 
+function isPlanned(row) {
+  return Boolean(row.numproceso) && row.numproceso !== '—'
+}
+
 function toOptions(values) {
   return [...new Set((values || []).map((value) => String(value)).filter((value) => value !== ''))]
     .map((value) => ({ value, label: value }))
@@ -144,20 +148,25 @@ export default function FruitInventoryIndex({ filters = {}, options = {}, detall
     }, {})
   }, [detalle])
 
+  const sortedDetalle = useMemo(
+    () => [...detalle].sort((a, b) => Number(isPlanned(a)) - Number(isPlanned(b))),
+    [detalle],
+  )
+
   const filteredDetalle = useMemo(() => {
     const active = Object.entries(columnFilters)
       .map(([key, values]) => [key, toMultiValues(values).map(normalizeText)])
       .filter(([, values]) => values.length > 0)
 
-    if (active.length === 0) return detalle
+    if (active.length === 0) return sortedDetalle
 
-    return detalle.filter((row) =>
+    return sortedDetalle.filter((row) =>
       active.every(([key, values]) => {
         const raw = row[key] === null || row[key] === undefined || row[key] === '' ? '—' : String(row[key])
         return values.includes(normalizeText(raw))
       }),
     )
-  }, [detalle, columnFilters])
+  }, [sortedDetalle, columnFilters])
 
   const resumenFiltrado = useMemo(() => {
     const sumRows = (rows, key) => rows.reduce((total, row) => total + Number(row[key] || 0), 0)
@@ -394,7 +403,7 @@ export default function FruitInventoryIndex({ filters = {}, options = {}, detall
                     filteredDetalle.map((row) => (
                       <TableRow
                         key={`${String(row.exportadora)}-${String(row.n_g_recepcion)}`}
-                        className={row.numproceso && row.numproceso !== '—' ? 'bg-red-50 text-red-700' : undefined}
+                        className={isPlanned(row) ? 'bg-red-50 text-red-700' : undefined}
                       >
                         <TableCell className="whitespace">{row.exportadora}</TableCell>
                         <TableCell className="whitespace-nowrap">{row.especie ?? '—'}</TableCell>
