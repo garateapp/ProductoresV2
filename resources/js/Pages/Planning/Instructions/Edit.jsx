@@ -6,7 +6,7 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/Components/ui/card'
 import { Textarea } from '@/Components/ui/textarea'
 import { Input } from '@/Components/ui/input'
 import { Label } from '@/Components/ui/label'
-import { FileDown, Save, ArrowLeft, ArrowDown, ArrowUp } from 'lucide-react'
+import { FileDown, Save, ArrowLeft, ArrowDown, ArrowUp, Plus } from 'lucide-react'
 import Combobox from '@/Components/ui/combobox'
 import { Toaster, toast } from 'sonner'
 
@@ -704,6 +704,27 @@ export default function Edit({
     setData('rows', next)
   }
 
+  const addPackagingRow = () => {
+    const key = `new-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`
+    const row = {
+      key,
+      destino: '',
+      c_item: '',
+      desc_embalaje: '',
+      etiqueta: '',
+      peso_caja: '',
+      cp2: '',
+      altura: '',
+      calibres: '',
+      indications: '',
+      observaciones: '',
+      count: '',
+      pedido: '',
+      _deleted: '0',
+    }
+    setData('rows', [...(Array.isArray(data.rows) ? data.rows : []), row])
+  }
+
   const visiblePackaging = useMemo(() => {
     const rows = Array.isArray(data.rows) ? data.rows : []
     return rows
@@ -899,8 +920,12 @@ export default function Edit({
               ) : null}
 
               <h2>Destino + Embalajes (editable)</h2>
-              <div className="mb-1">
+              <div className="mb-2 flex items-center justify-between gap-2">
                 <div className="text-xs text-gray-500">{visiblePackaging.length} fila(s) visibles</div>
+                <Button type="button" variant="outline" size="sm" onClick={addPackagingRow}>
+                  <Plus className="h-4 w-4 mr-2" />
+                  Agregar embalaje
+                </Button>
               </div>
               <div className="table-wrap">
                 <table>

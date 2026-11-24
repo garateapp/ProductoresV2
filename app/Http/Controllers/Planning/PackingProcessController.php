@@ -2517,6 +2517,44 @@ class PackingProcessController extends Controller
                 }
             }
 
+            $lineId = (int) ($lineLots->first()?->packing_line_id ?? 0);
+
+            // Filas agregadas manualmente en el editor: viven solo como override del instructivo.
+            foreach (($effectiveOverridesByLineId[$lineId] ?? []) as $overrideKey => $override) {
+                if (! is_array($override) || ! empty($override['_hidden'])) {
+                    continue;
+                }
+
+                $key = trim((string) $overrideKey);
+                if ($key === '' || isset($packSummary[$key])) {
+                    continue;
+                }
+
+                $especie = trim((string) ($override['especie'] ?? ''));
+                if ($especie === '') {
+                    $especie = trim((string) ($process->especie ?? ''));
+                }
+                if ($especie === '') {
+                    $especie = 'VARIAS';
+                }
+
+                $packSummary[$key] = [
+                    'key' => $key,
+                    'destino' => mb_strtoupper(trim((string) ($override['destino'] ?? ''))),
+                    'especie' => $especie,
+                    'c_item' => trim((string) ($override['c_item'] ?? '')),
+                    'n_item' => trim((string) ($override['desc_embalaje'] ?? '')),
+                    'etiqueta' => trim((string) ($override['etiqueta'] ?? '')),
+                    'cp2' => is_numeric($override['cp2'] ?? null) ? (int) $override['cp2'] : null,
+                    'altura' => trim((string) ($override['altura'] ?? '')),
+                    'cantidad_bins' => 0,
+                    'kilos' => 0,
+                    'rule' => null,
+                    'override' => $override,
+                    'indications' => trim((string) ($override['indications'] ?? '')),
+                ];
+            }
+
             $resolveSpecies = static function ($lot) use ($process): array {
                 $label = trim((string) ($lot->process?->especie ?? $process->especie ?? ''));
                 if ($label === '') {
@@ -2541,8 +2579,6 @@ class PackingProcessController extends Controller
             if (empty($speciesByKey)) {
                 $speciesByKey['VARIAS'] = 'VARIAS';
             }
-
-            $lineId = (int) ($lineLots->first()?->packing_line_id ?? 0);
 
             // Filas eliminadas por el usuario (tombstone _hidden) no forman parte del instructivo.
             foreach ($packSummary as $packKey => $packRow) {
