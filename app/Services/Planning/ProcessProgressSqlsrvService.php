@@ -25,7 +25,7 @@ class ProcessProgressSqlsrvService
 
             return [];
         }
-            Log::info("rows",$rows)
+            Log::info("rows",$rows);
         return collect($rows)
             ->map(fn ($row) => $this->normalizeRow($row))
             ->filter(fn (array $row) => $row['numero_proceso'] !== '')
