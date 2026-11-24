@@ -392,7 +392,10 @@ export default function FruitInventoryIndex({ filters = {}, options = {}, detall
                     </TableRow>
                   ) : (
                     filteredDetalle.map((row) => (
-                      <TableRow key={`${String(row.exportadora)}-${String(row.n_g_recepcion)}`}>
+                      <TableRow
+                        key={`${String(row.exportadora)}-${String(row.n_g_recepcion)}`}
+                        className={row.numproceso && row.numproceso !== '—' ? 'bg-red-50 text-red-700' : undefined}
+                      >
                         <TableCell className="whitespace">{row.exportadora}</TableCell>
                         <TableCell className="whitespace-nowrap">{row.especie ?? '—'}</TableCell>
                         <TableCell className="whitespace-nowrap">{row.numproceso ?? '—'}</TableCell>
