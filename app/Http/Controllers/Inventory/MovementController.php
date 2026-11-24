@@ -30,7 +30,7 @@ class MovementController extends Controller
     {
         $this->authorizeInventory($request);
 
-        $filters = $request->only(['q', 'movement_type_id', 'material_id', 'service_id', 'location_id', 'estado', 'date_from', 'date_to']);
+        $filters = $request->only(['q', 'numero_solicitud', 'movement_type_id', 'material_id', 'service_id', 'location_id', 'estado', 'date_from', 'date_to']);
 
         $movements = InventoryMovement::query()
             ->with([
@@ -51,6 +51,10 @@ class MovementController extends Controller
                         ->orWhere('motivo', 'like', '%'.$needle.'%')
                         ->orWhere('observacion', 'like', '%'.$needle.'%');
                 });
+            })
+            ->when($filters['numero_solicitud'] ?? null, function ($query, $value) {
+                $needle = trim((string) $value);
+                $query->whereHas('materialRequest', fn ($request) => $request->where('codigo', 'like', '%'.$needle.'%'));
             })
             ->when($filters['movement_type_id'] ?? null, fn ($query, $value) => $query->where('movement_type_id', $value))
             ->when($filters['estado'] ?? null, fn ($query, $value) => $query->where('estado', $value))

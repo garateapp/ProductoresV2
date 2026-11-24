@@ -33,6 +33,7 @@ export default function InventoryMovements({ movements, movementTypes = [], move
   const { props } = usePage()
   const [filterData, setFilterData] = useState({
     q: filters.q || '',
+    numero_solicitud: filters.numero_solicitud || '',
     movement_type_id: filters.movement_type_id || '',
     material_id: filters.material_id || '',
     service_id: filters.service_id || '',
@@ -463,8 +464,13 @@ export default function InventoryMovements({ movements, movementTypes = [], move
             </div>
           </form>
 
-          <form onSubmit={applyFilters} className="grid gap-3 rounded border p-4 md:grid-cols-9">
+          <form onSubmit={applyFilters} className="grid gap-3 rounded border p-4 md:grid-cols-10">
             <Input value={filterData.q} onChange={(e) => setFilterData((current) => ({ ...current, q: e.target.value }))} placeholder="Folio, motivo u observación" />
+            <Input
+              value={filterData.numero_solicitud}
+              onChange={(e) => setFilterData((current) => ({ ...current, numero_solicitud: e.target.value }))}
+              placeholder="N° de solicitud"
+            />
             <SearchableSelect
               options={movementTypeOptions}
               value={movementTypeOptions.find((item) => item.value === String(filterData.movement_type_id)) || null}
@@ -505,6 +511,7 @@ export default function InventoryMovements({ movements, movementTypes = [], move
                 onClick={() => {
                   const next = {
                     q: '',
+                    numero_solicitud: '',
                     movement_type_id: '',
                     material_id: '',
                     service_id: '',
