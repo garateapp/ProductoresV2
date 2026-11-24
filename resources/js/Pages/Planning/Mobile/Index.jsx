@@ -14,6 +14,13 @@ function filterValue(value) {
   return Array.isArray(value) ? value[0] || '' : value || ''
 }
 
+function formatInicio(value) {
+  const text = String(value || '').trim()
+  if (!text) return '—'
+  const match = text.match(/^(\d{4}-\d{2}-\d{2})[ T](\d{2}:\d{2})/)
+  return match ? `${match[1]} ${match[2]}` : text
+}
+
 const ESTADO_OPTIONS = [
   { value: 'planificado', label: 'Planificado' },
   { value: 'sin_planificar', label: 'Sin planificar' },
@@ -114,7 +121,7 @@ function LotCard({ fila }) {
   )
 }
 
-export default function MobilePlanningIndex({ filters = {}, options = {}, grupos = [], resumen = {} }) {
+export default function MobilePlanningIndex({ filters = {}, options = {}, enCurso = [], grupos = [], resumen = {} }) {
   const apply = (patch) => {
     router.get(
       route('planning.mobile.index'),
@@ -219,6 +226,44 @@ export default function MobilePlanningIndex({ filters = {}, options = {}, grupos
               <div className="text-[11px] text-emerald-700">{formatNumber(disponibles.lotes)} lotes</div>
             </div>
           </section>
+
+          {enCurso.length > 0 ? (
+            <section className="mt-4 rounded-xl border border-emerald-200 bg-emerald-50/60 p-3">
+              <div className="mb-2 flex items-center justify-between gap-2">
+                <div>
+                  <h2 className="text-sm font-bold text-emerald-900">Procesos en curso</h2>
+                  <p className="text-[11px] text-emerald-700">Avance recuperado desde Unitec</p>
+                </div>
+                <span className="rounded-full bg-white px-2 py-0.5 text-[10px] font-semibold text-emerald-700">
+                  {enCurso.length} en curso
+                </span>
+              </div>
+              <div className="space-y-2">
+                {enCurso.map((avance) => (
+                  <article key={`en-curso-${avance.numero_proceso}`} className="rounded-lg border border-emerald-200 bg-white p-3">
+                    <div className="flex items-start justify-between gap-2">
+                      <div>
+                        <div className="text-sm font-bold text-gray-900">Proceso {avance.numero_proceso}</div>
+                        <div className="text-[11px] text-gray-500">Inicio {formatInicio(avance.inicio)}</div>
+                      </div>
+                      <div className="text-right text-sm font-bold text-emerald-700">
+                        {formatNumber(avance.porcentaje_avance, 1)}%
+                      </div>
+                    </div>
+                    <div className="mt-2 h-2 w-full overflow-hidden rounded-full bg-emerald-100">
+                      <div
+                        className="h-full rounded-full bg-emerald-600"
+                        style={{ width: `${Math.min(100, Math.max(0, Number(avance.porcentaje_avance || 0)))}%` }}
+                      />
+                    </div>
+                    <div className="mt-1 text-[10px] text-emerald-700">
+                      {formatNumber(avance.kilos_vaciados, 3)} / {formatNumber(avance.kilos_planificados, 3)} kg
+                    </div>
+                  </article>
+                ))}
+              </div>
+            </section>
+          ) : null}
 
           <section className="mt-4 space-y-4">
             {grupos.length === 0 ? (
