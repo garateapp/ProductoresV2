@@ -14,6 +14,11 @@ function filterValue(value) {
   return Array.isArray(value) ? value[0] || '' : value || ''
 }
 
+const ESTADO_OPTIONS = [
+  { value: 'planificado', label: 'Planificado' },
+  { value: 'sin_planificar', label: 'Sin planificar' },
+]
+
 function FilterSelect({ label, value, options, onChange, allLabel }) {
   return (
     <label className="block">
@@ -158,6 +163,13 @@ export default function MobilePlanningIndex({ filters = {}, options = {}, grupos
                 options={options.exportadoras}
                 allLabel="Todas"
                 onChange={(value) => apply({ exportadora: value })}
+              />
+              <FilterSelect
+                label="Estado"
+                value={filters.estado}
+                options={ESTADO_OPTIONS}
+                allLabel="Todo"
+                onChange={(value) => apply({ estado: value })}
               />
             </div>
 

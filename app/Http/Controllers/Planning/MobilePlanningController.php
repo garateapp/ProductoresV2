@@ -18,11 +18,17 @@ class MobilePlanningController extends Controller
 
     public function index(Request $request)
     {
+        $estado = trim((string) $request->query('estado', 'todo'));
+        if (! in_array($estado, ['todo', 'planificado', 'sin_planificar'], true)) {
+            $estado = 'todo';
+        }
+
         $filters = [
             'variedad' => $this->queryValues($request, 'variedad'),
             'linea' => $this->queryValues($request, 'linea'),
             'turno' => $this->queryValues($request, 'turno'),
             'exportadora' => $this->queryValues($request, 'exportadora'),
+            'estado' => $estado,
             'fecha' => trim((string) $request->query('fecha', now()->toDateString())),
         ];
 
@@ -32,8 +38,8 @@ class MobilePlanningController extends Controller
         return Inertia::render('Planning/Mobile/Index', [
             'filters' => $filters,
             'options' => [
-                'variedades' => $inventoryOptions['variedades'] ?? [],
-                'exportadoras' => $inventoryOptions['exportadoras'] ?? [],
+                'variedades' => $this->optionValues($inventoryOptions['variedades'] ?? []),
+                'exportadoras' => $this->optionValues($inventoryOptions['exportadoras'] ?? []),
                 'lineas' => $data['options']['lineas'] ?? [],
                 'turnos' => $data['options']['turnos'] ?? [],
             ],
@@ -41,6 +47,28 @@ class MobilePlanningController extends Controller
             'grupos' => $data['grupos'] ?? [],
             'resumen' => $data['resumen'] ?? [],
         ]);
+    }
+
+    private function optionValues(mixed $values): array
+    {
+        if (! is_array($values)) {
+            $values = [$values];
+        }
+
+        return collect($values)
+            ->map(function ($value) {
+                if (is_array($value)) {
+                    $value = $value['value'] ?? $value['label'] ?? '';
+                }
+
+                $text = trim((string) $value);
+
+                return $text === '' ? null : ['value' => $text, 'label' => $text];
+            })
+            ->filter()
+            ->unique('value')
+            ->values()
+            ->all();
     }
 
     private function queryValues(Request $request, string $key): array

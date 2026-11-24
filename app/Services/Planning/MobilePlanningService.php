@@ -21,6 +21,7 @@ class MobilePlanningService
         $lineas = $this->values($filters['linea'] ?? null);
         $turnos = $this->values($filters['turno'] ?? null);
         $exportadoras = $this->values($filters['exportadora'] ?? null);
+        $estado = $this->estado($filters['estado'] ?? null);
 
         $planificados = $this->plannedRows($fecha, $variedades, $lineas, $turnos, $exportadoras);
         $plannedNgs = $planificados
@@ -31,6 +32,8 @@ class MobilePlanningService
             ->all();
 
         $disponibles = $this->availableRows($fecha, $variedades, $exportadoras, $plannedNgs);
+        $planificados = $this->applyEstado($planificados, $estado, true);
+        $disponibles = $this->applyEstado($disponibles, $estado, false);
         $filas = $planificados->concat($disponibles)->values();
 
         return [
@@ -307,6 +310,26 @@ class MobilePlanningService
                 'bins' => (int) $disponibles->sum('cantidad_bins'),
             ],
         ];
+    }
+
+    private function estado(mixed $estado): string
+    {
+        $estado = trim((string) $estado);
+
+        return in_array($estado, ['todo', 'planificado', 'sin_planificar'], true) ? $estado : 'todo';
+    }
+
+    private function applyEstado(Collection $filas, string $estado, bool $planned): Collection
+    {
+        if ($estado === 'planificado') {
+            return $planned ? $filas : collect();
+        }
+
+        if ($estado === 'sin_planificar') {
+            return $planned ? collect() : $filas;
+        }
+
+        return $filas;
     }
 
     private function lineOptions(): array
