@@ -255,6 +255,8 @@ class FruitInventoryService
             'n_categoria' => $categoria,
             'nota_calidad_sqlsrv' => $lot->setup_nota_calidad ?? null,
             'c_centrocosto' => $lot->sdp_centrocosto ?? null,
+            'referencias_recepcion'=$lot->sispro??null,
+            'n_g_recepcion'=>$lot->n_g_recepcion??null,
         ];
 
         return collect($fields)
