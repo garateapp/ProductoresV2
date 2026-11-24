@@ -7,7 +7,7 @@ use Illuminate\Support\Facades\Log;
 
 class ProcessProgressSqlsrvService
 {
-    private const VIEW = 'UNITEC_DB_UNIREPORT.dbo.VW_MON_Partita_Corrente';
+    private const VIEW = 'VW_MON_Partita_Corrente';
 
     public function currentByProcess(): array
     {
@@ -25,7 +25,7 @@ class ProcessProgressSqlsrvService
 
             return [];
         }
-
+            Log::info("rows",$rows)
         return collect($rows)
             ->map(fn ($row) => $this->normalizeRow($row))
             ->filter(fn (array $row) => $row['numero_proceso'] !== '')
