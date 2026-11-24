@@ -207,31 +207,45 @@ export default function MobilePlanningIndex({ filters = {}, options = {}, grupos
                 Sin datos para los filtros seleccionados.
               </div>
             ) : (
-              grupos.map((grupo) => (
-                <div key={String(grupo.linea)} className="rounded-xl border border-gray-200 bg-white p-3 shadow-sm">
+              grupos.map((turno) => (
+                <div key={`turno-${turno.turno}`} className="rounded-xl border border-gray-200 bg-white p-3 shadow-sm">
                   <div className="flex items-start justify-between gap-2 border-b border-gray-100 pb-2">
                     <div>
-                      <h2 className="text-sm font-bold text-gray-900">Línea {grupo.linea}</h2>
-                      <p className="text-[11px] text-gray-500">{formatNumber(grupo.lotes)} lotes</p>
+                      <h2 className="text-sm font-bold text-gray-900">Turno {turno.turno}</h2>
+                      <p className="text-[11px] text-gray-500">{formatNumber(turno.lotes)} lotes</p>
                     </div>
                     <div className="text-right">
-                      <div className="text-sm font-bold text-gray-900">{formatNumber(grupo.kilos, 3)} kg</div>
-                      <div className="text-[11px] text-gray-500">{formatNumber(grupo.bins)} bins</div>
+                      <div className="text-sm font-bold text-gray-900">{formatNumber(turno.kilos, 3)} kg</div>
+                      <div className="text-[11px] text-gray-500">{formatNumber(turno.bins)} bins</div>
                     </div>
                   </div>
 
-                  <div className="mt-3 space-y-3">
-                    {grupo.turnos.map((turno) => (
-                      <div key={`${grupo.linea}-${turno.turno}`}>
+                  <div className="mt-3 space-y-4">
+                    {turno.lineas.map((linea) => (
+                      <div key={`${turno.turno}-${linea.linea}`}>
                         <div className="mb-2 flex items-center justify-between gap-2">
-                          <div className="text-xs font-bold text-gray-700">Turno {turno.turno}</div>
+                          <div className="text-xs font-bold text-gray-700">Línea {linea.linea}</div>
                           <div className="text-right text-[11px] text-gray-500">
-                            {formatNumber(turno.kilos, 3)} kg · {formatNumber(turno.bins)} bins
+                            {formatNumber(linea.kilos, 3)} kg · {formatNumber(linea.bins)} bins
                           </div>
                         </div>
-                        <div className="space-y-2">
-                          {turno.filas.map((fila) => (
-                            <LotCard key={String(fila.clave)} fila={fila} />
+                        <div className="space-y-3">
+                          {linea.procesos.map((proceso) => (
+                            <div key={`${turno.turno}-${linea.linea}-${proceso.proceso}`}>
+                              <div className="mb-2 flex items-center justify-between gap-2">
+                                <div className="text-xs font-semibold text-gray-800">
+                                  {proceso.proceso === 'Sin proceso' ? 'Sin proceso' : `Proceso ${proceso.proceso}`}
+                                </div>
+                                <div className="text-right text-[11px] text-gray-500">
+                                  {formatNumber(proceso.kilos, 3)} kg · {formatNumber(proceso.bins)} bins
+                                </div>
+                              </div>
+                              <div className="space-y-2">
+                                {proceso.filas.map((fila) => (
+                                  <LotCard key={String(fila.clave)} fila={fila} />
+                                ))}
+                              </div>
+                            </div>
                           ))}
                         </div>
                       </div>

@@ -220,50 +220,74 @@ class MobilePlanningService
     private function groupRows(Collection $filas): array
     {
         return $filas
-            ->groupBy('linea')
-            ->map(function (Collection $lineRows, string $linea) {
-                $turnos = $lineRows
-                    ->groupBy('turno')
-                    ->map(function (Collection $turnRows, string $turno) {
+            ->groupBy('turno')
+            ->map(function (Collection $turnoRows, string $turno) {
+                $lineas = $turnoRows
+                    ->groupBy('linea')
+                    ->map(function (Collection $lineaRows, string $linea) {
+                        $procesos = $lineaRows
+                            ->groupBy(function (array $fila) {
+                                return $fila['planned'] ? $fila['numproceso'] : 'Sin proceso';
+                            })
+                            ->map(function (Collection $procesoRows, string $proceso) {
+                                return [
+                                    'proceso' => $proceso,
+                                    'lotes' => $procesoRows->count(),
+                                    'kilos' => round((float) $procesoRows->sum('peso_neto'), 3),
+                                    'bins' => (int) $procesoRows->sum('cantidad_bins'),
+                                    'planificados' => $procesoRows->where('planned', true)->count(),
+                                    'disponibles' => $procesoRows->where('planned', false)->count(),
+                                    'filas' => $procesoRows
+                                        ->sort(fn (array $a, array $b) => $this->compareGroupLabels($a['n_g_recepcion'], $b['n_g_recepcion'], ''))
+                                        ->values()
+                                        ->all(),
+                                ];
+                            })
+                            ->sort(fn (array $a, array $b) => $this->compareGroupLabels($a['proceso'], $b['proceso'], 'Sin proceso'))
+                            ->values()
+                            ->all();
+
                         return [
-                            'turno' => $turno,
-                            'lotes' => $turnRows->count(),
-                            'kilos' => round((float) $turnRows->sum('peso_neto'), 3),
-                            'bins' => (int) $turnRows->sum('cantidad_bins'),
-                            'planificados' => $turnRows->where('planned', true)->count(),
-                            'disponibles' => $turnRows->where('planned', false)->count(),
-                            'filas' => $turnRows->values()->all(),
+                            'linea' => $linea,
+                            'lotes' => $lineaRows->count(),
+                            'kilos' => round((float) $lineaRows->sum('peso_neto'), 3),
+                            'bins' => (int) $lineaRows->sum('cantidad_bins'),
+                            'planificados' => $lineaRows->where('planned', true)->count(),
+                            'disponibles' => $lineaRows->where('planned', false)->count(),
+                            'procesos' => $procesos,
                         ];
                     })
-                    ->sort(function (array $a, array $b) {
-                        $aSin = $a['turno'] === 'Sin turno';
-                        $bSin = $b['turno'] === 'Sin turno';
-                        if ($aSin !== $bSin) {
-                            return $aSin ? 1 : -1;
-                        }
-                        return strcasecmp((string) $a['turno'], (string) $b['turno']);
-                    })
+                    ->sort(fn (array $a, array $b) => $this->compareGroupLabels($a['linea'], $b['linea'], 'Sin línea'))
                     ->values()
                     ->all();
 
                 return [
-                    'linea' => $linea,
-                    'lotes' => $lineRows->count(),
-                    'kilos' => round((float) $lineRows->sum('peso_neto'), 3),
-                    'bins' => (int) $lineRows->sum('cantidad_bins'),
-                    'turnos' => $turnos,
+                    'turno' => $turno,
+                    'lotes' => $turnoRows->count(),
+                    'kilos' => round((float) $turnoRows->sum('peso_neto'), 3),
+                    'bins' => (int) $turnoRows->sum('cantidad_bins'),
+                    'planificados' => $turnoRows->where('planned', true)->count(),
+                    'disponibles' => $turnoRows->where('planned', false)->count(),
+                    'lineas' => $lineas,
                 ];
             })
-            ->sort(function (array $a, array $b) {
-                $aSin = $a['linea'] === 'Sin línea';
-                $bSin = $b['linea'] === 'Sin línea';
-                if ($aSin !== $bSin) {
-                    return $aSin ? 1 : -1;
-                }
-                return strcasecmp((string) $a['linea'], (string) $b['linea']);
-            })
+            ->sort(fn (array $a, array $b) => $this->compareGroupLabels($a['turno'], $b['turno'], 'Sin turno'))
             ->values()
             ->all();
+    }
+
+    private function compareGroupLabels(mixed $a, mixed $b, string $empty): int
+    {
+        $aText = trim((string) $a);
+        $bText = trim((string) $b);
+        $aEmpty = $aText === '' || $aText === '—' || $aText === $empty;
+        $bEmpty = $bText === '' || $bText === '—' || $bText === $empty;
+
+        if ($aEmpty !== $bEmpty) {
+            return $aEmpty ? 1 : -1;
+        }
+
+        return strnatcasecmp($aText, $bText);
     }
 
     private function resumen(Collection $planificados, Collection $disponibles): array
