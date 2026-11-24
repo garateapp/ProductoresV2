@@ -636,39 +636,6 @@ export default function Edit({
   // del servidor a cada lote/fila aunque después se reordene la tabla.
   const submittedOrderRef = useRef({ lotIds: [], rowKeys: [] })
 
-  const isNewRowKey = (key) => String(key || '').startsWith('_new_')
-
-  const addNewRow = () => {
-    const key = `_new_${Date.now()}_${Math.random().toString(36).slice(2, 6)}`
-    const newRow = {
-      key,
-      destino: '',
-      c_item: '',
-      desc_embalaje: '',
-      etiqueta: '',
-      peso_caja: '',
-      cp2: '',
-      altura: '',
-      calibres: '',
-      indications: '',
-      observaciones: '',
-      count: '',
-      pedido: '',
-    }
-    setData('rows', [...(Array.isArray(data.rows) ? data.rows : []), newRow])
-  }
-
-  const removeNewRow = (idx) => {
-    const current = Array.isArray(data.rows) ? data.rows : []
-    if (!isNewRowKey(current[idx]?.key)) return
-    // Se marca como eliminada en lugar de quitarse del payload: el servidor
-    // necesita la clave para ocultar la fila en el instructivo.
-    const next = [...current]
-    const base = (next[idx] && typeof next[idx] === 'object') ? next[idx] : {}
-    next[idx] = { ...base, _deleted: '1' }
-    setData('rows', next)
-  }
-
   const movePackagingRow = (idx, dir) => {
     setData('rows', moveInArray(data.rows, idx, dir))
   }
@@ -740,7 +707,7 @@ export default function Edit({
   const visiblePackaging = useMemo(() => {
     const rows = Array.isArray(data.rows) ? data.rows : []
     return rows
-      .map((row, idx) => ({ ...row, _idx: idx, _isNew: isNewRowKey(row?.key) }))
+      .map((row, idx) => ({ ...row, _idx: idx }))
       .filter((r) => r?._deleted !== '1' && r?._deleted !== 1)
   }, [data.rows])
 
@@ -932,11 +899,8 @@ export default function Edit({
               ) : null}
 
               <h2>Destino + Embalajes (editable)</h2>
-              <div className="flex items-center justify-between mb-1">
+              <div className="mb-1">
                 <div className="text-xs text-gray-500">{visiblePackaging.length} fila(s) visibles</div>
-                <Button type="button" variant="outline" size="sm" onClick={addNewRow}>
-                  + Agregar embalaje
-                </Button>
               </div>
               <div className="table-wrap">
                 <table>
@@ -963,9 +927,8 @@ export default function Edit({
                       const row = data.rows?.[idx] || {}
                       const rowErrors = rowErrorState.packagingErrorsByKey?.[rowKey] || rowErrorState.packagingErrorsByIndex?.[idx] || {}
                       const rowHasError = Object.keys(rowErrors).length > 0
-                      const isNew = r._isNew
                       return (
-                        <tr key={String(r?.key || idx)} className={rowHasError ? 'bg-red-50/40' : isNew ? 'bg-blue-50/30' : ''}>
+                        <tr key={String(r?.key || idx)} className={rowHasError ? 'bg-red-50/40' : ''}>
                           <td style={{ minWidth: 120 }}>
                             <Input
                               className={rowErrors?.destino ? 'border-red-500 bg-red-50' : ''}
@@ -1125,9 +1088,9 @@ export default function Edit({
                               <RowOrderControls index={idx} total={rowTotal} onMove={movePackagingRow} label="fila" />
                               <button
                                 type="button"
-                                onClick={() => isNew ? removeNewRow(idx) : toggleDeleteRow(idx)}
+                                onClick={() => toggleDeleteRow(idx)}
                                 className="inline-flex items-center justify-center h-7 w-7 rounded border border-red-200 bg-red-50 text-red-600 hover:bg-red-100 text-xs font-bold"
-                                title={isNew ? 'Quitar fila nueva' : 'Eliminar esta fila'}
+                                title="Eliminar esta fila"
                               >
                                 ✕
                               </button>

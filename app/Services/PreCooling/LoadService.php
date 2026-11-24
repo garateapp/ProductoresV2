@@ -50,25 +50,33 @@ class LoadService
                 throw ValidationException::withMessages(['tunel_id' => 'El túnel ya tiene un proceso activo.']);
             }
 
-            $numero = $this->generarNumero($tipoProceso->codigo);
+            $intento = 0;
+            while (true) {
+                $intento++;
+                $numero = $this->generarNumero($tipoProceso->codigo);
 
-            try {
-                $load = PreCoolingLoad::create([
-                    'numero' => $numero,
-                    'tipo_proceso_id' => $tipoProcesoId,
-                    'tunel_id' => $tunelId,
-                    'camara_destino_id' => $camaraDestinoId,
-                    'estado' => 'ingresado',
-                    'fecha_hora_inicio' => $fechaHoraInicio,
-                    'temperatura_objetivo' => $temperaturaObjetivo,
-                    'atributos' => $atributos,
-                    'usuario_ingreso_id' => $usuario->id,
-                ]);
-            } catch (QueryException $e) {
-                if ($this->esViolacionUnica($e)) {
-                    throw ValidationException::withMessages(['tunel_id' => 'El túnel ya tiene un proceso activo.']);
+                try {
+                    $load = PreCoolingLoad::create([
+                        'numero' => $numero,
+                        'tipo_proceso_id' => $tipoProcesoId,
+                        'tunel_id' => $tunelId,
+                        'camara_destino_id' => $camaraDestinoId,
+                        'estado' => 'ingresado',
+                        'fecha_hora_inicio' => $fechaHoraInicio,
+                        'temperatura_objetivo' => $temperaturaObjetivo,
+                        'atributos' => $atributos,
+                        'usuario_ingreso_id' => $usuario->id,
+                    ]);
+                    break;
+                } catch (QueryException $e) {
+                    if ($this->esViolacionNumeroDuplicado($e) && $intento < 3) {
+                        continue;
+                    }
+                    if ($this->esViolacionUnica($e)) {
+                        throw ValidationException::withMessages(['tunel_id' => 'El túnel ya tiene un proceso activo.']);
+                    }
+                    throw $e;
                 }
-                throw $e;
             }
 
             $this->audit->log($usuario, 'crear_load', $load->id, null, null, ['load' => $load->toArray()]);
@@ -488,21 +496,22 @@ class LoadService
             || str_contains($mensaje, 'UNIQUE constraint failed');
     }
 
+    protected function esViolacionNumeroDuplicado(QueryException $e): bool
+    {
+        $mensaje = strtolower($e->getMessage());
+
+        return str_contains($mensaje, 'uq_pre_cooling_loads_numero')
+            || (str_contains($mensaje, 'duplicate entry') && str_contains($mensaje, 'numero'));
+    }
+
     protected function generarNumero(string $tipoCodigo): string
     {
-        $prefijo = '';//strtoupper($tipoCodigo);
-
         $ultimo = PreCoolingLoad::query()
-            //->where('numero', 'like', "{$prefijo}-%")
-            ->orderByDesc('numero')
-            ->value('numero');
+            ->selectRaw('MAX(CAST(numero AS UNSIGNED)) as max_numero')
+            ->value('max_numero');
 
-        if ($ultimo) {
-            $consecutivo = ((int) ($ultimo ?? 0)) + 1;
-        } else {
-            $consecutivo = 1;
-        }
+        $consecutivo = ((int) ($ultimo ?? 0)) + 1;
 
-        return sprintf($consecutivo);
+        return (string) $consecutivo;
     }
 }

@@ -350,7 +350,7 @@ class PackingProcessController extends Controller
     public function nextNumproceso(Request $request)
     {
         $this->authorizePlanning($request);
-        Log::info('nextNumproceso llegó');
+
         $max = DB::table('process_lots')
             ->whereNotNull('numproceso')
             ->where('numproceso', '!=', '')
@@ -2067,6 +2067,50 @@ class PackingProcessController extends Controller
         }
     }
 
+    private function filterInstructionOverridesForProcess($rows, PackingProcess $process): array
+    {
+        if (! is_array($rows)) {
+            return [];
+        }
+
+        $processId = (int) $process->id;
+        $out = [];
+        foreach ($rows as $key => $row) {
+            if (! is_array($row)) {
+                continue;
+            }
+
+            $rowProcessId = (int) ($row['process_id'] ?? 0);
+            if (($rowProcessId !== 0 && $rowProcessId !== $processId)
+                || (! empty($row['_hidden']) && $rowProcessId !== $processId)) {
+                continue;
+            }
+
+            $out[$key] = $row;
+        }
+
+        return $out;
+    }
+
+    private function getInstructionOverridesForProcess(PackingProcess $process, string $date, int $shiftId, int $lineId): array
+    {
+        $versions = PlanningInstructionVersion::query()
+            ->where('fecha', $date)
+            ->where('shift_id', $shiftId)
+            ->where('packing_line_id', $lineId)
+            ->orderByDesc('version')
+            ->get(['overrides']);
+
+        foreach ($versions as $version) {
+            $filtered = $this->filterInstructionOverridesForProcess($version->overrides, $process);
+            if (! empty($filtered)) {
+                return $filtered;
+            }
+        }
+
+        return [];
+    }
+
     /**
      * Arma el "lineSheets" del instructivo (por turno/línea).
      *
@@ -2283,56 +2327,30 @@ class PackingProcessController extends Controller
         $startTime = $process->shift?->hora_inicio ? (string) $process->shift->hora_inicio : '08:00:00';
         $shiftStart = Carbon::parse($date.' '.$startTime, $tz);
 
-        // Overrides guardados por versión (Observaciones/Calibres/Pedido) para el instructivo.
-        $instructionOverridesByLineId = [];
-        try {
-            $lineIdsCollection = collect($lineIds ?: [])
-                ->map(fn ($v) => (int) $v)
-                ->filter(fn ($v) => $v > 0)
-                ->values();
-
-            $linesForOverrides = $lineIdsCollection->isNotEmpty()
-                ? $lineIdsCollection->all()
-                : $lots->pluck('packing_line_id')->filter()->map(fn ($v) => (int) $v)->unique()->values()->all();
-
-            foreach ($linesForOverrides as $lid) {
-                $lid = (int) $lid;
-                if ($lid <= 0) {
-                    continue;
-                }
-                $q = PlanningInstructionVersion::query()
-                    ->where('fecha', $date)
-                    ->where('shift_id', $shiftId)
-                    ->where('packing_line_id', $lid)
-                    ->orderByDesc('version');
-
-                $rec = $q->first();
-                if ($rec && is_array($rec->overrides)) {
-                    $instructionOverridesByLineId[$lid] = $rec->overrides;
-                }
-            }
-        } catch (\Throwable $e) {
-            $instructionOverridesByLineId = [];
-            Log::debug('No se pudieron cargar overrides del instructivo: '.$e->getMessage());
-        }
-
-        // Prioridad de overrides:
-        // 1) overrides explícitos recibidos por parámetro (p.ej. al guardar edición actual)
-        // 2) fallback a overrides persistidos de la última versión por línea.
         $effectiveOverridesByLineId = [];
-        foreach ($instructionOverridesByLineId as $lid => $rows) {
-            if (! is_array($rows)) {
+        $lineIdsCollection = collect($lineIds ?: [])
+            ->map(fn ($v) => (int) $v)
+            ->filter(fn ($v) => $v > 0)
+            ->values();
+
+        $linesForOverrides = $lineIdsCollection->isNotEmpty()
+            ? $lineIdsCollection->all()
+            : $lots->pluck('packing_line_id')->filter()->map(fn ($v) => (int) $v)->unique()->values()->all();
+
+        foreach ($linesForOverrides as $lid) {
+            $lid = (int) $lid;
+            if ($lid <= 0) {
                 continue;
             }
-            $effectiveOverridesByLineId[(int) $lid] = $rows;
+            $filtered = $this->getInstructionOverridesForProcess($process, $date, $shiftId, $lid);
+            if (! empty($filtered)) {
+                $effectiveOverridesByLineId[$lid] = $filtered;
+            }
         }
         foreach ($overridesByLineId as $lid => $rows) {
-            if (! is_array($rows)) {
-                continue;
-            }
             $lineIdKey = (int) $lid;
             $base = $effectiveOverridesByLineId[$lineIdKey] ?? [];
-            $effectiveOverridesByLineId[$lineIdKey] = array_merge($base, $rows);
+            $effectiveOverridesByLineId[$lineIdKey] = array_merge($base, $this->filterInstructionOverridesForProcess($rows, $process));
         }
 
         $lineSheets = [];
@@ -2526,63 +2544,11 @@ class PackingProcessController extends Controller
 
             $lineId = (int) ($lineLots->first()?->packing_line_id ?? 0);
 
-            // Embalajes agregados desde el editor ("+ Agregar embalaje"): su clave no coincide
-            // con ningún embalaje derivado de los lotes, así que se reconstruyen desde el override.
-            $lineOverrides = is_array($effectiveOverridesByLineId[$lineId] ?? null)
-                ? $effectiveOverridesByLineId[$lineId]
-                : [];
-
             // Filas eliminadas por el usuario (tombstone _hidden) no forman parte del instructivo.
             foreach ($packSummary as $packKey => $packRow) {
                 if (is_array($packRow['override'] ?? null) && ! empty($packRow['override']['_hidden'])) {
                     unset($packSummary[$packKey]);
                 }
-            }
-
-            foreach ($lineOverrides as $overrideKey => $override) {
-                if (! is_array($override) || isset($packSummary[$overrideKey])) {
-                    continue;
-                }
-
-                if (! empty($override['_hidden'])) {
-                    continue;
-                }
-
-                $code = trim((string) ($override['c_item'] ?? ''));
-                if ($code === '') {
-                    continue;
-                }
-
-                $speciesLabel = trim((string) ($override['especie'] ?? ''));
-                if ($speciesLabel === '') {
-                    // Sin especie explícita: hoja VARIAS si existe, si no la primera de la línea.
-                    $speciesLabel = isset($speciesByKey['VARIAS'])
-                        ? 'VARIAS'
-                        : (string) (reset($speciesByKey) ?: '');
-                }
-
-                $destino = trim((string) ($override['destino'] ?? ''));
-                $desc = trim((string) ($override['desc_embalaje'] ?? ''));
-                $etiqueta = trim((string) ($override['etiqueta'] ?? ''));
-                $altura = trim((string) ($override['altura'] ?? ''));
-                $indications = trim((string) ($override['indications'] ?? ''));
-                $cp2 = $override['cp2'] ?? null;
-
-                $packSummary[$overrideKey] = [
-                    'key' => (string) $overrideKey,
-                    'destino' => $destino !== '' ? mb_strtoupper($destino) : '-',
-                    'especie' => $speciesLabel,
-                    'c_item' => $code,
-                    'n_item' => $desc !== '' ? $desc : null,
-                    'etiqueta' => $etiqueta !== '' ? $etiqueta : null,
-                    'cp2' => is_numeric($cp2) ? (int) $cp2 : null,
-                    'altura' => $altura !== '' ? $altura : null,
-                    'cantidad_bins' => 0,
-                    'kilos' => 0,
-                    'rule' => null,
-                    'override' => $override,
-                    'indications' => $indications !== '' ? $indications : null,
-                ];
             }
 
             foreach ($speciesByKey as $speciesKey => $speciesLabel) {
@@ -2732,10 +2698,9 @@ class PackingProcessController extends Controller
             ->with('changer')
             ->first();
 
-        $overridesByLineId = [];
-        if ($latest && is_array($latest->overrides)) {
-            $overridesByLineId[$lineId] = $latest->overrides;
-        }
+        $overridesByLineId = [
+            $lineId => $this->getInstructionOverridesForProcess($process, $date, $shiftId, (int) $lineId),
+        ];
 
         $lineSheets = $this->buildInstructionLineSheets($process, $date, $shiftId, [$lineId], $overridesByLineId);
         $speciesParam = trim((string) $request->query('species', ''));
@@ -2838,10 +2803,9 @@ class PackingProcessController extends Controller
             ->with('changer')
             ->first();
 
-        $overridesByLineId = [];
-        if ($latest && is_array($latest->overrides)) {
-            $overridesByLineId[$lineId] = $latest->overrides;
-        }
+        $overridesByLineId = [
+            $lineId => $this->getInstructionOverridesForProcess($process, $date, $shiftId, (int) $lineId),
+        ];
 
         $lineSheets = $this->buildInstructionLineSheets($process, $date, $shiftId, [$lineId], $overridesByLineId);
         $speciesParam = trim((string) $request->query('species', ''));
@@ -2948,8 +2912,6 @@ class PackingProcessController extends Controller
             'rows.*.pedido' => ['nullable', 'string', 'max:500'],
         ]);
 
-        Log::debug('Instruction update lots payload', $data['lots'] ?? []);
-
         $lineId = (int) $data['line_id'];
         $reason = trim((string) $data['change_reason']);
         $speciesFilter = trim((string) ($data['species'] ?? ''));
@@ -2989,6 +2951,7 @@ class PackingProcessController extends Controller
             // al fusionar con la versión anterior ni al reconstruir el instructivo.
             if (trim((string) ($row['_deleted'] ?? '')) === '1') {
                 $overrides[$key] = [
+                    'process_id' => (int) $process->id,
                     'orden' => (int) $rowIndex,
                     '_hidden' => true,
                 ];
@@ -3010,6 +2973,7 @@ class PackingProcessController extends Controller
             $cp2 = is_numeric($cp2) ? (int) $cp2 : null;
 
             $ov = [
+                'process_id' => (int) $process->id,
                 // Posición enviada por la UI: permite reordenar las filas del instructivo.
                 'orden' => (int) $rowIndex,
                 'destino' => $destino !== '' ? $destino : null,
@@ -3042,7 +3006,10 @@ class PackingProcessController extends Controller
                 ->value('overrides');
 
             if (is_array($latestOverrides)) {
-                $overrides = array_merge($latestOverrides, $overrides);
+                $overrides = array_merge(
+                    $this->filterInstructionOverridesForProcess($latestOverrides, $process),
+                    $overrides
+                );
             }
         } catch (\Throwable $e) {
             Log::debug('No se pudieron combinar overrides previos del instructivo: '.$e->getMessage());
@@ -3130,8 +3097,6 @@ class PackingProcessController extends Controller
                     $numProc = trim((string) ($row['numproceso'] ?? ''));
                     $payload['numproceso'] = $numProc !== '' ? $numProc : null;
                 }
-
-                Log::debug('Instruction update lot save', ['lot_id' => $lot->id, 'payload' => $payload]);
 
                 $lot->forceFill($payload)->save();
                 $updatedLotsCount++;
@@ -3914,7 +3879,7 @@ class PackingProcessController extends Controller
                     ->first();
 
                 if ($rec && is_array($rec->overrides)) {
-                    $overridesByLineId[(int) $lineIdParam] = $rec->overrides;
+                    $overridesByLineId[(int) $lineIdParam] = $this->filterInstructionOverridesForProcess($rec->overrides, $process);
                 }
             } catch (\Throwable $e) {
                 Log::debug('No se pudieron cargar overrides por versión explícita (instruction): '.$e->getMessage());
@@ -4292,7 +4257,6 @@ class PackingProcessController extends Controller
             }
 
             $lots = [];
-            Log::info($sheet['lots']);
             foreach (($sheet['lots'] ?? []) as $lot) {
                 /** @var PackingProcessLot|mixed $lot */
                 $start = $lot?->getAttribute('instruction_inicio') ?: ($lot?->inicio_estimado ?? null);

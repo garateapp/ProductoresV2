@@ -51,19 +51,18 @@ export default function Create({ especies = [], shifts = [], lines = [], default
   }
 
   const loadNextNumproceso = useCallback(async () => {
-    console.log('loadNextNumproceso: ejecutando')
     try {
-      const url = route('planning.processes.next-numproceso')
-      console.log('loadNextNumproceso: url=', url)
-      const res = await fetch(url, { credentials: 'same-origin', headers: { Accept: 'application/json' } })
-      console.log('loadNextNumproceso: status=', res.status, res.statusText)
+      const res = await fetch(route('planning.processes.next-numproceso'), {
+        credentials: 'same-origin',
+        headers: { Accept: 'application/json' },
+      })
+      if (!res.ok) return
       const json = await res.json()
-      console.log('loadNextNumproceso: json=', json)
       if (json?.next) {
         setData('numproceso', String(json.next))
       }
     } catch (e) {
-      console.error('loadNextNumproceso: error=', e)
+      console.error(e)
     }
   }, [])
 
