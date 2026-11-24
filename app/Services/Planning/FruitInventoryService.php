@@ -3,6 +3,7 @@
 namespace App\Services\Planning;
 
 use App\Models\PackingProcess;
+use App\Models\PackingProcessLot;
 use App\Models\Recepcion;
 
 class FruitInventoryService
@@ -45,18 +46,21 @@ class FruitInventoryService
                     return null;
                 }
 
-                $row = $stock ?? [
-                    'n_g_recepcion' => $ng,
-                    'n_exportadora' => $plan['exportadora'] ?? '',
-                    'n_especie' => $plan['especie'] ?? null,
-                    'n_variedad' => null,
-                    'cantidad_bins' => 0,
-                    'peso_neto' => 0,
-                ];
-
-                $peso = round((float) ($row['peso_neto'] ?? 0), 3);
+                $stockPeso = round((float) ($stock['peso_neto'] ?? 0), 3);
                 $planPeso = $plan ? round((float) $plan['asignado_peso_neto'], 3) : 0;
-                $asignado = round($peso > 0 ? min($peso, $planPeso) : $planPeso, 3);
+                $peso = $plan ? $planPeso : $stockPeso;
+                $asignado = $planPeso;
+                $pendiente = round(max(0, $stockPeso - $asignado), 3);
+                $bins = $plan ? (int) $plan['asignado_cantidad_bins'] : (int) ($stock['cantidad_bins'] ?? 0);
+
+                $row = $plan
+                    ? array_merge($stock ?? [], $plan['fields'] ?? [])
+                    : ($stock ?? [
+                        'n_g_recepcion' => $ng,
+                        'n_variedad' => null,
+                        'cantidad_bins' => 0,
+                        'peso_neto' => 0,
+                    ]);
 
                 $exportadora = trim((string) ($row['n_exportadora'] ?? ''));
                 if ($exportadora === '') {
@@ -86,11 +90,11 @@ class FruitInventoryService
                     'nota_calidad_sqlsrv' => $row['nota_calidad_sqlsrv'] ?? null,
                     'c_centrocosto' => $row['c_centrocosto'] ?? null,
                     'n_bodega' => $row['n_bodega'] ?? null,
-                    'cantidad_bins' => (int) ($row['cantidad_bins'] ?? 0),
+                    'cantidad_bins' => $bins,
                     'asignado_cantidad_bins' => $plan ? (int) $plan['asignado_cantidad_bins'] : 0,
                     'peso_neto' => $peso,
                     'asignado_peso_neto' => $asignado,
-                    'pendiente_peso_neto' => round(max(0, $peso - $asignado), 3),
+                    'pendiente_peso_neto' => $pendiente,
                 ];
             })
             ->filter()
@@ -163,10 +167,17 @@ class FruitInventoryService
                     'especie' => trim((string) ($process->especie ?? '')),
                     'exportadora' => trim((string) ($process->exportadora ?? '')),
                     'fecha_proceso' => $process->fecha ? $process->fecha->toDateString() : null,
+                    'fields' => [],
                 ];
 
                 $plan['asignado_peso_neto'] += (float) ($lot->peso_neto ?? 0);
                 $plan['asignado_cantidad_bins'] += (int) ($lot->cantidad_bins ?? 0);
+
+                foreach ($this->planFields($process, $lot) as $key => $value) {
+                    if (($plan['fields'][$key] ?? null) === null || trim((string) $plan['fields'][$key]) === '') {
+                        $plan['fields'][$key] = $value;
+                    }
+                }
 
                 $numproceso = trim((string) ($process->numproceso ?? ''));
                 $label = $numproceso !== '' ? $numproceso : '#'.$process->id;
@@ -218,6 +229,37 @@ class FruitInventoryService
         }
 
         return true;
+    }
+
+    private function planFields(PackingProcess $process, PackingProcessLot $lot): array
+    {
+        $fechaRecepcion = $lot->fecha_recepcion;
+        if ($fechaRecepcion !== null && method_exists($fechaRecepcion, 'toDateString')) {
+            $fechaRecepcion = $fechaRecepcion->toDateString();
+        }
+
+        $variedad = trim((string) ($lot->n_variedad ?? '')) !== ''
+            ? $lot->n_variedad
+            : ($lot->variedad_original ?? null);
+        $categoria = trim((string) ($lot->categoria_origen ?? '')) !== ''
+            ? $lot->categoria_origen
+            : ($lot->source_categoria ?? null);
+
+        $fields = [
+            'n_especie' => $process->especie ?? null,
+            'n_exportadora' => $process->exportadora ?? null,
+            'n_variedad' => $variedad,
+            'csg_productor' => $lot->csg_productor ?? null,
+            'n_productor' => $lot->n_productor ?? null,
+            'fecha_recepcion' => $fechaRecepcion,
+            'n_categoria' => $categoria,
+            'nota_calidad_sqlsrv' => $lot->setup_nota_calidad ?? null,
+            'c_centrocosto' => $lot->sdp_centrocosto ?? null,
+        ];
+
+        return collect($fields)
+            ->filter(fn ($value) => $value !== null && trim((string) $value) !== '')
+            ->all();
     }
 
     private function normalizeValues(mixed $values): array
