@@ -52,7 +52,7 @@ class ProcessProgressSqlsrvService
 
             return [];
         }
-
+        Log::info("rows:", $rows);
         return collect($rows)
             ->map(fn ($row): array => [
                 'linea_codigo' => trim((string) ($row->linea_codigo ?? '')),

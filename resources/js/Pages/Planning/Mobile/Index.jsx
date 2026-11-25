@@ -1,4 +1,4 @@
-import React, { useState } from 'react'
+import React, { useEffect, useState } from 'react'
 import { Head, router } from '@inertiajs/react'
 
 function formatNumber(value, digits = 0) {
@@ -19,6 +19,39 @@ function formatInicio(value) {
   if (!text) return '—'
   const match = text.match(/^(\d{4}-\d{2}-\d{2})[ T](\d{2}:\d{2})/)
   return match ? `${match[1]} ${match[2]}` : text
+}
+
+function groupVelocidadPorLinea(rows) {
+  const lines = new Map()
+
+  for (const row of rows || []) {
+    const codigo = String(row?.linea_codigo ?? '').trim()
+    if (!codigo) continue
+
+    const current = lines.get(codigo) || {
+      linea_codigo: codigo,
+      linea: String(row?.linea ?? '').trim() || `Línea ${codigo}`,
+      total: 0,
+      muestras: 0,
+      turnos: [],
+    }
+
+    current.total += Number(row?.kg_hora || 0)
+    current.muestras += 1
+
+    const turno = String(row?.turno ?? '').trim()
+    if (turno && !current.turnos.includes(turno)) {
+      current.turnos.push(turno)
+    }
+
+    lines.set(codigo, current)
+  }
+
+  return Array.from(lines.values()).map(({ total, muestras, turnos, ...line }) => ({
+    ...line,
+    kg_hora: muestras ? total / muestras : 0,
+    turnos: turnos.join(' · '),
+  }))
 }
 
 const ESTADO_OPTIONS = [
@@ -136,11 +169,15 @@ export default function MobilePlanningIndex({ filters = {}, options = {}, enCurs
 
   const planes = resumen.planificados || {}
   const disponibles = resumen.disponibles || {}
-  const velocidadLineaUno = velocidad.filter((item) => String(item.linea_codigo) === '1')
-  const kgHoraLineaUno = velocidadLineaUno.length
-    ? velocidadLineaUno.reduce((total, item) => total + Number(item.kg_hora || 0), 0) / velocidadLineaUno.length
-    : null
-  const turnosVelocidad = velocidadLineaUno.map((item) => item.turno).filter(Boolean).join(' · ')
+  const velocidadPorLinea = groupVelocidadPorLinea(velocidad)
+
+  useEffect(() => {
+    const timer = window.setInterval(() => {
+      router.reload({ only: ['velocidad'], preserveState: true, preserveScroll: true })
+    }, 120000)
+
+    return () => window.clearInterval(timer)
+  }, [])
 
   return (
     <>
@@ -230,13 +267,26 @@ export default function MobilePlanningIndex({ filters = {}, options = {}, enCurs
               <div className="text-lg font-bold text-emerald-800">{formatNumber(disponibles.kilos, 3)} kg</div>
               <div className="text-[11px] text-emerald-700">{formatNumber(disponibles.lotes)} lotes</div>
             </div>
-            <div className="col-span-2 rounded-xl border border-sky-200 bg-sky-50 p-3">
-              <div className="text-[11px] text-sky-700">Velocidad · Línea 1</div>
-              <div className="text-lg font-bold text-sky-900">
-                {kgHoraLineaUno === null ? '—' : `${formatNumber(kgHoraLineaUno, 0)} kg/h`}
+            {velocidadPorLinea.length > 0 ? (
+              velocidadPorLinea.map((linea) => (
+                <div key={linea.linea_codigo} className="col-span-2 rounded-xl border border-sky-200 bg-sky-50 p-3">
+                  <div className="flex items-start justify-between gap-3">
+                    <div>
+                      <div className="text-[11px] text-sky-700">Velocidad · {linea.linea}</div>
+                      <div className="text-[11px] text-sky-700">{linea.turnos || 'Unitec en vivo'}</div>
+                    </div>
+                    <div className="text-lg font-bold text-sky-900">{formatNumber(linea.kg_hora, 0)} kg/h</div>
+                  </div>
+                  <div className="mt-1 text-[10px] text-sky-600">Actualiza cada 2 min</div>
+                </div>
+              ))
+            ) : (
+              <div className="col-span-2 rounded-xl border border-sky-200 bg-sky-50 p-3">
+                <div className="text-[11px] text-sky-700">Velocidad · todas las líneas</div>
+                <div className="text-lg font-bold text-sky-900">—</div>
+                <div className="text-[11px] text-sky-700">Unitec en vivo · actualiza cada 2 min</div>
               </div>
-              <div className="text-[11px] text-sky-700">{turnosVelocidad || 'Unitec en vivo'}</div>
-            </div>
+            )}
           </section>
 
           {enCurso.length > 0 ? (

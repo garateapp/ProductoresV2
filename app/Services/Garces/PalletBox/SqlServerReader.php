@@ -106,12 +106,13 @@ class SqlServerReader
                            $aggSelect
                       FROM {$view}
                      WHERE folio IN ({$placeholders})
-                     AND  creacion_tipo in ('PRN', 'RPL','REI','RCL')
+                     AND  creacion_tipo in ('PRN')  
                      GROUP BY $groupByClause
                      $orderClause
                     SQL,
                     $folios
                 );
+                //, 'RPL','REI','RCL'
             } else {
                 $rows = DB::connection($this->connection())->select(
                     <<<SQL
