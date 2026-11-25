@@ -121,7 +121,7 @@ function LotCard({ fila }) {
   )
 }
 
-export default function MobilePlanningIndex({ filters = {}, options = {}, enCurso = [], grupos = [], resumen = {} }) {
+export default function MobilePlanningIndex({ filters = {}, options = {}, enCurso = [], grupos = [], resumen = {}, velocidad = [] }) {
   const apply = (patch) => {
     router.get(
       route('planning.mobile.index'),
@@ -136,6 +136,11 @@ export default function MobilePlanningIndex({ filters = {}, options = {}, enCurs
 
   const planes = resumen.planificados || {}
   const disponibles = resumen.disponibles || {}
+  const velocidadLineaUno = velocidad.filter((item) => String(item.linea_codigo) === '1')
+  const kgHoraLineaUno = velocidadLineaUno.length
+    ? velocidadLineaUno.reduce((total, item) => total + Number(item.kg_hora || 0), 0) / velocidadLineaUno.length
+    : null
+  const turnosVelocidad = velocidadLineaUno.map((item) => item.turno).filter(Boolean).join(' · ')
 
   return (
     <>
@@ -224,6 +229,13 @@ export default function MobilePlanningIndex({ filters = {}, options = {}, enCurs
               <div className="text-[11px] text-emerald-700">Disponibles</div>
               <div className="text-lg font-bold text-emerald-800">{formatNumber(disponibles.kilos, 3)} kg</div>
               <div className="text-[11px] text-emerald-700">{formatNumber(disponibles.lotes)} lotes</div>
+            </div>
+            <div className="col-span-2 rounded-xl border border-sky-200 bg-sky-50 p-3">
+              <div className="text-[11px] text-sky-700">Velocidad · Línea 1</div>
+              <div className="text-lg font-bold text-sky-900">
+                {kgHoraLineaUno === null ? '—' : `${formatNumber(kgHoraLineaUno, 0)} kg/h`}
+              </div>
+              <div className="text-[11px] text-sky-700">{turnosVelocidad || 'Unitec en vivo'}</div>
             </div>
           </section>
 

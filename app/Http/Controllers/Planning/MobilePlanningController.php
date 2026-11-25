@@ -5,6 +5,7 @@ namespace App\Http\Controllers\Planning;
 use App\Http\Controllers\Controller;
 use App\Services\Planning\InventoryRepositorySqlsrv;
 use App\Services\Planning\MobilePlanningService;
+use App\Services\Planning\ProcessProgressSqlsrvService;
 use Illuminate\Http\Request;
 use Inertia\Inertia;
 
@@ -13,6 +14,7 @@ class MobilePlanningController extends Controller
     public function __construct(
         private readonly MobilePlanningService $service,
         private readonly InventoryRepositorySqlsrv $inventory,
+        private readonly ProcessProgressSqlsrvService $progress,
     ) {
     }
 
@@ -47,6 +49,7 @@ class MobilePlanningController extends Controller
             'en_curso' => $data['en_curso'] ?? [],
             'grupos' => $data['grupos'] ?? [],
             'resumen' => $data['resumen'] ?? [],
+            'velocidad' => $this->progress->kgPerHourByLine(),
         ]);
     }
 

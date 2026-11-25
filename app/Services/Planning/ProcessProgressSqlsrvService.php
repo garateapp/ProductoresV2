@@ -8,6 +8,7 @@ use Illuminate\Support\Facades\Log;
 class ProcessProgressSqlsrvService
 {
     private const VIEW = 'VW_MON_Partita_Corrente';
+    private const PRODUCTIVITY_VIEW = 'VW_MON_Produttivita_Uscita_Live';
 
     public function currentByProcess(): array
     {
@@ -30,6 +31,37 @@ class ProcessProgressSqlsrvService
             ->map(fn ($row) => $this->normalizeRow($row))
             ->filter(fn (array $row) => $row['numero_proceso'] !== '')
             ->keyBy(fn (array $row) => self::normalizeProcessNumber($row['numero_proceso']))
+            ->all();
+    }
+
+    public function kgPerHourByLine(): array
+    {
+        try {
+            $rows = DB::connection('unitec')->select(
+                'SELECT LineaCodice as linea_codigo,
+                        LineaDescrizione as linea,
+                        TurnoDescrizione as turno,
+                        AVG(ChilogrammiOra) as [kg_hora]
+                 FROM [UNITEC_DB_UNIREPORT].[dbo].'.self::PRODUCTIVITY_VIEW.'
+                 WHERE FlussoSogliaPosizione = 1
+                 GROUP BY LineaCodice, LineaDescrizione, TurnoDescrizione
+                 ORDER BY LineaCodice'
+            );
+        } catch (\Throwable $e) {
+            Log::warning('No se pudo cargar la velocidad Unitec: '.$e->getMessage());
+
+            return [];
+        }
+
+        return collect($rows)
+            ->map(fn ($row): array => [
+                'linea_codigo' => trim((string) ($row->linea_codigo ?? '')),
+                'linea' => trim((string) ($row->linea ?? '')),
+                'turno' => trim((string) ($row->turno ?? '')),
+                'kg_hora' => $this->number($row->kg_hora ?? null),
+            ])
+            ->filter(fn (array $row) => $row['linea_codigo'] !== '')
+            ->values()
             ->all();
     }
 
