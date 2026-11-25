@@ -30,6 +30,7 @@ import {
 const PREVIEW_URL = '/integrations/garces/folios/preview';
 const SYNC_URL = '/integrations/garces/folios/sync';
 const COMPLETE_URL = '/integrations/garces/folios/completos';
+const SALDOS_T_URL = '/integrations/garces/folios/saldos-t';
 
 const formatNumber = (value, digits = 2) =>
   Number(value || 0).toLocaleString('es-CL', { maximumFractionDigits: digits });
@@ -139,11 +140,11 @@ export default function Index({ folios, filters, config = {}, sourceError = null
     await sendFolios(selected);
   };
 
-  const sendComplete = async () => {
+  const sendByDate = async (url, emptyMessage, confirmLabel) => {
     setSending(true);
 
     try {
-      const response = await window.axios.post(COMPLETE_URL, {
+      const response = await window.axios.post(url, {
         desde: form.desde,
         hasta: form.hasta,
       });
@@ -153,12 +154,12 @@ export default function Index({ folios, filters, config = {}, sourceError = null
       setSending(false);
 
       if (folios.length === 0) {
-        window.alert(data.message || 'No hay folios completos pendientes para el período seleccionado.');
+        window.alert(data.message || emptyMessage);
         return;
       }
 
       const ok = window.confirm(
-        `¿Enviar ${folios.length} folio(s) completo(s) del período seleccionado a Garces?`
+        `¿Enviar ${folios.length} ${confirmLabel} a Garces?`
       );
       if (!ok) return;
 
@@ -169,9 +170,21 @@ export default function Index({ folios, filters, config = {}, sourceError = null
       const detail = data && typeof data === 'object'
         ? (data.message || JSON.stringify(data))
         : e.message || 'Error de red';
-      window.alert(`No se pudieron obtener los folios completos: ${detail}`);
+      window.alert(`No se pudieron obtener los folios para envío masivo: ${detail}`);
     }
   };
+
+  const sendComplete = () => sendByDate(
+    COMPLETE_URL,
+    'No hay folios completos pendientes para el período seleccionado.',
+    'folio(s) completo(s) del período seleccionado'
+  );
+
+  const sendSaldosT = () => sendByDate(
+    SALDOS_T_URL,
+    'No hay folios con T pendientes para el período seleccionado.',
+    'saldo(s) T del período seleccionado'
+  );
 
   const runDryRun = async () => {
     if (selected.length === 0) return;
@@ -372,6 +385,14 @@ export default function Index({ folios, filters, config = {}, sourceError = null
               title="Envía uno a uno los folios pendientes sin T ni C del período seleccionado"
             >
               Enviar folios completos
+            </Button>
+            <Button
+              variant="outline"
+              onClick={sendSaldosT}
+              disabled={sending || !config.enabled || !config.endpoint_configured}
+              title="Envía uno a uno los folios pendientes con T del período seleccionado"
+            >
+              Enviar Saldos T
             </Button>
             <Button variant="outline" onClick={exportExcel} disabled={selected.length === 0}>
               Exportar Excel

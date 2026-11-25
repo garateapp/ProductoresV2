@@ -63,6 +63,16 @@ class GarcesFolioController extends Controller
 
     public function complete(Request $request, GarcesProduccionFolioService $service)
     {
+        return $this->foliosByDate($request, $service, 'complete');
+    }
+
+    public function saldoT(Request $request, GarcesProduccionFolioService $service)
+    {
+        return $this->foliosByDate($request, $service, 't');
+    }
+
+    private function foliosByDate(Request $request, GarcesProduccionFolioService $service, string $tipo)
+    {
         $validated = $request->validate([
             'desde' => ['nullable', 'date_format:Y-m-d'],
             'hasta' => ['nullable', 'date_format:Y-m-d'],
@@ -84,7 +94,9 @@ class GarcesFolioController extends Controller
             ]);
         }
 
-        $folios = $service->completeFoliosForDate($validated);
+        $folios = $tipo === 't'
+            ? $service->tFoliosForDate($validated)
+            : $service->completeFoliosForDate($validated);
 
         if ($service->sourceError !== null) {
             return response()->json([
@@ -94,11 +106,13 @@ class GarcesFolioController extends Controller
             ], 500);
         }
 
+        $label = $tipo === 't' ? 'folios con T pendientes' : 'folios completos pendientes';
+
         return response()->json([
             'status' => $folios === [] ? 'empty' : 'ok',
             'message' => $folios === []
-                ? 'No hay folios completos pendientes para el período seleccionado.'
-                : count($folios).' folio(s) completo(s) pendiente(s) para envío masivo.',
+                ? 'No hay '.$label.' para el período seleccionado.'
+                : count($folios).' '.$label.' para envío masivo.',
             'folios' => $folios,
         ]);
     }

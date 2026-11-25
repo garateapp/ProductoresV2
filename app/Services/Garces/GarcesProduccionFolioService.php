@@ -103,6 +103,32 @@ class GarcesProduccionFolioService
      */
     public function completeFoliosForDate(array $filters): array
     {
+        return $this->pendingFoliosForDate($filters, fn ($folio) => $this->isCompleteFolio($folio));
+    }
+
+    /**
+     * Folios pendientes con T para el período seleccionado.
+     *
+     * @return array<int,string>
+     */
+    public function tFoliosForDate(array $filters): array
+    {
+        return $this->pendingFoliosForDate($filters, fn ($folio) => str_contains(strtoupper($folio), 'T'));
+    }
+
+    public function isCompleteFolio(string $folio): bool
+    {
+        $upper = strtoupper(trim($folio));
+
+        return $upper !== '' && ! str_contains($upper, 'T') && ! str_contains($upper, 'C');
+    }
+
+    /**
+     * @param  callable(string):bool  $predicate
+     * @return array<int,string>
+     */
+    protected function pendingFoliosForDate(array $filters, callable $predicate): array
+    {
         return $this->availableFolios([
             'desde' => $filters['desde'] ?? null,
             'hasta' => $filters['hasta'] ?? null,
@@ -111,18 +137,11 @@ class GarcesProduccionFolioService
             ->getCollection()
             ->pluck('folio')
             ->map(fn ($folio) => trim((string) $folio))
-            ->filter(fn ($folio) => $this->isCompleteFolio($folio))
+            ->filter($predicate)
             ->unique()
             ->values()
             ->take(self::MAX_FOLIOS)
             ->all();
-    }
-
-    public function isCompleteFolio(string $folio): bool
-    {
-        $upper = strtoupper(trim($folio));
-
-        return $upper !== '' && ! str_contains($upper, 'T') && ! str_contains($upper, 'C');
     }
 
     /**
