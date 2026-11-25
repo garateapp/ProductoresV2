@@ -61,6 +61,48 @@ class GarcesFolioController extends Controller
         return response()->json($service->syncSingleFolio($folio, $request->user()?->id));
     }
 
+    public function complete(Request $request, GarcesProduccionFolioService $service)
+    {
+        $validated = $request->validate([
+            'desde' => ['nullable', 'date_format:Y-m-d'],
+            'hasta' => ['nullable', 'date_format:Y-m-d'],
+        ]);
+
+        if (! $service->isEnabled()) {
+            return response()->json([
+                'status' => 'disabled',
+                'message' => 'Servicio deshabilitado (GARCES_PALLET_BOX_ENABLED=false).',
+                'folios' => [],
+            ]);
+        }
+
+        if ($service->endpoint() === '') {
+            return response()->json([
+                'status' => 'error',
+                'message' => 'Endpoint de Garces no configurado (GARCES_PALLET_BOX_BASE_URL).',
+                'folios' => [],
+            ]);
+        }
+
+        $folios = $service->completeFoliosForDate($validated);
+
+        if ($service->sourceError !== null) {
+            return response()->json([
+                'status' => 'error',
+                'message' => 'No se pudo leer la vista de producción: '.$service->sourceError,
+                'folios' => [],
+            ], 500);
+        }
+
+        return response()->json([
+            'status' => $folios === [] ? 'empty' : 'ok',
+            'message' => $folios === []
+                ? 'No hay folios completos pendientes para el período seleccionado.'
+                : count($folios).' folio(s) completo(s) pendiente(s) para envío masivo.',
+            'folios' => $folios,
+        ]);
+    }
+
     private function validateFolios(Request $request): array
     {
         return $request->validate([

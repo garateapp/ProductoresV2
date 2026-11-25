@@ -97,6 +97,35 @@ class GarcesProduccionFolioService
     }
 
     /**
+     * Folios pendientes sin T ni C para el período seleccionado.
+     *
+     * @return array<int,string>
+     */
+    public function completeFoliosForDate(array $filters): array
+    {
+        return $this->availableFolios([
+            'desde' => $filters['desde'] ?? null,
+            'hasta' => $filters['hasta'] ?? null,
+            'estado' => 'pendientes',
+        ], self::MAX_FOLIOS)
+            ->getCollection()
+            ->pluck('folio')
+            ->map(fn ($folio) => trim((string) $folio))
+            ->filter(fn ($folio) => $this->isCompleteFolio($folio))
+            ->unique()
+            ->values()
+            ->take(self::MAX_FOLIOS)
+            ->all();
+    }
+
+    public function isCompleteFolio(string $folio): bool
+    {
+        $upper = strtoupper(trim($folio));
+
+        return $upper !== '' && ! str_contains($upper, 'T') && ! str_contains($upper, 'C');
+    }
+
+    /**
      * Arma el JSON RegisterBoxes de los folios seleccionados sin enviarlo (dry run).
      * Todos los folios van en un mismo payload.
      */

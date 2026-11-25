@@ -29,6 +29,7 @@ import {
  */
 const PREVIEW_URL = '/integrations/garces/folios/preview';
 const SYNC_URL = '/integrations/garces/folios/sync';
+const COMPLETE_URL = '/integrations/garces/folios/completos';
 
 const formatNumber = (value, digits = 2) =>
   Number(value || 0).toLocaleString('es-CL', { maximumFractionDigits: digits });
@@ -86,20 +87,14 @@ export default function Index({ folios, filters, config = {}, sourceError = null
     setSelected(allSelected ? [] : selectableRows.map((row) => row.folio));
   };
 
-  const send = async () => {
-    if (selected.length === 0) return;
-
-    const ok = window.confirm(
-      `¿Enviar ${selected.length} folio(s) individualmente a Garces?`
-    );
-    if (!ok) return;
+  const sendFolios = async (folioList) => {
+    if (folioList.length === 0) return;
 
     setSending(true);
     setLog([]);
     setLogOpen(true);
-    setSelected([]);
 
-    for (const folio of selected) {
+    for (const folio of folioList) {
       setLog((prev) => [...prev, { folio, status: 'sending' }]);
 
       try {
@@ -130,6 +125,52 @@ export default function Index({ folios, filters, config = {}, sourceError = null
     }
 
     setSending(false);
+  };
+
+  const send = async () => {
+    if (selected.length === 0) return;
+
+    const ok = window.confirm(
+      `¿Enviar ${selected.length} folio(s) individualmente a Garces?`
+    );
+    if (!ok) return;
+
+    setSelected([]);
+    await sendFolios(selected);
+  };
+
+  const sendComplete = async () => {
+    setSending(true);
+
+    try {
+      const response = await window.axios.post(COMPLETE_URL, {
+        desde: form.desde,
+        hasta: form.hasta,
+      });
+      const data = response.data || {};
+      const folios = Array.isArray(data.folios) ? data.folios : [];
+
+      setSending(false);
+
+      if (folios.length === 0) {
+        window.alert(data.message || 'No hay folios completos pendientes para el período seleccionado.');
+        return;
+      }
+
+      const ok = window.confirm(
+        `¿Enviar ${folios.length} folio(s) completo(s) del período seleccionado a Garces?`
+      );
+      if (!ok) return;
+
+      await sendFolios(folios);
+    } catch (e) {
+      setSending(false);
+      const data = e.response?.data;
+      const detail = data && typeof data === 'object'
+        ? (data.message || JSON.stringify(data))
+        : e.message || 'Error de red';
+      window.alert(`No se pudieron obtener los folios completos: ${detail}`);
+    }
   };
 
   const runDryRun = async () => {
@@ -323,6 +364,14 @@ export default function Index({ folios, filters, config = {}, sourceError = null
             </Button>
             <Button onClick={send} disabled={sendDisabled}>
               {sending ? 'Enviando…' : `Enviar seleccionados${selected.length ? ` (${selected.length})` : ''}`}
+            </Button>
+            <Button
+              variant="outline"
+              onClick={sendComplete}
+              disabled={sending || !config.enabled || !config.endpoint_configured}
+              title="Envía uno a uno los folios pendientes sin T ni C del período seleccionado"
+            >
+              Enviar folios completos
             </Button>
             <Button variant="outline" onClick={exportExcel} disabled={selected.length === 0}>
               Exportar Excel
