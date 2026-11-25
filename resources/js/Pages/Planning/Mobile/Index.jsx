@@ -10,6 +10,14 @@ function formatNumber(value, digits = 0) {
   })
 }
 
+function formatPorcentaje(value) {
+  if (value === null || value === undefined || value === '') return '—'
+  const number = Number(value)
+  if (!Number.isFinite(number)) return '—'
+
+  return `${formatNumber(number, Number.isInteger(number) ? 0 : 2)}%`
+}
+
 function filterValue(value) {
   return Array.isArray(value) ? value[0] || '' : value || ''
 }
@@ -56,6 +64,7 @@ function groupVelocidadPorLinea(rows) {
 
 const ESTADO_OPTIONS = [
   { value: 'planificado', label: 'Planificado' },
+  { value: 'procesado', label: 'Procesado' },
   { value: 'sin_planificar', label: 'Sin planificar' },
 ]
 
@@ -94,7 +103,9 @@ function LotCard({ fila }) {
         <div>
           <div className="text-sm font-bold text-gray-900">N° lote {fila.n_g_recepcion}</div>
           <div className="mt-0.5 text-xs text-gray-600">
-            {planned ? `N° proceso ${fila.numproceso}` : 'Sin proceso'}
+            {planned
+              ? `N° proceso ${fila.numproceso} · Exportación ${formatPorcentaje(fila.porcentaje_exportacion)}`
+              : 'Sin proceso'}
           </div>
         </div>
         <span
@@ -110,26 +121,32 @@ function LotCard({ fila }) {
         </span>
       </div>
 
-      <div className="mt-3 grid grid-cols-2 gap-2">
-        <div className="rounded-lg bg-gray-50 p-2">
-          <div className="text-[11px] text-gray-500">Kilos</div>
-          <div className="text-sm font-bold text-gray-900">{formatNumber(fila.peso_neto, 3)}</div>
+      {procesado && !open ? (
+        <div className="mt-2 text-xs text-gray-600">
+          {formatNumber(fila.peso_neto)} kg · {formatNumber(fila.cantidad_bins)} bins
         </div>
-        <div className="rounded-lg bg-gray-50 p-2">
-          <div className="text-[11px] text-gray-500">Bins</div>
-          <div className="text-sm font-bold text-gray-900">{formatNumber(fila.cantidad_bins)}</div>
-        </div>
-        <div className="col-span-2 grid grid-cols-2 gap-2 text-xs">
-          <div>
-            <div className="text-gray-500">Variedad</div>
-            <div className="font-semibold text-gray-800">{fila.n_variedad}</div>
+      ) : (
+        <div className="mt-3 grid grid-cols-2 gap-2">
+          <div className="rounded-lg bg-gray-50 p-2">
+            <div className="text-[11px] text-gray-500">Kilos</div>
+            <div className="text-sm font-bold text-gray-900">{formatNumber(fila.peso_neto)}</div>
           </div>
-          <div>
-            <div className="text-gray-500">Exportadora</div>
-            <div className="font-semibold text-gray-800">{fila.n_exportadora}</div>
+          <div className="rounded-lg bg-gray-50 p-2">
+            <div className="text-[11px] text-gray-500">Bins</div>
+            <div className="text-sm font-bold text-gray-900">{formatNumber(fila.cantidad_bins)}</div>
+          </div>
+          <div className="col-span-2 grid grid-cols-2 gap-2 text-xs">
+            <div>
+              <div className="text-gray-500">Variedad</div>
+              <div className="font-semibold text-gray-800">{fila.n_variedad}</div>
+            </div>
+            <div>
+              <div className="text-gray-500">Exportadora</div>
+              <div className="font-semibold text-gray-800">{fila.n_exportadora}</div>
+            </div>
           </div>
         </div>
-      </div>
+      )}
 
       <button
         type="button"
@@ -137,7 +154,13 @@ function LotCard({ fila }) {
         aria-expanded={open}
         onClick={() => setOpen((current) => !current)}
       >
-        {open ? 'Ocultar detalle' : 'Ver detalle'}
+        {procesado
+          ? open
+            ? 'Ocultar lote'
+            : 'Ver lote'
+          : open
+            ? 'Ocultar detalle'
+            : 'Ver detalle'}
       </button>
 
       {open ? (
@@ -251,7 +274,7 @@ export default function MobilePlanningIndex({ filters = {}, options = {}, enCurs
           <section className="mt-4 grid grid-cols-2 gap-2">
             <div className="rounded-xl border border-gray-200 bg-white p-3">
               <div className="text-[11px] text-gray-500">Total kilos</div>
-              <div className="text-lg font-bold text-gray-900">{formatNumber(resumen.kilos, 3)}</div>
+              <div className="text-lg font-bold text-gray-900">{formatNumber(resumen.kilos)}</div>
             </div>
             <div className="rounded-xl border border-gray-200 bg-white p-3">
               <div className="text-[11px] text-gray-500">Total bins</div>
@@ -259,12 +282,12 @@ export default function MobilePlanningIndex({ filters = {}, options = {}, enCurs
             </div>
             <div className="rounded-xl border border-red-200 bg-red-50 p-3">
               <div className="text-[11px] text-red-700">Planificados</div>
-              <div className="text-lg font-bold text-red-800">{formatNumber(planes.kilos, 3)} kg</div>
+              <div className="text-lg font-bold text-red-800">{formatNumber(planes.kilos)} kg</div>
               <div className="text-[11px] text-red-700">{formatNumber(planes.lotes)} lotes</div>
             </div>
             <div className="rounded-xl border border-emerald-200 bg-emerald-50 p-3">
               <div className="text-[11px] text-emerald-700">Disponibles</div>
-              <div className="text-lg font-bold text-emerald-800">{formatNumber(disponibles.kilos, 3)} kg</div>
+              <div className="text-lg font-bold text-emerald-800">{formatNumber(disponibles.kilos)} kg</div>
               <div className="text-[11px] text-emerald-700">{formatNumber(disponibles.lotes)} lotes</div>
             </div>
             {velocidadPorLinea.length > 0 ? (
@@ -319,7 +342,7 @@ export default function MobilePlanningIndex({ filters = {}, options = {}, enCurs
                       />
                     </div>
                     <div className="mt-1 text-[10px] text-emerald-700">
-                      {formatNumber(avance.kilos_vaciados, 3)} / {formatNumber(avance.kilos_planificados, 3)} kg
+                      {formatNumber(avance.kilos_vaciados)} / {formatNumber(avance.kilos_planificados)} kg
                     </div>
                   </article>
                 ))}
@@ -341,7 +364,7 @@ export default function MobilePlanningIndex({ filters = {}, options = {}, enCurs
                       <p className="text-[11px] text-gray-500">{formatNumber(turno.lotes)} lotes</p>
                     </div>
                     <div className="text-right">
-                      <div className="text-sm font-bold text-gray-900">{formatNumber(turno.kilos, 3)} kg</div>
+                      <div className="text-sm font-bold text-gray-900">{formatNumber(turno.kilos)} kg</div>
                       <div className="text-[11px] text-gray-500">{formatNumber(turno.bins)} bins</div>
                     </div>
                   </div>
@@ -352,7 +375,7 @@ export default function MobilePlanningIndex({ filters = {}, options = {}, enCurs
                         <div className="mb-2 flex items-center justify-between gap-2">
                           <div className="text-xs font-bold text-gray-700">Línea {linea.linea}</div>
                           <div className="text-right text-[11px] text-gray-500">
-                            {formatNumber(linea.kilos, 3)} kg · {formatNumber(linea.bins)} bins
+                            {formatNumber(linea.kilos)} kg · {formatNumber(linea.bins)} bins
                           </div>
                         </div>
                         <div className="space-y-3">
@@ -370,7 +393,7 @@ export default function MobilePlanningIndex({ filters = {}, options = {}, enCurs
                                   ) : null}
                                 </div>
                                 <div className="text-right text-[11px] text-gray-500">
-                                  {formatNumber(proceso.kilos, 3)} kg · {formatNumber(proceso.bins)} bins
+                                  {formatNumber(proceso.kilos)} kg · {formatNumber(proceso.bins)} bins
                                 </div>
                               </div>
                               {proceso.procesando ? (
@@ -388,7 +411,7 @@ export default function MobilePlanningIndex({ filters = {}, options = {}, enCurs
                                     />
                                   </div>
                                   <div className="mt-1 text-[10px] text-emerald-700">
-                                    {formatNumber(proceso.kilos_vaciados, 3)} / {formatNumber(proceso.kilos_planificados, 3)} kg
+                                    {formatNumber(proceso.kilos_vaciados)} / {formatNumber(proceso.kilos_planificados)} kg
                                   </div>
                                 </div>
                               ) : null}

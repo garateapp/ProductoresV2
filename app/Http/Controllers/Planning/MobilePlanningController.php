@@ -21,7 +21,7 @@ class MobilePlanningController extends Controller
     public function index(Request $request)
     {
         $estado = trim((string) $request->query('estado', 'todo'));
-        if (! in_array($estado, ['todo', 'planificado', 'sin_planificar'], true)) {
+        if (! in_array($estado, ['todo', 'planificado', 'procesado', 'sin_planificar'], true)) {
             $estado = 'todo';
         }
 

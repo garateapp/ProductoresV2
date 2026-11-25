@@ -102,7 +102,7 @@ class MobilePlanningService
         array $exportadoras,
     ): Collection {
         $query = PackingProcess::query()
-            ->with(['lots.packingLine', 'shift'])
+            ->with(['lots' => fn ($query) => $query->with('packingLine')->orderBy('orden')->orderBy('id'), 'shift'])
             ->whereDate('fecha', $fecha);
 
         if ($exportadoras !== []) {
@@ -159,11 +159,15 @@ class MobilePlanningService
 
                         return [
                             'clave' => 'plan-'.$process->id.'-'.$lot->id,
+                            'orden' => (int) ($lot->orden ?? 0),
                             'n_g_recepcion' => $ng,
                             'numproceso' => $numproceso,
                             'fecha_proceso' => $process->fecha?->toDateString(),
                             'cantidad_bins' => (int) ($lot->cantidad_bins ?? 0),
                             'peso_neto' => round((float) ($lot->peso_neto ?? 0), 3),
+                            'porcentaje_exportacion' => $lot->porcentaje_exportacion === null
+                                ? null
+                                : round((float) $lot->porcentaje_exportacion, 2),
                             'n_variedad' => $variedad !== '' ? $variedad : '—',
                             'n_exportadora' => trim((string) ($process->exportadora ?? '')) ?: '(sin exportadora)',
                             'n_productor' => trim((string) ($lot->n_productor ?? $lot->csg_productor ?? '')) ?: '—',
@@ -242,6 +246,7 @@ class MobilePlanningService
                     'fecha_proceso' => null,
                     'cantidad_bins' => (int) round((float) ($row['cantidad_bins'] ?? 0)),
                     'peso_neto' => round((float) ($row['peso_neto'] ?? 0), 3),
+                    'porcentaje_exportacion' => null,
                     'n_variedad' => $variedad !== '' ? $variedad : '—',
                     'n_exportadora' => $exportadora !== '' ? $exportadora : '(sin exportadora)',
                     'n_productor' => trim((string) ($row['n_productor'] ?? $row['csg_productor'] ?? '')) ?: '—',
@@ -295,7 +300,7 @@ class MobilePlanningService
                                     'planificados' => $procesoRows->where('planned', true)->count(),
                                     'disponibles' => $procesoRows->where('planned', false)->count(),
                                     'filas' => $procesoRows
-                                        ->sort(fn (array $a, array $b) => $this->compareGroupLabels($a['n_g_recepcion'], $b['n_g_recepcion'], ''))
+                                        ->sort(fn (array $a, array $b) => $this->compareFilas($a, $b))
                                         ->values()
                                         ->all(),
                                 ];
@@ -346,6 +351,16 @@ class MobilePlanningService
         return $aPriority <=> $bPriority;
     }
 
+    private function compareFilas(array $a, array $b): int
+    {
+        if (! empty($a['planned']) && ! empty($b['planned'])) {
+            return ((int) ($a['orden'] ?? 0)) <=> ((int) ($b['orden'] ?? 0))
+                ?: $this->compareGroupLabels($a['n_g_recepcion'], $b['n_g_recepcion'], '');
+        }
+
+        return $this->compareGroupLabels($a['n_g_recepcion'], $b['n_g_recepcion'], '');
+    }
+
     private function compareGroupLabels(mixed $a, mixed $b, string $empty): int
     {
         $aText = trim((string) $a);
@@ -383,13 +398,17 @@ class MobilePlanningService
     {
         $estado = trim((string) $estado);
 
-        return in_array($estado, ['todo', 'planificado', 'sin_planificar'], true) ? $estado : 'todo';
+        return in_array($estado, ['todo', 'planificado', 'procesado', 'sin_planificar'], true) ? $estado : 'todo';
     }
 
     private function applyEstado(Collection $filas, string $estado, bool $planned): Collection
     {
         if ($estado === 'planificado') {
-            return $planned ? $filas : collect();
+            return $planned ? $filas->where('estado', 'Planificado') : collect();
+        }
+
+        if ($estado === 'procesado') {
+            return $planned ? $filas->where('estado', 'Procesado') : collect();
         }
 
         if ($estado === 'sin_planificar') {
