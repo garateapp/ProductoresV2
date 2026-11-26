@@ -29,7 +29,7 @@ import { applyDetailPatch } from './detailState'
 
 const emptyDetail = { material_id: '', position_id: '', cantidad: '', sentido: 'salida', observacion: '' }
 
-export default function InventoryMovements({ movements, movementTypes = [], movementStatuses = [], locations = [], materials = [], services = [], productions = [], filters = {} }) {
+export default function InventoryMovements({ movements, movementTypes = [], movementStatuses = [], locations = [], users = [], materials = [], services = [], productions = [], filters = {} }) {
   const { props } = usePage()
   const [filterData, setFilterData] = useState({
     q: filters.q || '',
@@ -38,6 +38,9 @@ export default function InventoryMovements({ movements, movementTypes = [], move
     material_id: filters.material_id || '',
     service_id: filters.service_id || '',
     location_id: filters.location_id || '',
+    origin_location_id: filters.origin_location_id || '',
+    destination_location_id: filters.destination_location_id || '',
+    created_by: filters.created_by || '',
     estado: filters.estado || '',
     date_from: filters.date_from || '',
     date_to: filters.date_to || '',
@@ -64,6 +67,7 @@ export default function InventoryMovements({ movements, movementTypes = [], move
   const selectedType = movementTypes.find((item) => Number(item.id) === Number(data.movement_type_id))
   const movementTypeOptions = movementTypes.map((item) => ({ value: String(item.id), label: item.nombre }))
   const locationOptions = locations.map((item) => ({ value: String(item.id), label: item.nombre }))
+  const userOptions = users.map((item) => ({ value: String(item.id), label: item.name }))
   const materialOptions = materials.map((item) => ({ value: String(item.id), label: `${item.codigo} · ${item.nombre}` }))
   const serviceOptions = services.map((item) => ({ value: String(item.id), label: item.name }))
   const productionOptions = productions.map((item) => ({ value: String(item.id), label: item.label }))
@@ -464,7 +468,7 @@ export default function InventoryMovements({ movements, movementTypes = [], move
             </div>
           </form>
 
-          <form onSubmit={applyFilters} className="grid gap-3 rounded border p-4 md:grid-cols-10">
+          <form onSubmit={applyFilters} className="grid gap-3 rounded border p-4 md:grid-cols-12">
             <Input value={filterData.q} onChange={(e) => setFilterData((current) => ({ ...current, q: e.target.value }))} placeholder="Folio, motivo u observación" />
             <Input
               value={filterData.numero_solicitud}
@@ -496,6 +500,24 @@ export default function InventoryMovements({ movements, movementTypes = [], move
               placeholder="Todas las ubicaciones"
             />
             <SearchableSelect
+              options={locationOptions}
+              value={locationOptions.find((item) => item.value === String(filterData.origin_location_id)) || null}
+              onChange={(option) => setFilterData((current) => ({ ...current, origin_location_id: option?.value || '' }))}
+              placeholder="Ubicación origen"
+            />
+            <SearchableSelect
+              options={locationOptions}
+              value={locationOptions.find((item) => item.value === String(filterData.destination_location_id)) || null}
+              onChange={(option) => setFilterData((current) => ({ ...current, destination_location_id: option?.value || '' }))}
+              placeholder="Ubicación destino"
+            />
+            <SearchableSelect
+              options={userOptions}
+              value={userOptions.find((item) => item.value === String(filterData.created_by)) || null}
+              onChange={(option) => setFilterData((current) => ({ ...current, created_by: option?.value || '' }))}
+              placeholder="Todos los solicitantes"
+            />
+            <SearchableSelect
               options={movementStatusOptions}
               value={movementStatusOptions.find((item) => item.value === String(filterData.estado)) || null}
               onChange={(option) => setFilterData((current) => ({ ...current, estado: option?.value || '' }))}
@@ -516,6 +538,9 @@ export default function InventoryMovements({ movements, movementTypes = [], move
                     material_id: '',
                     service_id: '',
                     location_id: '',
+                    origin_location_id: '',
+                    destination_location_id: '',
+                    created_by: '',
                     estado: '',
                     date_from: '',
                     date_to: '',
@@ -535,6 +560,7 @@ export default function InventoryMovements({ movements, movementTypes = [], move
                 <TableHead>Folio</TableHead>
                 <TableHead>Tipo</TableHead>
                 <TableHead>Ruta</TableHead>
+                <TableHead>Solicitante</TableHead>
                 <TableHead>Detalle</TableHead>
                 <TableHead>Estado</TableHead>
                 <TableHead className="text-right">Acciones</TableHead>
@@ -544,7 +570,7 @@ export default function InventoryMovements({ movements, movementTypes = [], move
               {groupEntries.map((group) => (
                 <Fragment key={group.grupo || '__ungrouped__'}>
                   <TableRow className="bg-slate-100 hover:bg-slate-100">
-                    <TableCell colSpan={6} className="py-2">
+                    <TableCell colSpan={7} className="py-2">
                       <div className="flex items-center gap-2">
                         {group.grupo ? (
                           <Badge variant={grupoBadgeVariant[group.grupo_tipo] || 'outline'}>
@@ -566,6 +592,7 @@ export default function InventoryMovements({ movements, movementTypes = [], move
                       </TableCell>
                       <TableCell>{movement.tipo}</TableCell>
                       <TableCell>{movement.origen || '-'} → {movement.destino || '-'}</TableCell>
+                      <TableCell>{movement.solicitante || '-'}</TableCell>
                       <TableCell>
                         <div className="space-y-1">
                           {movement.details.map((detail) => (

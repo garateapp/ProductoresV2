@@ -13,6 +13,7 @@ use App\Models\InventoryStockLocation;
 use App\Models\InventoryStockPosition;
 use App\Models\InventoryWasteReason;
 use App\Models\Service;
+use App\Models\User;
 use App\Services\Inventory\MovementService;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\RedirectResponse;
@@ -30,7 +31,7 @@ class MovementController extends Controller
     {
         $this->authorizeInventory($request);
 
-        $filters = $request->only(['q', 'numero_solicitud', 'movement_type_id', 'material_id', 'service_id', 'location_id', 'estado', 'date_from', 'date_to']);
+        $filters = $request->only(['q', 'numero_solicitud', 'movement_type_id', 'material_id', 'service_id', 'location_id', 'origin_location_id', 'destination_location_id', 'created_by', 'estado', 'date_from', 'date_to']);
 
         $movements = InventoryMovement::query()
             ->with([
@@ -66,6 +67,9 @@ class MovementController extends Controller
                         ->orWhere('destination_location_id', $value);
                 });
             })
+            ->when($filters['origin_location_id'] ?? null, fn ($query, $value) => $query->where('origin_location_id', $value))
+            ->when($filters['destination_location_id'] ?? null, fn ($query, $value) => $query->where('destination_location_id', $value))
+            ->when($filters['created_by'] ?? null, fn ($query, $value) => $query->where('created_by', $value))
             ->when($filters['date_from'] ?? null, fn ($query, $value) => $query->whereDate('fecha_movimiento', '>=', $value))
             ->when($filters['date_to'] ?? null, fn ($query, $value) => $query->whereDate('fecha_movimiento', '<=', $value))
             ->latest('fecha_movimiento')
@@ -84,6 +88,7 @@ class MovementController extends Controller
                 'tipo_codigo' => $movement->type?->codigo,
                 'origen' => $movement->origin?->nombre,
                 'destino' => $movement->destination?->nombre,
+                'solicitante' => $movement->creator?->name,
                 'motivo' => $movement->motivo,
                 'observacion' => $movement->observacion,
                 'creador' => $movement->creator?->name,
@@ -121,6 +126,7 @@ class MovementController extends Controller
             'locations' => InventoryLocation::query()->where('activo', true)->orderBy('nombre')->get(['id', 'nombre']),
             'materials' => InventoryMaterial::query()->where('activo', true)->orderBy('nombre')->get(['id', 'codigo', 'nombre']),
             'services' => Service::query()->orderBy('name')->get(['id', 'name']),
+            'users' => User::query()->orderBy('name')->get(['id', 'name']),
             'wasteReasons' => InventoryWasteReason::query()->where('activo', true)->orderBy('nombre')->get(['id', 'codigo', 'nombre']),
             'productions' => InventoryProduction::query()->with('packaging:id,nombre')->latest('fecha')->limit(50)->get()->map(fn (InventoryProduction $production) => [
                 'id' => $production->id,

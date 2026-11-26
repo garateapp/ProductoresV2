@@ -17,7 +17,7 @@ import {
 } from '@/Components/ui/dialog'
 import { toast, Toaster } from 'sonner'
 
-export default function MaterialRequestIndex({ requests, filters = {}, locations = [], materials = [], statuses = [], userAssignedLocationIds = [] }) {
+export default function MaterialRequestIndex({ requests, filters = {}, locations = [], users = [], materials = [], statuses = [], userAssignedLocationIds = [] }) {
   const { props } = usePage()
   const [selectedRequest, setSelectedRequest] = useState(null)
   const [showImportDialog, setShowImportDialog] = useState(false)
@@ -26,7 +26,9 @@ export default function MaterialRequestIndex({ requests, filters = {}, locations
   const [filterData, setFilterData] = useState({
     q: filters.q || '',
     estado: filters.estado || '',
-    location_id: filters.location_id || '',
+    created_by: filters.created_by || '',
+    origin_location_id: filters.origin_location_id || '',
+    destination_location_id: filters.destination_location_id || '',
     material_id: filters.material_id || '',
     date_from: filters.date_from || '',
     date_to: filters.date_to || '',
@@ -38,6 +40,7 @@ export default function MaterialRequestIndex({ requests, filters = {}, locations
   const [savingItem, setSavingItem] = useState(false)
 
   const locationOptions = locations.map((l) => ({ value: String(l.id), label: l.nombre }))
+  const userOptions = users.map((u) => ({ value: String(u.id), label: u.name }))
   const materialOptions = materials.map((m) => ({ value: String(m.id), label: `${m.codigo} · ${m.nombre}` }))
   const statusOptions = statuses.map((s) => ({ value: s, label: s }))
 
@@ -253,7 +256,7 @@ export default function MaterialRequestIndex({ requests, filters = {}, locations
               <CardTitle>Historial de Solicitudes</CardTitle>
             </CardHeader>
             <CardContent>
-              <form onSubmit={applyFilters} className="grid gap-3 rounded border p-4 mb-6 md:grid-cols-6">
+              <form onSubmit={applyFilters} className="grid gap-3 rounded border p-4 mb-6 md:grid-cols-4 xl:grid-cols-8">
                 <Input
                   value={filterData.q}
                   onChange={(e) => setFilterData({ ...filterData, q: e.target.value })}
@@ -266,10 +269,22 @@ export default function MaterialRequestIndex({ requests, filters = {}, locations
                   placeholder="Todos los estados"
                 />
                 <SearchableSelect
+                  options={userOptions}
+                  value={userOptions.find((u) => u.value === filterData.created_by) || null}
+                  onChange={(opt) => setFilterData({ ...filterData, created_by: opt?.value || '' })}
+                  placeholder="Todos los solicitantes"
+                />
+                <SearchableSelect
                   options={locationOptions}
-                  value={locationOptions.find((l) => l.value === filterData.location_id) || null}
-                  onChange={(opt) => setFilterData({ ...filterData, location_id: opt?.value || '' })}
-                  placeholder="Todas las ubicaciones"
+                  value={locationOptions.find((l) => l.value === filterData.origin_location_id) || null}
+                  onChange={(opt) => setFilterData({ ...filterData, origin_location_id: opt?.value || '' })}
+                  placeholder="Todas las ubicaciones de origen"
+                />
+                <SearchableSelect
+                  options={locationOptions}
+                  value={locationOptions.find((l) => l.value === filterData.destination_location_id) || null}
+                  onChange={(opt) => setFilterData({ ...filterData, destination_location_id: opt?.value || '' })}
+                  placeholder="Todas las ubicaciones de destino"
                 />
                 <SearchableSelect
                   options={materialOptions}

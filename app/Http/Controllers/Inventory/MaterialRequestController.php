@@ -30,7 +30,9 @@ class MaterialRequestController extends Controller
         $filters = [
             'q' => trim((string) $request->input('q', '')),
             'estado' => (string) $request->input('estado', ''),
-            'location_id' => (string) $request->input('location_id', ''),
+            'created_by' => (string) $request->input('created_by', ''),
+            'origin_location_id' => (string) $request->input('origin_location_id', $request->input('location_id', '')),
+            'destination_location_id' => (string) $request->input('destination_location_id', ''),
             'material_id' => (string) $request->input('material_id', ''),
             'date_from' => (string) $request->input('date_from', ''),
             'date_to' => (string) $request->input('date_to', ''),
@@ -44,7 +46,9 @@ class MaterialRequestController extends Controller
                 });
             })
             ->when($filters['estado'] !== '', fn ($query) => $query->where('estado', $filters['estado']))
-            ->when($filters['location_id'] !== '', fn ($query) => $query->where('origin_location_id', $filters['location_id']))
+            ->when($filters['created_by'] !== '', fn ($query) => $query->where('created_by', $filters['created_by']))
+            ->when($filters['origin_location_id'] !== '', fn ($query) => $query->where('origin_location_id', $filters['origin_location_id']))
+            ->when($filters['destination_location_id'] !== '', fn ($query) => $query->where('destination_location_id', $filters['destination_location_id']))
             ->when($filters['material_id'] !== '', fn ($query) => $query->whereHas('items', fn ($q) => $q->where('material_id', $filters['material_id'])))
             ->when($filters['date_from'] !== '', fn ($query) => $query->whereDate('fecha_solicitud', '>=', $filters['date_from']))
             ->when($filters['date_to'] !== '', fn ($query) => $query->whereDate('fecha_solicitud', '<=', $filters['date_to']))
@@ -91,6 +95,7 @@ class MaterialRequestController extends Controller
             'requests' => $requests,
             'filters' => $filters,
             'locations' => InventoryLocation::where('activo', true)->get(['id', 'nombre']),
+            'users' => User::where('is_active', true)->whereNull('idprod')->get(['id', 'name']),
             'materials' => InventoryMaterial::get(['id', 'codigo', 'nombre']),
             'statuses' => ['pendiente', 'aprobado', 'rechazado', 'completado'],
             'userAssignedLocationIds' => $request->user()->inventoryLocations()->pluck('inventory_location_id'),
