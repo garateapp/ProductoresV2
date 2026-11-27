@@ -354,6 +354,7 @@ Route::middleware('auth')->group(function () {
         Route::get('processes/{process}/instruction', [App\Http\Controllers\Planning\PackingProcessController::class, 'instruction'])->name('processes.instruction');
         Route::get('processes/{process}/instruction/edit', [App\Http\Controllers\Planning\PackingProcessController::class, 'instructionEdit'])->name('processes.instruction.edit');
         Route::post('processes/{process}/instruction/edit', [App\Http\Controllers\Planning\PackingProcessController::class, 'instructionUpdate'])->name('processes.instruction.update');
+        Route::post('processes/{process}/instruction/baseline', [App\Http\Controllers\Planning\PackingProcessController::class, 'instructionBaseline'])->name('processes.instruction.baseline');
         Route::get('processes/{process}/instruction/editor', [App\Http\Controllers\Planning\PackingProcessController::class, 'instructionEditorBlade'])->name('processes.instruction.editor');
         Route::get('sag-labels', [App\Http\Controllers\Planning\SagLabelController::class, 'index'])->name('sag-labels.index');
         Route::post('sag-labels/{process}/send', [App\Http\Controllers\Planning\SagLabelController::class, 'send'])->name('sag-labels.send');

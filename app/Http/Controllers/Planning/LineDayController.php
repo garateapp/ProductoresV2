@@ -94,6 +94,7 @@ class LineDayController extends Controller
             'inventoryFilters' => [],
             'allowSplit' => false,
             'badges' => [],
+            'changedLotIds' => [],
             'lineDay' => [
                 'date' => $date,
                 'shift_id' => $shift?->id ?? ($anchor?->shift_id ?? null),
@@ -108,4 +109,3 @@ class LineDayController extends Controller
         ]);
     }
 }
-

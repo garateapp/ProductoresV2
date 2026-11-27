@@ -35,6 +35,8 @@
         .comments-title { font-weight:700; }
         .comments-line { margin-top:4px; font-size:10px; color:#374151; }
         .font-bold { font-weight:700; }
+        .changed-cell { background:#fde68a !important; color:#713f12 !important; }
+        .change-legend { margin-top:4px; font-size:10px; font-weight:800; color:#92400e; }
 
         .status-borrador { background:#f1f5f9; color:#1e293b; border-color:#e2e8f0; }
         .status-conflicto { background:#fef2f2; color:#991b1b; border-color:#fecaca; }
@@ -63,6 +65,8 @@
             th { background:#2f631e !important; color:#fff !important; position:static !important; }
             th, td { font-size:9px; line-height:1.15; padding:3px 5px; white-space:normal; word-break:break-word; overflow-wrap:anywhere; }
             tr:nth-child(even) td { background:#fff; }
+            .changed-cell { -webkit-print-color-adjust:exact; print-color-adjust:exact; }
+            .change-legend { color:#92400e; }
             .meta-box { font-size:9px; }
             .meta-label { font-size:8.5px; }
             .meta-value { font-size:9.5px; }
@@ -145,6 +149,39 @@
     };
 
     $sheetList = is_array($lineSheets ?? null) ? $lineSheets : [];
+    $changedCells = is_array($changedCells ?? null) ? $changedCells : [];
+
+    $normalizeKeyPart = function ($value): string {
+        if ($value === null) return '';
+        if (is_bool($value)) return $value ? '1' : '0';
+        if (is_float($value)) return rtrim(rtrim(number_format($value, 6, '.', ''), '0'), '.');
+        if (is_array($value)) return (string) json_encode($value);
+        return trim((string) $value);
+    };
+
+    $changedCellClass = function (string $key) use ($changedCells): string {
+        return ! empty($changedCells[$key]) ? ' changed-cell' : '';
+    };
+
+    $lotRowKey = function ($row) use ($normalizeKeyPart): string {
+        $id = (int) (is_array($row) ? ($row['id'] ?? 0) : 0);
+        if ($id > 0) return 'id:'.$id;
+        $parts = [
+            is_array($row) ? ($row['process_id'] ?? '') : '',
+            is_array($row) ? ($row['n_g_recepcion'] ?? '') : '',
+            is_array($row) ? ($row['source_key'] ?? '') : '',
+            is_array($row) ? ($row['orden'] ?? '') : '',
+        ];
+        return 'row:'.implode('|', array_map($normalizeKeyPart, $parts));
+    };
+
+    $packRowKey = function ($row, int $index) use ($normalizeKeyPart): string {
+        $key = is_array($row) ? trim((string) ($row['key'] ?? '')) : '';
+        if ($key !== '') return 'key:'.$key;
+        return 'row:'.$index.'|'.$normalizeKeyPart(is_array($row) ? ($row['destino'] ?? '') : '')
+            .'|'.$normalizeKeyPart(is_array($row) ? ($row['c_item'] ?? '') : '');
+    };
+
     $status = (string) ($process['estado'] ?? '-');
     $statusToneClass = match (strtoupper(trim($status))) {
         'BORRADOR' => 'status-borrador',
@@ -176,6 +213,17 @@
             $lineId = (int) ($s['lineId'] ?? 0);
             $lineName = (string) ($s['lineName'] ?? 'Línea');
             $speciesLabel = (string) ($s['speciesLabel'] ?? '');
+            $sheetKey = (string) ($s['sheetKey'] ?? '');
+            $hasSheetChanges = false;
+            foreach (array_keys($changedCells) as $changedKey) {
+                $changedKey = (string) $changedKey;
+                if (str_starts_with($changedKey, 'sheet:'.$sheetKey.':')
+                    || str_starts_with($changedKey, 'lot:'.$sheetKey.':')
+                    || str_starts_with($changedKey, 'pack:'.$sheetKey.':')) {
+                    $hasSheetChanges = true;
+                    break;
+                }
+            }
             $lots = is_array($s['lots'] ?? null) ? $s['lots'] : [];
             $packRows = is_array($s['packagingSummary'] ?? null) ? $s['packagingSummary'] : [];
             $meta = (is_array($metaByLineId ?? null) && $lineId > 0 && isset($metaByLineId[$lineId]) && is_array($metaByLineId[$lineId])) ? $metaByLineId[$lineId] : null;
@@ -197,12 +245,15 @@
                 @if($meta && !empty($meta['reason']))
                     <div class="card-sub"><strong>Motivo:</strong> {{ (string) $meta['reason'] }}</div>
                 @endif
+                @if($hasSheetChanges)
+                    <div class="change-legend">Cambios resaltados en amarillo</div>
+                @endif
             </div>
             <div class="card-body">
                 <div class="instructionDoc">
                     <h1>INSTRUCTIVO DE EMBALAJE</h1>
                     <div class="meta-grid">
-                        <div class="meta-box">
+                        <div class="meta-box{{ $changedCellClass('sheet:'.$sheetKey.':speciesLabel') }}">
                             <div class="meta-label">Especie</div>
                             <div class="meta-value">{{ $speciesLabel !== '' ? $speciesLabel : 'VARIAS' }}</div>
                         </div>
@@ -228,11 +279,11 @@
                             <div class="meta-label">Línea Proceso</div>
                             <div class="meta-value">{{ $lineName }}</div>
                         </div>
-                        <div class="meta-box">
+                        <div class="meta-box{{ $changedCellClass('sheet:'.$sheetKey.':kilos') }}">
                             <div class="meta-label">Kilos</div>
                             <div class="meta-value">{{ number_format((float) ($s['kilos'] ?? 0), 0, ',', '.') }}</div>
                         </div>
-                        <div class="meta-box" style="grid-column: span 6;">
+                        <div class="meta-box{{ $changedCellClass('sheet:'.$sheetKey.':pedidosLabel') }}" style="grid-column: span 6;">
                             <div class="meta-label">Pedidos</div>
                             <div class="meta-value">{{ (string) (($s['pedidosLabel'] ?? '') !== '' ? $s['pedidosLabel'] : '-') }}</div>
                         </div>
@@ -280,12 +331,16 @@
                                     $lote = $isRepack
                                         ? trim((string) (($r['source_key'] ?? '') !== '' ? $r['source_key'] : ($r['n_g_recepcion'] ?? '')))
                                         : trim((string) ($r['n_g_recepcion'] ?? ''));
+                                    $rowKey = $lotRowKey($r);
+                                    $cellClass = function (string $field) use ($changedCellClass, $sheetKey, $rowKey): string {
+                                        return $changedCellClass('lot:'.$sheetKey.':'.$rowKey.':'.$field);
+                                    };
                                 @endphp
                                 <tr>
-                                    <td>{{ $fmtTime((string) ($r['inicio'] ?? '')) }}</td>
-                                    <td>{{ $fmtTime((string) ($r['fin'] ?? '')) }}</td>
-                                    <td>{{ (string) ($r['numproceso'] ?? '') }}</td>
-                                    <td>
+                                    <td class="{{ $cellClass('inicio') }}">{{ $fmtTime((string) ($r['inicio'] ?? '')) }}</td>
+                                    <td class="{{ $cellClass('fin') }}">{{ $fmtTime((string) ($r['fin'] ?? '')) }}</td>
+                                    <td class="{{ $cellClass('numproceso') }}">{{ (string) ($r['numproceso'] ?? '') }}</td>
+                                    <td class="{{ $cellClass('lote') }}">
                                         @if($isRepack)
                                             <strong>Folio {{ $lote }}</strong>
                                             <div class="small">N° Proceso {{ (string) ($r['source_n_g_proceso'] ?? '-') }} · Lote {{ (string) (($r['source_lote'] ?? '') !== '' ? $r['source_lote'] : ($r['n_g_recepcion'] ?? '-')) }}</div>
@@ -293,32 +348,32 @@
                                         {{ $lote }}
                                     @endif
                                     </td>
-                                    <td>{{ (string) ($r['sispro'] ?? '') }}</td>
-                                    <td>{{ (string) (($r['tipo_proceso'] ?? '') !== '' ? $r['tipo_proceso'] : 'Normal') }}</td>
-                                    <td>{{ (string) ($r['variedad_original'] ?? '') }}</td>
-                                    <td>{{ (string) (($r['productor_real'] ?? '') !== '' ? $r['productor_real'] : ($r['n_productor'] ?? '')) }}</td>
-                                    <td>{{ (string) ($r['csg_productor'] ?? '') }}</td>
-                                    <td>{{ (string) (($r['categoria_origen'] ?? '') !== '' ? $r['categoria_origen'] : 'Cat 1') }}</td>
+                                    <td class="{{ $cellClass('sispro') }}">{{ (string) ($r['sispro'] ?? '') }}</td>
+                                    <td class="{{ $cellClass('tipo_proceso') }}">{{ (string) (($r['tipo_proceso'] ?? '') !== '' ? $r['tipo_proceso'] : 'Normal') }}</td>
+                                    <td class="{{ $cellClass('variedad_original') }}">{{ (string) ($r['variedad_original'] ?? '') }}</td>
+                                    <td class="{{ $cellClass('productor_real') }}">{{ (string) (($r['productor_real'] ?? '') !== '' ? $r['productor_real'] : ($r['n_productor'] ?? '')) }}</td>
+                                    <td class="{{ $cellClass('csg_productor') }}">{{ (string) ($r['csg_productor'] ?? '') }}</td>
+                                    <td class="{{ $cellClass('categoria_origen') }}">{{ (string) (($r['categoria_origen'] ?? '') !== '' ? $r['categoria_origen'] : 'Cat 1') }}</td>
                                     @if($hasMexico)
-                                        <td>{{ strtoupper(trim((string) ($r['destino'] ?? ''))) === 'MEXICO' ? (string) ($r['huerto'] ?? '') : '' }}</td>
+                                        <td class="{{ $cellClass('huerto') }}">{{ strtoupper(trim((string) ($r['destino'] ?? ''))) === 'MEXICO' ? (string) ($r['huerto'] ?? '') : '' }}</td>
                                     @endif
-                                    <td>{{ (string) ($r['pulpa'] ?? '') }}</td>
-                                    <td>
+                                    <td class="{{ $cellClass('pulpa') }}">{{ (string) ($r['pulpa'] ?? '') }}</td>
+                                    <td class="{{ $cellClass('fecha_recepcion') }}">
                                         @php
                                             $fechaRec = (string) ($r['fecha_recepcion'] ?? '');
                                             $fechaRec10 = strlen($fechaRec) >= 10 ? substr($fechaRec, 0, 10) : $fechaRec;
                                         @endphp
                                         {{ $fmtDate($fechaRec10) !== '-' ? $fmtDate($fechaRec10) : '' }}
                                     </td>
-                                    <td>{{ $fmtPercent($r['porcentaje_exportacion'] ?? null) }}</td>
-                                    <td>{{ !empty($r['cantidad_bins']) ? number_format((float) ($r['cantidad_bins'] ?? 0), 0, ',', '.') : '' }}</td>
-                                    <td>{{ !empty($r['cantidad_totes']) ? number_format((float) ($r['cantidad_totes'] ?? 0), 0, ',', '.') : '' }}</td>
-                                    <td>{{ !empty($r['peso_neto']) ? number_format(round((float) ($r['peso_neto'] ?? 0)), 0, ',', '.') : '' }}</td>
-                                    <td>{{ !empty($r['peso_promedio_envase']) ? number_format((float) ($r['peso_promedio_envase'] ?? 0), 3, ',', '.') : '' }}</td>
-                                    <td>{{ (string) ($r['sdp_centrocosto'] ?? '') }}</td>
-                                    <td>{{ (string) ($r['nota_calidad'] ?? '') }}</td>
-                                    <td>{{ (string) ($r['exportadora'] ?? '') }}</td>
-                                    <td>{{ (string) ($r['n_variedad'] ?? '') }}</td>
+                                    <td class="{{ $cellClass('porcentaje_exportacion') }}">{{ $fmtPercent($r['porcentaje_exportacion'] ?? null) }}</td>
+                                    <td class="{{ $cellClass('cantidad_bins') }}">{{ !empty($r['cantidad_bins']) ? number_format((float) ($r['cantidad_bins'] ?? 0), 0, ',', '.') : '' }}</td>
+                                    <td class="{{ $cellClass('cantidad_totes') }}">{{ !empty($r['cantidad_totes']) ? number_format((float) ($r['cantidad_totes'] ?? 0), 0, ',', '.') : '' }}</td>
+                                    <td class="{{ $cellClass('peso_neto') }}">{{ !empty($r['peso_neto']) ? number_format(round((float) ($r['peso_neto'] ?? 0)), 0, ',', '.') : '' }}</td>
+                                    <td class="{{ $cellClass('peso_promedio_envase') }}">{{ !empty($r['peso_promedio_envase']) ? number_format((float) ($r['peso_promedio_envase'] ?? 0), 3, ',', '.') : '' }}</td>
+                                    <td class="{{ $cellClass('sdp_centrocosto') }}">{{ (string) ($r['sdp_centrocosto'] ?? '') }}</td>
+                                    <td class="{{ $cellClass('nota_calidad') }}">{{ (string) ($r['nota_calidad'] ?? '') }}</td>
+                                    <td class="{{ $cellClass('exportadora') }}">{{ (string) ($r['exportadora'] ?? '') }}</td>
+                                    <td class="{{ $cellClass('n_variedad') }}">{{ (string) ($r['n_variedad'] ?? '') }}</td>
                                     <td>{{ ($fmtTime((string) ($r['inicio'] ?? '')) && $fmtTime((string) ($r['fin'] ?? ''))) ? '' : '' }}</td>
                                 </tr>
                             @endforeach
@@ -371,19 +426,25 @@
                             <tbody>
                             @if(count($packRows) > 0)
                                 @foreach($packRows as $r)
+                                    @php
+                                        $rowKey = $packRowKey($r, (int) $loop->index);
+                                        $cellClass = function (string $field) use ($changedCellClass, $sheetKey, $rowKey): string {
+                                            return $changedCellClass('pack:'.$sheetKey.':'.$rowKey.':'.$field);
+                                        };
+                                    @endphp
                                     <tr>
-                                        <td>{{ (string) ($r['destino'] ?? '') }}</td>
-                                        <td class="font-bold">{{ (string) ($r['c_item'] ?? '') }}</td>
-                                        <td>{{ (string) ($r['desc_embalaje'] ?? '') }}</td>
-                                        <td>{{ (string) ($r['etiqueta'] ?? '') }}</td>
-                                        <td>{{ $fmtPesoCaja($r['peso_caja'] ?? null) }}</td>
-                                        <td>{{ (string) ($r['cp2'] ?? '') }}</td>
-                                        <td>{{ (string) ($r['altura'] ?? '') }}</td>
-                                        <td>{{ (string) ($r['calibres'] ?? '') }}</td>
-                                        <td>{{ (string) ($r['indications'] ?? '') }}</td>
-                                        <td>{{ (string) ($r['observaciones'] ?? '') }}</td>
-                                        <td>{{ (string) ($r['count'] ?? '') }}</td>
-                                        <td>{{ (string) ($r['pedido'] ?? '') }}</td>
+                                        <td class="{{ $cellClass('destino') }}">{{ (string) ($r['destino'] ?? '') }}</td>
+                                        <td class="font-bold{{ $cellClass('c_item') }}">{{ (string) ($r['c_item'] ?? '') }}</td>
+                                        <td class="{{ $cellClass('desc_embalaje') }}">{{ (string) ($r['desc_embalaje'] ?? '') }}</td>
+                                        <td class="{{ $cellClass('etiqueta') }}">{{ (string) ($r['etiqueta'] ?? '') }}</td>
+                                        <td class="{{ $cellClass('peso_caja') }}">{{ $fmtPesoCaja($r['peso_caja'] ?? null) }}</td>
+                                        <td class="{{ $cellClass('cp2') }}">{{ (string) ($r['cp2'] ?? '') }}</td>
+                                        <td class="{{ $cellClass('altura') }}">{{ (string) ($r['altura'] ?? '') }}</td>
+                                        <td class="{{ $cellClass('calibres') }}">{{ (string) ($r['calibres'] ?? '') }}</td>
+                                        <td class="{{ $cellClass('indications') }}">{{ (string) ($r['indications'] ?? '') }}</td>
+                                        <td class="{{ $cellClass('observaciones') }}">{{ (string) ($r['observaciones'] ?? '') }}</td>
+                                        <td class="{{ $cellClass('count') }}">{{ (string) ($r['count'] ?? '') }}</td>
+                                        <td class="{{ $cellClass('pedido') }}">{{ (string) ($r['pedido'] ?? '') }}</td>
                                     </tr>
                                 @endforeach
                             @else

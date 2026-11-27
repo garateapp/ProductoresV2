@@ -350,7 +350,7 @@ function PackagingPicker({ lot, onPick, disabled, destinos = [] }) {
   )
 }
 
-export default function Show({ process, planningMode = null, lines = [], allLines = [], inventory = [], inventoryFilters = {}, inventoryFilterOptions = {}, allowSplit, badges = {}, lineDay = null, temporada = 'actual', temporadaDb = null }) {
+export default function Show({ process, planningMode = null, lines = [], allLines = [], inventory = [], inventoryFilters = {}, inventoryFilterOptions = {}, allowSplit, badges = {}, changedLotIds = [], lineDay = null, temporada = 'actual', temporadaDb = null }) {
   const { props } = usePage()
   const isLineDay = Boolean(lineDay)
   const status = statusLabel(process?.estado)
@@ -362,6 +362,11 @@ export default function Show({ process, planningMode = null, lines = [], allLine
   }, [planningMode, process?.planning_mode])
 
   const [lots, setLots] = useState(process?.lots || [])
+  const changedLotIdList = useMemo(() => {
+    const raw = Array.isArray(changedLotIds) ? changedLotIds : []
+    return raw.map((id) => Number(id)).filter((id) => Number.isFinite(id) && id > 0)
+  }, [JSON.stringify(changedLotIds)])
+  const [newLotIds, setNewLotIds] = useState(() => new Set(changedLotIdList))
   const [removedIds, setRemovedIds] = useState([])
   const [dirty, setDirty] = useState(false)
   const [saving, setSaving] = useState(false)
@@ -385,6 +390,10 @@ export default function Show({ process, planningMode = null, lines = [], allLine
     setPedidos(String(process?.pedidos || ''))
     setInventoryDraftFilters({ ...(inventoryFilters || {}) })
   }, [process?.id, process?.updated_at])
+
+  useEffect(() => {
+    setNewLotIds(new Set(changedLotIdList))
+  }, [changedLotIdList])
 
   useEffect(() => {
     // Mantener el borrador consistente cuando se actualiza desde backend (paginación/volver/actualización).
@@ -862,6 +871,21 @@ export default function Show({ process, planningMode = null, lines = [], allLine
     return String(pedidos || '') !== String(process?.pedidos || '')
   }, [pedidos, process?.pedidos])
 
+  const markAddedLots = (nextLots) => {
+    const list = Array.isArray(nextLots) ? nextLots : []
+    if (list.length === 0) return
+    const previousIds = new Set((lots || []).map((lot) => Number(lot.id)).filter((id) => Number.isFinite(id) && id > 0))
+    const addedIds = list
+      .map((lot) => Number(lot?.id))
+      .filter((id) => Number.isFinite(id) && id > 0 && !previousIds.has(id))
+    if (addedIds.length === 0) return
+    setNewLotIds((prev) => {
+      const next = new Set(prev)
+      addedIds.forEach((id) => next.add(id))
+      return next
+    })
+  }
+
   const save = async () => {
     if (saving || isLocked) return
     const confirmedReason = isConfirmed ? String(changeReason || '').trim() : null
@@ -1051,6 +1075,7 @@ export default function Show({ process, planningMode = null, lines = [], allLine
         const nextLots = page?.props?.process?.lots
         if (Array.isArray(nextLots)) {
           setLots(nextLots)
+          markAddedLots(nextLots)
           setDirty(false)
         }
       },
@@ -1077,6 +1102,7 @@ export default function Show({ process, planningMode = null, lines = [], allLine
         const nextLots = page?.props?.process?.lots
         if (Array.isArray(nextLots)) {
           setLots(nextLots)
+          markAddedLots(nextLots)
           setDirty(false)
         }
         // Refrescar inventario para que el lote ahora aparezca como asignado a este proceso.
@@ -1750,6 +1776,7 @@ export default function Show({ process, planningMode = null, lines = [], allLine
         <div className={`${isLineDay ? 'lg:col-span-12' : 'lg:col-span-8'} space-y-4`}>
           {(lines || []).map((line) => {
             const lineLots = lotsByLine[line.id] || []
+            const newLineLotCount = lineLots.filter((lot) => newLotIds.has(Number(lot.id))).length
             const used = totalBinsByLine(line.id)
             const usedKgs = totalKgsByLine(line.id)
             const cap = line.capacidad_bins_turno
@@ -1790,6 +1817,11 @@ export default function Show({ process, planningMode = null, lines = [], allLine
                       <div className="text-xs text-gray-500 mt-1">
                         Arrastra y suelta para ordenar (o mover entre líneas).
                       </div>
+                      {newLineLotCount > 0 ? (
+                        <div className="text-xs text-amber-700 mt-1 font-semibold">
+                          {newLineLotCount} lote{newLineLotCount === 1 ? '' : 's'} nuevo{newLineLotCount === 1 ? '' : 's'} resaltado{newLineLotCount === 1 ? '' : 's'} en ámbar
+                        </div>
+                      ) : null}
                       {cap && used > cap ? (
                         <div className="text-xs text-red-700 mt-1 flex items-center gap-2">
                           <span>Capacidad excedida: quita, divide o agrega horas extra.</span>
@@ -1860,9 +1892,10 @@ export default function Show({ process, planningMode = null, lines = [], allLine
                                 (() => {
                                   const lotStatus = String(lot.estado?.value ?? lot.estado)
                                   const isConflict = lotStatus === 'CONFLICTO'
+                                  const isNewLot = newLotIds.has(Number(lot.id))
                                   const missingDestino = !isLocked && String(lot?.destino || '').trim() === ''
-                                  const lotAccent = isConflict ? 'border-l-red-500' : (missingDestino ? 'border-l-amber-500' : 'border-l-slate-200')
-                                  const lotBg = isConflict ? 'bg-red-50' : (missingDestino ? 'bg-amber-50/30' : 'bg-white')
+                                  const lotAccent = isConflict ? 'border-l-red-500' : (isNewLot ? 'border-l-amber-500' : (missingDestino ? 'border-l-amber-500' : 'border-l-slate-200'))
+                                  const lotBg = isConflict ? 'bg-red-50' : (isNewLot ? 'bg-amber-50/40' : (missingDestino ? 'bg-amber-50/30' : 'bg-white'))
                                   return (
                                 <div
                                   ref={draggableProvided.innerRef}
@@ -1891,6 +1924,9 @@ export default function Show({ process, planningMode = null, lines = [], allLine
                                             <Badge variant="outline">Parte {lot.split_index}</Badge>
                                           ) : null}
                                           <Badge variant="outline" className="text-gray-600">#{lot.orden}</Badge>
+                                          {isNewLot ? (
+                                            <Badge variant="outline" className="border-amber-300 bg-amber-50 text-amber-800">Nuevo</Badge>
+                                          ) : null}
                                           <Badge
                                             variant="outline"
                                             className={String(lot.estado?.value ?? lot.estado) === 'CONFLICTO' ? 'border-red-300 text-red-800' : 'text-gray-600'}

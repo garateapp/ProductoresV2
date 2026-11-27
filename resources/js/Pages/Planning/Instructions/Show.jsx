@@ -1,10 +1,10 @@
-import React, { useMemo } from 'react'
-import { Link } from '@inertiajs/react'
+import React, { useMemo, useState } from 'react'
+import { Link, router } from '@inertiajs/react'
 import AuthenticatedLayout from '@/Layouts/AuthenticatedLayout'
 import { Button } from '@/Components/ui/button'
 import { Card, CardContent, CardHeader, CardTitle } from '@/Components/ui/card'
 import { Badge } from '@/Components/ui/badge'
-import { Printer, FileDown, Pencil } from 'lucide-react'
+import { Printer, FileDown, Pencil, Bookmark } from 'lucide-react'
 
 function fmtDate(dateString) {
   if (!dateString) return '-'
@@ -34,6 +34,27 @@ function statusTone(status) {
   return map[value] || 'bg-slate-50 text-slate-700 border-slate-200'
 }
 
+function changedCellClass(changedCells, key) {
+  return changedCells?.[key] ? 'changed-cell' : ''
+}
+
+function instructionLotRowKey(row) {
+  const id = Number(row?.id || 0)
+  if (id > 0) return `id:${id}`
+  return `row:${[
+    String(row?.process_id ?? '').trim(),
+    String(row?.n_g_recepcion ?? '').trim(),
+    String(row?.source_key ?? '').trim(),
+    String(row?.orden ?? '').trim(),
+  ].join('|')}`
+}
+
+function instructionPackagingRowKey(row, index) {
+  const key = String(row?.key ?? '').trim()
+  if (key) return `key:${key}`
+  return `row:${index}|${String(row?.destino ?? '').trim()}|${String(row?.c_item ?? '').trim()}`
+}
+
 function InstructionCss() {
   return (
     <style>{`
@@ -45,6 +66,7 @@ function InstructionCss() {
       .instructionDoc th,.instructionDoc td{border:1px solid #e5e5e5;padding:6px 10px;vertical-align:top;white-space:pre-wrap;font-size:11px}
       .instructionDoc th{position:sticky;top:0;background:#f7f7f7;font-weight:800}
       .instructionDoc tr:nth-child(even) td{background:#fcfcfc}
+      .instructionDoc .changed-cell{background:#fde68a!important;color:#713f12!important}
       .instructionDoc .meta-grid{display:grid;grid-template-columns:repeat(6,minmax(0,1fr));gap:8px;margin:10px 0 10px 0}
       .instructionDoc .meta-box{border:1px solid #e5e5e5;border-radius:10px;padding:8px 10px;background:#fff}
       .instructionDoc .meta-label{font-size:11px;color:#6b7280;margin-bottom:2px}
@@ -81,7 +103,7 @@ function commentsByLots(lots) {
   return lines
 }
 
-function LotsTable({ lots }) {
+function LotsTable({ lots, changedCells, sheetKey }) {
   const rows = Array.isArray(lots) ? lots : []
   const hasMexico = rows.some((r) => String(r?.destino || '').trim().toUpperCase() === 'MEXICO')
   const sumBins = rows.reduce((acc, r) => acc + Number(r?.cantidad_bins || 0), 0)
@@ -120,47 +142,51 @@ function LotsTable({ lots }) {
           </tr>
         </thead>
         <tbody>
-          {rows.map((r) => (
-            <tr key={String(r?.id || `${r?.process_id}-${r?.n_g_recepcion}-${r?.source_key || ''}`)}>
-              <td>{fmtTime(r?.inicio) || ''}</td>
-              <td>{fmtTime(r?.fin) || ''}</td>
-              <td>{r?.numproceso || ''}</td>
-              {console.log('source_type:', r)}
-              <td>
-                {String(r?.source_type || '').trim().toLowerCase() === 'reembalaje'
-                  ? `Folio ${String(r?.source_key || r?.n_g_recepcion || '')}`
-                  : (r?.n_g_recepcion || '')}
-                {String(r?.source_type || '').trim().toLowerCase() === 'reembalaje' ? (
-                  <div className="text-[10px] text-gray-600">
-                    N° Proceso {r?.source_n_g_proceso || '-'} · Lote {r?.source_lote || r?.n_g_recepcion || '-'}
-                  </div>
-                ) : null}
-              </td>
-              <td>{r?.sispro || ''}</td>
-              <td>{r?.tipo_proceso || 'Normal'}</td>
-              <td>{r?.variedad_original || ''}</td>
-              <td>{r?.productor_real || ''}</td>
-              <td>{r?.csg_productor || ''}</td>
-              <td>{r?.categoria_origen || 'Cat 1'}</td>
-              {hasMexico ? <td>{String(r?.destino || '').trim().toUpperCase() === 'MEXICO' ? (r?.huerto || '') : ''}</td> : null}
-              <td>{r?.pulpa || ''}</td>
-              <td>{r?.fecha_recepcion ? fmtDate(String(r.fecha_recepcion).slice(0, 10)) : ''}</td>
-              <td>
-                {r?.porcentaje_exportacion !== null && r?.porcentaje_exportacion !== undefined
-                  ? `${Number(r.porcentaje_exportacion).toLocaleString('es-CL', { minimumFractionDigits: 0, maximumFractionDigits: 2 })}%`
-                  : ''}
-              </td>
-              <td>{Number(r?.cantidad_bins || 0) ? Number(r.cantidad_bins).toLocaleString('es-CL') : ''}</td>
-              <td>{Number(r?.cantidad_totes || 0) ? Number(r.cantidad_totes).toLocaleString('es-CL') : ''}</td>
-              <td>{Number(r?.peso_neto || 0) ? Math.round(Number(r.peso_neto)).toLocaleString('es-CL') : ''}</td>
-              <td>{Number(r?.peso_promedio_envase || 0) ? Number(r.peso_promedio_envase).toLocaleString('es-CL', { minimumFractionDigits: 3, maximumFractionDigits: 3 }) : ''}</td>
-              <td>{r?.sdp_centrocosto || ''}</td>
-              <td>{r?.nota_calidad || ''}</td>
-              <td>{r?.exportadora || ''}</td>
-              <td>{r?.n_variedad || ''}</td>
-              <td>{(fmtTime(r?.inicio) && fmtTime(r?.fin)) ? '' : ''}</td>
-            </tr>
-          ))}
+          {rows.map((r) => {
+            const rowKey = instructionLotRowKey(r)
+            const cellClass = (field) => changedCellClass(changedCells, `lot:${sheetKey}:${rowKey}:${field}`)
+
+            return (
+              <tr key={String(r?.id || `${r?.process_id}-${r?.n_g_recepcion}-${r?.source_key || ''}`)}>
+                <td className={cellClass('inicio')}>{fmtTime(r?.inicio) || ''}</td>
+                <td className={cellClass('fin')}>{fmtTime(r?.fin) || ''}</td>
+                <td className={cellClass('numproceso')}>{r?.numproceso || ''}</td>
+                <td className={cellClass('lote')}>
+                  {String(r?.source_type || '').trim().toLowerCase() === 'reembalaje'
+                    ? `Folio ${String(r?.source_key || r?.n_g_recepcion || '')}`
+                    : (r?.n_g_recepcion || '')}
+                  {String(r?.source_type || '').trim().toLowerCase() === 'reembalaje' ? (
+                    <div className="text-[10px] text-gray-600">
+                      N° Proceso {r?.source_n_g_proceso || '-'} · Lote {r?.source_lote || r?.n_g_recepcion || '-'}
+                    </div>
+                  ) : null}
+                </td>
+                <td className={cellClass('sispro')}>{r?.sispro || ''}</td>
+                <td className={cellClass('tipo_proceso')}>{r?.tipo_proceso || 'Normal'}</td>
+                <td className={cellClass('variedad_original')}>{r?.variedad_original || ''}</td>
+                <td className={cellClass('productor_real')}>{r?.productor_real || ''}</td>
+                <td className={cellClass('csg_productor')}>{r?.csg_productor || ''}</td>
+                <td className={cellClass('categoria_origen')}>{r?.categoria_origen || 'Cat 1'}</td>
+                {hasMexico ? <td className={cellClass('huerto')}>{String(r?.destino || '').trim().toUpperCase() === 'MEXICO' ? (r?.huerto || '') : ''}</td> : null}
+                <td className={cellClass('pulpa')}>{r?.pulpa || ''}</td>
+                <td className={cellClass('fecha_recepcion')}>{r?.fecha_recepcion ? fmtDate(String(r.fecha_recepcion).slice(0, 10)) : ''}</td>
+                <td className={cellClass('porcentaje_exportacion')}>
+                  {r?.porcentaje_exportacion !== null && r?.porcentaje_exportacion !== undefined
+                    ? `${Number(r.porcentaje_exportacion).toLocaleString('es-CL', { minimumFractionDigits: 0, maximumFractionDigits: 2 })}%`
+                    : ''}
+                </td>
+                <td className={cellClass('cantidad_bins')}>{Number(r?.cantidad_bins || 0) ? Number(r.cantidad_bins).toLocaleString('es-CL') : ''}</td>
+                <td className={cellClass('cantidad_totes')}>{Number(r?.cantidad_totes || 0) ? Number(r.cantidad_totes).toLocaleString('es-CL') : ''}</td>
+                <td className={cellClass('peso_neto')}>{Number(r?.peso_neto || 0) ? Math.round(Number(r.peso_neto)).toLocaleString('es-CL') : ''}</td>
+                <td className={cellClass('peso_promedio_envase')}>{Number(r?.peso_promedio_envase || 0) ? Number(r.peso_promedio_envase).toLocaleString('es-CL', { minimumFractionDigits: 3, maximumFractionDigits: 3 }) : ''}</td>
+                <td className={cellClass('sdp_centrocosto')}>{r?.sdp_centrocosto || ''}</td>
+                <td className={cellClass('nota_calidad')}>{r?.nota_calidad || ''}</td>
+                <td className={cellClass('exportadora')}>{r?.exportadora || ''}</td>
+                <td className={cellClass('n_variedad')}>{r?.n_variedad || ''}</td>
+                <td>{''}</td>
+              </tr>
+            )
+          })}
           <tr>
             <td colSpan={hasMexico ? 14 : 13} className="font-bold">TOTAL</td>
             <td className="font-bold">{sumBins ? sumBins.toLocaleString('es-CL') : ''}</td>
@@ -175,7 +201,7 @@ function LotsTable({ lots }) {
   )
 }
 
-function PackagingTable({ rows }) {
+function PackagingTable({ rows, changedCells, sheetKey }) {
   const data = Array.isArray(rows) ? rows : []
   return (
     <div className="table-wrap">
@@ -197,22 +223,27 @@ function PackagingTable({ rows }) {
           </tr>
         </thead>
         <tbody>
-          {data.length ? data.map((r) => (
-            <tr key={String(r?.key || `${r?.destino}-${r?.c_item}`)}>
-              <td>{r?.destino || ''}</td>
-              <td className="font-bold">{r?.c_item || ''}</td>
-              <td>{r?.desc_embalaje || ''}</td>
-              <td>{r?.etiqueta || ''}</td>
-              <td>{r?.peso_caja != null ? Number(r.peso_caja).toLocaleString('es-CL', { maximumFractionDigits: 1 }) : ''}</td>
-              <td>{r?.cp2 ?? ''}</td>
-              <td>{r?.altura || ''}</td>
-              <td>{r?.calibres || ''}</td>
-              <td>{r?.indications || ''}</td>
-              <td>{r?.observaciones || ''}</td>
-              <td>{r?.count || ''}</td>
-              <td>{r?.pedido || ''}</td>
-            </tr>
-          )) : (
+          {data.length ? data.map((r, index) => {
+            const rowKey = instructionPackagingRowKey(r, index)
+            const cellClass = (field) => changedCellClass(changedCells, `pack:${sheetKey}:${rowKey}:${field}`)
+
+            return (
+              <tr key={String(r?.key || `${r?.destino}-${r?.c_item}`)}>
+                <td className={cellClass('destino')}>{r?.destino || ''}</td>
+                <td className={`font-bold ${cellClass('c_item')}`}>{r?.c_item || ''}</td>
+                <td className={cellClass('desc_embalaje')}>{r?.desc_embalaje || ''}</td>
+                <td className={cellClass('etiqueta')}>{r?.etiqueta || ''}</td>
+                <td className={cellClass('peso_caja')}>{r?.peso_caja != null ? Number(r.peso_caja).toLocaleString('es-CL', { maximumFractionDigits: 1 }) : ''}</td>
+                <td className={cellClass('cp2')}>{r?.cp2 ?? ''}</td>
+                <td className={cellClass('altura')}>{r?.altura || ''}</td>
+                <td className={cellClass('calibres')}>{r?.calibres || ''}</td>
+                <td className={cellClass('indications')}>{r?.indications || ''}</td>
+                <td className={cellClass('observaciones')}>{r?.observaciones || ''}</td>
+                <td className={cellClass('count')}>{r?.count || ''}</td>
+                <td className={cellClass('pedido')}>{r?.pedido || ''}</td>
+              </tr>
+            )
+          }) : (
             <tr>
               <td colSpan={12} className="text-gray-600">Sin embalajes sugeridos (falta destino y/o embalaje en los lotes).</td>
             </tr>
@@ -223,9 +254,25 @@ function PackagingTable({ rows }) {
   )
 }
 
-export default function Show({ process, shift, lineSheets, metaByLineId }) {
+export default function Show({ process, shift, lineSheets, metaByLineId, comparisonMetaByLineId = {}, changedCells }) {
   const sheets = Array.isArray(lineSheets) ? lineSheets : []
   const status = process?.estado
+  const [savingBaselineLineId, setSavingBaselineLineId] = useState(null)
+
+  const saveBaseline = (lineId) => {
+    const id = Number(lineId || 0)
+    if (id <= 0 || savingBaselineLineId !== null) return
+    if (!window.confirm('¿Guardar el estado actual como versión base de comparación?')) return
+    setSavingBaselineLineId(id)
+    router.post(
+      route('planning.processes.instruction.baseline', process.id),
+      { line_id: id, reason: 'Base de comparación' },
+      {
+        preserveScroll: true,
+        onFinish: () => setSavingBaselineLineId(null),
+      },
+    )
+  }
 
   const headerMini = useMemo(() => {
     const date = fmtDate(process?.fecha)
@@ -259,14 +306,20 @@ export default function Show({ process, shift, lineSheets, metaByLineId }) {
         const speciesQuery = speciesLabel && speciesLabel.toUpperCase() !== 'VARIAS'
           ? `&species=${encodeURIComponent(speciesLabel)}`
           : ''
+        const sheetKey = String(s?.sheetKey || `${lineId}-${speciesLabel || 'VARIAS'}`)
         const meta = metaByLineId?.[lineId] || null
         const version = meta?.version ? Number(meta.version) : null
+        const comparisonMeta = comparisonMetaByLineId?.[lineId] || null
+        const comparisonVersion = comparisonMeta?.version ? Number(comparisonMeta.version) : null
+        const isBaselineCurrent = Boolean(comparisonVersion && comparisonVersion === version)
         const pdfUrl = `${route('planning.processes.instruction', process.id)}?format=pdf&download=1&line_id=${lineId}${version ? `&version=${version}` : ''}${speciesQuery}`
         const editUrl = `${route('planning.processes.instruction.edit', process.id)}?line_id=${lineId}${speciesQuery}`
-        const cardKey = String(s?.sheetKey || `${lineId}-${speciesLabel || 'VARIAS'}`)
+        const hasSheetChanges = Object.keys(changedCells || {}).some((key) => (
+          key.startsWith(`sheet:${sheetKey}:`) || key.startsWith(`lot:${sheetKey}:`) || key.startsWith(`pack:${sheetKey}:`)
+        ))
 
         return (
-          <Card key={cardKey}>
+          <Card key={sheetKey}>
             <CardHeader className="flex flex-row items-start justify-between gap-3">
               <div className="min-w-0">
                 <CardTitle className="truncate">{s?.lineName || 'Línea'}</CardTitle>
@@ -279,8 +332,29 @@ export default function Show({ process, shift, lineSheets, metaByLineId }) {
                     <span className="font-semibold">Motivo:</span> {meta.reason}
                   </div>
                 ) : null}
+                {comparisonVersion ? (
+                  <div className="text-xs text-gray-600 mt-1">
+                    {isBaselineCurrent
+                      ? `Base actual: v${comparisonVersion}`
+                      : `Comparando con base v${comparisonVersion}`}
+                  </div>
+                ) : null}
+                {hasSheetChanges ? (
+                  <div className="text-xs text-amber-700 mt-1 font-semibold">Cambios resaltados en amarillo</div>
+                ) : null}
               </div>
                 <div className="flex items-center gap-2">
+                  <Button
+                    variant="outline"
+                    onClick={() => saveBaseline(lineId)}
+                    disabled={savingBaselineLineId !== null}
+                    title="Guardar el estado actual como versión base de comparación"
+                  >
+                    <Bookmark className="h-4 w-4 mr-2" />
+                    {savingBaselineLineId === lineId
+                      ? 'Guardando…'
+                      : (isBaselineCurrent ? 'Base actual' : 'Guardar como base')}
+                  </Button>
                   <a href={editUrl}>
                     <Button variant="outline">
                       <Pencil className="h-4 w-4 mr-2" />
@@ -299,7 +373,7 @@ export default function Show({ process, shift, lineSheets, metaByLineId }) {
               <div className="instructionDoc">
                 <h1>INSTRUCTIVO DE EMBALAJE</h1>
                 <div className="meta-grid">
-                  <div className="meta-box">
+                  <div className={`meta-box ${changedCellClass(changedCells, `sheet:${sheetKey}:speciesLabel`)}`}>
                     <div className="meta-label">Especie</div>
                     <div className="meta-value">{s?.speciesLabel || 'VARIAS'}</div>
                   </div>
@@ -323,21 +397,21 @@ export default function Show({ process, shift, lineSheets, metaByLineId }) {
                     <div className="meta-label">Línea Proceso</div>
                     <div className="meta-value">{s?.lineName || '-'}</div>
                   </div>
-                  <div className="meta-box">
+                  <div className={`meta-box ${changedCellClass(changedCells, `sheet:${sheetKey}:kilos`)}`}>
                     <div className="meta-label">Kilos</div>
                     <div className="meta-value">{Number(s?.kilos || 0) ? Math.round(Number(s.kilos)).toLocaleString('es-CL') : '0'}</div>
                   </div>
-                  <div className="meta-box" style={{ gridColumn: 'span 6' }}>
+                  <div className={`meta-box ${changedCellClass(changedCells, `sheet:${sheetKey}:pedidosLabel`)}`} style={{ gridColumn: 'span 6' }}>
                     <div className="meta-label">Pedidos</div>
                     <div className="meta-value">{s?.pedidosLabel || '-'}</div>
                   </div>
                 </div>
 
                 <h2>Procesos / lotes</h2>
-                <LotsTable lots={s?.lots} />
+                <LotsTable lots={s?.lots} changedCells={changedCells} sheetKey={sheetKey} />
 
                 <h2>Destino + Embalajes</h2>
-                <PackagingTable rows={s?.packagingSummary} />
+                <PackagingTable rows={s?.packagingSummary} changedCells={changedCells} sheetKey={sheetKey} />
 
                 <div className="mt-3 text-sm">
                   <span className="font-bold">Comentarios:</span>

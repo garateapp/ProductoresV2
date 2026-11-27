@@ -16,6 +16,8 @@ class PlanningInstructionVersion extends Model
         'version',
         'html',
         'overrides',
+        'sheets',
+        'is_comparison_baseline',
         'reason',
         'changed_by',
         'changed_at',
@@ -26,6 +28,8 @@ class PlanningInstructionVersion extends Model
         'version' => 'integer',
         'changed_at' => 'datetime',
         'overrides' => 'array',
+        'sheets' => 'array',
+        'is_comparison_baseline' => 'boolean',
     ];
 
     public function shift(): BelongsTo

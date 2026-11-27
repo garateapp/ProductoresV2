@@ -902,6 +902,7 @@ class PackingProcessController extends Controller
             'packagingDestinosAvailable' => $packagingDestinosAvailable,
             'allowSplit' => (bool) config('planning.allow_split', false),
             'badges' => $badges,
+            'changedLotIds' => $this->getNewInstructionLotIds($process),
             'temporada' => $seasons->current(),
             'temporadaDb' => (string) config('database.connections.'.$seasons->connection().'.database'),
         ]);
@@ -1908,20 +1909,36 @@ class PackingProcessController extends Controller
     /**
      * Crea una nueva versión del instructivo por cada línea/cámara (fecha+turno fijos).
      *
-     * @param array<int,int> $lineIds
+     * @param  array<int,int>  $lineIds
+     * @param  array<int,array<string,mixed>>  $overridesByLineId
+     * @return array<int,PlanningInstructionVersion>
      */
-    private function storeNewInstructionVersionsForLines(PackingProcess $process, array $lineIds, string $reason): void
-    {
+    private function storeNewInstructionVersionsForLines(
+        PackingProcess $process,
+        array $lineIds,
+        string $reason,
+        bool $isBaseline = false,
+        array $overridesByLineId = []
+    ): array {
         $date = $process->fecha ? Carbon::parse($process->fecha)->toDateString() : now('America/Santiago')->toDateString();
         $shiftId = (int) ($process->shift_id ?? 0);
         if ($shiftId <= 0 || empty($lineIds)) {
-            return;
+            return [];
         }
 
         $shift = $process->shift ?: Shift::find($shiftId);
+        $created = [];
+
+        if ($isBaseline) {
+            PlanningInstructionVersion::query()
+                ->whereDate('fecha', $date)
+                ->where('shift_id', $shiftId)
+                ->whereIn('packing_line_id', $lineIds)
+                ->update(['is_comparison_baseline' => false]);
+        }
 
         $maxByLine = PlanningInstructionVersion::query()
-            ->where('fecha', $date)
+            ->whereDate('fecha', $date)
             ->where('shift_id', $shiftId)
             ->whereIn('packing_line_id', $lineIds)
             ->selectRaw('packing_line_id, max(version) as max_version')
@@ -1936,7 +1953,14 @@ class PackingProcessController extends Controller
 
         foreach ($lineIds as $lineId) {
             $next = (int) (($maxByLine[(int) $lineId] ?? 0) + 1);
-            $lineSheets = $this->buildInstructionLineSheets($process, $date, $shiftId, [$lineId]);
+            $lineOverrides = $overridesByLineId[(int) $lineId] ?? [];
+            $lineSheets = $this->buildInstructionLineSheets(
+                $process,
+                $date,
+                $shiftId,
+                [$lineId],
+                is_array($lineOverrides) && $lineOverrides !== [] ? [(int) $lineId => $lineOverrides] : []
+            );
             if (empty($lineSheets)) {
                 continue;
             }
@@ -1969,17 +1993,22 @@ class PackingProcessController extends Controller
                 'metaByLineId' => $meta,
             ])->render();
 
-            PlanningInstructionVersion::create([
+            $created[] = PlanningInstructionVersion::create([
                 'fecha' => $date,
                 'shift_id' => $shiftId,
                 'packing_line_id' => (int) $lineId,
                 'version' => $next,
                 'html' => $html,
+                'overrides' => is_array($lineOverrides) && $lineOverrides !== [] ? $lineOverrides : null,
+                'sheets' => $serializedLineSheets,
                 'reason' => $reason,
                 'changed_by' => $changedBy,
                 'changed_at' => $changedAt,
+                'is_comparison_baseline' => $isBaseline,
             ]);
         }
+
+        return $created;
     }
 
     /**
@@ -1996,7 +2025,7 @@ class PackingProcessController extends Controller
         }
 
         $existing = PlanningInstructionVersion::query()
-            ->where('fecha', $date)
+            ->whereDate('fecha', $date)
             ->where('shift_id', $shiftId)
             ->whereIn('packing_line_id', $lineIds)
             ->select(['packing_line_id'])
@@ -2060,6 +2089,7 @@ class PackingProcessController extends Controller
                 'packing_line_id' => (int) $lineId,
                 'version' => 1,
                 'html' => $html,
+                'sheets' => $serializedLineSheets,
                 'reason' => $reason,
                 'changed_by' => $user?->id,
                 'changed_at' => $changedAt,
@@ -2114,8 +2144,8 @@ class PackingProcessController extends Controller
     /**
      * Arma el "lineSheets" del instructivo (por turno/línea).
      *
-     * @param array<int,int>|null $lineIds
-     * @param array<int, array<string, mixed>> $overridesByLineId Mapa: lineId => [key => override]
+     * @param  array<int,int>|null  $lineIds
+     * @param  array<int, array<string, mixed>>  $overridesByLineId  Mapa: lineId => [key => override]
      * @return array<int, array<string, mixed>>
      */
     private function buildInstructionLineSheets(PackingProcess $process, string $date, int $shiftId, ?array $lineIds = null, array $overridesByLineId = []): array
@@ -2726,7 +2756,7 @@ class PackingProcessController extends Controller
         $shiftId = (int) ($process->shift_id ?? 0);
 
         $latest = PlanningInstructionVersion::query()
-            ->where('fecha', $date)
+            ->whereDate('fecha', $date)
             ->where('shift_id', $shiftId)
             ->where('packing_line_id', $lineId)
             ->orderByDesc('version')
@@ -2831,7 +2861,7 @@ class PackingProcessController extends Controller
         $shifts = \App\Models\Shift::query()->where('activo', true)->orderBy('codigo')->get();
 
         $latest = PlanningInstructionVersion::query()
-            ->where('fecha', $date)
+            ->whereDate('fecha', $date)
             ->where('shift_id', $shiftId)
             ->where('packing_line_id', $lineId)
             ->orderByDesc('version')
@@ -2969,7 +2999,7 @@ class PackingProcessController extends Controller
         $shiftId = (int) ($process->shift_id ?? 0);
 
         $baseVersion = (int) PlanningInstructionVersion::query()
-            ->where('fecha', $date)
+            ->whereDate('fecha', $date)
             ->where('shift_id', $shiftId)
             ->where('packing_line_id', $lineId)
             ->max('version');
@@ -3034,7 +3064,7 @@ class PackingProcessController extends Controller
         // y sobreescribimos solo las claves que llegan en este guardado.
         try {
             $latestOverrides = PlanningInstructionVersion::query()
-                ->where('fecha', $date)
+                ->whereDate('fecha', $date)
                 ->where('shift_id', $shiftId)
                 ->where('packing_line_id', $lineId)
                 ->orderByDesc('version')
@@ -3184,6 +3214,7 @@ class PackingProcessController extends Controller
             'version' => $nextVersion,
             'html' => $html,
             'overrides' => $overrides,
+            'sheets' => $serializedLineSheets,
             'reason' => $reason,
             'changed_by' => $user?->id,
             'changed_at' => $changedAt,
@@ -3197,6 +3228,36 @@ class PackingProcessController extends Controller
         return redirect()
             ->route('planning.processes.instruction.edit', $redirectParams)
             ->with('success', 'Instructivo guardado correctamente. Versión '.$nextVersion.'. Lotes actualizados: '.$updatedLotsCount.'. Lotes reordenados: '.$reorderedLotsCount.'.');
+    }
+
+    public function instructionBaseline(Request $request, PackingProcess $process)
+    {
+        $this->authorizePlanning($request);
+
+        $data = $request->validate([
+            'line_id' => ['required', 'integer', 'min:1'],
+            'reason' => ['nullable', 'string', 'max:500'],
+        ]);
+
+        $process->load(['shift']);
+
+        $date = $process->fecha ? Carbon::parse($process->fecha)->toDateString() : now()->toDateString();
+        $shiftId = (int) ($process->shift_id ?? 0);
+        $lineId = (int) $data['line_id'];
+        $reason = trim((string) ($data['reason'] ?? '')) ?: 'Base de comparación';
+
+        $overridesByLineId = [
+            $lineId => $this->getInstructionOverridesForProcess($process, $date, $shiftId, $lineId),
+        ];
+
+        $created = $this->storeNewInstructionVersionsForLines($process, [$lineId], $reason, true, $overridesByLineId);
+        if (empty($created)) {
+            return back()->with('error', 'No se pudo guardar la versión base del instructivo.');
+        }
+
+        $version = (int) ($created[0]->version ?? 0);
+
+        return back()->with('success', 'Versión '.$version.' guardada como base de comparación.');
     }
 
     /**
@@ -3907,7 +3968,7 @@ class PackingProcessController extends Controller
         if ($lineIdParam && $lineIdParam > 0 && $versionParam && $versionParam > 0) {
             try {
                 $rec = PlanningInstructionVersion::query()
-                    ->where('fecha', $date)
+                    ->whereDate('fecha', $date)
                     ->where('shift_id', $shiftId)
                     ->where('packing_line_id', (int) $lineIdParam)
                     ->where('version', (int) $versionParam)
@@ -3956,7 +4017,7 @@ class PackingProcessController extends Controller
             ->all();
         if (! empty($sheetLineIds)) {
             $maxByLine = PlanningInstructionVersion::query()
-                ->where('fecha', $date)
+                ->whereDate('fecha', $date)
                 ->where('shift_id', $shiftId)
                 ->whereIn('packing_line_id', $sheetLineIds)
                 ->selectRaw('packing_line_id, max(version) as max_version')
@@ -3971,7 +4032,7 @@ class PackingProcessController extends Controller
                     continue;
                 }
                 $latest = PlanningInstructionVersion::query()
-                    ->where('fecha', $date)
+                    ->whereDate('fecha', $date)
                     ->where('shift_id', $shiftId)
                     ->where('packing_line_id', $lid)
                     ->where('version', $v)
@@ -3990,6 +4051,17 @@ class PackingProcessController extends Controller
         }
 
         $serializedLineSheets = $this->serializeInstructionLineSheets($lineSheets);
+        $comparisonMetaByLineId = [];
+        $previousSheetsByKey = $this->getComparisonInstructionSheets(
+            $date,
+            $shiftId,
+            $sheetLineIds,
+            $metaByLineId,
+            $lineIdParam,
+            $versionParam,
+            $comparisonMetaByLineId
+        );
+        $changedCells = $this->buildInstructionChangedCells($serializedLineSheets, $previousSheetsByKey);
 
         // Vista en el sistema (dentro de AuthenticatedLayout): devolvemos Inertia con data estructurada.
         // El PDF/HTML descargable usa el mismo esquema de datos para mantener consistencia visual.
@@ -4012,6 +4084,8 @@ class PackingProcessController extends Controller
                 'version' => $versionParam,
                 'lineSheets' => $serializedLineSheets,
                 'metaByLineId' => $metaByLineId,
+                'comparisonMetaByLineId' => $comparisonMetaByLineId,
+                'changedCells' => $changedCells,
             ]);
         }
 
@@ -4032,6 +4106,7 @@ class PackingProcessController extends Controller
             ] : null,
             'lineSheets' => $serializedLineSheets,
             'metaByLineId' => $metaByLineId,
+            'changedCells' => $changedCells,
         ])->render();
 
         $lineNameForDownload = null;
@@ -4065,7 +4140,7 @@ class PackingProcessController extends Controller
                 $versionForFilename = $versionParam;
             } else {
                 $rec = PlanningInstructionVersion::query()
-                    ->where('fecha', $date)
+                    ->whereDate('fecha', $date)
                     ->where('shift_id', $shiftId)
                     ->where('packing_line_id', $lineIdParam)
                     ->selectRaw('max(version) as v')
@@ -4480,6 +4555,488 @@ class PackingProcessController extends Controller
             ];
         }
         return $out;
+    }
+
+    private function getPreviousInstructionSheets(
+        string $date,
+        int $shiftId,
+        array $lineIds,
+        array $metaByLineId,
+        ?int $lineIdParam,
+        ?int $versionParam
+    ): array {
+        $sheetsByKey = [];
+
+        foreach ($lineIds as $lineId) {
+            $lineId = (int) $lineId;
+            if ($lineId <= 0) {
+                continue;
+            }
+
+            $currentVersion = (int) ($metaByLineId[$lineId]['version'] ?? 0);
+            if ($lineIdParam && $versionParam && (int) $lineIdParam === $lineId) {
+                $currentVersion = (int) $versionParam;
+            }
+            if ($currentVersion <= 1) {
+                continue;
+            }
+
+            try {
+                $previousSheets = PlanningInstructionVersion::query()
+                    ->whereDate('fecha', $date)
+                    ->where('shift_id', $shiftId)
+                    ->where('packing_line_id', $lineId)
+                    ->where('version', '<', $currentVersion)
+                    ->orderByDesc('version')
+                    ->value('sheets');
+            } catch (\Throwable $e) {
+                Log::debug('No se pudieron cargar las celdas cambiadas del instructivo: '.$e->getMessage());
+
+                continue;
+            }
+
+            if (! is_array($previousSheets)) {
+                continue;
+            }
+
+            foreach ($previousSheets as $sheet) {
+                if (! is_array($sheet)) {
+                    continue;
+                }
+                $sheetKey = trim((string) ($sheet['sheetKey'] ?? ''));
+                if ($sheetKey === '') {
+                    continue;
+                }
+                $sheetsByKey[$sheetKey] = $sheet;
+            }
+        }
+
+        return $sheetsByKey;
+    }
+
+    private function getLatestInstructionMetaByLineIds(string $date, int $shiftId, array $lineIds): array
+    {
+        $lineIds = collect($lineIds)
+            ->map(fn ($id) => (int) $id)
+            ->filter(fn ($id) => $id > 0)
+            ->unique()
+            ->values()
+            ->all();
+
+        if (empty($lineIds)) {
+            return [];
+        }
+
+        $maxByLine = PlanningInstructionVersion::query()
+            ->whereDate('fecha', $date)
+            ->where('shift_id', $shiftId)
+            ->whereIn('packing_line_id', $lineIds)
+            ->selectRaw('packing_line_id, max(version) as max_version')
+            ->groupBy('packing_line_id')
+            ->get()
+            ->mapWithKeys(fn ($r) => [(int) $r->packing_line_id => (int) ($r->max_version ?? 0)])
+            ->all();
+
+        $meta = [];
+        foreach ($lineIds as $lid) {
+            $version = (int) ($maxByLine[(int) $lid] ?? 0);
+            if ($version <= 0) {
+                continue;
+            }
+
+            $latest = PlanningInstructionVersion::query()
+                ->whereDate('fecha', $date)
+                ->where('shift_id', $shiftId)
+                ->where('packing_line_id', $lid)
+                ->where('version', $version)
+                ->with('changer')
+                ->first();
+            if (! $latest) {
+                continue;
+            }
+
+            $meta[(int) $lid] = [
+                'version' => (int) $latest->version,
+                'changed_by_name' => $latest->changer?->name,
+                'changed_at' => $latest->changed_at?->tz('America/Santiago')->toDateTimeString(),
+                'reason' => $latest->reason,
+            ];
+        }
+
+        return $meta;
+    }
+
+    private function getComparisonInstructionSheets(
+        string $date,
+        int $shiftId,
+        array $lineIds,
+        array $metaByLineId,
+        ?int $lineIdParam,
+        ?int $versionParam,
+        array &$comparisonMetaByLineId = []
+    ): array {
+        $comparisonMetaByLineId = [];
+        $sheetsByKey = [];
+        $hasExplicitVersion = (bool) ($lineIdParam && $versionParam);
+
+        foreach ($lineIds as $lineId) {
+            $lineId = (int) $lineId;
+            if ($lineId <= 0) {
+                continue;
+            }
+            if ($hasExplicitVersion && (int) $lineIdParam === $lineId) {
+                continue;
+            }
+
+            try {
+                $baseline = PlanningInstructionVersion::query()
+                    ->whereDate('fecha', $date)
+                    ->where('shift_id', $shiftId)
+                    ->where('packing_line_id', $lineId)
+                    ->where('is_comparison_baseline', true)
+                    ->orderByDesc('version')
+                    ->with('changer')
+                    ->first();
+            } catch (\Throwable $e) {
+                Log::debug('No se pudo cargar la versión base del instructivo: '.$e->getMessage());
+
+                continue;
+            }
+
+            if (! $baseline || ! is_array($baseline->sheets)) {
+                continue;
+            }
+
+            if (! $hasExplicitVersion) {
+                $comparisonMetaByLineId[$lineId] = [
+                    'version' => (int) $baseline->version,
+                    'changed_by_name' => $baseline->changer?->name,
+                    'changed_at' => $baseline->changed_at?->tz('America/Santiago')->toDateTimeString(),
+                    'reason' => $baseline->reason,
+                ];
+            }
+
+            foreach ($baseline->sheets as $sheet) {
+                if (! is_array($sheet)) {
+                    continue;
+                }
+                $sheetKey = trim((string) ($sheet['sheetKey'] ?? ''));
+                if ($sheetKey === '') {
+                    continue;
+                }
+                $sheetsByKey[$sheetKey] = $sheet;
+            }
+        }
+
+        $fallbackSheets = $this->getPreviousInstructionSheets(
+            $date,
+            $shiftId,
+            $lineIds,
+            $metaByLineId,
+            $lineIdParam,
+            $versionParam
+        );
+        foreach ($fallbackSheets as $sheetKey => $sheet) {
+            if (! isset($sheetsByKey[$sheetKey])) {
+                $sheetsByKey[$sheetKey] = $sheet;
+            }
+        }
+
+        return $sheetsByKey;
+    }
+
+    private function getNewInstructionLotIds(PackingProcess $process): array
+    {
+        $date = $process->fecha ? Carbon::parse($process->fecha)->toDateString() : now()->toDateString();
+        $shiftId = (int) ($process->shift_id ?? 0);
+        if ($shiftId <= 0 || $process->lots->isEmpty()) {
+            return [];
+        }
+
+        $lineIds = $process->lots
+            ->pluck('packing_line_id')
+            ->map(fn ($id) => (int) $id)
+            ->filter(fn ($id) => $id > 0)
+            ->unique()
+            ->values()
+            ->all();
+        if (empty($lineIds)) {
+            return [];
+        }
+
+        $metaByLineId = $this->getLatestInstructionMetaByLineIds($date, $shiftId, $lineIds);
+        $comparisonSheets = $this->getComparisonInstructionSheets($date, $shiftId, $lineIds, $metaByLineId, null, null);
+
+        $knownLotKeys = [];
+        foreach ($comparisonSheets as $sheet) {
+            if (! is_array($sheet)) {
+                continue;
+            }
+            foreach ($sheet['lots'] ?? [] as $lot) {
+                if (! is_array($lot)) {
+                    continue;
+                }
+                $knownLotKeys[$this->instructionLotRowKey($lot)] = true;
+            }
+        }
+        if ($knownLotKeys === []) {
+            return [];
+        }
+
+        $newIds = [];
+        foreach ($process->lots as $lot) {
+            $lotId = (int) ($lot->id ?? 0);
+            if ($lotId <= 0) {
+                continue;
+            }
+            $key = $this->instructionLotRowKey(['id' => $lotId]);
+            if (! isset($knownLotKeys[$key])) {
+                $newIds[] = $lotId;
+            }
+        }
+
+        return array_values(array_unique($newIds));
+    }
+
+    private function buildInstructionChangedCells(array $currentSheets, array $previousSheetsByKey): array
+    {
+        $changed = [];
+
+        foreach ($currentSheets as $sheet) {
+            if (! is_array($sheet)) {
+                continue;
+            }
+
+            $sheetKey = trim((string) ($sheet['sheetKey'] ?? ''));
+            if ($sheetKey === '') {
+                continue;
+            }
+
+            $sheetIsNew = ! isset($previousSheetsByKey[$sheetKey]) || ! is_array($previousSheetsByKey[$sheetKey]);
+            $previous = $sheetIsNew ? [] : $previousSheetsByKey[$sheetKey];
+
+            foreach (['speciesLabel', 'kilos', 'pedidosLabel'] as $field) {
+                if ($sheetIsNew || ! $this->instructionValuesEqual($sheet[$field] ?? null, $previous[$field] ?? null)) {
+                    $changed['sheet:'.$sheetKey.':'.$field] = true;
+                }
+            }
+
+            $currentLots = collect($sheet['lots'] ?? [])
+                ->mapWithKeys(function ($row) {
+                    return is_array($row) ? [$this->instructionLotRowKey($row) => $row] : [];
+                })
+                ->all();
+            $previousLots = collect($previous['lots'] ?? [])
+                ->mapWithKeys(function ($row) {
+                    return is_array($row) ? [$this->instructionLotRowKey($row) => $row] : [];
+                })
+                ->all();
+
+            foreach ($currentLots as $rowKey => $row) {
+                $previousRow = $previousLots[$rowKey] ?? [];
+                $rowIsNew = ! array_key_exists($rowKey, $previousLots);
+
+                foreach ($this->instructionLotCellFields() as $field) {
+                    $currentValue = $this->instructionLotCellValue($row, $field);
+                    $previousValue = is_array($previousRow)
+                        ? $this->instructionLotCellValue($previousRow, $field)
+                        : null;
+
+                    if ($rowIsNew || ! $this->instructionValuesEqual($currentValue, $previousValue)) {
+                        $changed['lot:'.$sheetKey.':'.$rowKey.':'.$field] = true;
+                    }
+                }
+            }
+
+            $currentPackaging = collect($sheet['packagingSummary'] ?? [])
+                ->mapWithKeys(function ($row, $index) {
+                    return is_array($row) ? [$this->instructionPackagingRowKey($row, (int) $index) => $row] : [];
+                })
+                ->all();
+            $previousPackaging = collect($previous['packagingSummary'] ?? [])
+                ->mapWithKeys(function ($row, $index) {
+                    return is_array($row) ? [$this->instructionPackagingRowKey($row, (int) $index) => $row] : [];
+                })
+                ->all();
+
+            foreach ($currentPackaging as $rowKey => $row) {
+                $previousRow = $previousPackaging[$rowKey] ?? [];
+                $rowIsNew = ! array_key_exists($rowKey, $previousPackaging);
+
+                foreach ($this->instructionPackagingCellFields() as $field) {
+                    $currentValue = $this->instructionPackagingCellValue($row, $field);
+                    $previousValue = is_array($previousRow)
+                        ? $this->instructionPackagingCellValue($previousRow, $field)
+                        : null;
+
+                    if ($rowIsNew || ! $this->instructionValuesEqual($currentValue, $previousValue)) {
+                        $changed['pack:'.$sheetKey.':'.$rowKey.':'.$field] = true;
+                    }
+                }
+            }
+        }
+
+        return $changed;
+    }
+
+    private function instructionLotCellFields(): array
+    {
+        return [
+            'inicio',
+            'fin',
+            'numproceso',
+            'lote',
+            'sispro',
+            'tipo_proceso',
+            'variedad_original',
+            'productor_real',
+            'csg_productor',
+            'categoria_origen',
+            'huerto',
+            'pulpa',
+            'fecha_recepcion',
+            'porcentaje_exportacion',
+            'cantidad_bins',
+            'cantidad_totes',
+            'peso_neto',
+            'peso_promedio_envase',
+            'sdp_centrocosto',
+            'nota_calidad',
+            'exportadora',
+            'n_variedad',
+        ];
+    }
+
+    private function instructionPackagingCellFields(): array
+    {
+        return [
+            'destino',
+            'c_item',
+            'desc_embalaje',
+            'etiqueta',
+            'peso_caja',
+            'cp2',
+            'altura',
+            'calibres',
+            'indications',
+            'observaciones',
+            'count',
+            'pedido',
+        ];
+    }
+
+    private function instructionLotCellValue(array $row, string $field): string
+    {
+        if ($field === 'lote') {
+            $isRepack = strtolower(trim((string) ($row['source_type'] ?? ''))) === 'reembalaje';
+            return $isRepack
+                ? 'Folio '.trim((string) ($row['source_key'] ?? $row['n_g_recepcion'] ?? ''))
+                : trim((string) ($row['n_g_recepcion'] ?? ''));
+        }
+
+        $value = $row[$field] ?? null;
+
+        if (in_array($field, ['cantidad_bins', 'cantidad_totes'], true)) {
+            $number = (int) $value;
+            return $number > 0 ? (string) $number : '';
+        }
+
+        if ($field === 'peso_neto') {
+            $number = (float) $value;
+            return $number > 0 ? (string) (int) round($number) : '';
+        }
+
+        if ($field === 'peso_promedio_envase') {
+            $number = (float) $value;
+            return $number > 0 ? number_format($number, 3, '.', '') : '';
+        }
+
+        if ($field === 'porcentaje_exportacion') {
+            if ($value === null || $value === '') {
+                return '';
+            }
+            return rtrim(rtrim(number_format((float) $value, 2, '.', ''), '0'), '.');
+        }
+
+        if ($field === 'fecha_recepcion') {
+            return $value ? substr((string) $value, 0, 10) : '';
+        }
+
+        if ($field === 'tipo_proceso') {
+            return trim((string) $value) !== '' ? trim((string) $value) : 'Normal';
+        }
+
+        if ($field === 'categoria_origen') {
+            return trim((string) $value) !== '' ? trim((string) $value) : 'Cat 1';
+        }
+
+        return $this->instructionNormalizeValue($value);
+    }
+
+    private function instructionPackagingCellValue(array $row, string $field): string
+    {
+        $value = $row[$field] ?? null;
+
+        if (in_array($field, ['calibres', 'observaciones', 'pedido'], true)) {
+            return trim((string) $value) !== '' ? trim((string) $value) : '-';
+        }
+
+        if (in_array($field, ['peso_caja', 'cp2'], true)) {
+            return $value === null || $value === '' ? '' : $this->instructionNormalizeValue($value);
+        }
+
+        return $this->instructionNormalizeValue($value);
+    }
+
+    private function instructionValuesEqual(mixed $current, mixed $previous): bool
+    {
+        return $this->instructionNormalizeValue($current) === $this->instructionNormalizeValue($previous);
+    }
+
+    private function instructionNormalizeValue(mixed $value): string
+    {
+        if ($value === null) {
+            return '';
+        }
+        if (is_bool($value)) {
+            return $value ? '1' : '0';
+        }
+        if (is_float($value)) {
+            return rtrim(rtrim(number_format($value, 6, '.', ''), '0'), '.');
+        }
+        if (is_array($value)) {
+            return (string) json_encode($value);
+        }
+
+        return trim((string) $value);
+    }
+
+    private function instructionLotRowKey(array $lot): string
+    {
+        $id = (int) ($lot['id'] ?? 0);
+        if ($id > 0) {
+            return 'id:'.$id;
+        }
+
+        $parts = [
+            $lot['process_id'] ?? '',
+            $lot['n_g_recepcion'] ?? '',
+            $lot['source_key'] ?? '',
+            $lot['orden'] ?? '',
+        ];
+
+        return 'row:'.implode('|', array_map(fn ($part) => $this->instructionNormalizeValue($part), $parts));
+    }
+
+    private function instructionPackagingRowKey(array $row, int $index): string
+    {
+        $key = trim((string) ($row['key'] ?? ''));
+        if ($key !== '') {
+            return 'key:'.$key;
+        }
+
+        return 'row:'.$index.'|'.$this->instructionNormalizeValue($row['destino'] ?? '')
+            .'|'.$this->instructionNormalizeValue($row['c_item'] ?? '');
     }
 
     private function getInstructionProcessTypeOptions(): array
