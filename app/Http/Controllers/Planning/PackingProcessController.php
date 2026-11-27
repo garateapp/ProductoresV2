@@ -4050,6 +4050,32 @@ class PackingProcessController extends Controller
             }
         }
 
+        $baselineVersionByLineId = PlanningInstructionVersion::query()
+            ->whereDate('fecha', $date)
+            ->where('shift_id', $shiftId)
+            ->whereIn('packing_line_id', $sheetLineIds)
+            ->where('is_comparison_baseline', true)
+            ->selectRaw('packing_line_id, max(version) as baseline_version')
+            ->groupBy('packing_line_id')
+            ->get()
+            ->mapWithKeys(fn ($r) => [(int) $r->packing_line_id => (int) ($r->baseline_version ?? 0)])
+            ->all();
+
+        $baselineCurrentLineIds = [];
+        foreach ($sheetLineIds as $lid) {
+            $lid = (int) $lid;
+            $baselineVersion = (int) ($baselineVersionByLineId[$lid] ?? 0);
+            if ($baselineVersion <= 0) {
+                continue;
+            }
+            $currentVersion = ($lineIdParam === $lid && $versionParam && $versionParam > 0)
+                ? (int) $versionParam
+                : (int) ($metaByLineId[$lid]['version'] ?? 0);
+            if ($currentVersion > 0 && $currentVersion === $baselineVersion) {
+                $baselineCurrentLineIds[$lid] = true;
+            }
+        }
+
         $serializedLineSheets = $this->serializeInstructionLineSheets($lineSheets);
         $comparisonMetaByLineId = [];
         $previousSheetsByKey = $this->getComparisonInstructionSheets(
@@ -4061,7 +4087,21 @@ class PackingProcessController extends Controller
             $versionParam,
             $comparisonMetaByLineId
         );
-        $changedCells = $this->buildInstructionChangedCells($serializedLineSheets, $previousSheetsByKey);
+        $previousSheetsForDiff = $previousSheetsByKey;
+        foreach ($serializedLineSheets as $sheet) {
+            if (! is_array($sheet)) {
+                continue;
+            }
+            $lid = (int) ($sheet['lineId'] ?? 0);
+            if (! isset($baselineCurrentLineIds[$lid])) {
+                continue;
+            }
+            $sheetKey = trim((string) ($sheet['sheetKey'] ?? ''));
+            if ($sheetKey !== '') {
+                $previousSheetsForDiff[$sheetKey] = $sheet;
+            }
+        }
+        $changedCells = $this->buildInstructionChangedCells($serializedLineSheets, $previousSheetsForDiff);
 
         // Vista en el sistema (dentro de AuthenticatedLayout): devolvemos Inertia con data estructurada.
         // El PDF/HTML descargable usa el mismo esquema de datos para mantener consistencia visual.
