@@ -315,8 +315,7 @@ class PersonDeliveryController extends Controller
         InventoryPersonDelivery $personDelivery,
         MovementService $movementService,
         StockProjectionService $stockProjectionService
-    ): RedirectResponse
-    {
+    ): RedirectResponse {
         $this->authorizeInventory($request);
 
         $data = $request->validate([
