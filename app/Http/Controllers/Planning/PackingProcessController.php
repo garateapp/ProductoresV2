@@ -4061,18 +4061,15 @@ class PackingProcessController extends Controller
             ->mapWithKeys(fn ($r) => [(int) $r->packing_line_id => (int) ($r->baseline_version ?? 0)])
             ->all();
 
-        $baselineCurrentLineIds = [];
+        $noDiffLineIds = [];
         foreach ($sheetLineIds as $lid) {
             $lid = (int) $lid;
             $baselineVersion = (int) ($baselineVersionByLineId[$lid] ?? 0);
-            if ($baselineVersion <= 0) {
-                continue;
-            }
             $currentVersion = ($lineIdParam === $lid && $versionParam && $versionParam > 0)
                 ? (int) $versionParam
                 : (int) ($metaByLineId[$lid]['version'] ?? 0);
-            if ($currentVersion > 0 && $currentVersion === $baselineVersion) {
-                $baselineCurrentLineIds[$lid] = true;
+            if ($baselineVersion <= 0 || ($currentVersion > 0 && $currentVersion === $baselineVersion)) {
+                $noDiffLineIds[$lid] = true;
             }
         }
 
@@ -4093,7 +4090,7 @@ class PackingProcessController extends Controller
                 continue;
             }
             $lid = (int) ($sheet['lineId'] ?? 0);
-            if (! isset($baselineCurrentLineIds[$lid])) {
+            if (! isset($noDiffLineIds[$lid])) {
                 continue;
             }
             $sheetKey = trim((string) ($sheet['sheetKey'] ?? ''));
