@@ -8,7 +8,16 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/Components/ui/card'
 import { Input } from '@/Components/ui/input'
 import { Label } from '@/Components/ui/label'
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/Components/ui/table'
-import { Download, Eye, FileText, Plus, Search } from 'lucide-react'
+import { Download, Eye, FileText, Plus, RotateCcw, Search } from 'lucide-react'
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from '@/Components/ui/dialog'
+import { toast, Toaster } from 'sonner'
 
 const formatDate = (value) => value
   ? new Date(value).toLocaleString('es-CL', { dateStyle: 'short', timeStyle: 'short' })
@@ -24,6 +33,12 @@ const emptyFilters = {
   person_id: '',
 }
 
+const emptyReversalModal = {
+  open: false,
+  delivery: null,
+  reason: '',
+}
+
 export default function PersonDeliveriesIndex({ deliveries, filters = {}, materials = [], people = [], areas = [] }) {
   const [filterData, setFilterData] = useState({
     date_from: filters.date_from || '',
@@ -32,6 +47,7 @@ export default function PersonDeliveriesIndex({ deliveries, filters = {}, materi
     area: filters.area || '',
     person_id: filters.person_id || '',
   })
+  const [reversalModal, setReversalModal] = useState(emptyReversalModal)
 
   const materialOptions = materials.map((item) => ({
     value: String(item.id),
@@ -69,6 +85,31 @@ export default function PersonDeliveriesIndex({ deliveries, filters = {}, materi
     return `${route('inventory.person-deliveries.export-excel')}?${params.toString()}`
   }
 
+  const submitReversal = (event) => {
+    event.preventDefault()
+    if (!reversalModal.delivery) return
+    if (reversalModal.reason.trim().length < 5) {
+      toast.error('Ingresa un motivo de al menos 5 caracteres.')
+      return
+    }
+
+    router.post(
+      route('inventory.person-deliveries.reverse', reversalModal.delivery.id),
+      { reason: reversalModal.reason.trim() },
+      {
+        preserveScroll: true,
+        onSuccess: () => {
+          setReversalModal(emptyReversalModal)
+          toast.success('Entrega revertida y material devuelto al stock.')
+        },
+        onError: (errors) => {
+          const message = Object.values(errors).flat().join(', ')
+          toast.error(message || 'No se pudo revertir la entrega.')
+        },
+      }
+    )
+  }
+
   return (
     <AuthenticatedLayout
       header={
@@ -84,6 +125,7 @@ export default function PersonDeliveriesIndex({ deliveries, filters = {}, materi
       }
     >
       <Head title="Entrega de Materiales a Personas" />
+      <Toaster position="top-right" richColors />
 
       <div className="py-10">
         <div className="max-w-7xl mx-auto sm:px-6 lg:px-8 space-y-4">
@@ -195,6 +237,11 @@ export default function PersonDeliveriesIndex({ deliveries, filters = {}, materi
                           <div className="space-y-1">
                             <div className="font-mono text-xs">{delivery.movement.folio}</div>
                             <Badge variant="outline">{delivery.movement.estado}</Badge>
+                            {delivery.reversal ? (
+                              <Badge variant="secondary" title={delivery.reversal.reason || ''}>
+                                Revertida · {delivery.reversal.folio}
+                              </Badge>
+                            ) : null}
                           </div>
                         ) : '-'}
                       </TableCell>
@@ -219,6 +266,16 @@ export default function PersonDeliveriesIndex({ deliveries, filters = {}, materi
                               <FileText className="w-4 h-4" />
                             </Button>
                           </a>
+                          {delivery.reversible ? (
+                            <Button
+                              variant="ghost"
+                              size="sm"
+                              title="Reversar entrega"
+                              onClick={() => setReversalModal({ open: true, delivery, reason: '' })}
+                            >
+                              <RotateCcw className="w-4 h-4" />
+                            </Button>
+                          ) : null}
                         </div>
                       </TableCell>
                     </TableRow>
@@ -254,6 +311,59 @@ export default function PersonDeliveriesIndex({ deliveries, filters = {}, materi
           </Card>
         </div>
       </div>
+
+      <Dialog
+        open={reversalModal.open}
+        onOpenChange={(open) => setReversalModal(open ? reversalModal : emptyReversalModal)}
+      >
+        <DialogContent className="sm:max-w-lg">
+          <DialogHeader>
+            <DialogTitle>Reversar entrega de materiales</DialogTitle>
+            <DialogDescription>
+              Se devolverán al stock todos los materiales de esta acta y quedará registrado un movimiento de reversión.
+            </DialogDescription>
+          </DialogHeader>
+          <form onSubmit={submitReversal} className="space-y-4">
+            <div className="space-y-1 rounded-md border bg-slate-50 px-3 py-2 text-sm">
+              <div className="flex justify-between gap-3">
+                <span className="text-slate-500">Acta</span>
+                <span className="font-mono font-medium">{reversalModal.delivery?.numero_referencia ?? reversalModal.delivery?.codigo}</span>
+              </div>
+              <div className="flex justify-between gap-3">
+                <span className="text-slate-500">Persona</span>
+                <span className="font-medium">{reversalModal.delivery?.person_name}</span>
+              </div>
+              <div className="mt-2 space-y-1">
+                <p className="font-semibold uppercase tracking-wide text-xs text-slate-500">Materiales a devolver</p>
+                {reversalModal.delivery?.items?.map((item) => (
+                  <div key={item.id} className="flex justify-between gap-3">
+                    <span>{item.material?.codigo} · {item.material?.nombre}</span>
+                    <span className="font-medium">{formatQuantity(item.cantidad)}</span>
+                  </div>
+                ))}
+              </div>
+            </div>
+            <div className="space-y-2">
+              <Label>Motivo de la reversión *</Label>
+              <Input
+                value={reversalModal.reason}
+                onChange={(event) => setReversalModal((current) => ({ ...current, reason: event.target.value }))}
+                placeholder="Ej: Entrega registrada por error"
+                autoFocus
+              />
+              <p className="text-xs text-slate-500">Mínimo 5 caracteres.</p>
+            </div>
+            <DialogFooter>
+              <Button type="button" variant="ghost" onClick={() => setReversalModal(emptyReversalModal)}>
+                Cancelar
+              </Button>
+              <Button type="submit" className="bg-amber-600 hover:bg-amber-700">
+                Reversar entrega
+              </Button>
+            </DialogFooter>
+          </form>
+        </DialogContent>
+      </Dialog>
     </AuthenticatedLayout>
   )
 }

@@ -63,6 +63,7 @@ class MovementService
                 'estado' => 'borrador',
                 'referencia_tipo' => ($data['referencia_tipo'] ?? null) ?: null,
                 'referencia_id' => ($data['referencia_id'] ?? null) ?: null,
+                'reversal_of_movement_id' => ($data['reversal_of_movement_id'] ?? null) ?: null,
                 'motivo' => ($data['motivo'] ?? null) ?: null,
                 'observacion' => ($data['observacion'] ?? null) ?: null,
                 'created_by' => $userId,

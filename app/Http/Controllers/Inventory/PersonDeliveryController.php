@@ -8,6 +8,7 @@ use App\Http\Controllers\Inventory\Concerns\AuthorizesInventory;
 use App\Models\InventoryCostCenter;
 use App\Models\InventoryLocation;
 use App\Models\InventoryMaterial;
+use App\Models\InventoryMovement;
 use App\Models\InventoryMovementType;
 use App\Models\InventoryPersonDelivery;
 use App\Models\InventoryStockLocation;
@@ -16,9 +17,11 @@ use App\Models\Personal;
 use App\Services\Inventory\MovementService;
 use App\Services\Inventory\PersonDeliveryReportService;
 use App\Services\Inventory\ReferenceNumberService;
+use App\Services\Inventory\StockProjectionService;
 use Closure;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
+use Illuminate\Support\Arr;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Schema;
@@ -52,6 +55,7 @@ class PersonDeliveryController extends Controller
                 'originLocation:id,nombre',
                 'costCenter:id,codigo,nombre',
                 'movement:id,folio,estado',
+                'movement.reversedBy:id,reversal_of_movement_id,folio,estado,created_at,observacion',
                 'items.material:id,codigo,nombre,unit_id',
                 'items.material.unit:id,codigo',
             ])
@@ -306,6 +310,91 @@ class PersonDeliveryController extends Controller
             ->with('success', 'Acta de entrega generada y stock descontado.');
     }
 
+    public function reverse(
+        Request $request,
+        InventoryPersonDelivery $personDelivery,
+        MovementService $movementService,
+        StockProjectionService $stockProjectionService
+    ): RedirectResponse
+    {
+        $this->authorizeInventory($request);
+
+        $data = $request->validate([
+            'reason' => ['required', 'string', 'min:5', 'max:255'],
+        ]);
+
+        $reason = trim($data['reason']);
+        $userId = (int) $request->user()->id;
+
+        DB::transaction(function () use ($personDelivery, $movementService, $stockProjectionService, $reason, $userId): void {
+            /** @var InventoryPersonDelivery $delivery */
+            $delivery = InventoryPersonDelivery::query()->lockForUpdate()->findOrFail($personDelivery->id);
+
+            $originalMovement = InventoryMovement::query()
+                ->with('details')
+                ->whereHas('type', fn ($query) => $query->where('codigo', 'CONSUMO'))
+                ->lockForUpdate()
+                ->find($delivery->movement_id);
+
+            if (! $originalMovement || ! in_array($originalMovement->estado, ['aplicado', 'confirmado'], true)) {
+                throw ValidationException::withMessages([
+                    'delivery' => 'La entrega no tiene un movimiento de consumo aplicado que se pueda revertir.',
+                ]);
+            }
+
+            $alreadyReversed = InventoryMovement::query()
+                ->where('reversal_of_movement_id', $originalMovement->id)
+                ->exists();
+
+            if ($alreadyReversed) {
+                throw ValidationException::withMessages([
+                    'delivery' => 'Esta entrega ya fue revertida.',
+                ]);
+            }
+
+            $details = $this->buildReversalDetails($originalMovement);
+            $positionRestores = $this->buildPositionRestores($originalMovement);
+
+            if ($details === []) {
+                throw ValidationException::withMessages([
+                    'delivery' => 'El movimiento de consumo no tiene materiales para devolver.',
+                ]);
+            }
+
+            $reversalType = InventoryMovementType::query()->where('codigo', 'AJUSTE_POS')->firstOrFail();
+
+            $movementService->create([
+                'movement_type_id' => $reversalType->id,
+                'fecha_movimiento' => now(),
+                'destination_location_id' => $delivery->origin_location_id,
+                'reversal_of_movement_id' => $originalMovement->id,
+                'referencia_tipo' => 'inventory_person_delivery_reversal',
+                'referencia_id' => $delivery->id,
+                'motivo' => 'Reversión de entrega de materiales a persona',
+                'observacion' => $reason,
+                'metadata' => [
+                    'workflow' => 'person_delivery_reversal',
+                    'person_delivery_id' => $delivery->id,
+                    'numero_referencia' => $delivery->numero_referencia,
+                    'origin_movement_id' => $originalMovement->id,
+                    'origin_movement_folio' => $originalMovement->folio,
+                    'person_name' => $delivery->person_name,
+                    'person_id' => $delivery->person_id,
+                    'reason' => $reason,
+                    'reversed_at' => now()->toISOString(),
+                    'restored_positions' => $positionRestores,
+                ],
+                'details' => $details,
+            ], $userId, true);
+
+            $this->restoreStockPositions($positionRestores, $stockProjectionService);
+        });
+
+        return redirect()
+            ->route('inventory.person-deliveries.index')
+            ->with('success', 'Entrega revertida y material devuelto al stock.');
+    }
+
     public function show(Request $request, InventoryPersonDelivery $personDelivery): Response
     {
         $this->authorizeInventory($request);
@@ -412,6 +501,7 @@ return response()->file($pdfPath, [
             'originLocation:id,nombre,codigo',
             'costCenter:id,codigo,nombre',
             'movement:id,folio,estado,ledger_hash',
+            'movement.reversedBy:id,movement_id,folio,estado,created_at,observacion',
             'items.material:id,codigo,nombre,unit_id',
             'items.material.unit:id,codigo',
         ]);
@@ -535,8 +625,101 @@ return response()->file($pdfPath, [
         return $details;
     }
 
+    /**
+     * @return list<array<string, mixed>>
+     */
+    private function buildReversalDetails(InventoryMovement $movement): array
+    {
+        return $movement->details
+            ->map(fn ($detail) => [
+                'material_id' => (int) $detail->material_id,
+                'cantidad' => round((float) $detail->cantidad, 4),
+                'sentido' => 'entrada',
+            ])
+            ->filter(fn (array $detail) => $detail['cantidad'] > 0)
+            ->values()
+            ->all();
+    }
+
+    /**
+     * @return list<array<string, mixed>>
+     */
+    private function buildPositionRestores(InventoryMovement $movement): array
+    {
+        if (! Schema::hasTable('inventory_stock_positions')) {
+            return [];
+        }
+
+        $restores = [];
+
+        foreach ($movement->details as $detail) {
+            $quantity = round((float) $detail->cantidad, 4);
+            $metadata = (array) $detail->metadata;
+            $positionId = Arr::get($metadata, 'position_id');
+
+            if ($quantity <= 0 || ! $positionId) {
+                continue;
+            }
+
+            $logisticUnitId = Arr::get($metadata, 'position_logistic_unit_snapshot.id');
+
+            $restores[] = [
+                'position_id' => (int) $positionId,
+                'material_id' => (int) $detail->material_id,
+                'location_id' => (int) ($movement->origin_location_id
+                    ?? Arr::get($metadata, 'position_location_snapshot.id')),
+                'quantity' => $quantity,
+                'logistic_unit_id' => filled($logisticUnitId) ? (int) $logisticUnitId : null,
+                'lot_code' => Arr::get($metadata, 'position_lot_code_snapshot'),
+                'status' => Arr::get($metadata, 'position_status_snapshot') ?: 'disponible',
+            ];
+        }
+
+        return $restores;
+    }
+
+    /**
+     * @param  list<array<string, mixed>>  $restores
+     */
+    private function restoreStockPositions(array $restores, StockProjectionService $stockProjectionService): void
+    {
+        $touched = [];
+
+        foreach ($restores as $restore) {
+            $position = InventoryStockPosition::query()
+                ->lockForUpdate()
+                ->find($restore['position_id']);
+
+            if (! $position) {
+                $position = InventoryStockPosition::query()->create([
+                    'material_id' => $restore['material_id'],
+                    'location_id' => $restore['location_id'],
+                    'logistic_unit_id' => $restore['logistic_unit_id'],
+                    'quantity' => 0,
+                    'lot_code' => $restore['lot_code'],
+                    'status' => $restore['status'],
+                ]);
+            }
+
+            $position->forceFill([
+                'quantity' => round((float) $position->quantity + (float) $restore['quantity'], 4),
+            ])->save();
+
+            $touched[$restore['material_id'].'-'.$restore['location_id']] = [
+                'material_id' => (int) $restore['material_id'],
+                'location_id' => (int) $restore['location_id'],
+            ];
+        }
+
+        foreach ($touched as $pair) {
+            $stockProjectionService->syncMaterialLocationFromPositions($pair['material_id'], $pair['location_id']);
+        }
+    }
+
     private function presentDelivery(InventoryPersonDelivery $delivery, bool $includeSignature = false): array
     {
+        $reversal = $delivery->movement?->reversedBy->first();
+
         return [
             'id' => $delivery->id,
             'codigo' => $delivery->codigo,
@@ -567,6 +750,16 @@ return response()->file($pdfPath, [
                 'estado' => $delivery->movement->estado,
                 'ledger_hash' => $delivery->movement->ledger_hash ?? null,
             ] : null,
+            'reversal' => $reversal ? [
+                'id' => $reversal->id,
+                'folio' => $reversal->folio,
+                'estado' => $reversal->estado,
+                'reversed_at' => optional($reversal->created_at)->toISOString(),
+                'reason' => $reversal->observacion,
+            ] : null,
+            'reversible' => $delivery->movement
+                && in_array($delivery->movement->estado, ['aplicado', 'confirmado'], true)
+                && ! $reversal,
             'items' => $delivery->items->map(fn ($item) => [
                 'id' => $item->id,
                 'cantidad' => (float) $item->cantidad,
