@@ -4717,6 +4717,7 @@ class PackingProcessController extends Controller
     ): array {
         $comparisonMetaByLineId = [];
         $sheetsByKey = [];
+        $baselineLineIds = [];
         $hasExplicitVersion = (bool) ($lineIdParam && $versionParam);
 
         foreach ($lineIds as $lineId) {
@@ -4746,6 +4747,7 @@ class PackingProcessController extends Controller
             if (! $baseline || ! is_array($baseline->sheets)) {
                 continue;
             }
+            $baselineLineIds[$lineId] = true;
 
             if (! $hasExplicitVersion) {
                 $comparisonMetaByLineId[$lineId] = [
@@ -4768,6 +4770,10 @@ class PackingProcessController extends Controller
             }
         }
 
+        if ($baselineLineIds === []) {
+            return [];
+        }
+
         $fallbackSheets = $this->getPreviousInstructionSheets(
             $date,
             $shiftId,
@@ -4777,6 +4783,9 @@ class PackingProcessController extends Controller
             $versionParam
         );
         foreach ($fallbackSheets as $sheetKey => $sheet) {
+            if (! is_array($sheet) || ! isset($baselineLineIds[(int) ($sheet['lineId'] ?? 0)])) {
+                continue;
+            }
             if (! isset($sheetsByKey[$sheetKey])) {
                 $sheetsByKey[$sheetKey] = $sheet;
             }
