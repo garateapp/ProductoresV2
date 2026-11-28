@@ -500,7 +500,7 @@ return response()->file($pdfPath, [
             'originLocation:id,nombre,codigo',
             'costCenter:id,codigo,nombre',
             'movement:id,folio,estado,ledger_hash',
-            'movement.reversedBy:id,movement_id,folio,estado,created_at,observacion',
+            'movement.reversedBy:id,reversal_of_movement_id,folio,estado,created_at,observacion',
             'items.material:id,codigo,nombre,unit_id',
             'items.material.unit:id,codigo',
         ]);
