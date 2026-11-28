@@ -4060,6 +4060,11 @@ class PackingProcessController extends Controller
             ->get()
             ->mapWithKeys(fn ($r) => [(int) $r->packing_line_id => (int) ($r->baseline_version ?? 0)])
             ->all();
+        $hasComparisonBaselineByLineId = [];
+        foreach ($sheetLineIds as $lid) {
+            $lid = (int) $lid;
+            $hasComparisonBaselineByLineId[$lid] = ((int) ($baselineVersionByLineId[$lid] ?? 0)) > 0;
+        }
 
         $noDiffLineIds = [];
         foreach ($sheetLineIds as $lid) {
@@ -4100,6 +4105,30 @@ class PackingProcessController extends Controller
         }
         $changedCells = $this->buildInstructionChangedCells($serializedLineSheets, $previousSheetsForDiff);
 
+        $baselineSheetKeys = [];
+        foreach ($serializedLineSheets as $sheet) {
+            if (! is_array($sheet)) {
+                continue;
+            }
+            $lid = (int) ($sheet['lineId'] ?? 0);
+            $sheetKey = trim((string) ($sheet['sheetKey'] ?? ''));
+            if ($sheetKey !== '' && ! empty($hasComparisonBaselineByLineId[$lid])) {
+                $baselineSheetKeys[$sheetKey] = true;
+            }
+        }
+        $changedCells = array_filter($changedCells, function ($key) use ($baselineSheetKeys): bool {
+            $key = (string) $key;
+            foreach ($baselineSheetKeys as $sheetKey => $_) {
+                if (str_starts_with($key, 'sheet:'.$sheetKey.':')
+                    || str_starts_with($key, 'lot:'.$sheetKey.':')
+                    || str_starts_with($key, 'pack:'.$sheetKey.':')) {
+                    return true;
+                }
+            }
+
+            return false;
+        }, ARRAY_FILTER_USE_KEY);
+
         // Vista en el sistema (dentro de AuthenticatedLayout): devolvemos Inertia con data estructurada.
         // El PDF/HTML descargable usa el mismo esquema de datos para mantener consistencia visual.
         if (mb_strtolower(trim($format)) === 'html' && ! $download) {
@@ -4122,6 +4151,7 @@ class PackingProcessController extends Controller
                 'lineSheets' => $serializedLineSheets,
                 'metaByLineId' => $metaByLineId,
                 'comparisonMetaByLineId' => $comparisonMetaByLineId,
+                'hasComparisonBaselineByLineId' => $hasComparisonBaselineByLineId,
                 'changedCells' => $changedCells,
             ]);
         }
@@ -4143,6 +4173,8 @@ class PackingProcessController extends Controller
             ] : null,
             'lineSheets' => $serializedLineSheets,
             'metaByLineId' => $metaByLineId,
+            'comparisonMetaByLineId' => $comparisonMetaByLineId,
+            'hasComparisonBaselineByLineId' => $hasComparisonBaselineByLineId,
             'changedCells' => $changedCells,
         ])->render();
 

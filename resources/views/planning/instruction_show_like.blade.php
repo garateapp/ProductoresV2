@@ -150,6 +150,8 @@
 
     $sheetList = is_array($lineSheets ?? null) ? $lineSheets : [];
     $changedCells = is_array($changedCells ?? null) ? $changedCells : [];
+    $comparisonMetaByLineId = is_array($comparisonMetaByLineId ?? null) ? $comparisonMetaByLineId : [];
+    $hasComparisonBaselineByLineId = is_array($hasComparisonBaselineByLineId ?? null) ? $hasComparisonBaselineByLineId : [];
 
     $normalizeKeyPart = function ($value): string {
         if ($value === null) return '';
@@ -159,8 +161,10 @@
         return trim((string) $value);
     };
 
-    $changedCellClass = function (string $key) use ($changedCells): string {
-        return ! empty($changedCells[$key]) ? ' changed-cell' : '';
+    $changedCellClassFor = function (array $cells): callable {
+        return function (string $key) use ($cells): string {
+            return ! empty($cells[$key]) ? ' changed-cell' : '';
+        };
     };
 
     $lotRowKey = function ($row) use ($normalizeKeyPart): string {
@@ -214,8 +218,11 @@
             $lineName = (string) ($s['lineName'] ?? 'Línea');
             $speciesLabel = (string) ($s['speciesLabel'] ?? '');
             $sheetKey = (string) ($s['sheetKey'] ?? '');
+            $hasComparisonBaseline = ! empty($hasComparisonBaselineByLineId[$lineId]) || isset($comparisonMetaByLineId[$lineId]);
+            $sheetChangedCells = $hasComparisonBaseline ? $changedCells : [];
+            $changedCellClass = $changedCellClassFor($sheetChangedCells);
             $hasSheetChanges = false;
-            foreach (array_keys($changedCells) as $changedKey) {
+            foreach (array_keys($sheetChangedCells) as $changedKey) {
                 $changedKey = (string) $changedKey;
                 if (str_starts_with($changedKey, 'sheet:'.$sheetKey.':')
                     || str_starts_with($changedKey, 'lot:'.$sheetKey.':')

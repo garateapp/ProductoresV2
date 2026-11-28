@@ -254,7 +254,7 @@ function PackagingTable({ rows, changedCells, sheetKey }) {
   )
 }
 
-export default function Show({ process, shift, lineSheets, metaByLineId, comparisonMetaByLineId = {}, changedCells }) {
+export default function Show({ process, shift, lineSheets, metaByLineId, comparisonMetaByLineId = {}, hasComparisonBaselineByLineId = {}, changedCells }) {
   const sheets = Array.isArray(lineSheets) ? lineSheets : []
   const status = process?.estado
   const [savingBaselineLineId, setSavingBaselineLineId] = useState(null)
@@ -312,9 +312,11 @@ export default function Show({ process, shift, lineSheets, metaByLineId, compari
         const comparisonMeta = comparisonMetaByLineId?.[lineId] || null
         const comparisonVersion = comparisonMeta?.version ? Number(comparisonMeta.version) : null
         const isBaselineCurrent = Boolean(comparisonVersion && comparisonVersion === version)
+        const hasComparisonBaseline = Boolean(hasComparisonBaselineByLineId?.[lineId] || comparisonMeta)
+        const sheetChangedCells = hasComparisonBaseline ? changedCells : {}
         const pdfUrl = `${route('planning.processes.instruction', process.id)}?format=pdf&download=1&line_id=${lineId}${version ? `&version=${version}` : ''}${speciesQuery}`
         const editUrl = `${route('planning.processes.instruction.edit', process.id)}?line_id=${lineId}${speciesQuery}`
-        const hasSheetChanges = Object.keys(changedCells || {}).some((key) => (
+        const hasSheetChanges = Object.keys(sheetChangedCells || {}).some((key) => (
           key.startsWith(`sheet:${sheetKey}:`) || key.startsWith(`lot:${sheetKey}:`) || key.startsWith(`pack:${sheetKey}:`)
         ))
 
@@ -373,7 +375,7 @@ export default function Show({ process, shift, lineSheets, metaByLineId, compari
               <div className="instructionDoc">
                 <h1>INSTRUCTIVO DE EMBALAJE</h1>
                 <div className="meta-grid">
-                  <div className={`meta-box ${changedCellClass(changedCells, `sheet:${sheetKey}:speciesLabel`)}`}>
+                  <div className={`meta-box ${changedCellClass(sheetChangedCells, `sheet:${sheetKey}:speciesLabel`)}`}>
                     <div className="meta-label">Especie</div>
                     <div className="meta-value">{s?.speciesLabel || 'VARIAS'}</div>
                   </div>
@@ -397,21 +399,21 @@ export default function Show({ process, shift, lineSheets, metaByLineId, compari
                     <div className="meta-label">Línea Proceso</div>
                     <div className="meta-value">{s?.lineName || '-'}</div>
                   </div>
-                  <div className={`meta-box ${changedCellClass(changedCells, `sheet:${sheetKey}:kilos`)}`}>
+                  <div className={`meta-box ${changedCellClass(sheetChangedCells, `sheet:${sheetKey}:kilos`)}`}>
                     <div className="meta-label">Kilos</div>
                     <div className="meta-value">{Number(s?.kilos || 0) ? Math.round(Number(s.kilos)).toLocaleString('es-CL') : '0'}</div>
                   </div>
-                  <div className={`meta-box ${changedCellClass(changedCells, `sheet:${sheetKey}:pedidosLabel`)}`} style={{ gridColumn: 'span 6' }}>
+                  <div className={`meta-box ${changedCellClass(sheetChangedCells, `sheet:${sheetKey}:pedidosLabel`)}`} style={{ gridColumn: 'span 6' }}>
                     <div className="meta-label">Pedidos</div>
                     <div className="meta-value">{s?.pedidosLabel || '-'}</div>
                   </div>
                 </div>
 
                 <h2>Procesos / lotes</h2>
-                <LotsTable lots={s?.lots} changedCells={changedCells} sheetKey={sheetKey} />
+                <LotsTable lots={s?.lots} changedCells={sheetChangedCells} sheetKey={sheetKey} />
 
                 <h2>Destino + Embalajes</h2>
-                <PackagingTable rows={s?.packagingSummary} changedCells={changedCells} sheetKey={sheetKey} />
+                <PackagingTable rows={s?.packagingSummary} changedCells={sheetChangedCells} sheetKey={sheetKey} />
 
                 <div className="mt-3 text-sm">
                   <span className="font-bold">Comentarios:</span>
